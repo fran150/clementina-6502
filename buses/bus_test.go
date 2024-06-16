@@ -23,16 +23,16 @@ func TestLineStatus(t *testing.T) {
 		{0x11, [8]bool{true, false, false, false, true, false, false, false}},
 	}
 
-	bus := new(Bus[uint8])
+	bus := CreateBus[uint8]()
 
 	for _, test := range tests {
 		// Tests writing to the bus
 		bus.Write(test.value)
 
 		for i := range uint8(8) {
-			got := bus.LineStatus(i)
+			got := bus.GetBusLine(i)
 
-			if got != test.expected[i] {
+			if got.Status() != test.expected[i] {
 				t.Errorf("For %x, line %v expected %v, got %v", test.value, i, test.expected[i], got)
 			}
 		}

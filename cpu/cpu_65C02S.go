@@ -35,30 +35,150 @@ import "github.com/fran150/clementina6502/buses"
 //     start location for program control. RESB should be held high after reset for normal operation
 
 type Cpu65C02S struct {
-	addressBus            buses.Bus[uint16]
-	dataBus               buses.Bus[uint8]
-	busEnable             bool
-	interruptRequestB     bool
-	nonMaskableInterruptB bool
-	readWriteB            bool
+	addressBus           *buses.Bus[uint16]
+	busEnable            *buses.ConnectorEnabledHigh
+	dataBus              *buses.Bus[uint8]
+	interruptRequest     *buses.ConnectorEnabledLow
+	nonMaskableInterrupt *buses.ConnectorEnabledLow
+	reset                *buses.ConnectorEnabledLow
+	readWrite            *buses.ConnectorEnabledLow
+
+	accumulatorRegister     uint8
+	xRegister               uint8
+	yRegister               uint8
+	stackPointer            uint8
+	programCounter          uint16
+	processorStatusRegister ProcessorStatusRegister
+
+	currentCycleType  CycleType
+	currentCycleIndex uint8
+	currentOpCode     uint8
 }
 
 // Creates a CPU with typical values for all lines, address and data bus are not connected
-func NewCpu() *Cpu65C02S {
+func CreateCPU() *Cpu65C02S {
 	return &Cpu65C02S{
-		busEnable:             true,
-		interruptRequestB:     true,
-		nonMaskableInterruptB: true,
-		readWriteB:            true,
+		busEnable:               buses.CreateConnectorEnabledHigh(),
+		interruptRequest:        buses.CreateConnectorEnabledLow(),
+		nonMaskableInterrupt:    buses.CreateConnectorEnabledLow(),
+		reset:                   buses.CreateConnectorEnabledLow(),
+		readWrite:               buses.CreateConnectorEnabledLow(),
+		accumulatorRegister:     0x00,
+		xRegister:               0x00,
+		yRegister:               0x00,
+		stackPointer:            0xFF,
+		programCounter:          0xFFFC,
+		processorStatusRegister: 0x00,
+
+		currentCycleType:  CycleReadOpCode,
+		currentCycleIndex: 0,
+		currentOpCode:     0x00,
 	}
 }
 
+/*
+ ****************************************************
+ * Connections
+ ****************************************************
+ */
+
 // Connects the CPU to an address bus, must be 16 bits long
-func (cpu *Cpu65C02S) ConnectAddressBus(addressBus buses.Bus[uint16]) {
+func (cpu *Cpu65C02S) ConnectAddressBus(addressBus *buses.Bus[uint16]) {
 	cpu.addressBus = addressBus
 }
 
 // Connects the CPU to a data bus, must be 8 bits long
-func (cpu *Cpu65C02S) ConnectDataBus(dataBus buses.Bus[uint8]) {
+func (cpu *Cpu65C02S) ConnectDataBus(dataBus *buses.Bus[uint8]) {
 	cpu.dataBus = dataBus
+}
+
+/*
+ ****************************************************
+ * Control Lines
+ ****************************************************
+ */
+
+func (cpu *Cpu65C02S) BusEnable() *buses.ConnectorEnabledHigh {
+	return cpu.busEnable
+}
+
+func (cpu *Cpu65C02S) InterruptRequest() *buses.ConnectorEnabledLow {
+	return cpu.interruptRequest
+}
+
+func (cpu *Cpu65C02S) NonMaskableInterrupt() *buses.ConnectorEnabledLow {
+	return cpu.nonMaskableInterrupt
+}
+
+func (cpu *Cpu65C02S) Reset() *buses.ConnectorEnabledLow {
+	return cpu.reset
+}
+
+func (cpu *Cpu65C02S) ReadWrite() *buses.ConnectorEnabledLow {
+	return cpu.readWrite
+}
+
+/*
+ ****************************************************
+ * Timer Tick
+ ****************************************************
+ */
+
+func (cpu *Cpu65C02S) Tick(t uint64) {
+	switch cpu.currentCycleType {
+	case CycleReadOpCode:
+		cpu.setReadBus()
+	case CycleAction:
+		cpu.setReadBus()
+	}
+}
+
+func (cpu *Cpu65C02S) PostTick(t uint64) {
+	switch cpu.currentCycleType {
+	case CycleReadOpCode:
+		cpu.currentOpCode = cpu.dataBus.Read()
+	case CycleAction:
+		cpu.accumulatorRegister = cpu.dataBus.Read()
+	}
+
+	cpu.programCounter++
+
+	cpu.currentCycleIndex++
+
+	if int(cpu.currentCycleIndex) >= len(cpu.getCurrentAddressMode().Cycles) {
+		cpu.currentCycleIndex = 0
+		cpu.currentCycleType = CycleReadOpCode
+	} else {
+		cpu.currentCycleType = cpu.getCurrentAddressMode().Cycles[cpu.currentCycleIndex]
+	}
+}
+
+/*
+ ****************************************************
+ * Internal Bus Handling
+ ****************************************************
+ */
+
+// TODO: Handle disconnected lines, Handle bus conflict
+func (cpu *Cpu65C02S) setReadBus() {
+	if cpu.busEnable.Enabled() {
+		cpu.readWrite.SetEnable(false)
+		cpu.addressBus.Write(cpu.programCounter)
+	}
+}
+
+func (cpu *Cpu65C02S) setWriteBus(address uint16, data uint8) {
+	if cpu.busEnable.Enabled() {
+		cpu.readWrite.SetEnable(true)
+		cpu.addressBus.Write(address)
+		cpu.dataBus.Write(data)
+	}
+}
+
+func (cpu *Cpu65C02S) getCurrentOpCodeData() OpCodeData {
+	return OpCodes[cpu.currentOpCode]
+}
+
+func (cpu *Cpu65C02S) getCurrentAddressMode() AddressModeData {
+	return AddressModes[OpCodes[cpu.currentOpCode].AddressMode]
 }

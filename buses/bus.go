@@ -1,17 +1,28 @@
 package buses
 
-import "math"
-
 // Electrical buses. Buses typically have 8 or 16 lines. So they can be
 // used to represent uint8 or uint16 addresses.
 type Bus[T uint16 | uint8] struct {
-	value T
+	value    T
+	busLines [16]*BusLine[T]
 }
 
-// Returns true if the status of a particular bus line is high.
-// Line 0 is the least significative
-func (bus *Bus[T]) LineStatus(number T) bool {
-	return bus.value&T(math.Pow(2, float64(number))) > 0
+func CreateBus[T uint16 | uint8]() *Bus[T] {
+	bus := Bus[T]{
+		value:    0x00,
+		busLines: [16]*BusLine[T]{},
+	}
+
+	for i := range uint8(16) {
+		bus.busLines[i] = createBusLine[T](&bus, i)
+	}
+
+	return &bus
+}
+
+// Returns a line for each bus line
+func (bus *Bus[T]) GetBusLine(number uint8) *BusLine[T] {
+	return bus.busLines[number]
 }
 
 // Writes a number to the bus.
