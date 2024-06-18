@@ -43,6 +43,8 @@ type Cpu65C02S struct {
 	reset                *buses.ConnectorEnabledLow
 	readWrite            *buses.ConnectorEnabledLow
 
+	instructionSet *CpuInstructionSet
+
 	accumulatorRegister     uint8
 	xRegister               uint8
 	yRegister               uint8
@@ -53,16 +55,23 @@ type Cpu65C02S struct {
 	currentCycleType  CycleType
 	currentCycleIndex uint8
 	currentOpCode     uint8
+
+	targetAddressLSB uint8
+	targetAddressMSB uint8
+	targetAddress    uint16
 }
 
 // Creates a CPU with typical values for all lines, address and data bus are not connected
 func CreateCPU() *Cpu65C02S {
 	return &Cpu65C02S{
-		busEnable:               buses.CreateConnectorEnabledHigh(),
-		interruptRequest:        buses.CreateConnectorEnabledLow(),
-		nonMaskableInterrupt:    buses.CreateConnectorEnabledLow(),
-		reset:                   buses.CreateConnectorEnabledLow(),
-		readWrite:               buses.CreateConnectorEnabledLow(),
+		busEnable:            buses.CreateConnectorEnabledHigh(),
+		interruptRequest:     buses.CreateConnectorEnabledLow(),
+		nonMaskableInterrupt: buses.CreateConnectorEnabledLow(),
+		reset:                buses.CreateConnectorEnabledLow(),
+		readWrite:            buses.CreateConnectorEnabledLow(),
+
+		instructionSet: CreateInstructionSet(),
+
 		accumulatorRegister:     0x00,
 		xRegister:               0x00,
 		yRegister:               0x00,
@@ -73,6 +82,10 @@ func CreateCPU() *Cpu65C02S {
 		currentCycleType:  CycleReadOpCode,
 		currentCycleIndex: 0,
 		currentOpCode:     0x00,
+
+		targetAddressLSB: 0x00,
+		targetAddressMSB: 0x00,
+		targetAddress:    0x00,
 	}
 }
 
@@ -126,25 +139,30 @@ func (cpu *Cpu65C02S) ReadWrite() *buses.ConnectorEnabledLow {
 
 func (cpu *Cpu65C02S) Tick(t uint64) {
 	switch cpu.currentCycleType {
-	case CycleReadOpCode:
-		cpu.setReadBus()
-	case CycleAction:
-		cpu.setReadBus()
+	case CycleReadOpCode, CycleReadAddressLSB, CycleReadAddressMSB:
+		cpu.setReadNextInstruction()
+	case CycleReadIndirectAddressLSB, CycleReadIndirectAddressMSB:
+		cpu.setReadBus(cpu.targetAddress)
 	}
 }
 
 func (cpu *Cpu65C02S) PostTick(t uint64) {
 	switch cpu.currentCycleType {
+
 	case CycleReadOpCode:
 		cpu.currentOpCode = cpu.dataBus.Read()
-	case CycleAction:
-		cpu.accumulatorRegister = cpu.dataBus.Read()
+
+	case CycleReadAddressLSB, CycleReadIndirectAddressLSB:
+		cpu.targetAddressLSB = cpu.dataBus.Read()
+
+	case CycleReadAddressMSB, CycleReadIndirectAddressMSB:
+		cpu.targetAddressMSB = cpu.dataBus.Read()
+		cpu.targetAddress = ((uint16(cpu.targetAddressMSB) * 0x100) + uint16(cpu.targetAddressLSB))
 	}
 
 	cpu.programCounter++
 
 	cpu.currentCycleIndex++
-
 	if int(cpu.currentCycleIndex) >= len(cpu.getCurrentAddressMode().Cycles) {
 		cpu.currentCycleIndex = 0
 		cpu.currentCycleType = CycleReadOpCode
@@ -155,15 +173,73 @@ func (cpu *Cpu65C02S) PostTick(t uint64) {
 
 /*
  ****************************************************
+ * Instructions processing
+ ****************************************************
+ */
+
+/* --- Bitwise instructions --- */
+
+func (cpu *Cpu65C02S) AND() {
+	cpu.accumulatorRegister &= cpu.dataBus.Read()
+}
+
+func (cpu *Cpu65C02S) EOR() {
+	cpu.accumulatorRegister ^= cpu.dataBus.Read()
+}
+
+func (cpu *Cpu65C02S) ORA() {
+	cpu.accumulatorRegister |= cpu.dataBus.Read()
+}
+
+func (cpu *Cpu65C02S) ASL() {
+	data := uint16(cpu.dataBus.Read())
+	data = data << 1
+
+}
+
+func (cpu *Cpu65C02S) LSR() {
+	cpu.accumulatorRegister = cpu.dataBus.Read()
+}
+
+func (cpu *Cpu65C02S) ROL() {
+	cpu.accumulatorRegister = cpu.dataBus.Read()
+}
+func (cpu *Cpu65C02S) ROR() {
+	cpu.accumulatorRegister = cpu.dataBus.Read()
+}
+
+/* --- Bitwise instructions --- */
+
+func (cpu *Cpu65C02S) LDA() {
+	cpu.accumulatorRegister = cpu.dataBus.Read()
+}
+
+func (cpu *Cpu65C02S) LDX() {
+	cpu.xRegister = cpu.dataBus.Read()
+}
+
+func (cpu *Cpu65C02S) LDY() {
+	cpu.yRegister = cpu.dataBus.Read()
+}
+
+/*
+ ****************************************************
  * Internal Bus Handling
  ****************************************************
  */
 
 // TODO: Handle disconnected lines, Handle bus conflict
-func (cpu *Cpu65C02S) setReadBus() {
+func (cpu *Cpu65C02S) setReadNextInstruction() {
 	if cpu.busEnable.Enabled() {
 		cpu.readWrite.SetEnable(false)
 		cpu.addressBus.Write(cpu.programCounter)
+	}
+}
+
+func (cpu *Cpu65C02S) setReadBus(address uint16) {
+	if cpu.busEnable.Enabled() {
+		cpu.readWrite.SetEnable(false)
+		cpu.addressBus.Write(address)
 	}
 }
 
@@ -175,10 +251,10 @@ func (cpu *Cpu65C02S) setWriteBus(address uint16, data uint8) {
 	}
 }
 
-func (cpu *Cpu65C02S) getCurrentOpCodeData() OpCodeData {
-	return OpCodes[cpu.currentOpCode]
+func (cpu *Cpu65C02S) getCurrentOpCodeData() CpuInstructionData {
+	return cpu.instructionSet.GetInstructionByOpCode(cpu.currentOpCode)
 }
 
 func (cpu *Cpu65C02S) getCurrentAddressMode() AddressModeData {
-	return AddressModes[OpCodes[cpu.currentOpCode].AddressMode]
+	return AddressModes[cpu.instructionSet.GetInstructionByOpCode(cpu.currentOpCode).AddressMode]
 }

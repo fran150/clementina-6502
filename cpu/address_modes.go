@@ -45,7 +45,6 @@ const (
 	CycleReadAddressMSB         = "ReadAddrMSB"
 	CycleReadIndirectAddressLSB = "ReadIndLSB"
 	CycleReadIndirectAddressMSB = "ReadIndMSB"
-	CycleReadValue              = "ReadValue"
 	CycleAction                 = "TakeAction"
 	CycleExtraStep              = "ExtraSteps"
 )
