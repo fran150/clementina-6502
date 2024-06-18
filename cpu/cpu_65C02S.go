@@ -43,6 +43,7 @@ type Cpu65C02S struct {
 	reset                *buses.ConnectorEnabledLow
 	readWrite            *buses.ConnectorEnabledLow
 
+	addressModeSet *AddressModeSet
 	instructionSet *CpuInstructionSet
 
 	accumulatorRegister     uint8
@@ -50,15 +51,13 @@ type Cpu65C02S struct {
 	yRegister               uint8
 	stackPointer            uint8
 	programCounter          uint16
-	processorStatusRegister ProcessorStatusRegister
+	processorStatusRegister StatusRegister
 
-	currentCycleType  CycleType
-	currentCycleIndex uint8
-	currentOpCode     uint8
-
-	targetAddressLSB uint8
-	targetAddressMSB uint8
-	targetAddress    uint16
+	currentCycleType    MicroInstruction
+	currentCycleIndex   int
+	currentOpCode       OpCode
+	instructionRegister uint16
+	dataRegister        uint8
 }
 
 // Creates a CPU with typical values for all lines, address and data bus are not connected
@@ -71,6 +70,7 @@ func CreateCPU() *Cpu65C02S {
 		readWrite:            buses.CreateConnectorEnabledLow(),
 
 		instructionSet: CreateInstructionSet(),
+		addressModeSet: CreateAddressModesSet(),
 
 		accumulatorRegister:     0x00,
 		xRegister:               0x00,
@@ -79,13 +79,11 @@ func CreateCPU() *Cpu65C02S {
 		programCounter:          0xFFFC,
 		processorStatusRegister: 0x00,
 
-		currentCycleType:  CycleReadOpCode,
-		currentCycleIndex: 0,
-		currentOpCode:     0x00,
-
-		targetAddressLSB: 0x00,
-		targetAddressMSB: 0x00,
-		targetAddress:    0x00,
+		currentCycleType:    ReadFromProgramCounter + IntoOpCode,
+		currentCycleIndex:   0,
+		currentOpCode:       0x00,
+		instructionRegister: 0x00,
+		dataRegister:        0x00,
 	}
 }
 
@@ -138,36 +136,62 @@ func (cpu *Cpu65C02S) ReadWrite() *buses.ConnectorEnabledLow {
  */
 
 func (cpu *Cpu65C02S) Tick(t uint64) {
-	switch cpu.currentCycleType {
-	case CycleReadOpCode, CycleReadAddressLSB, CycleReadAddressMSB:
-		cpu.setReadNextInstruction()
-	case CycleReadIndirectAddressLSB, CycleReadIndirectAddressMSB:
-		cpu.setReadBus(cpu.targetAddress)
+	switch cpu.currentCycleType & 0x000F {
+	case ReadFromProgramCounter:
+		cpu.setReadBus(cpu.programCounter)
+		cpu.programCounter++
+	case ReadFromInstructionRegister:
+		cpu.setReadBus(cpu.instructionRegister)
+	case ReadFromNextAddressOnBus:
+		cpu.setReadBus(cpu.addressBus.Read() + 1)
 	}
 }
 
 func (cpu *Cpu65C02S) PostTick(t uint64) {
-	switch cpu.currentCycleType {
+	switch cpu.currentCycleType & 0x0F00 {
+	case IntoOpCode:
+		cpu.currentOpCode = OpCode(cpu.dataBus.Read())
 
-	case CycleReadOpCode:
-		cpu.currentOpCode = cpu.dataBus.Read()
+	case IntoDataRegister:
+		cpu.dataRegister = cpu.dataBus.Read()
 
-	case CycleReadAddressLSB, CycleReadIndirectAddressLSB:
-		cpu.targetAddressLSB = cpu.dataBus.Read()
+	case IntoInstructionRegisterLSB:
+		cpu.instructionRegister += uint16(cpu.dataBus.Read())
 
-	case CycleReadAddressMSB, CycleReadIndirectAddressMSB:
-		cpu.targetAddressMSB = cpu.dataBus.Read()
-		cpu.targetAddress = ((uint16(cpu.targetAddressMSB) * 0x100) + uint16(cpu.targetAddressLSB))
+	case IntoInstructionRegisterMSB:
+		cpu.instructionRegister += uint16(cpu.dataBus.Read()) * 0x100
 	}
 
-	cpu.programCounter++
+	switch cpu.currentCycleType & 0x00F0 {
+	case IncrementAddressBus:
+		cpu.addressBus.Write(cpu.addressBus.Read() + 1)
+
+	case AddXToInstructionRegister:
+		cpu.instructionRegister += uint16(cpu.xRegister)
+
+	case AddYToInstructionRegister:
+		cpu.instructionRegister += uint16(cpu.yRegister)
+
+	case AddXToInstructionRegisterLSB:
+		cpu.instructionRegister += uint16(uint8(cpu.instructionRegister) + cpu.xRegister)
+
+	case AddYToInstructionRegisterLSB:
+		cpu.instructionRegister += uint16(uint8(cpu.instructionRegister) + cpu.yRegister)
+	}
+
+	switch cpu.currentCycleType & 0xF000 {
+	case CycleAction:
+		cpu.accumulatorRegister = cpu.dataRegister
+	}
 
 	cpu.currentCycleIndex++
-	if int(cpu.currentCycleIndex) >= len(cpu.getCurrentAddressMode().Cycles) {
+	if int(cpu.currentCycleIndex) >= cpu.getCurrentAddressMode().Cycles() {
 		cpu.currentCycleIndex = 0
-		cpu.currentCycleType = CycleReadOpCode
+		cpu.instructionRegister = 0x0000
+		cpu.dataRegister = 0x00
+		cpu.currentCycleType = ReadFromProgramCounter + IntoOpCode
 	} else {
-		cpu.currentCycleType = cpu.getCurrentAddressMode().Cycles[cpu.currentCycleIndex]
+		cpu.currentCycleType = cpu.getCurrentAddressMode().MicroInstruction(cpu.currentCycleIndex - 1)
 	}
 }
 
@@ -177,49 +201,8 @@ func (cpu *Cpu65C02S) PostTick(t uint64) {
  ****************************************************
  */
 
-/* --- Bitwise instructions --- */
+func (cpu *Cpu65C02S) ADC() {
 
-func (cpu *Cpu65C02S) AND() {
-	cpu.accumulatorRegister &= cpu.dataBus.Read()
-}
-
-func (cpu *Cpu65C02S) EOR() {
-	cpu.accumulatorRegister ^= cpu.dataBus.Read()
-}
-
-func (cpu *Cpu65C02S) ORA() {
-	cpu.accumulatorRegister |= cpu.dataBus.Read()
-}
-
-func (cpu *Cpu65C02S) ASL() {
-	data := uint16(cpu.dataBus.Read())
-	data = data << 1
-
-}
-
-func (cpu *Cpu65C02S) LSR() {
-	cpu.accumulatorRegister = cpu.dataBus.Read()
-}
-
-func (cpu *Cpu65C02S) ROL() {
-	cpu.accumulatorRegister = cpu.dataBus.Read()
-}
-func (cpu *Cpu65C02S) ROR() {
-	cpu.accumulatorRegister = cpu.dataBus.Read()
-}
-
-/* --- Bitwise instructions --- */
-
-func (cpu *Cpu65C02S) LDA() {
-	cpu.accumulatorRegister = cpu.dataBus.Read()
-}
-
-func (cpu *Cpu65C02S) LDX() {
-	cpu.xRegister = cpu.dataBus.Read()
-}
-
-func (cpu *Cpu65C02S) LDY() {
-	cpu.yRegister = cpu.dataBus.Read()
 }
 
 /*
@@ -229,13 +212,6 @@ func (cpu *Cpu65C02S) LDY() {
  */
 
 // TODO: Handle disconnected lines, Handle bus conflict
-func (cpu *Cpu65C02S) setReadNextInstruction() {
-	if cpu.busEnable.Enabled() {
-		cpu.readWrite.SetEnable(false)
-		cpu.addressBus.Write(cpu.programCounter)
-	}
-}
-
 func (cpu *Cpu65C02S) setReadBus(address uint16) {
 	if cpu.busEnable.Enabled() {
 		cpu.readWrite.SetEnable(false)
@@ -251,10 +227,10 @@ func (cpu *Cpu65C02S) setWriteBus(address uint16, data uint8) {
 	}
 }
 
-func (cpu *Cpu65C02S) getCurrentOpCodeData() CpuInstructionData {
-	return cpu.instructionSet.GetInstructionByOpCode(cpu.currentOpCode)
+func (cpu *Cpu65C02S) GetCurrentInstruction() *CpuInstructionData {
+	return cpu.instructionSet.GetByOpCode(cpu.currentOpCode)
 }
 
-func (cpu *Cpu65C02S) getCurrentAddressMode() AddressModeData {
-	return AddressModes[cpu.instructionSet.GetInstructionByOpCode(cpu.currentOpCode).AddressMode]
+func (cpu *Cpu65C02S) getCurrentAddressMode() *AddressModeData {
+	return cpu.addressModeSet.GetByName(cpu.GetCurrentInstruction().AddressMode())
 }

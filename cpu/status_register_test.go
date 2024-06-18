@@ -3,7 +3,7 @@ package cpu
 import "testing"
 
 func TestGetFlag(t *testing.T) {
-	status := ProcessorStatusRegister(0x80)
+	status := StatusRegister(0x80)
 
 	if !status.Flag(NegativeFlagBit) {
 		t.Errorf("Negative was expected set")
