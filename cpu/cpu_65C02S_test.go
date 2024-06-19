@@ -26,29 +26,26 @@ func TestCpuReadOpCodeCycle(t *testing.T) {
 	cpu.BusEnable().Connect(alwaysHighLine)
 	cpu.ReadWrite().Connect(writeEnableLine)
 
-	ram.Poke(0xFFFC, 0xA9)
+	cpu.yRegister = 5
+
+	ram.Poke(0xFFFC, 0xB9) // LDA $02FF,x
 	ram.Poke(0xFFFD, 0xFF)
-	ram.Poke(0xFFFE, 0xA9)
-	ram.Poke(0xFFFF, 0xAA)
+	ram.Poke(0xFFFE, 0x02)
+	ram.Poke(0xFFFF, 0xEA) // NOOP
+	ram.Poke(0x0000, 0xA1) // LDA ($B0, X)
+	ram.Poke(0x0001, 0xB0)
 
-	cpu.Tick(100)
-	ram.Tick(100)
+	ram.Poke(0x00B0, 0x10)
+	ram.Poke(0x00B1, 0x20)
 
-	cpu.PostTick(100)
+	ram.Poke(0x02FF+5, 0x77)
 
-	cpu.Tick(100)
-	ram.Tick(100)
+	ram.Poke(0x2010, 0xDD)
 
-	cpu.PostTick(100)
+	for range 10 {
+		cpu.Tick(100)
+		ram.Tick(100)
 
-	cpu.Tick(100)
-	ram.Tick(100)
-
-	cpu.PostTick(100)
-
-	cpu.Tick(100)
-	ram.Tick(100)
-
-	cpu.PostTick(100)
-
+		cpu.PostTick(100)
+	}
 }

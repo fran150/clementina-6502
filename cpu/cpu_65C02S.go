@@ -55,6 +55,8 @@ type Cpu65C02S struct {
 
 	currentCycleType    MicroInstruction
 	currentCycleIndex   int
+	extraCycleEnabled   bool
+	extraCycleExecuted  bool
 	currentOpCode       OpCode
 	instructionRegister uint16
 	dataRegister        uint8
@@ -81,6 +83,8 @@ func CreateCPU() *Cpu65C02S {
 
 		currentCycleType:    ReadFromProgramCounter + IntoOpCode,
 		currentCycleIndex:   0,
+		extraCycleEnabled:   false,
+		extraCycleExecuted:  false,
 		currentOpCode:       0x00,
 		instructionRegister: 0x00,
 		dataRegister:        0x00,
@@ -156,10 +160,10 @@ func (cpu *Cpu65C02S) PostTick(t uint64) {
 		cpu.dataRegister = cpu.dataBus.Read()
 
 	case IntoInstructionRegisterLSB:
-		cpu.instructionRegister += uint16(cpu.dataBus.Read())
+		cpu.instructionRegister = uint16(cpu.dataBus.Read())
 
 	case IntoInstructionRegisterMSB:
-		cpu.instructionRegister += uint16(cpu.dataBus.Read()) * 0x100
+		cpu.instructionRegister = (cpu.instructionRegister & 0x00FF) + uint16(cpu.dataBus.Read())*0x100
 	}
 
 	switch cpu.currentCycleType & 0x00F0 {
@@ -169,8 +173,16 @@ func (cpu *Cpu65C02S) PostTick(t uint64) {
 	case AddXToInstructionRegister:
 		cpu.instructionRegister += uint16(cpu.xRegister)
 
+		if (cpu.instructionRegister & 0xFF00) > 0 {
+			cpu.extraCycleEnabled = true
+		}
+
 	case AddYToInstructionRegister:
 		cpu.instructionRegister += uint16(cpu.yRegister)
+
+		if (cpu.instructionRegister & 0xFF00) > 0 {
+			cpu.extraCycleEnabled = true
+		}
 
 	case AddXToInstructionRegisterLSB:
 		cpu.instructionRegister += uint16(uint8(cpu.instructionRegister) + cpu.xRegister)
@@ -182,6 +194,11 @@ func (cpu *Cpu65C02S) PostTick(t uint64) {
 	switch cpu.currentCycleType & 0xF000 {
 	case CycleAction:
 		cpu.accumulatorRegister = cpu.dataRegister
+	case CycleExtra:
+		if cpu.extraCycleEnabled {
+			cpu.currentCycleIndex--
+			cpu.extraCycleEnabled = false
+		}
 	}
 
 	cpu.currentCycleIndex++
