@@ -140,6 +140,10 @@ func (cpu *Cpu65C02S) ReadWrite() *buses.ConnectorEnabledLow {
  */
 
 func (cpu *Cpu65C02S) Tick(t uint64) {
+	if !cpu.extraCycleEnabled && (cpu.currentCycleType&0xF000 == CycleExtra) {
+		cpu.moveToNextCycle()
+	}
+
 	switch cpu.currentCycleType & 0x000F {
 	case ReadFromProgramCounter:
 		cpu.setReadBus(cpu.programCounter)
@@ -194,19 +198,20 @@ func (cpu *Cpu65C02S) PostTick(t uint64) {
 	switch cpu.currentCycleType & 0xF000 {
 	case CycleAction:
 		cpu.accumulatorRegister = cpu.dataRegister
-	case CycleExtra:
-		if cpu.extraCycleEnabled {
-			cpu.currentCycleIndex--
-			cpu.extraCycleEnabled = false
-		}
 	}
 
+	cpu.moveToNextCycle()
+}
+
+func (cpu *Cpu65C02S) moveToNextCycle() {
 	cpu.currentCycleIndex++
+
 	if int(cpu.currentCycleIndex) >= cpu.getCurrentAddressMode().Cycles() {
 		cpu.currentCycleIndex = 0
 		cpu.instructionRegister = 0x0000
 		cpu.dataRegister = 0x00
 		cpu.currentCycleType = ReadFromProgramCounter + IntoOpCode
+		cpu.extraCycleEnabled = false
 	} else {
 		cpu.currentCycleType = cpu.getCurrentAddressMode().MicroInstruction(cpu.currentCycleIndex - 1)
 	}
