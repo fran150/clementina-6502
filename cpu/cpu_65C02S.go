@@ -175,18 +175,10 @@ func (cpu *Cpu65C02S) PostTick(t uint64) {
 		cpu.addressBus.Write(cpu.addressBus.Read() + 1)
 
 	case AddXToInstructionRegister:
-		cpu.instructionRegister += uint16(cpu.xRegister)
-
-		if (cpu.instructionRegister & 0xFF00) > 0 {
-			cpu.extraCycleEnabled = true
-		}
+		cpu.addToInstructionRegister(uint16(cpu.xRegister))
 
 	case AddYToInstructionRegister:
-		cpu.instructionRegister += uint16(cpu.yRegister)
-
-		if (cpu.instructionRegister & 0xFF00) > 0 {
-			cpu.extraCycleEnabled = true
-		}
+		cpu.addToInstructionRegister(uint16(cpu.yRegister))
 
 	case AddXToInstructionRegisterLSB:
 		cpu.instructionRegister += uint16(uint8(cpu.instructionRegister) + cpu.xRegister)
@@ -198,9 +190,20 @@ func (cpu *Cpu65C02S) PostTick(t uint64) {
 	switch cpu.currentCycleType & 0xF000 {
 	case CycleAction:
 		cpu.accumulatorRegister = cpu.dataRegister
+	case CycleWriteToBus:
+		cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
 	}
 
 	cpu.moveToNextCycle()
+}
+
+func (cpu *Cpu65C02S) addToInstructionRegister(value uint16) {
+	data := (cpu.instructionRegister & 0xff) + value
+	cpu.instructionRegister += value
+
+	if data > 0xFF {
+		cpu.extraCycleEnabled = true
+	}
 }
 
 func (cpu *Cpu65C02S) moveToNextCycle() {
