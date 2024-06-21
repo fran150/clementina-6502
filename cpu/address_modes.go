@@ -1,26 +1,36 @@
 package cpu
 
+const (
+	MicroInstructionTypeSource      = 0x000F
+	MicroInstructionTypeDestination = 0x00F0
+	MicroInstructionTypeArithmetic  = 0x0F00
+	MicroInstructionTypeAction      = 0xF000
+)
+
 type MicroInstruction uint16
 
 const (
-	ReadFromProgramCounter      MicroInstruction = 0x0001
-	ReadFromInstructionRegister MicroInstruction = 0x0002
-	ReadFromNextAddressOnBus    MicroInstruction = 0x0004
+	ReadFromProgramCounter      MicroInstruction = 0x0001 // 0001
+	ReadFromInstructionRegister MicroInstruction = 0x0002 // 0010
+	ReadFromNextAddressOnBus    MicroInstruction = 0x0004 // 0100
+	ReadFromStackPointer        MicroInstruction = 0x0008 // 1000
 
-	IncrementAddressBus          MicroInstruction = 0x0010
-	AddXToInstructionRegister    MicroInstruction = 0x0020
-	AddYToInstructionRegister    MicroInstruction = 0x0040
-	AddXToInstructionRegisterLSB MicroInstruction = 0x00A0
-	AddYToInstructionRegisterLSB MicroInstruction = 0x00D0
+	IntoOpCode                 MicroInstruction = 0x0010 // 0001
+	IntoDataRegister           MicroInstruction = 0x0020 // 0010
+	IntoInstructionRegisterLSB MicroInstruction = 0x0040 // 0100
+	IntoInstructionRegisterMSB MicroInstruction = 0x0080 // 1000
 
-	IntoOpCode                 MicroInstruction = 0x0100
-	IntoDataRegister           MicroInstruction = 0x0200
-	IntoInstructionRegisterLSB MicroInstruction = 0x0400
-	IntoInstructionRegisterMSB MicroInstruction = 0x0800
+	IncrementAddressBus             MicroInstruction = 0x0100 // 0001
+	AddXToInstructionRegister       MicroInstruction = 0x0200 // 0010
+	AddYToInstructionRegister       MicroInstruction = 0x0400 // 0100
+	AddXToInstructionRegisterLSB    MicroInstruction = 0x0900 // 1001
+	AddYToInstructionRegisterLSB    MicroInstruction = 0x0A00 // 1010
+	AddDataRegisterToProgramCounter MicroInstruction = 0x0C00 // 1100
 
-	CycleAction     MicroInstruction = 0x1000
-	CycleExtra      MicroInstruction = 0x2000
-	CycleWriteToBus MicroInstruction = 0x4000
+	CycleAction     MicroInstruction = 0x1000 // 0001
+	CycleExtra      MicroInstruction = 0x2000 // 0010
+	CycleWriteToBus MicroInstruction = 0x4000 // 0100
+	CycleSkip       MicroInstruction = 0x8000 // 1000
 )
 
 /*
@@ -66,6 +76,12 @@ const (
 	AddressModeZeroPageIndexedIndirectX AddressMode = "IXN"
 	AddressModeZeroPageIndirectIndexedY AddressMode = "INX"
 	AddressModeAbsoluteIndexedIndirect  AddressMode = "AXI"
+	AddressModePushStack                AddressMode = "PHS"
+	AddressModePullStack                AddressMode = "PLS"
+	AddressModeAbsoluteJump             AddressMode = "JMP"
+	AddressModeReturnFromSubroutine     AddressMode = "RTS"
+	AddressModeReturnFromInterrupt      AddressMode = "RTI"
+	AddressModeReturnFromBreak          AddressMode = "BRK"
 )
 
 // ----------------------------------------------------------------------
@@ -117,29 +133,40 @@ func CreateAddressModesSet() *AddressModeSet {
 		nameIndex: map[AddressMode]*AddressModeData{},
 	}
 
-	// TODO: Missing Relative, Stack pointer modes. Also, STA a,x and BRK seems to have special handling according to offical manual
+	// TODO: Also, STA a,x and BRK seems to have special handling according to offical manual
 
 	data := []AddressModeData{
 		{AddressModeImplicit, "i", "", []MicroInstruction{CycleAction}, 1},
 		{AddressModeAccumulator, "A", "a", []MicroInstruction{CycleAction}, 1},
-		{AddressModeImmediate, "#", "#%#x", []MicroInstruction{ReadFromProgramCounter + IntoDataRegister + CycleAction}, 2},
-		{AddressModeZeroPage, "zp", "$%#x", []MicroInstruction{ReadFromProgramCounter + IntoInstructionRegisterLSB, ReadFromInstructionRegister + IntoDataRegister + CycleAction}, 2},
-		{AddressModeZeroPageRMW, "zp", "$%#x", []MicroInstruction{ReadFromProgramCounter + IntoInstructionRegisterLSB, ReadFromInstructionRegister + IntoDataRegister, CycleWriteToBus, CycleAction}, 2},
-		{AddressModeZeroPageX, "zp,x", "$%#x, X", []MicroInstruction{ReadFromProgramCounter + IntoInstructionRegisterLSB + AddXToInstructionRegisterLSB, ReadFromInstructionRegister + IntoDataRegister, CycleAction}, 2},
-		{AddressModeZeroPageXRMW, "zp,x", "$%#x, X", []MicroInstruction{ReadFromProgramCounter + IntoInstructionRegisterLSB + AddXToInstructionRegisterLSB, ReadFromInstructionRegister + IntoDataRegister, ReadFromInstructionRegister + IntoDataRegister, CycleWriteToBus, CycleAction}, 2},
-		{AddressModeZeroPageY, "zp,y", "$%#x, Y", []MicroInstruction{ReadFromProgramCounter + IntoInstructionRegisterLSB + AddYToInstructionRegisterLSB, ReadFromInstructionRegister + IntoDataRegister, CycleAction}, 2},
-		{AddressModeRelative, "r", "%#x", []MicroInstruction{}, 2},
-		{AddressModeAbsolute, "a", "$%#x", []MicroInstruction{ReadFromProgramCounter + IntoInstructionRegisterLSB, ReadFromProgramCounter + IntoInstructionRegisterMSB, ReadFromInstructionRegister + IntoDataRegister + CycleAction}, 3},
-		{AddressModeAbsoluteRMW, "a", "$%#x", []MicroInstruction{ReadFromProgramCounter + IntoInstructionRegisterLSB, ReadFromProgramCounter + IntoInstructionRegisterMSB, ReadFromInstructionRegister + IntoDataRegister, CycleWriteToBus, CycleAction}, 3},
-		{AddressModeAbsoluteX, "a,x", "$%#x, X", []MicroInstruction{ReadFromProgramCounter + IntoInstructionRegisterLSB, ReadFromProgramCounter + IntoInstructionRegisterMSB + AddXToInstructionRegister, ReadFromInstructionRegister + IntoDataRegister + CycleExtra, ReadFromInstructionRegister + IntoDataRegister + CycleAction}, 3},
-		{AddressModeAbsoluteXRMW, "a,x", "$%#x, X", []MicroInstruction{ReadFromProgramCounter + IntoInstructionRegisterLSB, ReadFromProgramCounter + IntoInstructionRegisterMSB + AddXToInstructionRegister, ReadFromInstructionRegister + IntoDataRegister + CycleExtra, CycleWriteToBus, CycleAction}, 3},
-		{AddressModeAbsoluteXRMWM, "a,x", "$%#x, X", []MicroInstruction{ReadFromProgramCounter + IntoInstructionRegisterLSB, ReadFromProgramCounter + IntoInstructionRegisterMSB + AddXToInstructionRegister, ReadFromInstructionRegister + IntoDataRegister, CycleWriteToBus, CycleAction}, 3},
-		{AddressModeAbsoluteY, "a,y", "$%#x, Y", []MicroInstruction{ReadFromProgramCounter + IntoInstructionRegisterLSB, ReadFromProgramCounter + IntoInstructionRegisterMSB + AddYToInstructionRegister, ReadFromInstructionRegister + IntoDataRegister + CycleExtra, ReadFromInstructionRegister + IntoDataRegister + CycleAction}, 3},
-		{AddressModeIndirect, "(a)", "($%#x)", []MicroInstruction{ReadFromProgramCounter + IntoInstructionRegisterLSB, ReadFromProgramCounter + IntoInstructionRegisterMSB, ReadFromInstructionRegister + IntoInstructionRegisterLSB, ReadFromNextAddressOnBus + IntoInstructionRegisterMSB, ReadFromInstructionRegister + IntoDataRegister + CycleAction}, 3},
-		{AddressModeIndirectZeroPage, "(zp)", "($%#x)", []MicroInstruction{ReadFromProgramCounter + IntoInstructionRegisterLSB, ReadFromInstructionRegister + IntoInstructionRegisterLSB, ReadFromNextAddressOnBus + IntoInstructionRegisterMSB, ReadFromInstructionRegister + IntoDataRegister, CycleAction}, 2},
-		{AddressModeZeroPageIndexedIndirectX, "(zp,x)", "($%#x, X)", []MicroInstruction{ReadFromProgramCounter + IntoInstructionRegisterLSB + AddXToInstructionRegister, ReadFromInstructionRegister + IntoInstructionRegisterLSB, ReadFromNextAddressOnBus + IntoInstructionRegisterMSB, ReadFromInstructionRegister + IntoDataRegister, CycleAction}, 2},
-		{AddressModeZeroPageIndirectIndexedY, "(zp),y", "($%#x), Y", []MicroInstruction{ReadFromProgramCounter + IntoInstructionRegisterLSB, ReadFromInstructionRegister + IntoInstructionRegisterLSB, ReadFromNextAddressOnBus + IntoInstructionRegisterMSB + AddYToInstructionRegister, ReadFromInstructionRegister + IntoDataRegister + CycleExtra, ReadFromInstructionRegister + IntoDataRegister + CycleAction}, 2},
-		{AddressModeAbsoluteIndexedIndirect, "(a,x)", "($%#x, X)", []MicroInstruction{ReadFromProgramCounter + IntoInstructionRegisterLSB, ReadFromProgramCounter + IntoInstructionRegisterMSB + AddXToInstructionRegister, ReadFromInstructionRegister + IntoInstructionRegisterLSB, ReadFromNextAddressOnBus + IntoInstructionRegisterMSB, ReadFromInstructionRegister + IntoDataRegister + CycleAction}, 3},
+		{AddressModeImmediate, "#", "#%#x", []MicroInstruction{ReadFromProgramCounter | IntoDataRegister | CycleAction}, 2},
+		{AddressModeZeroPage, "zp", "$%#x", []MicroInstruction{ReadFromProgramCounter | IntoInstructionRegisterLSB, ReadFromInstructionRegister | IntoDataRegister | CycleAction}, 2},
+		{AddressModeZeroPageRMW, "zp", "$%#x", []MicroInstruction{ReadFromProgramCounter | IntoInstructionRegisterLSB, ReadFromInstructionRegister | IntoDataRegister, CycleWriteToBus, CycleAction}, 2},
+		{AddressModeZeroPageX, "zp,x", "$%#x, X", []MicroInstruction{ReadFromProgramCounter | IntoInstructionRegisterLSB | AddXToInstructionRegisterLSB, ReadFromInstructionRegister | IntoDataRegister, CycleAction}, 2},
+		{AddressModeZeroPageXRMW, "zp,x", "$%#x, X", []MicroInstruction{ReadFromProgramCounter | IntoInstructionRegisterLSB | AddXToInstructionRegisterLSB, ReadFromInstructionRegister | IntoDataRegister, ReadFromInstructionRegister | IntoDataRegister, CycleWriteToBus, CycleAction}, 2},
+		{AddressModeZeroPageY, "zp,y", "$%#x, Y", []MicroInstruction{ReadFromProgramCounter | IntoInstructionRegisterLSB | AddYToInstructionRegisterLSB, ReadFromInstructionRegister | IntoDataRegister, CycleAction}, 2},
+		{AddressModeRelative, "r", "%#x", []MicroInstruction{ReadFromProgramCounter | IntoDataRegister | CycleAction, AddDataRegisterToProgramCounter | CycleExtra, CycleExtra}, 2},
+		{AddressModeAbsolute, "a", "$%#x", []MicroInstruction{ReadFromProgramCounter | IntoInstructionRegisterLSB, ReadFromProgramCounter | IntoInstructionRegisterMSB, ReadFromInstructionRegister | IntoDataRegister | CycleAction}, 3},
+		{AddressModeAbsoluteRMW, "a", "$%#x", []MicroInstruction{ReadFromProgramCounter | IntoInstructionRegisterLSB, ReadFromProgramCounter | IntoInstructionRegisterMSB, ReadFromInstructionRegister | IntoDataRegister, CycleWriteToBus, CycleAction}, 3},
+		{AddressModeAbsoluteX, "a,x", "$%#x, X", []MicroInstruction{ReadFromProgramCounter | IntoInstructionRegisterLSB, ReadFromProgramCounter | IntoInstructionRegisterMSB | AddXToInstructionRegister, ReadFromInstructionRegister | IntoDataRegister | CycleExtra, ReadFromInstructionRegister | IntoDataRegister | CycleAction}, 3},
+		{AddressModeAbsoluteXRMW, "a,x", "$%#x, X", []MicroInstruction{ReadFromProgramCounter | IntoInstructionRegisterLSB, ReadFromProgramCounter | IntoInstructionRegisterMSB | AddXToInstructionRegister, ReadFromInstructionRegister | IntoDataRegister | CycleExtra, CycleWriteToBus, CycleAction}, 3},
+		{AddressModeAbsoluteXRMWM, "a,x", "$%#x, X", []MicroInstruction{ReadFromProgramCounter | IntoInstructionRegisterLSB, ReadFromProgramCounter | IntoInstructionRegisterMSB | AddXToInstructionRegister, ReadFromInstructionRegister | IntoDataRegister, CycleWriteToBus, CycleAction}, 3},
+		{AddressModeAbsoluteY, "a,y", "$%#x, Y", []MicroInstruction{ReadFromProgramCounter | IntoInstructionRegisterLSB, ReadFromProgramCounter | IntoInstructionRegisterMSB | AddYToInstructionRegister, ReadFromInstructionRegister | IntoDataRegister | CycleExtra, ReadFromInstructionRegister | IntoDataRegister | CycleAction}, 3},
+		{AddressModeIndirect, "(a)", "($%#x)", []MicroInstruction{ReadFromProgramCounter | IntoInstructionRegisterLSB, ReadFromProgramCounter | IntoInstructionRegisterMSB, ReadFromInstructionRegister | IntoInstructionRegisterLSB, ReadFromNextAddressOnBus | IntoInstructionRegisterMSB | CycleAction}, 3},
+		{AddressModeIndirectZeroPage, "(zp)", "($%#x)", []MicroInstruction{ReadFromProgramCounter | IntoInstructionRegisterLSB, ReadFromInstructionRegister | IntoInstructionRegisterLSB, ReadFromNextAddressOnBus | IntoInstructionRegisterMSB, ReadFromInstructionRegister | IntoDataRegister, CycleAction}, 2},
+		{AddressModeZeroPageIndexedIndirectX, "(zp,x)", "($%#x, X)", []MicroInstruction{ReadFromProgramCounter | IntoInstructionRegisterLSB | AddXToInstructionRegister, ReadFromInstructionRegister | IntoInstructionRegisterLSB, ReadFromNextAddressOnBus | IntoInstructionRegisterMSB, ReadFromInstructionRegister | IntoDataRegister, CycleAction}, 2},
+		{AddressModeZeroPageIndirectIndexedY, "(zp),y", "($%#x), Y", []MicroInstruction{ReadFromProgramCounter | IntoInstructionRegisterLSB, ReadFromInstructionRegister | IntoInstructionRegisterLSB, ReadFromNextAddressOnBus | IntoInstructionRegisterMSB | AddYToInstructionRegister, ReadFromInstructionRegister | IntoDataRegister | CycleExtra, ReadFromInstructionRegister | IntoDataRegister | CycleAction}, 2},
+		{AddressModeAbsoluteIndexedIndirect, "(a,x)", "($%#x, X)", []MicroInstruction{ReadFromProgramCounter | IntoInstructionRegisterLSB, ReadFromProgramCounter | IntoInstructionRegisterMSB | AddXToInstructionRegister, ReadFromInstructionRegister | IntoInstructionRegisterLSB, ReadFromNextAddressOnBus | IntoInstructionRegisterMSB, ReadFromInstructionRegister | IntoDataRegister | CycleAction}, 3},
+		{AddressModePushStack, "(a,x)", "($%#x, X)", []MicroInstruction{CycleAction, CycleWriteToBus}, 1},
+		{AddressModePullStack, "(a,x)", "($%#x, X)", []MicroInstruction{CycleSkip, ReadFromStackPointer | IntoDataRegister, CycleAction}, 1},
+		{AddressModeAbsoluteJump, "a", "$%#x", []MicroInstruction{ReadFromProgramCounter | IntoInstructionRegisterLSB, ReadFromProgramCounter | IntoInstructionRegisterMSB | CycleAction}, 3},
+		{AddressModeReturnFromInterrupt, "a", "$%#x", []MicroInstruction{CycleSkip, ReadFromStackPointer | IntoInstructionRegisterLSB, ReadFromStackPointer | IntoInstructionRegisterMSB | CycleAction, ReadFromStackPointer | IntoInstructionRegisterLSB, ReadFromStackPointer | IntoInstructionRegisterMSB | CycleAction}, 1},
+		{AddressModeReturnFromSubroutine, "a", "$%#x", []MicroInstruction{CycleSkip, ReadFromStackPointer | IntoInstructionRegisterLSB, ReadFromStackPointer | IntoInstructionRegisterMSB | CycleAction, ReadFromStackPointer | IntoInstructionRegisterLSB, ReadFromStackPointer | IntoInstructionRegisterMSB | CycleAction}, 1},
+		// RTI, RTS 6
+		// STP 3
+		// WAI 3
+		// BRK 7
+		//
+
 	}
 
 	for _, addressMode := range data {
