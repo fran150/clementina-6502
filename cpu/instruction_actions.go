@@ -1,15 +1,11 @@
 package cpu
 
 func setZeroFlag(cpu *Cpu65C02S, value uint8) {
-	if value == 0 {
-		cpu.processorStatusRegister.SetFlag(ZeroFlagBit, true)
-	}
+	cpu.processorStatusRegister.SetFlag(ZeroFlagBit, value == 0)
 }
 
 func setNegativeFlag(cpu *Cpu65C02S, value uint8) {
-	if value&0x80 > 0 {
-		cpu.processorStatusRegister.SetFlag(NegativeFlagBit, true)
-	}
+	cpu.processorStatusRegister.SetFlag(NegativeFlagBit, value&0x80 > 0)
 }
 
 func ActionADC(cpu *Cpu65C02S) {
