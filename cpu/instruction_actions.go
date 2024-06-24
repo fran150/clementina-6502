@@ -20,7 +20,14 @@ func ActionAND(cpu *Cpu65C02S) {
 }
 
 func ActionASL(cpu *Cpu65C02S) {
+	temp := uint16(cpu.dataRegister) << 1
 
+	if temp > 0xFF {
+		cpu.processorStatusRegister.SetFlag(CarryFlagBit, true)
+	}
+
+	cpu.dataRegister = uint8(temp)
+	cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
 }
 
 func ActionBCC(cpu *Cpu65C02S) {
@@ -112,6 +119,13 @@ func ActionEOR(cpu *Cpu65C02S) {
 }
 
 func ActionINC(cpu *Cpu65C02S) {
+	cpu.dataRegister++
+
+	if cpu.getCurrentAddressMode().Name() != AddressModeAccumulator {
+		cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
+	} else {
+		cpu.accumulatorRegister = cpu.dataRegister
+	}
 
 }
 
@@ -124,7 +138,7 @@ func ActionINY(cpu *Cpu65C02S) {
 }
 
 func ActionJMP(cpu *Cpu65C02S) {
-
+	cpu.programCounter = cpu.instructionRegister
 }
 
 func ActionJSR(cpu *Cpu65C02S) {
@@ -132,15 +146,15 @@ func ActionJSR(cpu *Cpu65C02S) {
 }
 
 func ActionLDA(cpu *Cpu65C02S) {
-
+	cpu.accumulatorRegister = cpu.dataRegister
 }
 
 func ActionLDX(cpu *Cpu65C02S) {
-
+	cpu.xRegister = cpu.dataRegister
 }
 
 func ActionLDY(cpu *Cpu65C02S) {
-
+	cpu.yRegister = cpu.dataRegister
 }
 
 func ActionLSR(cpu *Cpu65C02S) {
@@ -220,7 +234,7 @@ func ActionSEI(cpu *Cpu65C02S) {
 }
 
 func ActionSTA(cpu *Cpu65C02S) {
-
+	cpu.setWriteBus(cpu.instructionRegister, cpu.accumulatorRegister)
 }
 
 func ActionSTP(cpu *Cpu65C02S) {
@@ -228,11 +242,11 @@ func ActionSTP(cpu *Cpu65C02S) {
 }
 
 func ActionSTX(cpu *Cpu65C02S) {
-
+	cpu.setWriteBus(cpu.instructionRegister, cpu.xRegister)
 }
 
 func ActionSTY(cpu *Cpu65C02S) {
-
+	cpu.setWriteBus(cpu.instructionRegister, cpu.yRegister)
 }
 
 func ActionSTZ(cpu *Cpu65C02S) {

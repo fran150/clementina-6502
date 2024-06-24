@@ -42,7 +42,7 @@ func (instruction *CpuInstructionSet) GetByOpCode(opCode OpCode) *CpuInstruction
 
 func CreateInstructionSet() *CpuInstructionSet {
 	var data = []CpuInstructionData{
-		{0x00, BRK, ActionBRK, AddressModeImmediate},
+		{0x00, BRK, ActionBRK, AddressModeImplicit},
 		{0x01, ORA, ActionORA, AddressModeZeroPageIndexedIndirectX},
 		{0x04, TSB, ActionTSB, AddressModeZeroPageRMW},
 		{0x05, ORA, ActionORA, AddressModeZeroPage},
@@ -108,7 +108,7 @@ func CreateInstructionSet() *CpuInstructionSet {
 		{0x48, PHA, ActionPHA, AddressModeImplicit},
 		{0x49, EOR, ActionEOR, AddressModeImmediate},
 		{0x4A, LSR, ActionLSR, AddressModeAccumulator},
-		{0x4C, JMP, ActionJMP, AddressModeAbsolute},
+		{0x4C, JMP, ActionJMP, AddressModeAbsoluteJump},
 		{0x4D, EOR, ActionEOR, AddressModeAbsolute},
 		{0x4E, LSR, ActionLSR, AddressModeAbsoluteRMW},
 		{0x4F, BBR4, ActionBBR, AddressModeRelative},
@@ -174,7 +174,7 @@ func CreateInstructionSet() *CpuInstructionSet {
 		{0x92, STA, ActionSTA, AddressModeIndirect},
 		{0x94, STY, ActionSTY, AddressModeZeroPageX},
 		{0x95, STA, ActionSTA, AddressModeZeroPageX},
-		{0x96, STX, ActionSTX, AddressModeZeroPageX},
+		{0x96, STX, ActionSTX, AddressModeZeroPageY},
 		{0x97, SMB1, ActionSMB, AddressModeZeroPageRMW},
 		{0x98, TYA, ActionTYA, AddressModeImplicit},
 		{0x99, STA, ActionSTA, AddressModeAbsoluteY},
@@ -204,7 +204,7 @@ func CreateInstructionSet() *CpuInstructionSet {
 		{0xB2, LDA, ActionLDA, AddressModeIndirect},
 		{0xB4, LDY, ActionLDY, AddressModeZeroPageX},
 		{0xB5, LDA, ActionLDA, AddressModeZeroPageX},
-		{0xB6, LDX, ActionLDX, AddressModeZeroPageX},
+		{0xB6, LDX, ActionLDX, AddressModeZeroPageY},
 		{0xB7, SMB3, ActionSMB, AddressModeZeroPageRMW},
 		{0xB8, CLV, ActionCLV, AddressModeImplicit},
 		{0xB9, LDA, ActionLDA, AddressModeAbsoluteY},
@@ -240,7 +240,7 @@ func CreateInstructionSet() *CpuInstructionSet {
 		{0xDA, PHX, ActionPHX, AddressModeImplicit},
 		{0xDB, STP, ActionSTP, AddressModeImplicit},
 		{0xDD, CMP, ActionCMP, AddressModeAbsoluteX},
-		{0xDE, DEC, ActionDEC, AddressModeAbsoluteXRMWM},
+		{0xDE, DEC, ActionDEC, AddressModeAbsoluteXRMW},
 		{0xDF, BBS5, ActionBBS, AddressModeRelative},
 
 		{0xE0, CPX, ActionCPX, AddressModeImmediate},
@@ -267,7 +267,7 @@ func CreateInstructionSet() *CpuInstructionSet {
 		{0xF9, SBC, ActionSBC, AddressModeAbsoluteY},
 		{0xFA, PLX, ActionPLX, AddressModeImplicit},
 		{0xFD, SBC, ActionSBC, AddressModeAbsoluteX},
-		{0xFE, INC, ActionINC, AddressModeAbsoluteXRMWM},
+		{0xFE, INC, ActionINC, AddressModeAbsoluteXRMW},
 		{0xFF, BBS7, ActionBBS, AddressModeRelative},
 	}
 

@@ -1,6 +1,10 @@
 package cpu
 
-import "github.com/fran150/clementina6502/buses"
+import (
+	"slices"
+
+	"github.com/fran150/clementina6502/buses"
+)
 
 // Represents the WDC 65C02S processor. See https://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf
 // for details.
@@ -56,7 +60,7 @@ type Cpu65C02S struct {
 	currentCycleType    MicroInstruction
 	currentCycleIndex   int
 	extraCycleEnabled   bool
-	extraCycleExecuted  bool
+	extraCycleAddress   uint16
 	currentOpCode       OpCode
 	instructionRegister uint16
 	dataRegister        uint8
@@ -81,10 +85,10 @@ func CreateCPU() *Cpu65C02S {
 		programCounter:          0xFFFC,
 		processorStatusRegister: 0x00,
 
-		currentCycleType:    ReadFromProgramCounter + IntoOpCode,
+		currentCycleType:    ReadFromProgramCounter | IntoOpCode,
 		currentCycleIndex:   0,
 		extraCycleEnabled:   false,
-		extraCycleExecuted:  false,
+		extraCycleAddress:   0x0000,
 		currentOpCode:       0x00,
 		instructionRegister: 0x00,
 		dataRegister:        0x00,
@@ -140,8 +144,12 @@ func (cpu *Cpu65C02S) ReadWrite() *buses.ConnectorEnabledLow {
  */
 
 func (cpu *Cpu65C02S) Tick(t uint64) {
-	if !cpu.extraCycleEnabled && (cpu.currentCycleType&MicroInstructionTypeAction == CycleExtra) {
-		cpu.moveToNextCycle()
+	if cpu.currentCycleType&MicroInstructionTypeAction == CycleExtra {
+		if !cpu.extraCycleEnabled {
+			cpu.moveToNextCycle()
+		} else {
+			cpu.setReadBus(cpu.extraCycleAddress)
+		}
 	}
 
 	switch cpu.currentCycleType & MicroInstructionTypeSource {
@@ -150,7 +158,9 @@ func (cpu *Cpu65C02S) Tick(t uint64) {
 		cpu.programCounter++
 	case ReadFromInstructionRegister:
 		cpu.setReadBus(cpu.instructionRegister)
-	case ReadFromNextAddressOnBus:
+	case ReadFromStackPointer:
+		cpu.setReadBus(uint16(cpu.stackPointer) + 0x100)
+	case ReadFromNextAddressInBus:
 		cpu.setReadBus(cpu.addressBus.Read() + 1)
 	}
 }
@@ -171,42 +181,47 @@ func (cpu *Cpu65C02S) PostTick(t uint64) {
 	}
 
 	switch cpu.currentCycleType & MicroInstructionTypeArithmetic {
-	case IncrementAddressBus:
-		cpu.addressBus.Write(cpu.addressBus.Read() + 1)
-
 	case AddXToInstructionRegister:
-		cpu.addToRegister(uint16(cpu.xRegister), &cpu.instructionRegister)
+		cpu.addToInstructionRegister(uint16(cpu.xRegister))
 
 	case AddYToInstructionRegister:
-		cpu.addToRegister(uint16(cpu.yRegister), &cpu.instructionRegister)
+		cpu.addToInstructionRegister(uint16(cpu.yRegister))
 
 	case AddXToInstructionRegisterLSB:
-		cpu.instructionRegister += uint16(uint8(cpu.instructionRegister) + cpu.xRegister)
+		cpu.instructionRegister = uint16(uint8(cpu.instructionRegister) + cpu.xRegister)
 
 	case AddYToInstructionRegisterLSB:
-		cpu.instructionRegister += uint16(uint8(cpu.instructionRegister) + cpu.yRegister)
+		cpu.instructionRegister = uint16(uint8(cpu.instructionRegister) + cpu.yRegister)
 
 	case AddDataRegisterToProgramCounter:
-		cpu.addToRegister(uint16(cpu.dataRegister), &cpu.programCounter)
+		//cpu.addToInstructionRegister(uint16(cpu.dataRegister), &cpu.programCounter)
 	}
 
 	switch cpu.currentCycleType & MicroInstructionTypeAction {
 	case CycleAction:
 		cpu.instructionSet.GetByOpCode(cpu.currentOpCode).Execute(cpu)
 
-	case CycleWriteToBus:
+	case CycleWriteDataToInstructionRegister:
 		cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
 	}
 
 	cpu.moveToNextCycle()
 }
 
-func (cpu *Cpu65C02S) addToRegister(value uint16, targetRegister *uint16) {
-	data := (*targetRegister & 0xff) + value
-	*targetRegister += value
+var alwaysExtra []uint8 = []uint8{
+	0xFE, // INC,x
+	0xDE, // DEC,x
+	0x9D, // STA,x
+}
 
-	if data > 0xFF {
+func (cpu *Cpu65C02S) addToInstructionRegister(value uint16) {
+	original := cpu.instructionRegister
+	data := (original & 0xff) + value
+	cpu.instructionRegister += value
+
+	if data > 0xFF || slices.Contains(alwaysExtra, uint8(cpu.currentOpCode)) {
 		cpu.extraCycleEnabled = true
+		cpu.extraCycleAddress = original
 	}
 }
 
@@ -217,7 +232,7 @@ func (cpu *Cpu65C02S) moveToNextCycle() {
 		cpu.currentCycleIndex = 0
 		cpu.instructionRegister = 0x0000
 		cpu.dataRegister = 0x00
-		cpu.currentCycleType = ReadFromProgramCounter + IntoOpCode
+		cpu.currentCycleType = ReadFromProgramCounter | IntoOpCode
 		cpu.extraCycleEnabled = false
 	} else {
 		cpu.currentCycleType = cpu.getCurrentAddressMode().MicroInstruction(cpu.currentCycleIndex - 1)
