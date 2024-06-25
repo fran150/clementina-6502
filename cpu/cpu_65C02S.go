@@ -225,6 +225,22 @@ func (cpu *Cpu65C02S) addToInstructionRegister(value uint16) {
 	}
 }
 
+func (cpu *Cpu65C02S) addToInstructionRegisterLSB(value uint8) {
+	cpu.instructionRegister = uint16(uint8(cpu.instructionRegister) + value)
+}
+
+func (cpu *Cpu65C02S) performAction() {
+	cpu.instructionSet.GetByOpCode(cpu.currentOpCode).Execute(cpu)
+}
+
+func (cpu *Cpu65C02S) setInstructionRegisterLSB(value uint8) {
+	cpu.instructionRegister = (cpu.instructionRegister & 0xFF00) + uint16(value)
+}
+
+func (cpu *Cpu65C02S) setInstructionRegisterMSB(value uint8) {
+	cpu.instructionRegister = (cpu.instructionRegister & 0x00FF) + uint16(value)*0x100
+}
+
 func (cpu *Cpu65C02S) moveToNextCycle() {
 	cpu.currentCycleIndex++
 
