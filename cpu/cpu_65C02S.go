@@ -57,8 +57,9 @@ type Cpu65C02S struct {
 	programCounter          uint16
 	processorStatusRegister StatusRegister
 
-	currentCycleType    MicroInstruction
 	currentCycleIndex   int
+	currentCycle        cycleAction
+	currentPostCycle    func()
 	extraCycleEnabled   bool
 	extraCycleAddress   uint16
 	currentOpCode       OpCode
@@ -85,8 +86,8 @@ func CreateCPU() *Cpu65C02S {
 		programCounter:          0xFFFC,
 		processorStatusRegister: 0x00,
 
-		currentCycleType:    ReadFromProgramCounter | IntoOpCode,
 		currentCycleIndex:   0,
+		currentCycle:        readOpCode,
 		extraCycleEnabled:   false,
 		extraCycleAddress:   0x0000,
 		currentOpCode:       0x00,
@@ -144,67 +145,16 @@ func (cpu *Cpu65C02S) ReadWrite() *buses.ConnectorEnabledLow {
  */
 
 func (cpu *Cpu65C02S) Tick(t uint64) {
-	if cpu.currentCycleType&MicroInstructionTypeAction == CycleExtra {
-		if !cpu.extraCycleEnabled {
-			cpu.moveToNextCycle()
-		} else {
-			cpu.setReadBus(cpu.extraCycleAddress)
-		}
-	}
+	cpu.currentPostCycle = cpu.currentCycle(cpu)
 
-	switch cpu.currentCycleType & MicroInstructionTypeSource {
-	case ReadFromProgramCounter:
-		cpu.setReadBus(cpu.programCounter)
-		cpu.programCounter++
-	case ReadFromInstructionRegister:
-		cpu.setReadBus(cpu.instructionRegister)
-	case ReadFromStackPointer:
-		cpu.setReadBus(uint16(cpu.stackPointer) + 0x100)
-	case ReadFromNextAddressInBus:
-		cpu.setReadBus(cpu.addressBus.Read() + 1)
+	if cpu.currentPostCycle == nil {
+		cpu.moveToNextCycle()
+		cpu.Tick(t)
 	}
 }
 
 func (cpu *Cpu65C02S) PostTick(t uint64) {
-	switch cpu.currentCycleType & MicroInstructionTypeDestination {
-	case IntoOpCode:
-		cpu.currentOpCode = OpCode(cpu.dataBus.Read())
-
-	case IntoDataRegister:
-		cpu.dataRegister = cpu.dataBus.Read()
-
-	case IntoInstructionRegisterLSB:
-		cpu.instructionRegister = uint16(cpu.dataBus.Read())
-
-	case IntoInstructionRegisterMSB:
-		cpu.instructionRegister = (cpu.instructionRegister & 0x00FF) + uint16(cpu.dataBus.Read())*0x100
-	}
-
-	switch cpu.currentCycleType & MicroInstructionTypeArithmetic {
-	case AddXToInstructionRegister:
-		cpu.addToInstructionRegister(uint16(cpu.xRegister))
-
-	case AddYToInstructionRegister:
-		cpu.addToInstructionRegister(uint16(cpu.yRegister))
-
-	case AddXToInstructionRegisterLSB:
-		cpu.instructionRegister = uint16(uint8(cpu.instructionRegister) + cpu.xRegister)
-
-	case AddYToInstructionRegisterLSB:
-		cpu.instructionRegister = uint16(uint8(cpu.instructionRegister) + cpu.yRegister)
-
-	case AddDataRegisterToProgramCounter:
-		//cpu.addToInstructionRegister(uint16(cpu.dataRegister), &cpu.programCounter)
-	}
-
-	switch cpu.currentCycleType & MicroInstructionTypeAction {
-	case CycleAction:
-		cpu.instructionSet.GetByOpCode(cpu.currentOpCode).Execute(cpu)
-
-	case CycleWriteDataToInstructionRegister:
-		cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
-	}
-
+	cpu.currentPostCycle()
 	cpu.moveToNextCycle()
 }
 
@@ -244,14 +194,16 @@ func (cpu *Cpu65C02S) setInstructionRegisterMSB(value uint8) {
 func (cpu *Cpu65C02S) moveToNextCycle() {
 	cpu.currentCycleIndex++
 
-	if int(cpu.currentCycleIndex) >= cpu.getCurrentAddressMode().Cycles() {
+	currentAddressMode := cpu.getCurrentAddressMode()
+
+	if int(cpu.currentCycleIndex) >= currentAddressMode.Cycles() {
 		cpu.currentCycleIndex = 0
+		cpu.currentCycle = readOpCode
+		cpu.currentPostCycle = nil
 		cpu.instructionRegister = 0x0000
 		cpu.dataRegister = 0x00
-		cpu.currentCycleType = ReadFromProgramCounter | IntoOpCode
-		cpu.extraCycleEnabled = false
 	} else {
-		cpu.currentCycleType = cpu.getCurrentAddressMode().MicroInstruction(cpu.currentCycleIndex - 1)
+		cpu.currentCycle = cpu.getCurrentAddressMode().Cycle(cpu.currentCycleIndex - 1)
 	}
 }
 

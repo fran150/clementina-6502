@@ -1,12 +1,22 @@
 package cpu
 
-type cycleAction []func(cpu *Cpu65C02S) func()
+type cycleAction func(cpu *Cpu65C02S) func()
+
+var readOpCode cycleAction = func(cpu *Cpu65C02S) func() {
+	// read next instruction byte (and throw it away)
+	cpu.setReadBus(cpu.programCounter)
+	cpu.programCounter++
+
+	return func() {
+		cpu.currentOpCode = OpCode(cpu.dataBus.Read())
+	}
+}
 
 /**********************************
 * Implied / Accumulator / Immediate
 ***********************************/
 
-var actionImplicitOrAccumulator cycleAction = cycleAction{
+var actionImplicitOrAccumulator []cycleAction = []cycleAction{
 	func(cpu *Cpu65C02S) func() {
 		// read next instruction byte (and throw it away)
 		cpu.setReadBus(cpu.programCounter)
@@ -17,13 +27,14 @@ var actionImplicitOrAccumulator cycleAction = cycleAction{
 	},
 }
 
-var actionImmediate cycleAction = cycleAction{
+var actionImmediate []cycleAction = []cycleAction{
 	func(cpu *Cpu65C02S) func() {
 		// fetch value, increment PC
 		cpu.setReadBus(cpu.programCounter)
 		cpu.programCounter++
 
 		return func() {
+			cpu.dataRegister = cpu.dataBus.Read()
 			cpu.performAction()
 		}
 	},
@@ -33,7 +44,7 @@ var actionImmediate cycleAction = cycleAction{
 * Absolute
 ***********************************/
 
-var actionAbsoluteJump cycleAction = cycleAction{
+var actionAbsoluteJump []cycleAction = []cycleAction{
 	func(cpu *Cpu65C02S) func() {
 		// fetch low address byte, increment PC
 		cpu.setReadBus(cpu.programCounter)
@@ -54,7 +65,7 @@ var actionAbsoluteJump cycleAction = cycleAction{
 	},
 }
 
-var actionAbsolute cycleAction = cycleAction{
+var actionAbsolute []cycleAction = []cycleAction{
 	func(cpu *Cpu65C02S) func() {
 		// fetch low byte of address, increment PC
 		cpu.setReadBus(cpu.programCounter)
@@ -84,7 +95,7 @@ var actionAbsolute cycleAction = cycleAction{
 	},
 }
 
-var actionAbsoluteRMW cycleAction = cycleAction{
+var actionAbsoluteRMW []cycleAction = []cycleAction{
 	func(cpu *Cpu65C02S) func() {
 		// fetch low byte of address, increment PC
 		cpu.setReadBus(cpu.programCounter)
@@ -127,7 +138,7 @@ var actionAbsoluteRMW cycleAction = cycleAction{
 	},
 }
 
-var actionAbsoluteWrite cycleAction = cycleAction{
+var actionAbsoluteWrite []cycleAction = []cycleAction{
 	func(cpu *Cpu65C02S) func() {
 		// fetch low byte of address, increment PC
 		cpu.setReadBus(cpu.programCounter)
@@ -159,7 +170,7 @@ var actionAbsoluteWrite cycleAction = cycleAction{
 * Zero Page
 ***********************************/
 
-var actionZeroPage cycleAction = cycleAction{
+var actionZeroPage []cycleAction = []cycleAction{
 	func(cpu *Cpu65C02S) func() {
 		// fetch address, increment PC
 		cpu.setReadBus(cpu.programCounter)
@@ -180,7 +191,7 @@ var actionZeroPage cycleAction = cycleAction{
 	},
 }
 
-var actionZeroPageRMW cycleAction = cycleAction{
+var actionZeroPageRMW []cycleAction = []cycleAction{
 	func(cpu *Cpu65C02S) func() {
 		// fetch address, increment PC
 		cpu.setReadBus(cpu.programCounter)
@@ -195,6 +206,7 @@ var actionZeroPageRMW cycleAction = cycleAction{
 		cpu.setReadBus(cpu.instructionRegister)
 
 		return func() {
+			cpu.dataRegister = cpu.dataBus.Read()
 		}
 	},
 	func(cpu *Cpu65C02S) func() {
@@ -214,7 +226,7 @@ var actionZeroPageRMW cycleAction = cycleAction{
 	},
 }
 
-var actionZeroPageWrite cycleAction = cycleAction{
+var actionZeroPageWrite []cycleAction = []cycleAction{
 	func(cpu *Cpu65C02S) func() {
 		// fetch address, increment PC
 		cpu.setReadBus(cpu.programCounter)
@@ -237,7 +249,7 @@ var actionZeroPageWrite cycleAction = cycleAction{
 * Zero Page Indexed
 ***********************************/
 
-var actionZeroPageX cycleAction = cycleAction{
+var actionZeroPageX []cycleAction = []cycleAction{
 	func(cpu *Cpu65C02S) func() {
 		// fetch address, increment PC
 		cpu.setReadBus(cpu.programCounter)
@@ -266,7 +278,7 @@ var actionZeroPageX cycleAction = cycleAction{
 	},
 }
 
-var actionZeroPageXRMW cycleAction = cycleAction{
+var actionZeroPageXRMW []cycleAction = []cycleAction{
 	func(cpu *Cpu65C02S) func() {
 		// fetch address, increment PC
 		cpu.setReadBus(cpu.programCounter)
@@ -289,13 +301,6 @@ var actionZeroPageXRMW cycleAction = cycleAction{
 		cpu.setReadBus(cpu.instructionRegister)
 
 		return func() {
-		}
-	},
-	func(cpu *Cpu65C02S) func() {
-		// read from effective address
-		cpu.setReadBus(cpu.instructionRegister)
-
-		return func() {
 			cpu.dataRegister = cpu.dataBus.Read()
 		}
 	},
@@ -307,7 +312,7 @@ var actionZeroPageXRMW cycleAction = cycleAction{
 	},
 }
 
-var actionZeroPageXWrite cycleAction = cycleAction{
+var actionZeroPageXWrite []cycleAction = []cycleAction{
 	func(cpu *Cpu65C02S) func() {
 		// fetch address, increment PC
 		cpu.setReadBus(cpu.programCounter)
@@ -334,10 +339,39 @@ var actionZeroPageXWrite cycleAction = cycleAction{
 	},
 }
 
+var actionZeroPageY []cycleAction = []cycleAction{
+	func(cpu *Cpu65C02S) func() {
+		// fetch address, increment PC
+		cpu.setReadBus(cpu.programCounter)
+		cpu.programCounter++
+
+		return func() {
+			cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
+		}
+	},
+	func(cpu *Cpu65C02S) func() {
+		// read from address, add index register to it
+		cpu.setReadBus(cpu.instructionRegister)
+
+		return func() {
+			cpu.addToInstructionRegisterLSB(cpu.yRegister)
+		}
+	},
+	func(cpu *Cpu65C02S) func() {
+		// read from effective address
+		cpu.setReadBus(cpu.instructionRegister)
+
+		return func() {
+			cpu.dataRegister = cpu.dataBus.Read()
+			cpu.performAction()
+		}
+	},
+}
+
 /**********************************
 * Absolute Indexed Addressing
 ***********************************/
-var actionAbsoluteX cycleAction = cycleAction{
+var actionAbsoluteX []cycleAction = []cycleAction{
 	func(cpu *Cpu65C02S) func() {
 		// fetch low byte of address, increment PC
 		cpu.setReadBus(cpu.programCounter)
@@ -354,15 +388,18 @@ var actionAbsoluteX cycleAction = cycleAction{
 
 		return func() {
 			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
+			cpu.setReadBus(cpu.instructionRegister)
 			cpu.addToInstructionRegister(uint16(cpu.xRegister))
 		}
 	},
 	func(cpu *Cpu65C02S) func() {
-		//read from effective address, fix the high byte of effective address
-		cpu.setReadBus(cpu.instructionRegister)
-
-		return func() {
-			cpu.addToInstructionRegisterLSB(cpu.xRegister)
+		if cpu.extraCycleEnabled {
+			cpu.extraCycleEnabled = false
+			// Previous cycle already set the address in the bus
+			return func() {
+			}
+		} else {
+			return nil
 		}
 	},
 	func(cpu *Cpu65C02S) func() {
@@ -376,9 +413,9 @@ var actionAbsoluteX cycleAction = cycleAction{
 	},
 }
 
-var actionZeroPageXRMW cycleAction = cycleAction{
+var actionAbsoluteXRMW []cycleAction = []cycleAction{
 	func(cpu *Cpu65C02S) func() {
-		// fetch address, increment PC
+		// fetch low byte of address, increment PC
 		cpu.setReadBus(cpu.programCounter)
 		cpu.programCounter++
 
@@ -387,11 +424,24 @@ var actionZeroPageXRMW cycleAction = cycleAction{
 		}
 	},
 	func(cpu *Cpu65C02S) func() {
-		// read from address, add index register to it
-		cpu.setReadBus(cpu.instructionRegister)
+		// fetch high byte of address, add index register to low address byte, increment PC
+		cpu.setReadBus(cpu.programCounter)
+		cpu.programCounter++
 
 		return func() {
-			cpu.addToInstructionRegisterLSB(cpu.xRegister)
+			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
+			cpu.setReadBus(cpu.instructionRegister)
+			cpu.addToInstructionRegister(uint16(cpu.xRegister))
+		}
+	},
+	func(cpu *Cpu65C02S) func() {
+		if cpu.extraCycleEnabled {
+			cpu.extraCycleEnabled = false
+			// Previous cycle already set the address in the bus
+			return func() {
+			}
+		} else {
+			return nil
 		}
 	},
 	func(cpu *Cpu65C02S) func() {
@@ -417,9 +467,9 @@ var actionZeroPageXRMW cycleAction = cycleAction{
 	},
 }
 
-var actionZeroPageXWrite cycleAction = cycleAction{
+var actionAbsoluteXWrite []cycleAction = []cycleAction{
 	func(cpu *Cpu65C02S) func() {
-		// fetch address, increment PC
+		// fetch low byte of address, increment PC
 		cpu.setReadBus(cpu.programCounter)
 		cpu.programCounter++
 
@@ -428,11 +478,106 @@ var actionZeroPageXWrite cycleAction = cycleAction{
 		}
 	},
 	func(cpu *Cpu65C02S) func() {
-		// read from address, add index register to it
+		// fetch high byte of address, add index register to low address byte, increment PC
+		cpu.setReadBus(cpu.programCounter)
+		cpu.programCounter++
+
+		return func() {
+			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
+			cpu.setReadBus(cpu.instructionRegister)
+			cpu.addToInstructionRegister(uint16(cpu.xRegister))
+		}
+	},
+	func(cpu *Cpu65C02S) func() {
+		if cpu.extraCycleEnabled {
+			cpu.extraCycleEnabled = false
+			// Previous cycle already set the address in the bus
+			return func() {
+			}
+		} else {
+			return nil
+		}
+	},
+	func(cpu *Cpu65C02S) func() {
+		// write to effective address
+		cpu.performAction()
+
+		return func() {
+		}
+	},
+}
+
+var actionAbsoluteY []cycleAction = []cycleAction{
+	func(cpu *Cpu65C02S) func() {
+		// fetch low byte of address, increment PC
+		cpu.setReadBus(cpu.programCounter)
+		cpu.programCounter++
+
+		return func() {
+			cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
+		}
+	},
+	func(cpu *Cpu65C02S) func() {
+		// fetch high byte of address, add index register to low address byte, increment PC
+		cpu.setReadBus(cpu.programCounter)
+		cpu.programCounter++
+
+		return func() {
+			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
+			cpu.setReadBus(cpu.instructionRegister)
+			cpu.addToInstructionRegister(uint16(cpu.xRegister))
+		}
+	},
+	func(cpu *Cpu65C02S) func() {
+		if cpu.extraCycleEnabled {
+			cpu.extraCycleEnabled = false
+			// Previous cycle already set the address in the bus
+			return func() {
+			}
+		} else {
+			return nil
+		}
+	},
+	func(cpu *Cpu65C02S) func() {
+		// read from effective address
 		cpu.setReadBus(cpu.instructionRegister)
 
 		return func() {
-			cpu.addToInstructionRegisterLSB(cpu.xRegister)
+			cpu.dataRegister = cpu.dataBus.Read()
+			cpu.performAction()
+		}
+	},
+}
+
+var actionAbsoluteYWrite []cycleAction = []cycleAction{
+	func(cpu *Cpu65C02S) func() {
+		// fetch low byte of address, increment PC
+		cpu.setReadBus(cpu.programCounter)
+		cpu.programCounter++
+
+		return func() {
+			cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
+		}
+	},
+	func(cpu *Cpu65C02S) func() {
+		// fetch high byte of address, add index register to low address byte, increment PC
+		cpu.setReadBus(cpu.programCounter)
+		cpu.programCounter++
+
+		return func() {
+			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
+			cpu.setReadBus(cpu.instructionRegister)
+			cpu.addToInstructionRegister(uint16(cpu.yRegister))
+		}
+	},
+	func(cpu *Cpu65C02S) func() {
+		if cpu.extraCycleEnabled {
+			cpu.extraCycleEnabled = false
+			// Previous cycle already set the address in the bus
+			return func() {
+			}
+		} else {
+			return nil
 		}
 	},
 	func(cpu *Cpu65C02S) func() {

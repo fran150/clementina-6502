@@ -57,9 +57,6 @@ func createComputer() (*Cpu65C02S, *memory.Ram) {
 // Evaluates the current status of the CPU on a given cycle and
 // compares it with the expceted value from the test data.
 func evaluateCycle(cycle int, cpu *Cpu65C02S, step *testData, t *testing.T) {
-	evaluateRegister(cycle, cpu.addressBus.Read(), step.addressBus, t, "address bus")
-	evaluateRegister(cycle, cpu.dataBus.Read(), step.dataBus, t, "data bus")
-
 	evaluateLine(cycle, cpu.readWrite.GetLine().Status(), step.writeEnable, t, "R/W")
 
 	evaluateRegister(cycle, cpu.accumulatorRegister, step.accumulatorRegister, t, "A")
@@ -123,6 +120,10 @@ func runTest(cpu *Cpu65C02S, ram *memory.Ram, steps []testData, t *testing.T) {
 	for cycle, step := range steps {
 		cpu.Tick(100)
 		ram.Tick(100)
+
+		evaluateRegister(cycle, cpu.addressBus.Read(), step.addressBus, t, "address bus")
+		evaluateRegister(cycle, cpu.dataBus.Read(), step.dataBus, t, "data bus")
+
 		cpu.PostTick(100)
 
 		fmt.Printf("%v \t %04X \t %02X \t %v \t %04X \t %02X \t %02X \t %02X \t %02X \t %08b \n", cycle, cpu.addressBus.Read(), cpu.dataBus.Read(), cpu.readWrite.GetLine().Status(), cpu.programCounter, cpu.accumulatorRegister, cpu.xRegister, cpu.yRegister, cpu.stackPointer, uint8(cpu.processorStatusRegister))
