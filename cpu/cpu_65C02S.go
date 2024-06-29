@@ -57,14 +57,14 @@ type Cpu65C02S struct {
 	programCounter          uint16
 	processorStatusRegister StatusRegister
 
-	currentCycleIndex   int
-	currentCycle        cycleAction
-	currentPostCycle    func()
-	extraCycleEnabled   bool
-	extraCycleAddress   uint16
-	currentOpCode       OpCode
-	instructionRegister uint16
-	dataRegister        uint8
+	currentCycleIndex        int
+	currentCycle             cycleAction
+	currentPostCycle         func()
+	instructionRegisterCarry bool
+	branchTaken              bool
+	currentOpCode            OpCode
+	instructionRegister      uint16
+	dataRegister             uint8
 }
 
 // Creates a CPU with typical values for all lines, address and data bus are not connected
@@ -86,13 +86,13 @@ func CreateCPU() *Cpu65C02S {
 		programCounter:          0xFFFC,
 		processorStatusRegister: 0x00,
 
-		currentCycleIndex:   0,
-		currentCycle:        readOpCode,
-		extraCycleEnabled:   false,
-		extraCycleAddress:   0x0000,
-		currentOpCode:       0x00,
-		instructionRegister: 0x00,
-		dataRegister:        0x00,
+		currentCycleIndex:        0,
+		currentCycle:             readOpCode,
+		instructionRegisterCarry: false,
+		branchTaken:              false,
+		currentOpCode:            0x00,
+		instructionRegister:      0x00,
+		dataRegister:             0x00,
 	}
 }
 
@@ -170,8 +170,7 @@ func (cpu *Cpu65C02S) addToInstructionRegister(value uint16) {
 	cpu.instructionRegister += value
 
 	if data > 0xFF || slices.Contains(alwaysExtra, uint8(cpu.currentOpCode)) {
-		cpu.extraCycleEnabled = true
-		cpu.extraCycleAddress = original
+		cpu.instructionRegisterCarry = true
 	}
 }
 

@@ -87,7 +87,7 @@ func CreateInstructionSet() *CpuInstructionSet {
 
 		{0x30, BMI, ActionBMI, AddressModeRelative},
 		{0x31, AND, ActionAND, AddressModeZeroPageIndirectIndexedY},
-		{0x32, AND, ActionAND, AddressModeIndirect},
+		{0x32, AND, ActionAND, AddressModeIndirectZeroPage},
 		{0x34, BIT, ActionBIT, AddressModeZeroPageX},
 		{0x35, AND, ActionAND, AddressModeZeroPageX},
 		{0x36, ROL, ActionROL, AddressModeZeroPageXRMW},
@@ -115,7 +115,7 @@ func CreateInstructionSet() *CpuInstructionSet {
 
 		{0x50, BVC, ActionBVC, AddressModeRelative},
 		{0x51, EOR, ActionEOR, AddressModeZeroPageIndirectIndexedY},
-		{0x52, EOR, ActionEOR, AddressModeIndirect},
+		{0x52, EOR, ActionEOR, AddressModeIndirectZeroPage},
 		{0x55, EOR, ActionEOR, AddressModeZeroPageX},
 		{0x56, LSR, ActionLSR, AddressModeZeroPageXRMW},
 		{0x57, RMB5, ActionRMB, AddressModeZeroPageRMW},
@@ -142,7 +142,7 @@ func CreateInstructionSet() *CpuInstructionSet {
 
 		{0x70, BVS, ActionBVS, AddressModeRelative},
 		{0x71, ADC, ActionADC, AddressModeZeroPageIndirectIndexedY},
-		{0x72, ADC, ActionADC, AddressModeIndirect},
+		{0x72, ADC, ActionADC, AddressModeIndirectZeroPage},
 		{0x74, STZ, ActionSTZ, AddressModeZeroPageX},
 		{0x75, ADC, ActionADC, AddressModeZeroPageX},
 		{0x76, ROR, ActionROR, AddressModeZeroPageXRMW},
@@ -156,7 +156,7 @@ func CreateInstructionSet() *CpuInstructionSet {
 		{0x7F, BBR7, ActionBBR, AddressModeRelative},
 
 		{0x80, BRA, ActionBRA, AddressModeRelative},
-		{0x81, STA, ActionSTA, AddressModeZeroPageIndexedIndirectX},
+		{0x81, STA, ActionSTA, AddressModeZeroPageIndexedIndirectXW},
 		{0x84, STY, ActionSTY, AddressModeZeroPageW},
 		{0x85, STA, ActionSTA, AddressModeZeroPageW},
 		{0x86, STX, ActionSTX, AddressModeZeroPageW},
@@ -170,8 +170,8 @@ func CreateInstructionSet() *CpuInstructionSet {
 		{0x8F, BBS0, ActionBBS, AddressModeRelative},
 
 		{0x90, BCC, ActionBCC, AddressModeRelative},
-		{0x91, STA, ActionSTA, AddressModeZeroPageIndirectIndexedY},
-		{0x92, STA, ActionSTA, AddressModeIndirect},
+		{0x91, STA, ActionSTA, AddressModeZeroPageIndirectIndexedYW},
+		{0x92, STA, ActionSTA, AddressModeIndirectZeroPageW},
 		{0x94, STY, ActionSTY, AddressModeZeroPageXW},
 		{0x95, STA, ActionSTA, AddressModeZeroPageXW},
 		{0x96, STX, ActionSTX, AddressModeZeroPageY},
@@ -201,7 +201,7 @@ func CreateInstructionSet() *CpuInstructionSet {
 
 		{0xB0, BCS, ActionBCS, AddressModeRelative},
 		{0xB1, LDA, ActionLDA, AddressModeZeroPageIndirectIndexedY},
-		{0xB2, LDA, ActionLDA, AddressModeIndirect},
+		{0xB2, LDA, ActionLDA, AddressModeIndirectZeroPage},
 		{0xB4, LDY, ActionLDY, AddressModeZeroPageX},
 		{0xB5, LDA, ActionLDA, AddressModeZeroPageX},
 		{0xB6, LDX, ActionLDX, AddressModeZeroPageY},
@@ -231,7 +231,7 @@ func CreateInstructionSet() *CpuInstructionSet {
 
 		{0xD0, BNE, ActionBNE, AddressModeRelative},
 		{0xD1, CMP, ActionCMP, AddressModeZeroPageIndirectIndexedY},
-		{0xD2, CMP, ActionCMP, AddressModeIndirect},
+		{0xD2, CMP, ActionCMP, AddressModeIndirectZeroPage},
 		{0xD5, CMP, ActionCMP, AddressModeZeroPageX},
 		{0xD6, DEC, ActionDEC, AddressModeZeroPageXRMW},
 		{0xD7, SMB5, ActionSMB, AddressModeZeroPageRMW},
@@ -259,7 +259,7 @@ func CreateInstructionSet() *CpuInstructionSet {
 
 		{0xF0, BEQ, ActionBEQ, AddressModeRelative},
 		{0xF1, SBC, ActionSBC, AddressModeZeroPageIndirectIndexedY},
-		{0xF2, SBC, ActionSBC, AddressModeIndirect},
+		{0xF2, SBC, ActionSBC, AddressModeIndirectZeroPage},
 		{0xF5, SBC, ActionSBC, AddressModeZeroPageX},
 		{0xF6, INC, ActionINC, AddressModeZeroPageXRMW},
 		{0xF7, SMB7, ActionSMB, AddressModeZeroPageRMW},

@@ -31,7 +31,9 @@ func ActionASL(cpu *Cpu65C02S) {
 }
 
 func ActionBCC(cpu *Cpu65C02S) {
-
+	if !cpu.processorStatusRegister.Flag(CarryFlagBit) {
+		cpu.branchTaken = true
+	}
 }
 
 func ActionBCS(cpu *Cpu65C02S) {

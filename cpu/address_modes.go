@@ -27,36 +27,39 @@ package cpu
 type AddressMode string
 
 const (
-	AddressModeImplicit                 AddressMode = "IMP"
-	AddressModeAccumulator              AddressMode = "ACC"
-	AddressModeImmediate                AddressMode = "IMM"
-	AddressModeZeroPage                 AddressMode = "ZPP"
-	AddressModeZeroPageRMW              AddressMode = "ZPPRMW"
-	AddressModeZeroPageW                AddressMode = "ZPPW"
-	AddressModeZeroPageX                AddressMode = "ZPX"
-	AddressModeZeroPageXRMW             AddressMode = "ZPXRMW"
-	AddressModeZeroPageXW               AddressMode = "ZPXW"
-	AddressModeZeroPageY                AddressMode = "ZPY"
-	AddressModeAbsolute                 AddressMode = "ABS"
-	AddressModeAbsoluteRMW              AddressMode = "ABSRMW"
-	AddressModeAbsoluteW                AddressMode = "ABSW"
-	AddressModeAbsoluteX                AddressMode = "ABX"
-	AddressModeAbsoluteXRMW             AddressMode = "ABXRMW"
-	AddressModeAbsoluteXW               AddressMode = "ABXW"
-	AddressModeAbsoluteY                AddressMode = "ABY"
-	AddressModeAbsoluteYW               AddressMode = "ABYW"
-	AddressModeRelative                 AddressMode = "REL"
-	AddressModeIndirect                 AddressMode = "IND"
-	AddressModeIndirectZeroPage         AddressMode = "INZ"
-	AddressModeZeroPageIndexedIndirectX AddressMode = "IXN"
-	AddressModeZeroPageIndirectIndexedY AddressMode = "INX"
-	AddressModeAbsoluteIndexedIndirect  AddressMode = "AXI"
-	AddressModePushStack                AddressMode = "PHS"
-	AddressModePullStack                AddressMode = "PLS"
-	AddressModeAbsoluteJump             AddressMode = "JMP"
-	AddressModeReturnFromSubroutine     AddressMode = "RTS"
-	AddressModeReturnFromInterrupt      AddressMode = "RTI"
-	AddressModeReturnFromBreak          AddressMode = "BRK"
+	AddressModeImplicit                  AddressMode = "IMP"
+	AddressModeAccumulator               AddressMode = "ACC"
+	AddressModeImmediate                 AddressMode = "IMM"
+	AddressModeZeroPage                  AddressMode = "ZPP"
+	AddressModeZeroPageRMW               AddressMode = "ZPPRMW"
+	AddressModeZeroPageW                 AddressMode = "ZPPW"
+	AddressModeZeroPageX                 AddressMode = "ZPX"
+	AddressModeZeroPageXRMW              AddressMode = "ZPXRMW"
+	AddressModeZeroPageXW                AddressMode = "ZPXW"
+	AddressModeZeroPageY                 AddressMode = "ZPY"
+	AddressModeAbsolute                  AddressMode = "ABS"
+	AddressModeAbsoluteRMW               AddressMode = "ABSRMW"
+	AddressModeAbsoluteW                 AddressMode = "ABSW"
+	AddressModeAbsoluteX                 AddressMode = "ABX"
+	AddressModeAbsoluteXRMW              AddressMode = "ABXRMW"
+	AddressModeAbsoluteXW                AddressMode = "ABXW"
+	AddressModeAbsoluteY                 AddressMode = "ABY"
+	AddressModeAbsoluteYW                AddressMode = "ABYW"
+	AddressModeRelative                  AddressMode = "REL"
+	AddressModeIndirect                  AddressMode = "IND"
+	AddressModeIndirectZeroPage          AddressMode = "INZ"
+	AddressModeIndirectZeroPageW         AddressMode = "INZW"
+	AddressModeZeroPageIndexedIndirectX  AddressMode = "IXN"
+	AddressModeZeroPageIndexedIndirectXW AddressMode = "IXNW"
+	AddressModeZeroPageIndirectIndexedY  AddressMode = "INY"
+	AddressModeZeroPageIndirectIndexedYW AddressMode = "INYW"
+	AddressModeAbsoluteIndexedIndirect   AddressMode = "AXI"
+	AddressModePushStack                 AddressMode = "PHS"
+	AddressModePullStack                 AddressMode = "PLS"
+	AddressModeAbsoluteJump              AddressMode = "JMP"
+	AddressModeReturnFromSubroutine      AddressMode = "RTS"
+	AddressModeReturnFromInterrupt       AddressMode = "RTI"
+	AddressModeReturnFromBreak           AddressMode = "BRK"
 )
 
 // ----------------------------------------------------------------------
@@ -130,14 +133,18 @@ func CreateAddressModesSet() *AddressModeSet {
 		{AddressModeAbsoluteXW, "a,x", "$%#x, X", actionAbsoluteXWrite, 3},
 		{AddressModeAbsoluteY, "a,y", "$%#x, Y", actionAbsoluteY, 3},
 		{AddressModeAbsoluteYW, "a,y", "$%#x, Y", actionAbsoluteYWrite, 3},
+		{AddressModeRelative, "r", "%#x", actionRelative, 2},
+		{AddressModeZeroPageIndexedIndirectX, "(zp,x)", "($%#x, X)", actionIndexedIndirectX, 2},
+		{AddressModeZeroPageIndexedIndirectXW, "(zp,x)", "($%#x, X)", actionIndexedIndirectXW, 2},
+		{AddressModeZeroPageIndirectIndexedY, "(zp),y", "($%#x), Y", actionIndirectIndexedY, 2},
+		{AddressModeZeroPageIndirectIndexedYW, "(zp),y", "($%#x), Y", actionIndirectIndexedYW, 2},
+		{AddressModeIndirect, "(a)", "($%#x)", actionIndirect, 3},
+		{AddressModeIndirectZeroPage, "(zp)", "($%#x)", actionZeroPageIndirect, 2},
+		{AddressModeIndirectZeroPageW, "(zp)", "($%#x)", actionZeroPageIndirectWrite, 2},
+		{AddressModeAbsoluteIndexedIndirect, "(a,x)", "($%#x, X)", actionAbsoluteIndexedIndirectX, 3},
 
 		// Reviewed here
-		{AddressModeRelative, "r", "%#x", []cycleAction{}, 2},
-		{AddressModeIndirect, "(a)", "($%#x)", []cycleAction{}, 3},
-		{AddressModeIndirectZeroPage, "(zp)", "($%#x)", []cycleAction{}, 2},
-		{AddressModeZeroPageIndexedIndirectX, "(zp,x)", "($%#x, X)", []cycleAction{}, 2},
-		{AddressModeZeroPageIndirectIndexedY, "(zp),y", "($%#x), Y", []cycleAction{}, 2},
-		{AddressModeAbsoluteIndexedIndirect, "(a,x)", "($%#x, X)", []cycleAction{}, 3},
+
 		{AddressModePushStack, "(a,x)", "($%#x, X)", []cycleAction{}, 1},
 		{AddressModePullStack, "(a,x)", "($%#x, X)", []cycleAction{}, 1},
 		{AddressModeReturnFromInterrupt, "a", "$%#x", []cycleAction{}, 1},
