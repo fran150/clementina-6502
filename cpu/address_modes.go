@@ -57,9 +57,12 @@ const (
 	AddressModePushStack                 AddressMode = "PHS"
 	AddressModePullStack                 AddressMode = "PLS"
 	AddressModeAbsoluteJump              AddressMode = "JMP"
+	AddressModeJumpToSubroutine          AddressMode = "JSR"
 	AddressModeReturnFromSubroutine      AddressMode = "RTS"
+	AddressModeBreak                     AddressMode = "BRK"
 	AddressModeReturnFromInterrupt       AddressMode = "RTI"
-	AddressModeReturnFromBreak           AddressMode = "BRK"
+	AddressModeStop                      AddressMode = "STP"
+	AddressModeWait                      AddressMode = "WAI"
 )
 
 // ----------------------------------------------------------------------
@@ -142,19 +145,17 @@ func CreateAddressModesSet() *AddressModeSet {
 		{AddressModeIndirectZeroPage, "(zp)", "($%#x)", actionZeroPageIndirect, 2},
 		{AddressModeIndirectZeroPageW, "(zp)", "($%#x)", actionZeroPageIndirectWrite, 2},
 		{AddressModeAbsoluteIndexedIndirect, "(a,x)", "($%#x, X)", actionAbsoluteIndexedIndirectX, 3},
+		{AddressModePushStack, "i", "", actionPushStack, 1},
+		{AddressModePullStack, "i", "", actionPullStack, 1},
+		{AddressModeBreak, "i", "", actionBreak, 2},
+		{AddressModeReturnFromInterrupt, "", "", actionReturnFromInterrupt, 1},
+		{AddressModeJumpToSubroutine, "a", "$%#x", actionJumpToSubroutine, 3},
+		{AddressModeReturnFromSubroutine, "i", "", actionReturnFromSubroutine, 1},
 
 		// Reviewed here
 
-		{AddressModePushStack, "(a,x)", "($%#x, X)", []cycleAction{}, 1},
-		{AddressModePullStack, "(a,x)", "($%#x, X)", []cycleAction{}, 1},
-		{AddressModeReturnFromInterrupt, "a", "$%#x", []cycleAction{}, 1},
-		{AddressModeReturnFromSubroutine, "a", "$%#x", []cycleAction{}, 1},
-		// RTI, RTS 6
-		// STP 3
-		// WAI 3
-		// BRK 7
-		//
-
+		{AddressModeStop, "a", "$%#x", []cycleAction{}, 1},
+		{AddressModeWait, "a", "$%#x", []cycleAction{}, 1},
 	}
 
 	for _, addressMode := range data {

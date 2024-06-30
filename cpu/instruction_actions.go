@@ -172,35 +172,39 @@ func ActionORA(cpu *Cpu65C02S) {
 }
 
 func ActionPHA(cpu *Cpu65C02S) {
-
+	cpu.writeToStack(cpu.accumulatorRegister)
+	cpu.stackPointer--
 }
 
 func ActionPHP(cpu *Cpu65C02S) {
-
+	cpu.writeToStack(uint8(cpu.processorStatusRegister))
+	cpu.stackPointer--
 }
 
 func ActionPHX(cpu *Cpu65C02S) {
-
+	cpu.writeToStack(cpu.xRegister)
+	cpu.stackPointer--
 }
 
 func ActionPHY(cpu *Cpu65C02S) {
-
+	cpu.writeToStack(cpu.yRegister)
+	cpu.stackPointer--
 }
 
 func ActionPLA(cpu *Cpu65C02S) {
-
+	cpu.accumulatorRegister = cpu.dataRegister
 }
 
 func ActionPLP(cpu *Cpu65C02S) {
-
+	cpu.processorStatusRegister = StatusRegister(cpu.dataRegister)
 }
 
 func ActionPLX(cpu *Cpu65C02S) {
-
+	cpu.xRegister = cpu.dataRegister
 }
 
 func ActionPLY(cpu *Cpu65C02S) {
-
+	cpu.yRegister = cpu.dataRegister
 }
 
 func ActionROL(cpu *Cpu65C02S) {

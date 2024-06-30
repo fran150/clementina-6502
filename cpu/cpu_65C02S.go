@@ -190,6 +190,14 @@ func (cpu *Cpu65C02S) setInstructionRegisterMSB(value uint8) {
 	cpu.instructionRegister = (cpu.instructionRegister & 0x00FF) + uint16(value)*0x100
 }
 
+func (cpu *Cpu65C02S) readFromStack() {
+	cpu.setReadBus(uint16(cpu.stackPointer) + 0x100)
+}
+
+func (cpu *Cpu65C02S) writeToStack(value uint8) {
+	cpu.setWriteBus(uint16(cpu.stackPointer)+0x100, value)
+}
+
 func (cpu *Cpu65C02S) moveToNextCycle() {
 	cpu.currentCycleIndex++
 
