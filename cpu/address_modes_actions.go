@@ -1,6 +1,12 @@
 package cpu
 
-type cycleAction func(cpu *Cpu65C02S) func()
+type cycleAction func(cpu *Cpu65C02S) bool
+type cyclePostAction func(cpu *Cpu65C02S)
+
+type cycleActions struct {
+	cycle     cycleAction
+	postCycle cyclePostAction
+}
 
 type sumOrigin uint8
 
@@ -9,685 +15,862 @@ const (
 	fromYRegister sumOrigin = 1
 )
 
-var readOpCode cycleAction = func(cpu *Cpu65C02S) func() {
-	// read next instruction byte (and throw it away)
-	cpu.setReadBus(cpu.programCounter)
-	cpu.programCounter++
+const NMI_VECTOR_LSB uint16 = 0xFFFA
+const NMI_VECTOR_MSB uint16 = 0xFFFB
 
-	return func() {
+const RESET_VECTOR_LSB uint16 = 0xFFFC
+const RESET_VECTOR_MSB uint16 = 0xFFFD
+
+const IRQ_VECTOR_LSB uint16 = 0xFFFE
+const IRQ_VECTOR_MSB uint16 = 0xFFFF
+
+/**********************************************************************************************************
+* Cycle Actions
+***********************************************************************************************************/
+
+func readFromProgramCounter(incrementProgramCounter bool) cycleAction {
+	return func(cpu *Cpu65C02S) bool {
+		cpu.setReadBus(cpu.programCounter)
+		if incrementProgramCounter {
+			cpu.programCounter++
+		}
+
+		return true
+	}
+}
+
+func readFromInstructionRegister() cycleAction {
+	return func(cpu *Cpu65C02S) bool {
+		cpu.setReadBus(cpu.instructionRegister)
+
+		return true
+	}
+}
+
+func readFromBus(performAction bool) cycleAction {
+	return func(cpu *Cpu65C02S) bool {
+		if performAction {
+			cpu.performAction()
+		}
+
+		return true
+	}
+}
+
+func readFromAddress(address uint16) cycleAction {
+	return func(cpu *Cpu65C02S) bool {
+		cpu.setReadBus(address)
+
+		return true
+	}
+}
+
+func readFromNextAddressInBus() cycleAction {
+	return func(cpu *Cpu65C02S) bool {
+		cpu.setReadBus(uint16(cpu.addressBus.Read() + 1))
+
+		return true
+	}
+}
+
+func readFromStackPointer(increaseStackPointer bool) cycleAction {
+	return func(cpu *Cpu65C02S) bool {
+		cpu.readFromStack()
+
+		if increaseStackPointer {
+			cpu.stackPointer++
+		}
+
+		return true
+	}
+}
+
+func extraCycleIfCarryInstructionRegister() cycleAction {
+	return func(cpu *Cpu65C02S) bool {
+		if cpu.instructionRegisterCarry {
+			cpu.instructionRegisterCarry = false
+			return true
+		} else {
+			return false
+		}
+	}
+}
+
+func extraCycleIfBranchTaken() cycleAction {
+	return func(cpu *Cpu65C02S) bool {
+		if cpu.branchTaken {
+			cpu.branchTaken = false
+			cpu.setReadBus(cpu.programCounter)
+			cpu.instructionRegister = cpu.programCounter
+			cpu.addToInstructionRegister(uint16(cpu.dataRegister))
+			return true
+		} else {
+			return false
+		}
+	}
+}
+
+func writeProgramCounterMSBToStack() cycleAction {
+	return func(cpu *Cpu65C02S) bool {
+		counterMSB := cpu.programCounter & 0xFF00
+		counterMSB = counterMSB >> 8
+		cpu.writeToStack(uint8(counterMSB))
+		cpu.stackPointer--
+		return true
+	}
+}
+
+func writeProgramCounterLSBToStack() cycleAction {
+	return func(cpu *Cpu65C02S) bool {
+		counterLSB := cpu.programCounter & 0x00FF
+		cpu.writeToStack(uint8(counterLSB))
+		cpu.stackPointer--
+		return true
+	}
+}
+
+func writeProcessorStatusRegisterToStack() cycleAction {
+	return func(cpu *Cpu65C02S) bool {
+		cpu.writeToStack(uint8(cpu.processorStatusRegister))
+		cpu.stackPointer--
+		return true
+	}
+}
+
+/**********************************************************************************************************
+* Cycle Post Actions
+***********************************************************************************************************/
+
+func intoOpCode() cyclePostAction {
+	return func(cpu *Cpu65C02S) {
 		cpu.currentOpCode = OpCode(cpu.dataBus.Read())
 	}
 }
 
-func readNextInstructionAndThrowAway(performAction bool) cycleAction {
-	return func(cpu *Cpu65C02S) func() {
-		// read next instruction byte (and throw it away)
-		cpu.setReadBus(cpu.programCounter)
-
-		return func() {
-			if performAction {
-				cpu.performAction()
-			}
+func intoDataRegister(performAction bool) cyclePostAction {
+	return func(cpu *Cpu65C02S) {
+		cpu.dataRegister = cpu.dataBus.Read()
+		if performAction {
+			cpu.performAction()
 		}
 	}
 }
 
-func readFromProgramCounter(performAction bool) cycleAction {
-	return func(cpu *Cpu65C02S) func() {
-		// fetch value, increment PC
-		cpu.setReadBus(cpu.programCounter)
-		cpu.programCounter++
+func intoInstructionRegisterLSB() cyclePostAction {
+	return func(cpu *Cpu65C02S) {
+		cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
+	}
+}
 
-		return func() {
-			cpu.dataRegister = cpu.dataBus.Read()
-			if performAction {
-				cpu.performAction()
-			}
+func intoInstructionRegisterMSB(performAction bool) cyclePostAction {
+	return func(cpu *Cpu65C02S) {
+		cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
+
+		if performAction {
+			cpu.performAction()
 		}
 	}
 }
 
-func readInstructionRegisterLSB() cycleAction {
-	return func(cpu *Cpu65C02S) func() {
-		// fetch low address byte, increment PC
-		cpu.setReadBus(cpu.programCounter)
-		cpu.programCounter++
+func intoStatusRegister() cyclePostAction {
+	return func(cpu *Cpu65C02S) {
+		cpu.processorStatusRegister = StatusRegister(cpu.dataBus.Read())
+	}
+}
 
-		return func() {
-			cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
+func addToInstructionRegisterLSB(origin sumOrigin) cyclePostAction {
+	return func(cpu *Cpu65C02S) {
+		switch origin {
+		case fromXRegister:
+			cpu.addToInstructionRegisterLSB(cpu.xRegister)
+		case fromYRegister:
+			cpu.addToInstructionRegisterLSB(cpu.yRegister)
 		}
 	}
 }
 
-func readInstructionRegisterMSB() cycleAction {
-	return func(cpu *Cpu65C02S) func() {
-		// fetch high address byte to PC
-		cpu.setReadBus(cpu.programCounter)
-		cpu.programCounter++
-
-		return func() {
+func addToInstructionRegisterMSB(origin sumOrigin, setInstructionRegisterMSB bool, setReadBus bool) cyclePostAction {
+	return func(cpu *Cpu65C02S) {
+		if setInstructionRegisterMSB {
 			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
 		}
-	}
-}
 
-func readFromInstructionRegister(performAction bool) cycleAction {
-	return func(cpu *Cpu65C02S) func() {
-		// read from effective address
-		cpu.setReadBus(cpu.instructionRegister)
+		if setReadBus {
+			cpu.setReadBus(cpu.instructionRegister)
+		}
 
-		return func() {
-			cpu.dataRegister = cpu.dataBus.Read()
-
-			if performAction {
-				cpu.performAction()
-			}
+		switch origin {
+		case fromXRegister:
+			cpu.addToInstructionRegister(uint16(cpu.xRegister))
+		case fromYRegister:
+			cpu.addToInstructionRegister(uint16(cpu.yRegister))
 		}
 	}
 }
 
-func addToInstructionRegisterLSB(origin sumOrigin) cycleAction {
-	return func(cpu *Cpu65C02S) func() {
-		// read from address, add index register to it
-		cpu.setReadBus(cpu.instructionRegister)
-
-		return func() {
-			switch origin {
-			case fromXRegister:
-				cpu.addToInstructionRegisterLSB(cpu.xRegister)
-			case fromYRegister:
-				cpu.addToInstructionRegisterLSB(cpu.yRegister)
-			}
-
+func moveInstructionRegisterToProgramCounter(setInstructionRegisterMSB bool) cyclePostAction {
+	return func(cpu *Cpu65C02S) {
+		if setInstructionRegisterMSB {
+			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
 		}
-	}
-}
-
-func addToInstructionRegister(origin sumOrigin, setInstructionRegisterMSB bool, setReadBus bool) cycleAction {
-	return func(cpu *Cpu65C02S) func() {
-		// fetch high byte of address, add index register to low address byte, increment PC
+		cpu.programCounter = cpu.instructionRegister
 		cpu.setReadBus(cpu.programCounter)
-		cpu.programCounter++
-
-		return func() {
-			if setInstructionRegisterMSB {
-				cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
-			}
-
-			if setReadBus {
-				cpu.setReadBus(cpu.instructionRegister)
-			}
-
-			switch origin {
-			case fromXRegister:
-				cpu.addToInstructionRegister(uint16(cpu.xRegister))
-			case fromYRegister:
-				cpu.addToInstructionRegister(uint16(cpu.yRegister))
-			}
-		}
 	}
 }
 
-func performActionOnTick() cycleAction {
-	return func(cpu *Cpu65C02S) func() {
-		// Write the new value to effective address
-		cpu.performAction()
-
-		return func() {
-		}
+func doNothing() cyclePostAction {
+	return func(cpu *Cpu65C02S) {
 	}
 }
 
-func performInstructionRegisterCarryCycle() cycleAction {
-	return func(cpu *Cpu65C02S) func() {
-		if cpu.instructionRegisterCarry {
-			cpu.instructionRegisterCarry = false
-			// Previous cycle already set the address in the bus
-			return func() {
-			}
-		} else {
-			return nil
-		}
-	}
+/**********************************************************************************************************
+* Address Modes Cycles
+***********************************************************************************************************/
+
+var readOpCode cycleActions = cycleActions{
+	cycle:     readFromProgramCounter(true),
+	postCycle: intoOpCode(),
 }
 
 /**********************************
 * Implied / Accumulator / Immediate
 ***********************************/
 
-var actionImplicitOrAccumulator []cycleAction = []cycleAction{
-	readNextInstructionAndThrowAway(true),
+var actionImplicitOrAccumulator []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(false),
+		postCycle: intoDataRegister(true),
+	},
 }
 
-var actionImmediate []cycleAction = []cycleAction{
-	readFromProgramCounter(true),
+var actionImmediate []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoDataRegister(true),
+	},
 }
 
 /**********************************
 * Absolute
 ***********************************/
 
-var actionAbsoluteJump []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	func(cpu *Cpu65C02S) func() {
-		// fetch high address byte to PC
-		cpu.setReadBus(cpu.programCounter)
-
-		return func() {
-			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
-			cpu.performAction()
-		}
+var actionAbsoluteJump []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterMSB(true),
 	},
 }
 
-var actionAbsolute []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	readInstructionRegisterMSB(),
-	readFromInstructionRegister(true),
+var actionAbsolute []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterMSB(false),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(true),
+	},
 }
 
-var actionAbsoluteRMW []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	readInstructionRegisterMSB(),
-	readFromInstructionRegister(false),
-	readFromInstructionRegister(false),
-	performActionOnTick(),
+var actionAbsoluteRMW []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterMSB(false),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(false),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(false),
+	},
+	{
+		cycle:     readFromBus(true),
+		postCycle: doNothing(),
+	},
 }
 
-var actionAbsoluteWrite []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	readInstructionRegisterMSB(),
-	performActionOnTick(),
+var actionAbsoluteWrite []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterMSB(false),
+	},
+	{
+		cycle:     readFromBus(true),
+		postCycle: doNothing(),
+	},
 }
 
 /**********************************
 * Zero Page
 ***********************************/
 
-var actionZeroPage []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	readFromInstructionRegister(true),
+var actionZeroPage []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(true),
+	},
 }
 
-var actionZeroPageRMW []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	readFromInstructionRegister(false),
-	readFromInstructionRegister(false),
-	performActionOnTick(),
+var actionZeroPageRMW []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(false),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(false),
+	},
+	{
+		cycle:     readFromBus(true),
+		postCycle: doNothing(),
+	},
 }
 
-var actionZeroPageWrite []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	performActionOnTick(),
+var actionZeroPageWrite []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromBus(true),
+		postCycle: doNothing(),
+	},
 }
 
 /**********************************
 * Zero Page Indexed
 ***********************************/
 
-var actionZeroPageX []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	addToInstructionRegisterLSB(fromXRegister),
-	readFromInstructionRegister(true),
+var actionZeroPageX []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: addToInstructionRegisterLSB(fromXRegister),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(true),
+	},
 }
 
-var actionZeroPageXRMW []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	addToInstructionRegisterLSB(fromXRegister),
-	readFromInstructionRegister(false),
-	performActionOnTick(),
+var actionZeroPageXRMW []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: addToInstructionRegisterLSB(fromXRegister),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(false),
+	},
+	{
+		cycle:     readFromBus(true),
+		postCycle: doNothing(),
+	},
 }
 
-var actionZeroPageXWrite []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	addToInstructionRegisterLSB(fromXRegister),
-	performActionOnTick(),
+var actionZeroPageXWrite []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: addToInstructionRegisterLSB(fromXRegister),
+	},
+	{
+		cycle:     readFromBus(true),
+		postCycle: doNothing(),
+	},
 }
 
-var actionZeroPageY []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	addToInstructionRegisterLSB(fromYRegister),
-	readFromInstructionRegister(true),
+var actionZeroPageY []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: addToInstructionRegisterLSB(fromYRegister),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(true),
+	},
 }
 
 /**********************************
 * Absolute Indexed Addressing
 ***********************************/
-var actionAbsoluteX []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	addToInstructionRegister(fromXRegister, true, true),
-	performInstructionRegisterCarryCycle(),
-	readFromInstructionRegister(true),
+var actionAbsoluteX []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: addToInstructionRegisterMSB(fromXRegister, true, true),
+	},
+	{
+		cycle:     extraCycleIfCarryInstructionRegister(),
+		postCycle: doNothing(),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(true),
+	},
 }
 
-var actionAbsoluteXRMW []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	addToInstructionRegister(fromXRegister, true, true),
-	performInstructionRegisterCarryCycle(),
-	readFromInstructionRegister(false),
-	readFromInstructionRegister(false),
-	performActionOnTick(),
+var actionAbsoluteXRMW []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: addToInstructionRegisterMSB(fromXRegister, true, true),
+	},
+	{
+		cycle:     extraCycleIfCarryInstructionRegister(),
+		postCycle: doNothing(),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(false),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(false),
+	},
+	{
+		cycle:     readFromBus(true),
+		postCycle: doNothing(),
+	},
 }
 
-var actionAbsoluteXWrite []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	addToInstructionRegister(fromXRegister, true, true),
-	performInstructionRegisterCarryCycle(),
-	performActionOnTick(),
+var actionAbsoluteXWrite []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: addToInstructionRegisterMSB(fromXRegister, true, true),
+	},
+	{
+		cycle:     extraCycleIfCarryInstructionRegister(),
+		postCycle: doNothing(),
+	},
+	{
+		cycle:     readFromBus(true),
+		postCycle: doNothing(),
+	},
 }
 
-var actionAbsoluteY []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	addToInstructionRegister(fromXRegister, true, true),
-	performInstructionRegisterCarryCycle(),
-	readFromInstructionRegister(true),
+var actionAbsoluteY []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: addToInstructionRegisterMSB(fromXRegister, true, true),
+	},
+	{
+		cycle:     extraCycleIfCarryInstructionRegister(),
+		postCycle: doNothing(),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(true),
+	},
 }
 
-var actionAbsoluteYWrite []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	addToInstructionRegister(fromYRegister, true, true),
-	performInstructionRegisterCarryCycle(),
-	performActionOnTick(),
+var actionAbsoluteYWrite []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: addToInstructionRegisterMSB(fromYRegister, true, true),
+	},
+	{
+		cycle:     extraCycleIfCarryInstructionRegister(),
+		postCycle: doNothing(),
+	},
+	{
+		cycle:     readFromBus(true),
+		postCycle: doNothing(),
+	},
 }
 
 /**********************************
 * Relative
 ***********************************/
-var actionRelative []cycleAction = []cycleAction{
-	readFromProgramCounter(true),
-	func(cpu *Cpu65C02S) func() {
-		if cpu.branchTaken {
-			cpu.branchTaken = false
-			cpu.setReadBus(cpu.programCounter)
-			cpu.instructionRegister = cpu.programCounter
-			cpu.addToInstructionRegister(uint16(cpu.dataRegister))
-			return func() {
-				cpu.programCounter = cpu.instructionRegister
-				cpu.setReadBus(cpu.programCounter)
-			}
-		} else {
-			return nil
-		}
+var actionRelative []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoDataRegister(true),
 	},
-	performInstructionRegisterCarryCycle(),
+	{
+		cycle:     extraCycleIfBranchTaken(),
+		postCycle: moveInstructionRegisterToProgramCounter(false),
+	},
+	{
+		cycle:     extraCycleIfCarryInstructionRegister(),
+		postCycle: doNothing(),
+	},
 }
 
 /**********************************
 * Indexed Indirect X
 ***********************************/
-var actionIndexedIndirectX []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(cpu.instructionRegister)
-
-		return func() {
-			cpu.addToInstructionRegisterLSB(cpu.xRegister)
-		}
+var actionIndexedIndirectX []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(cpu.instructionRegister)
-
-		return func() {
-			cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
-		}
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: addToInstructionRegisterLSB(fromXRegister),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(uint16(cpu.addressBus.Read() + 1))
-
-		return func() {
-			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
-		}
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoInstructionRegisterLSB(),
 	},
-	readFromInstructionRegister(true),
+	{
+		cycle:     readFromNextAddressInBus(),
+		postCycle: intoInstructionRegisterMSB(false),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(true),
+	},
 }
 
-var actionIndexedIndirectXW []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(cpu.instructionRegister)
-
-		return func() {
-			cpu.addToInstructionRegisterLSB(cpu.xRegister)
-		}
+var actionIndexedIndirectXW []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(cpu.instructionRegister)
-
-		return func() {
-			cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
-		}
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: addToInstructionRegisterLSB(fromXRegister),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(uint16(cpu.addressBus.Read() + 1))
-
-		return func() {
-			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
-		}
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoInstructionRegisterLSB(),
 	},
-	performActionOnTick(),
+	{
+		cycle:     readFromNextAddressInBus(),
+		postCycle: intoInstructionRegisterMSB(false),
+	},
+	{
+		cycle:     readFromBus(true),
+		postCycle: doNothing(),
+	},
 }
 
 /**********************************
 * Indirect Indexed
 ***********************************/
 
-var actionIndirectIndexedY []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(cpu.instructionRegister)
-
-		return func() {
-			cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
-		}
+var actionIndirectIndexedY []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
 	},
-	func(cpu *Cpu65C02S) func() {
-		// TODO: If page boundary crossed might require extra cycle (couldn't find documentation might need to check with real hardware)
-		cpu.setReadBus(cpu.addressBus.Read() + 1)
-
-		return func() {
-			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
-			cpu.setReadBus(cpu.instructionRegister)
-			cpu.addToInstructionRegister(uint16(cpu.yRegister))
-		}
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoInstructionRegisterLSB(),
 	},
-	performInstructionRegisterCarryCycle(),
-	readFromInstructionRegister(true),
+	{ // TODO: If page boundary crossed might require extra cycle (couldn't find documentation might need to check with real hardware)
+		cycle:     readFromNextAddressInBus(),
+		postCycle: addToInstructionRegisterMSB(fromYRegister, true, true),
+	},
+	{
+		cycle:     extraCycleIfCarryInstructionRegister(),
+		postCycle: doNothing(),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(true),
+	},
 }
 
-var actionIndirectIndexedYW []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(cpu.instructionRegister)
-
-		return func() {
-			cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
-		}
+var actionIndirectIndexedYW []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(cpu.addressBus.Read() + 1)
-
-		return func() {
-			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
-			cpu.setReadBus(cpu.instructionRegister)
-			cpu.addToInstructionRegister(uint16(cpu.yRegister))
-		}
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoInstructionRegisterLSB(),
 	},
-	performInstructionRegisterCarryCycle(),
-	performActionOnTick(),
+	{
+		cycle:     readFromNextAddressInBus(),
+		postCycle: addToInstructionRegisterMSB(fromYRegister, true, true),
+	},
+	{
+		cycle:     extraCycleIfCarryInstructionRegister(),
+		postCycle: doNothing(),
+	},
+	{
+		cycle:     readFromBus(true),
+		postCycle: doNothing(),
+	},
 }
 
 /**********************************
 * Indirect
 ***********************************/
 
-var actionIndirect []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	readInstructionRegisterMSB(),
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(cpu.instructionRegister)
-
-		return func() {
-			cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
-		}
+var actionIndirect []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(cpu.addressBus.Read() + 1)
-
-		return func() {
-			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
-		}
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterMSB(false),
 	},
-	readFromInstructionRegister(true),
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromNextAddressInBus(),
+		postCycle: intoInstructionRegisterMSB(false),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(true),
+	},
 }
 
 /**********************************
 * Zero Page Indirect
 ***********************************/
 
-var actionZeroPageIndirect []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(cpu.instructionRegister)
-
-		return func() {
-			cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
-		}
+var actionZeroPageIndirect []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(cpu.addressBus.Read() + 1)
-
-		return func() {
-			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
-		}
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoInstructionRegisterLSB(),
 	},
-	readFromInstructionRegister(true),
+	{
+		cycle:     readFromNextAddressInBus(),
+		postCycle: intoInstructionRegisterMSB(false),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(true),
+	},
 }
 
-var actionZeroPageIndirectWrite []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(cpu.instructionRegister)
-
-		return func() {
-			cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
-		}
+var actionZeroPageIndirectWrite []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(cpu.addressBus.Read() + 1)
-
-		return func() {
-			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
-		}
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoInstructionRegisterLSB(),
 	},
-	performActionOnTick(),
+	{
+		cycle:     readFromNextAddressInBus(),
+		postCycle: intoInstructionRegisterMSB(false),
+	},
+	{
+		cycle:     readFromBus(true),
+		postCycle: doNothing(),
+	},
 }
 
 /**********************************
 * Absolute Indexed Indirect
 ***********************************/
 
-var actionAbsoluteIndexedIndirectX []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(cpu.programCounter)
-		cpu.programCounter++
-
-		return func() {
-			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
-			cpu.addToInstructionRegister(uint16(cpu.xRegister))
-		}
+var actionAbsoluteIndexedIndirectX []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(cpu.instructionRegister)
-
-		return func() {
-			cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
-		}
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: addToInstructionRegisterMSB(fromXRegister, true, false),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(uint16(cpu.addressBus.Read() + 1))
-
-		return func() {
-			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
-		}
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoInstructionRegisterLSB(),
 	},
-	readFromInstructionRegister(true),
+	{
+		cycle:     readFromNextAddressInBus(),
+		postCycle: intoInstructionRegisterMSB(false),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(true),
+	},
 }
 
 /**********************************
 * Stack pointer instructions
 ***********************************/
-var actionPushStack []cycleAction = []cycleAction{
-	readNextInstructionAndThrowAway(false),
-	performActionOnTick(),
-}
-
-var actionPullStack []cycleAction = []cycleAction{
-	readNextInstructionAndThrowAway(false),
-	func(cpu *Cpu65C02S) func() {
-		cpu.readFromStack()
-
-		return func() {
-			cpu.stackPointer++
-		}
+var actionPushStack []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(false),
+		postCycle: intoDataRegister(false),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.readFromStack()
-
-		return func() {
-			cpu.dataRegister = cpu.dataBus.Read()
-			cpu.performAction()
-		}
+	{
+		cycle:     readFromBus(true),
+		postCycle: doNothing(),
 	},
 }
 
-var actionBreak []cycleAction = []cycleAction{
-	readFromProgramCounter(false),
-	func(cpu *Cpu65C02S) func() {
-		counterMSB := cpu.programCounter & 0xFF00
-		counterMSB = counterMSB >> 8
-		cpu.writeToStack(uint8(counterMSB))
-
-		return func() {
-			cpu.stackPointer--
-		}
+var actionPullStack []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(false),
+		postCycle: intoDataRegister(false),
 	},
-	func(cpu *Cpu65C02S) func() {
-		counterLSB := cpu.programCounter & 0x00FF
-		cpu.writeToStack(uint8(counterLSB))
-
-		return func() {
-			cpu.stackPointer--
-		}
+	{
+		cycle:     readFromStackPointer(true),
+		postCycle: doNothing(),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.writeToStack(uint8(cpu.processorStatusRegister))
-
-		return func() {
-			cpu.stackPointer--
-		}
-	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(0xFFFE)
-
-		return func() {
-			cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
-		}
-	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(0xFFFF)
-
-		return func() {
-			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
-			cpu.programCounter = cpu.instructionRegister
-		}
+	{
+		cycle:     readFromStackPointer(false),
+		postCycle: intoDataRegister(true),
 	},
 }
 
-var actionReturnFromInterrupt []cycleAction = []cycleAction{
-	readNextInstructionAndThrowAway(false),
-	func(cpu *Cpu65C02S) func() {
-		cpu.readFromStack()
-
-		return func() {
-			cpu.stackPointer++
-		}
+var actionBreak []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoDataRegister(false),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.readFromStack()
-
-		return func() {
-			cpu.processorStatusRegister = StatusRegister(cpu.dataBus.Read())
-			cpu.stackPointer++
-		}
+	{
+		cycle:     writeProgramCounterMSBToStack(),
+		postCycle: doNothing(),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.readFromStack()
-
-		return func() {
-			cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
-			cpu.stackPointer++
-		}
+	{
+		cycle:     writeProgramCounterLSBToStack(),
+		postCycle: doNothing(),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.readFromStack()
-
-		return func() {
-			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
-			cpu.stackPointer++
-			cpu.programCounter = cpu.instructionRegister
-		}
+	{
+		cycle:     writeProcessorStatusRegisterToStack(),
+		postCycle: doNothing(),
+	},
+	{
+		cycle:     readFromAddress(IRQ_VECTOR_LSB),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromAddress(IRQ_VECTOR_MSB),
+		postCycle: moveInstructionRegisterToProgramCounter(true),
 	},
 }
 
-var actionJumpToSubroutine []cycleAction = []cycleAction{
-	readInstructionRegisterLSB(),
-	func(cpu *Cpu65C02S) func() {
-		cpu.readFromStack()
-
-		return func() {
-		}
+var actionReturnFromInterrupt []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(false),
+		postCycle: intoDataRegister(false),
 	},
-	func(cpu *Cpu65C02S) func() {
-		counterMSB := cpu.programCounter & 0xFF00
-		counterMSB = counterMSB >> 8
-		cpu.writeToStack(uint8(counterMSB))
-
-		return func() {
-			cpu.stackPointer--
-		}
+	{
+		cycle:     readFromStackPointer(true),
+		postCycle: doNothing(),
 	},
-	func(cpu *Cpu65C02S) func() {
-		counterLSB := cpu.programCounter & 0x00FF
-		cpu.writeToStack(uint8(counterLSB))
-
-		return func() {
-			cpu.stackPointer--
-		}
+	{
+		cycle:     readFromStackPointer(true),
+		postCycle: intoStatusRegister(),
 	},
-	func(cpu *Cpu65C02S) func() {
-		// fetch high address byte to PC
-		cpu.setReadBus(cpu.programCounter)
-		cpu.programCounter++
-
-		return func() {
-			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
-			cpu.programCounter = cpu.instructionRegister
-		}
+	{
+		cycle:     readFromStackPointer(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromStackPointer(true),
+		postCycle: moveInstructionRegisterToProgramCounter(true),
 	},
 }
 
-var actionReturnFromSubroutine []cycleAction = []cycleAction{
-	readNextInstructionAndThrowAway(false),
-	func(cpu *Cpu65C02S) func() {
-		cpu.readFromStack()
-
-		return func() {
-			cpu.stackPointer++
-		}
+var actionJumpToSubroutine []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.readFromStack()
-
-		return func() {
-			cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
-			cpu.stackPointer++
-		}
+	{
+		cycle:     readFromStackPointer(false),
+		postCycle: doNothing(),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.readFromStack()
-
-		return func() {
-			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
-			cpu.stackPointer++
-			cpu.programCounter = cpu.instructionRegister
-		}
+	{
+		cycle:     writeProgramCounterMSBToStack(),
+		postCycle: doNothing(),
 	},
-	func(cpu *Cpu65C02S) func() {
-		cpu.setReadBus(cpu.programCounter)
+	{
+		cycle:     writeProgramCounterLSBToStack(),
+		postCycle: doNothing(),
+	},
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: moveInstructionRegisterToProgramCounter(true),
+	},
+}
 
-		return func() {
-			cpu.programCounter++
-		}
+var actionReturnFromSubroutine []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(false),
+		postCycle: intoDataRegister(false),
+	},
+	{
+		cycle:     readFromStackPointer(true),
+		postCycle: doNothing(),
+	},
+	{
+		cycle:     readFromStackPointer(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromStackPointer(true),
+		postCycle: moveInstructionRegisterToProgramCounter(true),
+	},
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: doNothing(),
 	},
 }

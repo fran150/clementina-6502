@@ -71,7 +71,7 @@ type AddressModeData struct {
 	name              AddressMode
 	text              string
 	format            string
-	microInstructions []cycleAction
+	microInstructions []cycleActions
 	memSize           uint8
 }
 
@@ -87,7 +87,7 @@ func (data *AddressModeData) Format() string {
 	return data.format
 }
 
-func (data *AddressModeData) Cycle(index int) cycleAction {
+func (data *AddressModeData) Cycle(index int) cycleActions {
 	return data.microInstructions[index]
 }
 
@@ -154,8 +154,8 @@ func CreateAddressModesSet() *AddressModeSet {
 
 		// Reviewed here
 
-		{AddressModeStop, "a", "$%#x", []cycleAction{}, 1},
-		{AddressModeWait, "a", "$%#x", []cycleAction{}, 1},
+		{AddressModeStop, "a", "$%#x", []cycleActions{}, 1},
+		{AddressModeWait, "a", "$%#x", []cycleActions{}, 1},
 	}
 
 	for _, addressMode := range data {

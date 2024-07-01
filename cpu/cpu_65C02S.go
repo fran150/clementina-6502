@@ -58,8 +58,7 @@ type Cpu65C02S struct {
 	processorStatusRegister StatusRegister
 
 	currentCycleIndex        int
-	currentCycle             cycleAction
-	currentPostCycle         func()
+	currentCycle             cycleActions
 	instructionRegisterCarry bool
 	branchTaken              bool
 	currentOpCode            OpCode
@@ -145,16 +144,14 @@ func (cpu *Cpu65C02S) ReadWrite() *buses.ConnectorEnabledLow {
  */
 
 func (cpu *Cpu65C02S) Tick(t uint64) {
-	cpu.currentPostCycle = cpu.currentCycle(cpu)
-
-	if cpu.currentPostCycle == nil {
+	if !cpu.currentCycle.cycle(cpu) {
 		cpu.moveToNextCycle()
 		cpu.Tick(t)
 	}
 }
 
 func (cpu *Cpu65C02S) PostTick(t uint64) {
-	cpu.currentPostCycle()
+	cpu.currentCycle.postCycle(cpu)
 	cpu.moveToNextCycle()
 }
 
@@ -206,7 +203,6 @@ func (cpu *Cpu65C02S) moveToNextCycle() {
 	if int(cpu.currentCycleIndex) >= currentAddressMode.Cycles() {
 		cpu.currentCycleIndex = 0
 		cpu.currentCycle = readOpCode
-		cpu.currentPostCycle = nil
 		cpu.instructionRegister = 0x0000
 		cpu.dataRegister = 0x00
 	} else {
