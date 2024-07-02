@@ -90,8 +90,9 @@ func CreateCPU() *Cpu65C02S {
 		instructionRegisterCarry: false,
 		branchTaken:              false,
 		currentOpCode:            0x00,
-		instructionRegister:      0x00,
-		dataRegister:             0x00,
+
+		instructionRegister: 0x00,
+		dataRegister:        0x00,
 	}
 }
 

@@ -28,6 +28,8 @@ const IRQ_VECTOR_MSB uint16 = 0xFFFF
 * Cycle Actions
 ***********************************************************************************************************/
 
+// Sets the program counter value on the bus for reading. If incrementProgramCounter parameter is true,
+// program counter is automatically increased to the next address.
 func readFromProgramCounter(incrementProgramCounter bool) cycleAction {
 	return func(cpu *Cpu65C02S) bool {
 		cpu.setReadBus(cpu.programCounter)
@@ -39,6 +41,7 @@ func readFromProgramCounter(incrementProgramCounter bool) cycleAction {
 	}
 }
 
+// Sets the current value of the intruction register on the bus for reading.
 func readFromInstructionRegister() cycleAction {
 	return func(cpu *Cpu65C02S) bool {
 		cpu.setReadBus(cpu.instructionRegister)
@@ -47,8 +50,11 @@ func readFromInstructionRegister() cycleAction {
 	}
 }
 
-func readFromBus(performAction bool) cycleAction {
+// Reads from the current value in the bus. This does basically leave the address in the bus untouched.
+// Just sets the R/W flag to read.
+func readFromAddressInBus(performAction bool) cycleAction {
 	return func(cpu *Cpu65C02S) bool {
+		cpu.setReadBus(cpu.addressBus.Read())
 		if performAction {
 			cpu.performAction()
 		}
@@ -57,14 +63,8 @@ func readFromBus(performAction bool) cycleAction {
 	}
 }
 
-func readFromAddress(address uint16) cycleAction {
-	return func(cpu *Cpu65C02S) bool {
-		cpu.setReadBus(address)
-
-		return true
-	}
-}
-
+// Increment the current value in the bus by one and sets is to read. This is commonly used to read
+// 2 bytes address from memory, for example in indirect address modes.
 func readFromNextAddressInBus() cycleAction {
 	return func(cpu *Cpu65C02S) bool {
 		cpu.setReadBus(uint16(cpu.addressBus.Read() + 1))
@@ -73,6 +73,20 @@ func readFromNextAddressInBus() cycleAction {
 	}
 }
 
+// Sets a specific address on the bus for reading. This is commonly used to read from IRQ, NMI or reset
+// vectors.
+func readFromAddress(address uint16) cycleAction {
+	return func(cpu *Cpu65C02S) bool {
+		cpu.setReadBus(address)
+
+		return true
+	}
+}
+
+// Sets the current value of the stack pointer on the bus for reading. Basically, the SP is in range
+// 0x100 to 0x1FF, so effective address will be 0x100 + stack pointer value. Typically the stack pointer
+// is moved up, but some cycles requires a repeated read. If increasedStackPointer parameter is true
+// the stack pointer value is automatically incremented.
 func readFromStackPointer(increaseStackPointer bool) cycleAction {
 	return func(cpu *Cpu65C02S) bool {
 		cpu.readFromStack()
@@ -85,8 +99,13 @@ func readFromStackPointer(increaseStackPointer bool) cycleAction {
 	}
 }
 
+// If the previous add to the instruction registers caused a carry it means that a page boundary was
+// reached. In these cases the processor needs an extra cycle, on the 65C02S this is an extra read
+// on the current bus value.
 func extraCycleIfCarryInstructionRegister() cycleAction {
 	return func(cpu *Cpu65C02S) bool {
+		cpu.setReadBus(cpu.addressBus.Read())
+
 		if cpu.instructionRegisterCarry {
 			cpu.instructionRegisterCarry = false
 			return true
@@ -96,6 +115,9 @@ func extraCycleIfCarryInstructionRegister() cycleAction {
 	}
 }
 
+// On relative address modes, if the branch is taken the CPU requires an extra cycle to do the jump.
+// This causes a read on the current program counter and it is used to update the program counter
+// to branch value
 func extraCycleIfBranchTaken() cycleAction {
 	return func(cpu *Cpu65C02S) bool {
 		if cpu.branchTaken {
@@ -110,6 +132,9 @@ func extraCycleIfBranchTaken() cycleAction {
 	}
 }
 
+// TODO: Review this documentation
+// This is used to push the program counter MSB to the stack. It sets the MSB value of the PC into the
+// current value of the stack pointer on the bus for write and updates the stack pointer value accordingly
 func writeProgramCounterMSBToStack() cycleAction {
 	return func(cpu *Cpu65C02S) bool {
 		counterMSB := cpu.programCounter & 0xFF00
@@ -120,6 +145,8 @@ func writeProgramCounterMSBToStack() cycleAction {
 	}
 }
 
+// This is used to push the program counter MSB to the stack. It sets the LSB value of the PC into the
+// current value of the stack pointer on the bus for write and updates the stack pointer value accordingly
 func writeProgramCounterLSBToStack() cycleAction {
 	return func(cpu *Cpu65C02S) bool {
 		counterLSB := cpu.programCounter & 0x00FF
@@ -129,6 +156,8 @@ func writeProgramCounterLSBToStack() cycleAction {
 	}
 }
 
+// This is used to push the processor status to the stack. It sets the processor status value into the
+// current value of the stack pointer on the bus for write and updates the stack pointer value accordingly
 func writeProcessorStatusRegisterToStack() cycleAction {
 	return func(cpu *Cpu65C02S) bool {
 		cpu.writeToStack(uint8(cpu.processorStatusRegister))
@@ -236,14 +265,14 @@ var readOpCode cycleActions = cycleActions{
 * Implied / Accumulator / Immediate
 ***********************************/
 
-var actionImplicitOrAccumulator []cycleActions = []cycleActions{
+var addressModeImplicitOrAccumulatorActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(false),
 		postCycle: intoDataRegister(true),
 	},
 }
 
-var actionImmediate []cycleActions = []cycleActions{
+var addressModeImmediateActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoDataRegister(true),
@@ -254,7 +283,7 @@ var actionImmediate []cycleActions = []cycleActions{
 * Absolute
 ***********************************/
 
-var actionAbsoluteJump []cycleActions = []cycleActions{
+var addressModeAbsoluteJumpActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -265,7 +294,7 @@ var actionAbsoluteJump []cycleActions = []cycleActions{
 	},
 }
 
-var actionAbsolute []cycleActions = []cycleActions{
+var addressModeAbsoluteActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -280,7 +309,7 @@ var actionAbsolute []cycleActions = []cycleActions{
 	},
 }
 
-var actionAbsoluteRMW []cycleActions = []cycleActions{
+var addressModeAbsoluteRMWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -298,12 +327,12 @@ var actionAbsoluteRMW []cycleActions = []cycleActions{
 		postCycle: intoDataRegister(false),
 	},
 	{
-		cycle:     readFromBus(true),
+		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
 	},
 }
 
-var actionAbsoluteWrite []cycleActions = []cycleActions{
+var addressModeAbsoluteWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -313,7 +342,7 @@ var actionAbsoluteWrite []cycleActions = []cycleActions{
 		postCycle: intoInstructionRegisterMSB(false),
 	},
 	{
-		cycle:     readFromBus(true),
+		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
 	},
 }
@@ -322,7 +351,7 @@ var actionAbsoluteWrite []cycleActions = []cycleActions{
 * Zero Page
 ***********************************/
 
-var actionZeroPage []cycleActions = []cycleActions{
+var addressModeZeroPageActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -333,7 +362,7 @@ var actionZeroPage []cycleActions = []cycleActions{
 	},
 }
 
-var actionZeroPageRMW []cycleActions = []cycleActions{
+var addressModeZeroPageRMWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -347,18 +376,18 @@ var actionZeroPageRMW []cycleActions = []cycleActions{
 		postCycle: intoDataRegister(false),
 	},
 	{
-		cycle:     readFromBus(true),
+		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
 	},
 }
 
-var actionZeroPageWrite []cycleActions = []cycleActions{
+var addressModeZeroPageWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
 	},
 	{
-		cycle:     readFromBus(true),
+		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
 	},
 }
@@ -367,7 +396,7 @@ var actionZeroPageWrite []cycleActions = []cycleActions{
 * Zero Page Indexed
 ***********************************/
 
-var actionZeroPageX []cycleActions = []cycleActions{
+var addressModeZeroPageXActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -382,7 +411,7 @@ var actionZeroPageX []cycleActions = []cycleActions{
 	},
 }
 
-var actionZeroPageXRMW []cycleActions = []cycleActions{
+var addressModeZeroPageXRMWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -396,12 +425,12 @@ var actionZeroPageXRMW []cycleActions = []cycleActions{
 		postCycle: intoDataRegister(false),
 	},
 	{
-		cycle:     readFromBus(true),
+		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
 	},
 }
 
-var actionZeroPageXWrite []cycleActions = []cycleActions{
+var addressModeZeroPageXWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -411,12 +440,12 @@ var actionZeroPageXWrite []cycleActions = []cycleActions{
 		postCycle: addToInstructionRegisterLSB(fromXRegister),
 	},
 	{
-		cycle:     readFromBus(true),
+		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
 	},
 }
 
-var actionZeroPageY []cycleActions = []cycleActions{
+var addressModeZeroPageYActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -434,7 +463,7 @@ var actionZeroPageY []cycleActions = []cycleActions{
 /**********************************
 * Absolute Indexed Addressing
 ***********************************/
-var actionAbsoluteX []cycleActions = []cycleActions{
+var addressModeAbsoluteXActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -453,7 +482,7 @@ var actionAbsoluteX []cycleActions = []cycleActions{
 	},
 }
 
-var actionAbsoluteXRMW []cycleActions = []cycleActions{
+var addressModeAbsoluteXRMWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -475,12 +504,12 @@ var actionAbsoluteXRMW []cycleActions = []cycleActions{
 		postCycle: intoDataRegister(false),
 	},
 	{
-		cycle:     readFromBus(true),
+		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
 	},
 }
 
-var actionAbsoluteXWrite []cycleActions = []cycleActions{
+var addressModeAbsoluteXWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -494,12 +523,12 @@ var actionAbsoluteXWrite []cycleActions = []cycleActions{
 		postCycle: doNothing(),
 	},
 	{
-		cycle:     readFromBus(true),
+		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
 	},
 }
 
-var actionAbsoluteY []cycleActions = []cycleActions{
+var addressModeAbsoluteYActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -518,7 +547,7 @@ var actionAbsoluteY []cycleActions = []cycleActions{
 	},
 }
 
-var actionAbsoluteYWrite []cycleActions = []cycleActions{
+var addressModeAbsoluteYWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -532,7 +561,7 @@ var actionAbsoluteYWrite []cycleActions = []cycleActions{
 		postCycle: doNothing(),
 	},
 	{
-		cycle:     readFromBus(true),
+		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
 	},
 }
@@ -540,7 +569,7 @@ var actionAbsoluteYWrite []cycleActions = []cycleActions{
 /**********************************
 * Relative
 ***********************************/
-var actionRelative []cycleActions = []cycleActions{
+var addressModeRelativeActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoDataRegister(true),
@@ -558,7 +587,7 @@ var actionRelative []cycleActions = []cycleActions{
 /**********************************
 * Indexed Indirect X
 ***********************************/
-var actionIndexedIndirectX []cycleActions = []cycleActions{
+var addressModeZeroPageIndexedIndirectXActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -581,7 +610,7 @@ var actionIndexedIndirectX []cycleActions = []cycleActions{
 	},
 }
 
-var actionIndexedIndirectXW []cycleActions = []cycleActions{
+var addressModeZeroPageIndexedIndirectXWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -599,7 +628,7 @@ var actionIndexedIndirectXW []cycleActions = []cycleActions{
 		postCycle: intoInstructionRegisterMSB(false),
 	},
 	{
-		cycle:     readFromBus(true),
+		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
 	},
 }
@@ -608,7 +637,7 @@ var actionIndexedIndirectXW []cycleActions = []cycleActions{
 * Indirect Indexed
 ***********************************/
 
-var actionIndirectIndexedY []cycleActions = []cycleActions{
+var addressModeZeroPageIndirectIndexedYActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -631,7 +660,7 @@ var actionIndirectIndexedY []cycleActions = []cycleActions{
 	},
 }
 
-var actionIndirectIndexedYW []cycleActions = []cycleActions{
+var addressModeZeroPageIndirectIndexedYWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -649,7 +678,7 @@ var actionIndirectIndexedYW []cycleActions = []cycleActions{
 		postCycle: doNothing(),
 	},
 	{
-		cycle:     readFromBus(true),
+		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
 	},
 }
@@ -658,7 +687,7 @@ var actionIndirectIndexedYW []cycleActions = []cycleActions{
 * Indirect
 ***********************************/
 
-var actionIndirect []cycleActions = []cycleActions{
+var addressModeIndirectActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -685,7 +714,7 @@ var actionIndirect []cycleActions = []cycleActions{
 * Zero Page Indirect
 ***********************************/
 
-var actionZeroPageIndirect []cycleActions = []cycleActions{
+var addressModeIndirectZeroPageActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -704,7 +733,7 @@ var actionZeroPageIndirect []cycleActions = []cycleActions{
 	},
 }
 
-var actionZeroPageIndirectWrite []cycleActions = []cycleActions{
+var addressModeIndirectZeroPageWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -718,7 +747,7 @@ var actionZeroPageIndirectWrite []cycleActions = []cycleActions{
 		postCycle: intoInstructionRegisterMSB(false),
 	},
 	{
-		cycle:     readFromBus(true),
+		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
 	},
 }
@@ -727,7 +756,7 @@ var actionZeroPageIndirectWrite []cycleActions = []cycleActions{
 * Absolute Indexed Indirect
 ***********************************/
 
-var actionAbsoluteIndexedIndirectX []cycleActions = []cycleActions{
+var addressModeAbsoluteIndexedIndirectActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -753,18 +782,18 @@ var actionAbsoluteIndexedIndirectX []cycleActions = []cycleActions{
 /**********************************
 * Stack pointer instructions
 ***********************************/
-var actionPushStack []cycleActions = []cycleActions{
+var addressModePushStackActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(false),
 		postCycle: intoDataRegister(false),
 	},
 	{
-		cycle:     readFromBus(true),
+		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
 	},
 }
 
-var actionPullStack []cycleActions = []cycleActions{
+var addressModePullStackActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(false),
 		postCycle: intoDataRegister(false),
@@ -779,7 +808,7 @@ var actionPullStack []cycleActions = []cycleActions{
 	},
 }
 
-var actionBreak []cycleActions = []cycleActions{
+var addressModeBreakActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoDataRegister(false),
@@ -806,7 +835,7 @@ var actionBreak []cycleActions = []cycleActions{
 	},
 }
 
-var actionReturnFromInterrupt []cycleActions = []cycleActions{
+var addressModeReturnFromInterruptActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(false),
 		postCycle: intoDataRegister(false),
@@ -829,7 +858,7 @@ var actionReturnFromInterrupt []cycleActions = []cycleActions{
 	},
 }
 
-var actionJumpToSubroutine []cycleActions = []cycleActions{
+var addressModeJumpToSubroutineActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
@@ -852,7 +881,7 @@ var actionJumpToSubroutine []cycleActions = []cycleActions{
 	},
 }
 
-var actionReturnFromSubroutine []cycleActions = []cycleActions{
+var addressModeReturnFromSubroutineActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(false),
 		postCycle: intoDataRegister(false),

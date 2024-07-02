@@ -8,18 +8,18 @@ func setNegativeFlag(cpu *Cpu65C02S, value uint8) {
 	cpu.processorStatusRegister.SetFlag(NegativeFlagBit, value&0x80 > 0)
 }
 
-func ActionADC(cpu *Cpu65C02S) {
+func actionADC(cpu *Cpu65C02S) {
 
 }
 
-func ActionAND(cpu *Cpu65C02S) {
+func actionAND(cpu *Cpu65C02S) {
 	cpu.accumulatorRegister &= cpu.dataRegister
 
 	setZeroFlag(cpu, cpu.accumulatorRegister)
 	setNegativeFlag(cpu, cpu.accumulatorRegister)
 }
 
-func ActionASL(cpu *Cpu65C02S) {
+func actionASL(cpu *Cpu65C02S) {
 	temp := uint16(cpu.dataRegister) << 1
 
 	if temp > 0xFF {
@@ -30,97 +30,97 @@ func ActionASL(cpu *Cpu65C02S) {
 	cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
 }
 
-func ActionBCC(cpu *Cpu65C02S) {
+func actionBCC(cpu *Cpu65C02S) {
 	if !cpu.processorStatusRegister.Flag(CarryFlagBit) {
 		cpu.branchTaken = true
 	}
 }
 
-func ActionBCS(cpu *Cpu65C02S) {
+func actionBCS(cpu *Cpu65C02S) {
 
 }
 
-func ActionBEQ(cpu *Cpu65C02S) {
+func actionBEQ(cpu *Cpu65C02S) {
 
 }
 
-func ActionBIT(cpu *Cpu65C02S) {
+func actionBIT(cpu *Cpu65C02S) {
 
 }
 
-func ActionBMI(cpu *Cpu65C02S) {
+func actionBMI(cpu *Cpu65C02S) {
 
 }
 
-func ActionBNE(cpu *Cpu65C02S) {
+func actionBNE(cpu *Cpu65C02S) {
 
 }
 
-func ActionBPL(cpu *Cpu65C02S) {
+func actionBPL(cpu *Cpu65C02S) {
 
 }
 
-func ActionBRA(cpu *Cpu65C02S) {
+func actionBRA(cpu *Cpu65C02S) {
 
 }
 
-func ActionBRK(cpu *Cpu65C02S) {
+func actionBRK(cpu *Cpu65C02S) {
 
 }
 
-func ActionBVC(cpu *Cpu65C02S) {
+func actionBVC(cpu *Cpu65C02S) {
 
 }
 
-func ActionBVS(cpu *Cpu65C02S) {
+func actionBVS(cpu *Cpu65C02S) {
 
 }
 
-func ActionCLC(cpu *Cpu65C02S) {
+func actionCLC(cpu *Cpu65C02S) {
 
 }
 
-func ActionCLD(cpu *Cpu65C02S) {
+func actionCLD(cpu *Cpu65C02S) {
 
 }
 
-func ActionCLI(cpu *Cpu65C02S) {
+func actionCLI(cpu *Cpu65C02S) {
 
 }
 
-func ActionCLV(cpu *Cpu65C02S) {
+func actionCLV(cpu *Cpu65C02S) {
 
 }
 
-func ActionCMP(cpu *Cpu65C02S) {
+func actionCMP(cpu *Cpu65C02S) {
 
 }
 
-func ActionCPX(cpu *Cpu65C02S) {
+func actionCPX(cpu *Cpu65C02S) {
 
 }
 
-func ActionCPY(cpu *Cpu65C02S) {
+func actionCPY(cpu *Cpu65C02S) {
 
 }
 
-func ActionDEC(cpu *Cpu65C02S) {
+func actionDEC(cpu *Cpu65C02S) {
 
 }
 
-func ActionDEX(cpu *Cpu65C02S) {
+func actionDEX(cpu *Cpu65C02S) {
 
 }
 
-func ActionDEY(cpu *Cpu65C02S) {
+func actionDEY(cpu *Cpu65C02S) {
 
 }
 
-func ActionEOR(cpu *Cpu65C02S) {
+func actionEOR(cpu *Cpu65C02S) {
 
 }
 
-func ActionINC(cpu *Cpu65C02S) {
+func actionINC(cpu *Cpu65C02S) {
 	cpu.dataRegister++
 
 	if cpu.getCurrentAddressMode().Name() != AddressModeAccumulator {
@@ -131,182 +131,182 @@ func ActionINC(cpu *Cpu65C02S) {
 
 }
 
-func ActionINX(cpu *Cpu65C02S) {
+func actionINX(cpu *Cpu65C02S) {
 
 }
 
-func ActionINY(cpu *Cpu65C02S) {
+func actionINY(cpu *Cpu65C02S) {
 
 }
 
-func ActionJMP(cpu *Cpu65C02S) {
+func actionJMP(cpu *Cpu65C02S) {
 	cpu.programCounter = cpu.instructionRegister
 }
 
-func ActionJSR(cpu *Cpu65C02S) {
+func actionJSR(cpu *Cpu65C02S) {
 
 }
 
-func ActionLDA(cpu *Cpu65C02S) {
+func actionLDA(cpu *Cpu65C02S) {
 	cpu.accumulatorRegister = cpu.dataRegister
 }
 
-func ActionLDX(cpu *Cpu65C02S) {
+func actionLDX(cpu *Cpu65C02S) {
 	cpu.xRegister = cpu.dataRegister
 }
 
-func ActionLDY(cpu *Cpu65C02S) {
+func actionLDY(cpu *Cpu65C02S) {
 	cpu.yRegister = cpu.dataRegister
 }
 
-func ActionLSR(cpu *Cpu65C02S) {
+func actionLSR(cpu *Cpu65C02S) {
 
 }
 
-func ActionNOP(cpu *Cpu65C02S) {
+func actionNOP(cpu *Cpu65C02S) {
 
 }
 
-func ActionORA(cpu *Cpu65C02S) {
+func actionORA(cpu *Cpu65C02S) {
 
 }
 
-func ActionPHA(cpu *Cpu65C02S) {
+func actionPHA(cpu *Cpu65C02S) {
 	cpu.writeToStack(cpu.accumulatorRegister)
 	cpu.stackPointer--
 }
 
-func ActionPHP(cpu *Cpu65C02S) {
+func actionPHP(cpu *Cpu65C02S) {
 	cpu.writeToStack(uint8(cpu.processorStatusRegister))
 	cpu.stackPointer--
 }
 
-func ActionPHX(cpu *Cpu65C02S) {
+func actionPHX(cpu *Cpu65C02S) {
 	cpu.writeToStack(cpu.xRegister)
 	cpu.stackPointer--
 }
 
-func ActionPHY(cpu *Cpu65C02S) {
+func actionPHY(cpu *Cpu65C02S) {
 	cpu.writeToStack(cpu.yRegister)
 	cpu.stackPointer--
 }
 
-func ActionPLA(cpu *Cpu65C02S) {
+func actionPLA(cpu *Cpu65C02S) {
 	cpu.accumulatorRegister = cpu.dataRegister
 }
 
-func ActionPLP(cpu *Cpu65C02S) {
+func actionPLP(cpu *Cpu65C02S) {
 	cpu.processorStatusRegister = StatusRegister(cpu.dataRegister)
 }
 
-func ActionPLX(cpu *Cpu65C02S) {
+func actionPLX(cpu *Cpu65C02S) {
 	cpu.xRegister = cpu.dataRegister
 }
 
-func ActionPLY(cpu *Cpu65C02S) {
+func actionPLY(cpu *Cpu65C02S) {
 	cpu.yRegister = cpu.dataRegister
 }
 
-func ActionROL(cpu *Cpu65C02S) {
+func actionROL(cpu *Cpu65C02S) {
 
 }
 
-func ActionROR(cpu *Cpu65C02S) {
+func actionROR(cpu *Cpu65C02S) {
 
 }
 
-func ActionRTI(cpu *Cpu65C02S) {
+func actionRTI(cpu *Cpu65C02S) {
 
 }
 
-func ActionRTS(cpu *Cpu65C02S) {
+func actionRTS(cpu *Cpu65C02S) {
 
 }
 
-func ActionSBC(cpu *Cpu65C02S) {
+func actionSBC(cpu *Cpu65C02S) {
 
 }
 
-func ActionSEC(cpu *Cpu65C02S) {
+func actionSEC(cpu *Cpu65C02S) {
 
 }
 
-func ActionSED(cpu *Cpu65C02S) {
+func actionSED(cpu *Cpu65C02S) {
 
 }
 
-func ActionSEI(cpu *Cpu65C02S) {
+func actionSEI(cpu *Cpu65C02S) {
 
 }
 
-func ActionSTA(cpu *Cpu65C02S) {
+func actionSTA(cpu *Cpu65C02S) {
 	cpu.setWriteBus(cpu.instructionRegister, cpu.accumulatorRegister)
 }
 
-func ActionSTP(cpu *Cpu65C02S) {
+func actionSTP(cpu *Cpu65C02S) {
 
 }
 
-func ActionSTX(cpu *Cpu65C02S) {
+func actionSTX(cpu *Cpu65C02S) {
 	cpu.setWriteBus(cpu.instructionRegister, cpu.xRegister)
 }
 
-func ActionSTY(cpu *Cpu65C02S) {
+func actionSTY(cpu *Cpu65C02S) {
 	cpu.setWriteBus(cpu.instructionRegister, cpu.yRegister)
 }
 
-func ActionSTZ(cpu *Cpu65C02S) {
+func actionSTZ(cpu *Cpu65C02S) {
 
 }
 
-func ActionTAX(cpu *Cpu65C02S) {
+func actionTAX(cpu *Cpu65C02S) {
 
 }
 
-func ActionTAY(cpu *Cpu65C02S) {
+func actionTAY(cpu *Cpu65C02S) {
 
 }
 
-func ActionTRB(cpu *Cpu65C02S) {
+func actionTRB(cpu *Cpu65C02S) {
 
 }
 
-func ActionTSB(cpu *Cpu65C02S) {
+func actionTSB(cpu *Cpu65C02S) {
 
 }
 
-func ActionTSX(cpu *Cpu65C02S) {
+func actionTSX(cpu *Cpu65C02S) {
 
 }
 
-func ActionTXA(cpu *Cpu65C02S) {
+func actionTXA(cpu *Cpu65C02S) {
 
 }
 
-func ActionTXS(cpu *Cpu65C02S) {
+func actionTXS(cpu *Cpu65C02S) {
 
 }
 
-func ActionTYA(cpu *Cpu65C02S) {
+func actionTYA(cpu *Cpu65C02S) {
 
 }
 
-func ActionWAI(cpu *Cpu65C02S) {
+func actionWAI(cpu *Cpu65C02S) {
 
 }
 
-func ActionRMB(cpu *Cpu65C02S) {
+func actionRMB(cpu *Cpu65C02S) {
 
 }
 
-func ActionSMB(cpu *Cpu65C02S) {
+func actionSMB(cpu *Cpu65C02S) {
 
 }
 
-func ActionBBS(cpu *Cpu65C02S) {
+func actionBBS(cpu *Cpu65C02S) {
 
 }
 
-func ActionBBR(cpu *Cpu65C02S) {
+func actionBBR(cpu *Cpu65C02S) {
 
 }
