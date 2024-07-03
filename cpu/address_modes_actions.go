@@ -132,9 +132,8 @@ func extraCycleIfBranchTaken() cycleAction {
 	}
 }
 
-// TODO: Review this documentation
-// This is used to push the program counter MSB to the stack. It sets the MSB value of the PC into the
-// current value of the stack pointer on the bus for write and updates the stack pointer value accordingly
+// This is used to push the program counter MSB to the stack. It configures the bus to write the MSB of the PC
+// into the stack pointer address and updates the stack pointer value accordingly
 func writeProgramCounterMSBToStack() cycleAction {
 	return func(cpu *Cpu65C02S) bool {
 		counterMSB := cpu.programCounter & 0xFF00
@@ -145,8 +144,8 @@ func writeProgramCounterMSBToStack() cycleAction {
 	}
 }
 
-// This is used to push the program counter MSB to the stack. It sets the LSB value of the PC into the
-// current value of the stack pointer on the bus for write and updates the stack pointer value accordingly
+// This is used to push the program counter LSB to the stack. It configures the bus to write the LSB of the PC
+// into the stack pointer address and updates the stack pointer value accordingly
 func writeProgramCounterLSBToStack() cycleAction {
 	return func(cpu *Cpu65C02S) bool {
 		counterLSB := cpu.programCounter & 0x00FF
@@ -156,8 +155,8 @@ func writeProgramCounterLSBToStack() cycleAction {
 	}
 }
 
-// This is used to push the processor status to the stack. It sets the processor status value into the
-// current value of the stack pointer on the bus for write and updates the stack pointer value accordingly
+// This is used to push the processor status to the stack. It configures the bus to write the processor status
+// into the stack pointer address and updates the stack pointer value accordingly
 func writeProcessorStatusRegisterToStack() cycleAction {
 	return func(cpu *Cpu65C02S) bool {
 		cpu.writeToStack(uint8(cpu.processorStatusRegister))
@@ -170,12 +169,17 @@ func writeProcessorStatusRegisterToStack() cycleAction {
 * Cycle Post Actions
 ***********************************************************************************************************/
 
+// Copies the value in the data bus as the current opcode. This is the instruction
+// being processed
 func intoOpCode() cyclePostAction {
 	return func(cpu *Cpu65C02S) {
 		cpu.currentOpCode = OpCode(cpu.dataBus.Read())
 	}
 }
 
+// Copies the value in the data bus in the data register. The instruction action functions
+// will pick the value from here to perfrom their operations.
+// If the `performAction` parameter is true, the instruction action will be executed
 func intoDataRegister(performAction bool) cyclePostAction {
 	return func(cpu *Cpu65C02S) {
 		cpu.dataRegister = cpu.dataBus.Read()
@@ -185,12 +189,19 @@ func intoDataRegister(performAction bool) cyclePostAction {
 	}
 }
 
+// Copies the value in the data bus to the LSB of the instruction register.
+// The instruction register is used as temporary buffer to store the address of
+// the operand for certain instructions.
 func intoInstructionRegisterLSB() cyclePostAction {
 	return func(cpu *Cpu65C02S) {
 		cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
 	}
 }
 
+// Copies the value in the data bus to the MSB of the instruction register.
+// The instruction register is used as temporary buffer to store the address of
+// the operand for certain instructions.
+// If the `performAction` parameter is true, the instruction action will be executed
 func intoInstructionRegisterMSB(performAction bool) cyclePostAction {
 	return func(cpu *Cpu65C02S) {
 		cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
@@ -201,12 +212,19 @@ func intoInstructionRegisterMSB(performAction bool) cyclePostAction {
 	}
 }
 
+// Copies the value in the data bus to the processor status register.
+// This is typically used when restoring the status from the stack after
+// an interruption but it can be also triggered manual for exmaple with PLP
 func intoStatusRegister() cyclePostAction {
 	return func(cpu *Cpu65C02S) {
 		cpu.processorStatusRegister = StatusRegister(cpu.dataBus.Read())
 	}
 }
 
+// Adds the X or Y register to the instruction register LSB.
+// Any carry is ignored. This is used mostly in the zero page indexed
+// address modes in where if the page boundary is reached it just
+// "wraps around"
 func addToInstructionRegisterLSB(origin sumOrigin) cyclePostAction {
 	return func(cpu *Cpu65C02S) {
 		switch origin {
@@ -218,15 +236,17 @@ func addToInstructionRegisterLSB(origin sumOrigin) cyclePostAction {
 	}
 }
 
-func addToInstructionRegisterMSB(origin sumOrigin, setInstructionRegisterMSB bool, setReadBus bool) cyclePostAction {
+// Adds the X or Y register to the instruction address.
+// Any carry in the addition will be added to the MSB of the instruction register.
+// This will also cause the instructionRegisterCarry value to be set to true.
+// In most cases this means that the CPU will require an extra cycle to update the
+// value of the MSB. In the emulation this internally already happens in this cycle,
+// the bus is set to read from the unchanged value as the extra cycle causes a read
+// from this value.
+func addToInstructionRegister(origin sumOrigin) cyclePostAction {
 	return func(cpu *Cpu65C02S) {
-		if setInstructionRegisterMSB {
-			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
-		}
-
-		if setReadBus {
-			cpu.setReadBus(cpu.instructionRegister)
-		}
+		cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
+		cpu.setReadBus(cpu.instructionRegister)
 
 		switch origin {
 		case fromXRegister:
@@ -237,6 +257,13 @@ func addToInstructionRegisterMSB(origin sumOrigin, setInstructionRegisterMSB boo
 	}
 }
 
+// Moves the instruction register to the program counter.
+// This will cause the execution to jump to the instruction register address.
+// This is commonly used for address modes that jump to subroutines,
+// branches (for example BCC, JSR, BRK) or handle interrupts (RTI)
+// Because the same function is used for 1 byte or 2 byte operands the parameter
+// "setInstructionRegisterMSB" can be used to read the MSB of the 2nd byte from
+// the bus.
 func moveInstructionRegisterToProgramCounter(setInstructionRegisterMSB bool) cyclePostAction {
 	return func(cpu *Cpu65C02S) {
 		if setInstructionRegisterMSB {
@@ -247,6 +274,7 @@ func moveInstructionRegisterToProgramCounter(setInstructionRegisterMSB bool) cyc
 	}
 }
 
+// Used when we don´t need to do anything in the post cycle phase.
 func doNothing() cyclePostAction {
 	return func(cpu *Cpu65C02S) {
 	}
@@ -256,6 +284,7 @@ func doNothing() cyclePostAction {
 * Address Modes Cycles
 ***********************************************************************************************************/
 
+// This is always the first cycle after an opcode execution is completed.
 var readOpCode cycleActions = cycleActions{
 	cycle:     readFromProgramCounter(true),
 	postCycle: intoOpCode(),
@@ -470,7 +499,7 @@ var addressModeAbsoluteXActions []cycleActions = []cycleActions{
 	},
 	{
 		cycle:     readFromProgramCounter(true),
-		postCycle: addToInstructionRegisterMSB(fromXRegister, true, true),
+		postCycle: addToInstructionRegister(fromXRegister),
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
@@ -489,7 +518,7 @@ var addressModeAbsoluteXRMWActions []cycleActions = []cycleActions{
 	},
 	{
 		cycle:     readFromProgramCounter(true),
-		postCycle: addToInstructionRegisterMSB(fromXRegister, true, true),
+		postCycle: addToInstructionRegister(fromXRegister),
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
@@ -516,7 +545,7 @@ var addressModeAbsoluteXWActions []cycleActions = []cycleActions{
 	},
 	{
 		cycle:     readFromProgramCounter(true),
-		postCycle: addToInstructionRegisterMSB(fromXRegister, true, true),
+		postCycle: addToInstructionRegister(fromXRegister),
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
@@ -535,7 +564,7 @@ var addressModeAbsoluteYActions []cycleActions = []cycleActions{
 	},
 	{
 		cycle:     readFromProgramCounter(true),
-		postCycle: addToInstructionRegisterMSB(fromXRegister, true, true),
+		postCycle: addToInstructionRegister(fromXRegister),
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
@@ -554,7 +583,7 @@ var addressModeAbsoluteYWActions []cycleActions = []cycleActions{
 	},
 	{
 		cycle:     readFromProgramCounter(true),
-		postCycle: addToInstructionRegisterMSB(fromYRegister, true, true),
+		postCycle: addToInstructionRegister(fromYRegister),
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
@@ -648,7 +677,7 @@ var addressModeZeroPageIndirectIndexedYActions []cycleActions = []cycleActions{
 	},
 	{ // TODO: If page boundary crossed might require extra cycle (couldn't find documentation might need to check with real hardware)
 		cycle:     readFromNextAddressInBus(),
-		postCycle: addToInstructionRegisterMSB(fromYRegister, true, true),
+		postCycle: addToInstructionRegister(fromYRegister),
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
@@ -671,7 +700,7 @@ var addressModeZeroPageIndirectIndexedYWActions []cycleActions = []cycleActions{
 	},
 	{
 		cycle:     readFromNextAddressInBus(),
-		postCycle: addToInstructionRegisterMSB(fromYRegister, true, true),
+		postCycle: addToInstructionRegister(fromYRegister),
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
@@ -763,7 +792,7 @@ var addressModeAbsoluteIndexedIndirectActions []cycleActions = []cycleActions{
 	},
 	{
 		cycle:     readFromProgramCounter(true),
-		postCycle: addToInstructionRegisterMSB(fromXRegister, true, false),
+		postCycle: addToInstructionRegister(fromXRegister),
 	},
 	{
 		cycle:     readFromInstructionRegister(),

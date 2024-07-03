@@ -66,7 +66,7 @@ type Cpu65C02S struct {
 	dataRegister             uint8
 }
 
-// Creates a CPU with typical values for all lines, address and data bus are not connected
+// Creates a CPU with typical values for all registers, address and data bus are not connected
 func CreateCPU() *Cpu65C02S {
 	return &Cpu65C02S{
 		busEnable:            buses.CreateConnectorEnabledHigh(),
@@ -98,7 +98,7 @@ func CreateCPU() *Cpu65C02S {
 
 /*
  ****************************************************
- * Connections
+ * Buses
  ****************************************************
  */
 
@@ -144,6 +144,9 @@ func (cpu *Cpu65C02S) ReadWrite() *buses.ConnectorEnabledLow {
  ****************************************************
  */
 
+// As part of the emulation for every cycle we will execute 2 functions:
+// First Tick for all emulated components and then PostTick.
+// The parameter T represents the elapsed time between executions
 func (cpu *Cpu65C02S) Tick(t uint64) {
 	if !cpu.currentCycle.cycle(cpu) {
 		cpu.moveToNextCycle()
@@ -151,51 +154,21 @@ func (cpu *Cpu65C02S) Tick(t uint64) {
 	}
 }
 
+// As part of the emulation for every cycle we will execute 2 functions:
+// First Tick for all emulated components and then PostTick.
+// The parameter T represents the elapsed time between executions
 func (cpu *Cpu65C02S) PostTick(t uint64) {
 	cpu.currentCycle.postCycle(cpu)
 	cpu.moveToNextCycle()
 }
 
-var alwaysExtra []uint8 = []uint8{
-	0xFE, // INC,x
-	0xDE, // DEC,x
-	0x9D, // STA,x
-}
-
-func (cpu *Cpu65C02S) addToInstructionRegister(value uint16) {
-	original := cpu.instructionRegister
-	data := (original & 0xff) + value
-	cpu.instructionRegister += value
-
-	if data > 0xFF || slices.Contains(alwaysExtra, uint8(cpu.currentOpCode)) {
-		cpu.instructionRegisterCarry = true
-	}
-}
-
-func (cpu *Cpu65C02S) addToInstructionRegisterLSB(value uint8) {
-	cpu.instructionRegister = uint16(uint8(cpu.instructionRegister) + value)
-}
-
-func (cpu *Cpu65C02S) performAction() {
-	cpu.instructionSet.GetByOpCode(cpu.currentOpCode).Execute(cpu)
-}
-
-func (cpu *Cpu65C02S) setInstructionRegisterLSB(value uint8) {
-	cpu.instructionRegister = (cpu.instructionRegister & 0xFF00) + uint16(value)
-}
-
-func (cpu *Cpu65C02S) setInstructionRegisterMSB(value uint8) {
-	cpu.instructionRegister = (cpu.instructionRegister & 0x00FF) + uint16(value)*0x100
-}
-
-func (cpu *Cpu65C02S) readFromStack() {
-	cpu.setReadBus(uint16(cpu.stackPointer) + 0x100)
-}
-
-func (cpu *Cpu65C02S) writeToStack(value uint8) {
-	cpu.setWriteBus(uint16(cpu.stackPointer)+0x100, value)
-}
-
+// Called after each cycle to move the processor to the next cycle.
+// CurrentAddressCycle always starts in 0 and points to the readOpCode
+// cycle.
+// The currentCycleIndex is increased and currentCycle values are updated
+// until the current instruction has no more cycles.
+// At that point the current cycle is reset to reaOpCode and the instruction
+// and data registers are set to 0 in preparation for a new instruction.
 func (cpu *Cpu65C02S) moveToNextCycle() {
 	cpu.currentCycleIndex++
 
@@ -207,8 +180,80 @@ func (cpu *Cpu65C02S) moveToNextCycle() {
 		cpu.instructionRegister = 0x0000
 		cpu.dataRegister = 0x00
 	} else {
-		cpu.currentCycle = cpu.getCurrentAddressMode().Cycle(cpu.currentCycleIndex - 1)
+		cpu.currentCycle = currentAddressMode.Cycle(cpu.currentCycleIndex - 1)
 	}
+}
+
+/*
+ ****************************************************
+ * Operations
+ ****************************************************
+ */
+
+// The 65C02S has optimized RMW instructions and they will take 6 cycles when
+// no page boundary is crossed vs the typical 7 cycles of the regular 6502.
+// This was fixed on most instructions except the ones below.
+var alwaysExtra []uint8 = []uint8{
+	0xFE, // INC,x
+	0xDE, // DEC,x
+	0x9D, // STA,x
+}
+
+// Adds the specified value to the instruction register.
+// The instruction register is used as a temporary buffer to hold the operand
+// of the curent opcode.
+// If a carry happens, normally the processor needs an extra cycle to udpate
+// the instruction register MSB.
+// As part of the emulation the carry addition is performed here and the
+// instructionRegisterCarry field is set to true.
+// The extra cycle will be executed or skipped by looking at this flag.
+func (cpu *Cpu65C02S) addToInstructionRegister(value uint16) {
+	original := cpu.instructionRegister
+	data := (original & 0xff) + value
+	cpu.instructionRegister += value
+
+	if data > 0xFF || slices.Contains(alwaysExtra, uint8(cpu.currentOpCode)) {
+		cpu.instructionRegisterCarry = true
+	}
+}
+
+// Adds the specified value to the instruction register LSB.
+// Any carry will be ignored. This is used mostly in the zero page indexed
+// address modes in where if the page boundary is reached it just
+// "wraps around"
+func (cpu *Cpu65C02S) addToInstructionRegisterLSB(value uint8) {
+	cpu.instructionRegister = uint16(uint8(cpu.instructionRegister) + value)
+}
+
+// Sets the specified value on the instruction register LSB
+func (cpu *Cpu65C02S) setInstructionRegisterLSB(value uint8) {
+	cpu.instructionRegister = (cpu.instructionRegister & 0xFF00) + uint16(value)
+}
+
+// Sets the specified value on the instruction register MSB
+func (cpu *Cpu65C02S) setInstructionRegisterMSB(value uint8) {
+	cpu.instructionRegister = (cpu.instructionRegister & 0x00FF) + uint16(value)*0x100
+}
+
+// Configures the bus to read from the current stack pointer.
+// In the 6502 family the stack pointer is located from 0x100 to 0x1FF.
+// The effective address of the stack pointer is then formed by adding
+// 0x100 to the stack pointer value.
+func (cpu *Cpu65C02S) readFromStack() {
+	cpu.setReadBus(uint16(cpu.stackPointer) + 0x100)
+}
+
+// Configures the bus to read from the current stack pointer.
+// In the 6502 family the stack pointer is located from 0x100 to 0x1FF.
+// The effective address of the stack pointer is then formed by adding
+// 0x100 to the stack pointer value.
+func (cpu *Cpu65C02S) writeToStack(value uint8) {
+	cpu.setWriteBus(uint16(cpu.stackPointer)+0x100, value)
+}
+
+// Executes the instruction action
+func (cpu *Cpu65C02S) performAction() {
+	cpu.GetCurrentInstruction().Execute(cpu)
 }
 
 /*
@@ -217,14 +262,18 @@ func (cpu *Cpu65C02S) moveToNextCycle() {
  ****************************************************
  */
 
-// TODO: Handle disconnected lines, Handle bus conflict
+// Configures the processor to read from the specified address
 func (cpu *Cpu65C02S) setReadBus(address uint16) {
+	// TODO: Handle disconnected lines, Handle bus conflict
+
 	if cpu.busEnable.Enabled() {
 		cpu.readWrite.SetEnable(false)
 		cpu.addressBus.Write(address)
 	}
 }
 
+// Configures the processor to write the data parameter into the
+// specified address.
 func (cpu *Cpu65C02S) setWriteBus(address uint16, data uint8) {
 	if cpu.busEnable.Enabled() {
 		cpu.readWrite.SetEnable(true)
@@ -233,10 +282,19 @@ func (cpu *Cpu65C02S) setWriteBus(address uint16, data uint8) {
 	}
 }
 
+/*
+ ****************************************************
+ * Public Methods
+ ****************************************************
+ */
+
+// Returns data about the current instruction being executed by the processor
 func (cpu *Cpu65C02S) GetCurrentInstruction() *CpuInstructionData {
 	return cpu.instructionSet.GetByOpCode(cpu.currentOpCode)
 }
 
+// Returns data about the address mode of the current instruction being
+// executed by the processor.
 func (cpu *Cpu65C02S) getCurrentAddressMode() *AddressModeData {
 	return cpu.addressModeSet.GetByName(cpu.GetCurrentInstruction().AddressMode())
 }
