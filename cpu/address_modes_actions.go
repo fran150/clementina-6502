@@ -564,7 +564,7 @@ var addressModeAbsoluteYActions []cycleActions = []cycleActions{
 	},
 	{
 		cycle:     readFromProgramCounter(true),
-		postCycle: addToInstructionRegister(fromXRegister),
+		postCycle: addToInstructionRegister(fromYRegister),
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),

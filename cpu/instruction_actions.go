@@ -73,19 +73,20 @@ func actionAND(cpu *Cpu65C02S) {
 // Bit 0 is set to 0 and bit 7 is placed in the carry flag. The effect of this operation is to multiply the memory
 // contents by 2 (ignoring 2's complement considerations), setting the carry if the result will not fit in 8 bits.
 func actionASL(cpu *Cpu65C02S) {
-	value := uint16(cpu.dataRegister) << 1
+	var value uint16
+
+	if cpu.getCurrentAddressMode().name == AddressModeAccumulator {
+		value = uint16(cpu.accumulatorRegister) << 1
+		cpu.accumulatorRegister = uint8(value)
+	} else {
+		value = uint16(cpu.dataRegister) << 1
+		cpu.dataRegister = uint8(value)
+		cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
+	}
 
 	setCarryFlag(cpu, value)
 	setZeroFlag16(cpu, value)
 	setNegativeFlag16(cpu, value)
-
-	// TODO: Evaluate to do it in the address mode action
-	if cpu.getCurrentAddressMode().name == AddressModeAccumulator {
-		cpu.accumulatorRegister = uint8(value)
-	} else {
-		cpu.dataRegister = uint8(value)
-		cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
-	}
 }
 
 // If the carry flag is clear then add the relative displacement to the program counter to cause a branch to a new location.
@@ -137,7 +138,7 @@ func actionBNE(cpu *Cpu65C02S) {
 
 // If the negative flag is clear then add the relative displacement to the program counter to cause a branch to a new location.
 func actionBPL(cpu *Cpu65C02S) {
-	if !cpu.processorStatusRegister.Flag(ZeroFlagBit) {
+	if !cpu.processorStatusRegister.Flag(NegativeFlagBit) {
 		cpu.branchTaken = true
 	}
 }
