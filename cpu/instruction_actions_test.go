@@ -414,3 +414,21 @@ func TestActionBRA(t *testing.T) {
 	evaluateBranchInstruction(t, cpu, ram, 3, "n", 0xC012)
 	evaluateBranchInstruction(t, cpu, ram, 4, "n", 0xC104)
 }
+
+func TestActionBRK(t *testing.T) {
+	cpu, ram := createComputer()
+
+	ram.Poke(0xFFFE, 0x00)
+	ram.Poke(0xFFFF, 0xD0)
+
+	ram.Poke(0xD000, 0xA9) // LDA #$FF
+	ram.Poke(0xD001, 0xFF)
+	ram.Poke(0xD002, 0x40) // RTI
+
+	ram.Poke(0xC000, 0x00) // BRK
+	ram.Poke(0xC001, 0xA9) // LDA #$77
+	ram.Poke(0xC002, 0x77)
+
+	evaluateBranchInstruction(t, cpu, ram, 7, "B", 0xD000)
+	//evaluateBranchInstruction(t, cpu, ram, 4, "n", 0xC104)
+}
