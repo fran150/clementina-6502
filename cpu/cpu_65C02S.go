@@ -78,12 +78,14 @@ func CreateCPU() *Cpu65C02S {
 		instructionSet: CreateInstructionSet(),
 		addressModeSet: CreateAddressModesSet(),
 
-		accumulatorRegister:     0x00,
-		xRegister:               0x00,
-		yRegister:               0x00,
-		stackPointer:            0xFD,
-		programCounter:          0xFFFC,
-		processorStatusRegister: 0x00,
+		accumulatorRegister: 0x00,
+		xRegister:           0x00,
+		yRegister:           0x00,
+		stackPointer:        0xFD,
+		programCounter:      0xFFFC,
+
+		// Set default value for flags B and I   (NV-BDIZC) = 0x34
+		processorStatusRegister: StatusRegister(0b00110100),
 
 		currentCycleIndex:        0,
 		currentCycle:             readOpCode,

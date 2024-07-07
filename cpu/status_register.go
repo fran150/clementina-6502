@@ -12,6 +12,7 @@ const (
 	IrqDisableFlagBit   StatusBit = 2
 	DecimalModeFlagBit  StatusBit = 3
 	BreakCommandFlagBit StatusBit = 4
+	UnusedFlagBit       StatusBit = 5
 	OverflowFlagBit     StatusBit = 6
 	NegativeFlagBit     StatusBit = 7
 )

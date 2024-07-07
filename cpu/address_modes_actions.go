@@ -157,9 +157,18 @@ func writeProgramCounterLSBToStack() cycleAction {
 
 // This is used to push the processor status to the stack. It configures the bus to write the processor status
 // into the stack pointer address and updates the stack pointer value accordingly
-func writeProcessorStatusRegisterToStack() cycleAction {
+// The B flag is always set, but it's written in 0 to the stack when the processor stauts is persisted to the
+// stack as part of a HW interrupt.
+func writeProcessorStatusRegisterToStack(hardwareInterrupt bool) cycleAction {
 	return func(cpu *Cpu65C02S) bool {
-		cpu.writeToStack(uint8(cpu.processorStatusRegister))
+		value := uint8(cpu.processorStatusRegister)
+
+		if hardwareInterrupt {
+			// If it's a hardware interrupt disable B flag when pushing to the stack
+			value &= 0xEF
+		}
+
+		cpu.writeToStack(value)
 		cpu.stackPointer--
 		return true
 	}
@@ -851,7 +860,7 @@ var addressModeBreakActions []cycleActions = []cycleActions{
 		postCycle: doNothing(),
 	},
 	{
-		cycle:     writeProcessorStatusRegisterToStack(),
+		cycle:     writeProcessorStatusRegisterToStack(false),
 		postCycle: doNothing(),
 	},
 	{

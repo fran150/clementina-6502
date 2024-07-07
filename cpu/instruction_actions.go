@@ -163,7 +163,7 @@ func actionBVC(cpu *Cpu65C02S) {
 
 // If the overflow flag is set then add the relative displacement to the program counter to cause a branch to a new location.
 func actionBVS(cpu *Cpu65C02S) {
-	if !cpu.processorStatusRegister.Flag(OverflowFlagBit) {
+	if cpu.processorStatusRegister.Flag(OverflowFlagBit) {
 		cpu.branchTaken = true
 	}
 }
@@ -193,36 +193,41 @@ func actionCLV(cpu *Cpu65C02S) {
 }
 
 // Z,C,N = A-M
-// This instruction compares the contents of the accumulator with another memory held value and sets the zero and carry flags as appropriate.
+// This instruction compares the contents of the accumulator with another memory held value and sets the
+// zero and carry flags as appropriate.
 func actionCMP(cpu *Cpu65C02S) {
-	value := uint16(cpu.accumulatorRegister) - uint16(cpu.dataRegister)
+	temp := cpu.accumulatorRegister
+	tempV := cpu.processorStatusRegister.Flag(OverflowFlagBit)
 
-	setCarryFlag(cpu, value)
-	setZeroFlag16(cpu, value)
-	setNegativeFlag16(cpu, value)
+	cpu.processorStatusRegister.SetFlag(CarryFlagBit, true)
+	actionSBC(cpu)
+
+	cpu.processorStatusRegister.SetFlag(OverflowFlagBit, tempV)
+	cpu.accumulatorRegister = temp
 }
 
 // Z,C,N = X-M
-// This instruction compares the contents of the X register with another memory held value and sets the zero and carry flags as appropriate.
+// This instruction compares the contents of the X register with another memory held value and sets the
+// zero and carry flags as appropriate.
 func actionCPX(cpu *Cpu65C02S) {
-	value := uint16(cpu.xRegister) - uint16(cpu.dataRegister)
-
-	setCarryFlag(cpu, value)
-	setZeroFlag16(cpu, value)
-	setNegativeFlag16(cpu, value)
+	temp := cpu.accumulatorRegister
+	cpu.accumulatorRegister = cpu.xRegister
+	actionCMP(cpu)
+	cpu.accumulatorRegister = temp
 }
 
 // Z,C,N = Y-M
-// This instruction compares the contents of the Y register with another memory held value and sets the zero and carry flags as appropriate.
+// This instruction compares the contents of the Y register with another memory held value and sets the
+// zero and carry flags as appropriate.
 func actionCPY(cpu *Cpu65C02S) {
-	value := uint16(cpu.yRegister) - uint16(cpu.dataRegister)
-
-	setCarryFlag(cpu, value)
-	setZeroFlag16(cpu, value)
-	setNegativeFlag16(cpu, value)
+	temp := cpu.accumulatorRegister
+	cpu.accumulatorRegister = cpu.yRegister
+	actionCMP(cpu)
+	cpu.accumulatorRegister = temp
 }
 
-// Subtracts one from the value held at a specified memory location setting the zero and negative flags as appropriate.
+// Subtracts one from the value held at a specified memory location setting the zero and negative
+// flags as appropriate.
 func actionDEC(cpu *Cpu65C02S) {
 	var value uint8
 

@@ -1,7 +1,6 @@
 package cpu
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/fran150/clementina6502/buses"
@@ -89,8 +88,8 @@ func evaluateRegister[U uint8 | uint16](cycle int, registerValue U, stepValue U,
 }
 
 func runTest(cpu *Cpu65C02S, ram *memory.Ram, steps []addressModeTestData, t *testing.T) {
-	fmt.Printf("Cycle \t Addr \t Data \t R/W \t PC \t A \t X \t Y \t SP \t Flags \n")
-	fmt.Printf("---- \t ---- \t ---- \t ---- \t ---- \t -- \t -- \t -- \t -- \t ----- \n")
+	t.Logf("Cycle \t Addr \t Data \t R/W \t PC \t A \t X \t Y \t SP \t Flags \n")
+	t.Logf("---- \t ---- \t ---- \t ---- \t ---- \t -- \t -- \t -- \t -- \t ----- \n")
 
 	for cycle, step := range steps {
 		cpu.Tick(100)
@@ -101,7 +100,7 @@ func runTest(cpu *Cpu65C02S, ram *memory.Ram, steps []addressModeTestData, t *te
 
 		cpu.PostTick(100)
 
-		fmt.Printf("%v \t %04X \t %02X \t %v \t %04X \t %02X \t %02X \t %02X \t %02X \t %08b \n", cycle, cpu.addressBus.Read(), cpu.dataBus.Read(), cpu.readWrite.GetLine().Status(), cpu.programCounter, cpu.accumulatorRegister, cpu.xRegister, cpu.yRegister, cpu.stackPointer, uint8(cpu.processorStatusRegister))
+		t.Logf("%v \t %04X \t %02X \t %v \t %04X \t %02X \t %02X \t %02X \t %02X \t %08b \n", cycle, cpu.addressBus.Read(), cpu.dataBus.Read(), cpu.readWrite.GetLine().Status(), cpu.programCounter, cpu.accumulatorRegister, cpu.xRegister, cpu.yRegister, cpu.stackPointer, uint8(cpu.processorStatusRegister))
 
 		evaluateCycle(cycle, cpu, &step, t)
 	}
@@ -1027,7 +1026,7 @@ func TestBreakAndReturnFromInterruptAddressMode(t *testing.T) {
 		{0xC001, 0xEA, true, 0x00, 0x00, 0x00, "", 0xC002},  // 1
 		{0x01FD, 0xC0, false, 0x00, 0x00, 0x00, "", 0xC002}, // 2
 		{0x01FC, 0x02, false, 0x00, 0x00, 0x00, "", 0xC002}, // 3
-		{0x01FB, 0x00, false, 0x00, 0x00, 0x00, "", 0xC002}, // 4
+		{0x01FB, 0x34, false, 0x00, 0x00, 0x00, "", 0xC002}, // 4
 		{0xFFFE, 0x00, true, 0x00, 0x00, 0x00, "", 0xC002},  // 5
 		{0xFFFF, 0xD0, true, 0x00, 0x00, 0x00, "", 0xD000},  // 6
 		{0xD000, 0xEA, true, 0x00, 0x00, 0x00, "", 0xD001},  // 7 -- NOP (2 cycles)
@@ -1035,7 +1034,7 @@ func TestBreakAndReturnFromInterruptAddressMode(t *testing.T) {
 		{0xD001, 0x40, true, 0x00, 0x00, 0x00, "", 0xD002},  // 9 -- RTI (6 cycles)
 		{0xD002, 0xAA, true, 0x00, 0x00, 0x00, "", 0xD002},  // 10
 		{0x01FA, 0x00, true, 0x00, 0x00, 0x00, "", 0xD002},  // 11
-		{0x01FB, 0x00, true, 0x00, 0x00, 0x00, "", 0xD002},  // 12
+		{0x01FB, 0x34, true, 0x00, 0x00, 0x00, "", 0xD002},  // 12
 		{0x01FC, 0x02, true, 0x00, 0x00, 0x00, "", 0xD002},  // 13
 		{0x01FD, 0xC0, true, 0x00, 0x00, 0x00, "", 0xC002},  // 14
 		{0xC002, 0xEA, true, 0x00, 0x00, 0x00, "", 0xC003},  // 15 -- NOP
