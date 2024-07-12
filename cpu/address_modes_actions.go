@@ -463,6 +463,10 @@ var addressModeZeroPageXRMWActions []cycleActions = []cycleActions{
 		postCycle: intoDataRegister(false),
 	},
 	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(false),
+	},
+	{
 		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
 	},

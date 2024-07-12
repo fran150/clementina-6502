@@ -22,7 +22,7 @@ func evaluateRegisterValue(t *testing.T, cpu *Cpu65C02S, name string, value uint
 		instruction := cpu.instructionSet.GetByOpCode(cpu.currentOpCode)
 		addressMode := cpu.addressModeSet.GetByName(instruction.addressMode)
 
-		t.Errorf("%s - %s - Current value of %s (%02X) doesnt match the expected value of (%02X)", instruction.Mnemonic(), addressMode.Text(), name, cpu.accumulatorRegister, expected)
+		t.Errorf("%s - %s - Current value of %s (%02X) doesnt match the expected value of (%02X)", instruction.Mnemonic(), addressMode.Text(), name, value, expected)
 	}
 }
 
@@ -881,4 +881,238 @@ func TestActionJSRandRTS(t *testing.T) {
 	evaluateAccumulatorInstruction(t, cpu, ram, 2, "Nvzc", 0xFF) // Executes LDA
 	evaluateBranchInstruction(t, cpu, ram, 6, "", 0xC003)        // Executes RTS
 	evaluateAccumulatorInstruction(t, cpu, ram, 2, "nvzc", 0x77) // Executes LDA
+}
+
+func TestActionLDA(t *testing.T) {
+	cpu, ram := createComputer()
+
+	cpu.xRegister = 0x05
+	cpu.yRegister = 0x0A
+
+	ram.Poke(0x0010, 0x02) // zp value $02
+	ram.Poke(0x0015, 0xA0) // zp,x value $A0
+
+	ram.Poke(0x00A5, 0x10) // (zp,x) redirect to $D110
+	ram.Poke(0x00A6, 0xD1)
+
+	ram.Poke(0x00B0, 0xFF) // (zp),y redirect to $D2FF
+	ram.Poke(0x00B1, 0xD2)
+
+	ram.Poke(0x00C0, 0x00) // (zp) redict to $E000
+	ram.Poke(0x00C1, 0xE0)
+
+	ram.Poke(0xD000, 0x10) // a value $10
+	ram.Poke(0xD005, 0x11) // a,x value $11
+	ram.Poke(0xD00A, 0x20) // a,y value $20
+
+	ram.Poke(0xD110, 0x00) // (zp,x) value $02
+
+	ram.Poke(0xD309, 0x10) // (zp),y value $10
+
+	ram.Poke(0xE000, 0x01) // (zp) value $01
+
+	// A = 0
+	ram.Poke(0xC000, 0xA9) // LDA #$0A -> 0A
+	ram.Poke(0xC001, 0x0A)
+	ram.Poke(0xC002, 0xA5) // LDA $10 -> 02
+	ram.Poke(0xC003, 0x10)
+	ram.Poke(0xC004, 0xB5) // LDA $10,X -> A0
+	ram.Poke(0xC005, 0x10)
+	ram.Poke(0xC006, 0xAD) // LDA $D000 -> 10
+	ram.Poke(0xC007, 0x00)
+	ram.Poke(0xC008, 0xD0)
+	ram.Poke(0xC009, 0xBD) // LDA $D000,X -> 11
+	ram.Poke(0xC00A, 0x00)
+	ram.Poke(0xC00B, 0xD0)
+	ram.Poke(0xC00C, 0xB9) // LDA $D000,Y -> 20
+	ram.Poke(0xC00D, 0x00)
+	ram.Poke(0xC00E, 0xD0)
+	ram.Poke(0xC00F, 0xA1) // LDA ($A0,X) -> 00
+	ram.Poke(0xC010, 0xA0)
+	ram.Poke(0xC011, 0xB1) // LDA ($B0),Y -> 10
+	ram.Poke(0xC012, 0xB0)
+	ram.Poke(0xC013, 0xB2) // LDA ($C0) -> 01
+	ram.Poke(0xC014, 0xC0)
+
+	evaluateAccumulatorInstruction(t, cpu, ram, 2, "zn", 0x0A) // i -> 0A
+	evaluateAccumulatorInstruction(t, cpu, ram, 3, "zn", 0x02) // zp -> 02
+	evaluateAccumulatorInstruction(t, cpu, ram, 4, "zN", 0xA0) // zp,x -> A0
+	evaluateAccumulatorInstruction(t, cpu, ram, 4, "zn", 0x10) // a -> 10
+	evaluateAccumulatorInstruction(t, cpu, ram, 4, "zn", 0x11) // a,x -> 11
+	evaluateAccumulatorInstruction(t, cpu, ram, 4, "zn", 0x20) // a,y -> 20
+	evaluateAccumulatorInstruction(t, cpu, ram, 6, "Zn", 0x00) // (zp,x) -> 00
+	evaluateAccumulatorInstruction(t, cpu, ram, 6, "zn", 0x10) // (zp),y -> 10
+	evaluateAccumulatorInstruction(t, cpu, ram, 5, "zn", 0x01) // (zp) -> 01
+}
+
+func TestActionLDX(t *testing.T) {
+	cpu, ram := createComputer()
+
+	cpu.yRegister = 0x05
+
+	ram.Poke(0x0010, 0x7F) // zp value $7F
+	ram.Poke(0x0015, 0xBF) // zp,y value $BF
+
+	ram.Poke(0xD000, 0x00) // a value $00
+	ram.Poke(0xD005, 0x3F) // a,y value $EF
+
+	ram.Poke(0xC000, 0xA2) // LDX #$FE -> $FE
+	ram.Poke(0xC001, 0xFE)
+	ram.Poke(0xC002, 0xA6) // LDX $10 -> 7F
+	ram.Poke(0xC003, 0x10)
+	ram.Poke(0xC004, 0xB6) // LDX $10,y -> BF
+	ram.Poke(0xC005, 0x10)
+	ram.Poke(0xC006, 0xAE) // LDX $D000 -> 00
+	ram.Poke(0xC007, 0x00)
+	ram.Poke(0xC008, 0xD0)
+	ram.Poke(0xC009, 0xBE) // LDX $D000,y -> 3F
+	ram.Poke(0xC00A, 0x00)
+	ram.Poke(0xC00B, 0xD0)
+
+	evaluateXRegisterInstruction(t, cpu, ram, 2, "zN", 0xFE) // i -> FE
+	evaluateXRegisterInstruction(t, cpu, ram, 3, "zn", 0x7F) // zp -> 7F
+	evaluateXRegisterInstruction(t, cpu, ram, 4, "zN", 0xBF) // zp,x -> BF
+	evaluateXRegisterInstruction(t, cpu, ram, 4, "Zn", 0x00) // a -> 00
+	evaluateXRegisterInstruction(t, cpu, ram, 4, "zn", 0x3F) // a,x -> 3F
+}
+
+func TestActionLDY(t *testing.T) {
+	cpu, ram := createComputer()
+
+	cpu.xRegister = 0x05
+
+	ram.Poke(0x0010, 0x7F) // zp value $7F
+	ram.Poke(0x0015, 0xBF) // zp,x value $BF
+
+	ram.Poke(0xD000, 0x00) // a value $00
+	ram.Poke(0xD005, 0x3F) // a,x value $EF
+
+	ram.Poke(0xC000, 0xA0) // LDY #$FE -> $FE
+	ram.Poke(0xC001, 0xFE)
+	ram.Poke(0xC002, 0xA4) // LDY $10 -> 7F
+	ram.Poke(0xC003, 0x10)
+	ram.Poke(0xC004, 0xB4) // LDY $10,x -> BF
+	ram.Poke(0xC005, 0x10)
+	ram.Poke(0xC006, 0xAC) // LDY $D000 -> 00
+	ram.Poke(0xC007, 0x00)
+	ram.Poke(0xC008, 0xD0)
+	ram.Poke(0xC009, 0xBC) // LDY $D000,x -> 3F
+	ram.Poke(0xC00A, 0x00)
+	ram.Poke(0xC00B, 0xD0)
+
+	evaluateYRegisterInstruction(t, cpu, ram, 2, "zN", 0xFE) // i -> FE
+	evaluateYRegisterInstruction(t, cpu, ram, 3, "zn", 0x7F) // zp -> 7F
+	evaluateYRegisterInstruction(t, cpu, ram, 4, "zN", 0xBF) // zp,x -> BF
+	evaluateYRegisterInstruction(t, cpu, ram, 4, "Zn", 0x00) // a -> 00
+	evaluateYRegisterInstruction(t, cpu, ram, 4, "zn", 0x3F) // a,x -> 3F
+}
+
+func TestActionLSR(t *testing.T) {
+	cpu, ram := createComputer()
+
+	cpu.accumulatorRegister = 0xAA
+	cpu.xRegister = 0x05
+
+	ram.Poke(0x0010, 0x08) // zp value $08
+	ram.Poke(0x0015, 0x55) // zp,x value $55
+
+	ram.Poke(0xD000, 0x55) // a value $55
+	ram.Poke(0xD005, 0x01) // a,x value $01
+
+	// A = AA
+	ram.Poke(0xC000, 0x4A) // LSR a <- AA
+	ram.Poke(0xC001, 0x46) // LSR $10 <- 08
+	ram.Poke(0xC002, 0x10)
+	ram.Poke(0xC003, 0x56) // LSR $10,X <- 55
+	ram.Poke(0xC004, 0x10)
+	ram.Poke(0xC005, 0x4E) // LSR $D000 <- 55
+	ram.Poke(0xC006, 0x00)
+	ram.Poke(0xC007, 0xD0)
+	ram.Poke(0xC008, 0x5E) // LSR $D000,X <- 01
+	ram.Poke(0xC009, 0x00)
+	ram.Poke(0xC00A, 0xD0)
+
+	evaluateAccumulatorInstruction(t, cpu, ram, 2, "znc", 0x55) // i -> AA >> 1 = 55
+	evaluateRMWInstruction(t, cpu, ram, 5, "znc", 0x0010, 0x04) // zp -> 08 >> 1 = 04
+	evaluateRMWInstruction(t, cpu, ram, 6, "znC", 0x0015, 0x2A) // zp,x -> 55 >> 1 = 2A
+	evaluateRMWInstruction(t, cpu, ram, 6, "znC", 0xD000, 0x2A) // a -> 55 >> 1 = 2A
+	evaluateRMWInstruction(t, cpu, ram, 7, "ZnC", 0xD005, 0x00) // a,x -> 01 << 1 = 00
+}
+
+func TestActionNOP(t *testing.T) {
+	cpu, ram := createComputer()
+
+	cpu.yRegister = 0xFE
+
+	ram.Poke(0xC000, 0xEA) // NOP
+	ram.Poke(0xC001, 0xEA) // NOP
+	ram.Poke(0xC002, 0xC8) // INY
+
+	evaluateYRegisterInstruction(t, cpu, ram, 2, "zn", 0xFE)
+	evaluateYRegisterInstruction(t, cpu, ram, 2, "zn", 0xFE)
+	evaluateYRegisterInstruction(t, cpu, ram, 2, "zN", 0xFF)
+}
+
+func TestActionORA(t *testing.T) {
+	cpu, ram := createComputer()
+
+	cpu.accumulatorRegister = 0xFF
+	cpu.xRegister = 0x05
+	cpu.yRegister = 0x0A
+
+	ram.Poke(0x0010, 0x02) // zp value $02
+	ram.Poke(0x0015, 0x04) // zp,x value $04
+
+	ram.Poke(0x00A5, 0x10) // (zp,x) redirect to $D110
+	ram.Poke(0x00A6, 0xD1)
+
+	ram.Poke(0x00B0, 0xFF) // (zp),y redirect to $D2FF
+	ram.Poke(0x00B1, 0xD2)
+
+	ram.Poke(0x00C0, 0x00) // (zp) redict to $E000
+	ram.Poke(0x00C1, 0xE0)
+
+	ram.Poke(0xD000, 0x08) // a value $08
+	ram.Poke(0xD005, 0x10) // a,x value $10
+	ram.Poke(0xD00A, 0xDF) // a,y value $DF
+
+	ram.Poke(0xD110, 0x7F) // (zp,x) value $7F
+
+	ram.Poke(0xD309, 0xBF) // (zp),y value $BF
+
+	ram.Poke(0xE000, 0x08) // (zp) value $08
+
+	// A = 00
+	ram.Poke(0xC000, 0x09) // ORA #$FE -> A & 01 = 01
+	ram.Poke(0xC001, 0x01)
+	ram.Poke(0xC002, 0x05) // ORA $10 -> A & 02 = 03
+	ram.Poke(0xC003, 0x10)
+	ram.Poke(0xC004, 0x15) // ORA $10,X -> A & 04 = 07
+	ram.Poke(0xC005, 0x10)
+	ram.Poke(0xC006, 0x0D) // ORA $D000 -> A & 08 = 0F
+	ram.Poke(0xC007, 0x00)
+	ram.Poke(0xC008, 0xD0)
+	ram.Poke(0xC009, 0x1D) // ORA $D000,X -> A & 10 =
+	ram.Poke(0xC00A, 0x00)
+	ram.Poke(0xC00B, 0xD0)
+	ram.Poke(0xC00C, 0x19) // ORA $D000,Y -> A & DF = C0
+	ram.Poke(0xC00D, 0x00)
+	ram.Poke(0xC00E, 0xD0)
+	ram.Poke(0xC00F, 0x01) // ORA ($A0,X) -> A & 7F = 40
+	ram.Poke(0xC010, 0xA0)
+	ram.Poke(0xC011, 0x11) // ORA ($B0),Y -> A & BF = 00
+	ram.Poke(0xC012, 0xB0)
+	ram.Poke(0xC013, 0x12) // ORA ($C0) -> A & 08 = 08
+	ram.Poke(0xC014, 0xC0)
+
+	evaluateAccumulatorInstruction(t, cpu, ram, 2, "zN", 0xFE) // i -> FF & FE = FE
+	evaluateAccumulatorInstruction(t, cpu, ram, 3, "zN", 0xFC) // zp -> FE & FC = FC
+	evaluateAccumulatorInstruction(t, cpu, ram, 4, "zN", 0xF8) // zp,x -> FC & FB = F8
+	evaluateAccumulatorInstruction(t, cpu, ram, 4, "zN", 0xF0) // a -> F8 & F7 = F0
+	evaluateAccumulatorInstruction(t, cpu, ram, 4, "zN", 0xE0) // a,x -> F0 & EF = E0
+	evaluateAccumulatorInstruction(t, cpu, ram, 4, "zN", 0xC0) // a,y -> E0 & DF = C0
+	evaluateAccumulatorInstruction(t, cpu, ram, 6, "zn", 0x40) // (zp,x) -> C0 & 7F = 40
+	evaluateAccumulatorInstruction(t, cpu, ram, 6, "Zn", 0x00) // (zp),y -> 40 & BF = 00
+	cpu.accumulatorRegister = 0xFF
+	evaluateAccumulatorInstruction(t, cpu, ram, 5, "zn", 0x08) // (zp) -> FF & 08 = 08
 }

@@ -353,11 +353,12 @@ func actionLDY(cpu *Cpu65C02S) {
 func actionLSR(cpu *Cpu65C02S) {
 	var value uint8
 	if cpu.getCurrentAddressMode().Name() != AddressModeAccumulator {
-		setCarryFlag(cpu, uint16(cpu.dataRegister)&0x0001)
+		cpu.processorStatusRegister.SetFlag(CarryFlagBit, cpu.dataRegister&0x01 > 0)
 		cpu.dataRegister = cpu.dataRegister >> 1
 		value = cpu.dataRegister
+		cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
 	} else {
-		setCarryFlag(cpu, uint16(cpu.accumulatorRegister)&0x0001)
+		cpu.processorStatusRegister.SetFlag(CarryFlagBit, cpu.accumulatorRegister&0x01 > 0)
 		cpu.accumulatorRegister = cpu.accumulatorRegister >> 1
 		value = cpu.accumulatorRegister
 	}
