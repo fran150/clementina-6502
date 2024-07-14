@@ -122,9 +122,12 @@ func extraCycleIfBranchTaken() cycleAction {
 	return func(cpu *Cpu65C02S) bool {
 		if cpu.branchTaken {
 			cpu.branchTaken = false
+
 			cpu.setReadBus(cpu.programCounter)
+
 			cpu.instructionRegister = cpu.programCounter
 			cpu.addToInstructionRegister(uint16(cpu.dataRegister))
+
 			return true
 		} else {
 			return false
@@ -280,6 +283,15 @@ func moveInstructionRegisterToProgramCounter(setInstructionRegisterMSB bool) cyc
 		}
 		cpu.programCounter = cpu.instructionRegister
 		cpu.setReadBus(cpu.programCounter)
+	}
+}
+
+func moveInstructionRegisterToProgramCounterIfNotCarry() cyclePostAction {
+	return func(cpu *Cpu65C02S) {
+		if !cpu.instructionRegisterCarry {
+			cpu.programCounter = cpu.instructionRegister
+			cpu.setReadBus(cpu.programCounter)
+		}
 	}
 }
 
@@ -638,6 +650,33 @@ var addressModeRelativeActions []cycleActions = []cycleActions{
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
 		postCycle: doNothing(),
+	},
+}
+
+var addressModeRelativeExtendedActions []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: doNothing(),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: intoDataRegister(true),
+	},
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoDataRegister(false),
+	},
+	{
+		cycle:     extraCycleIfBranchTaken(),
+		postCycle: moveInstructionRegisterToProgramCounterIfNotCarry(),
+	},
+	{
+		cycle:     extraCycleIfCarryInstructionRegister(),
+		postCycle: moveInstructionRegisterToProgramCounter(false),
 	},
 }
 

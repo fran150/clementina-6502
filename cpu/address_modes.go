@@ -62,8 +62,11 @@ const (
 	AddressModeReturnFromSubroutine      AddressMode = "RTS"
 	AddressModeBreak                     AddressMode = "BRK"
 	AddressModeReturnFromInterrupt       AddressMode = "RTI"
-	AddressModeStop                      AddressMode = "STP"
-	AddressModeWait                      AddressMode = "WAI"
+
+	// Pending implementation
+	AddressModeStop             AddressMode = "STP"
+	AddressModeWait             AddressMode = "WAI"
+	AddressModeRelativeExtended AddressMode = "RELEX"
 )
 
 // ----------------------------------------------------------------------
@@ -116,6 +119,9 @@ func CreateAddressModesSet() *AddressModeSet {
 	}
 
 	data := []AddressModeData{
+
+		// 6502 Standard address modes and variants
+
 		{AddressModeImplicit, "i", "", addressModeImplicitOrAccumulatorActions, 1},
 		{AddressModeAccumulator, "A", "a", addressModeImplicitOrAccumulatorActions, 1},
 		{AddressModeImmediate, "#", "#%02X", addressModeImmediateActions, 2},
@@ -152,10 +158,14 @@ func CreateAddressModesSet() *AddressModeSet {
 		{AddressModeJumpToSubroutine, "a", "$%04X", addressModeJumpToSubroutineActions, 3},
 		{AddressModeReturnFromSubroutine, "i", "", addressModeReturnFromSubroutineActions, 1},
 
-		// Pending implementation
+		// 65C02S special address modes
 
 		{AddressModeStop, "i", "", []cycleActions{}, 1},
 		{AddressModeWait, "i", "", []cycleActions{}, 1},
+
+		// See discussions about BBR and BBS correct timing here:
+		// https://www.reddit.com/r/beneater/comments/1cac3ly/clarification_of_65c02_instruction_execution_times/
+		{AddressModeRelativeExtended, "zp, r", "$%02x, $%02X", addressModeRelativeExtendedActions, 3},
 	}
 
 	for _, addressMode := range data {

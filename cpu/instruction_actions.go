@@ -37,7 +37,7 @@ func setOverflowFlagBit(cpu *Cpu65C02S, value uint8) {
 }
 
 /**************************************************************************************************
-* Evaluate values and set processor status flags
+* 6502 traditional instruction set
 **************************************************************************************************/
 
 // A,Z,C,N = A+M+C
@@ -141,11 +141,6 @@ func actionBPL(cpu *Cpu65C02S) {
 	if !cpu.processorStatusRegister.Flag(NegativeFlagBit) {
 		cpu.branchTaken = true
 	}
-}
-
-// Adds the relative displacement to the program counter to cause a branch to a new location.
-func actionBRA(cpu *Cpu65C02S) {
-	cpu.branchTaken = true
 }
 
 // The BRK instruction forces the generation of an interrupt request. The program counter and processor status are pushed on
@@ -393,18 +388,6 @@ func actionPHP(cpu *Cpu65C02S) {
 	cpu.stackPointer--
 }
 
-// Pushes a copy of the X register  on to the stack.
-func actionPHX(cpu *Cpu65C02S) {
-	cpu.writeToStack(cpu.xRegister)
-	cpu.stackPointer--
-}
-
-// Pushes a copy of the Y register on to the stack.
-func actionPHY(cpu *Cpu65C02S) {
-	cpu.writeToStack(cpu.yRegister)
-	cpu.stackPointer--
-}
-
 // Pulls an 8 bit value from the stack and into the accumulator. The zero and negative flags are set as appropriate.
 func actionPLA(cpu *Cpu65C02S) {
 	cpu.accumulatorRegister = cpu.dataRegister
@@ -417,22 +400,6 @@ func actionPLA(cpu *Cpu65C02S) {
 // as determined by the value pulled.
 func actionPLP(cpu *Cpu65C02S) {
 	cpu.processorStatusRegister = StatusRegister(cpu.dataRegister)
-}
-
-// Pulls an 8 bit value from the stack and into the X register. The zero and negative flags are set as appropriate.
-func actionPLX(cpu *Cpu65C02S) {
-	cpu.xRegister = cpu.dataRegister
-
-	setZeroFlag(cpu, cpu.xRegister)
-	setNegativeFlag(cpu, cpu.xRegister)
-}
-
-// Pulls an 8 bit value from the stack and into the Y register. The zero and negative flags are set as appropriate.
-func actionPLY(cpu *Cpu65C02S) {
-	cpu.yRegister = cpu.dataRegister
-
-	setZeroFlag(cpu, cpu.yRegister)
-	setNegativeFlag(cpu, cpu.yRegister)
 }
 
 // Move each of the bits in either A or M one place to the left. Bit 0 is filled with the current value
@@ -530,10 +497,6 @@ func actionSTA(cpu *Cpu65C02S) {
 	cpu.setWriteBus(cpu.instructionRegister, cpu.accumulatorRegister)
 }
 
-func actionSTP(cpu *Cpu65C02S) {
-	// TODO: Implement
-}
-
 // M = X
 // Stores the contents of the X register into memory.
 func actionSTX(cpu *Cpu65C02S) {
@@ -544,12 +507,6 @@ func actionSTX(cpu *Cpu65C02S) {
 // Stores the contents of the Y register into memory.
 func actionSTY(cpu *Cpu65C02S) {
 	cpu.setWriteBus(cpu.instructionRegister, cpu.yRegister)
-}
-
-// M = 0
-// Stores a zero byte value into memory.
-func actionSTZ(cpu *Cpu65C02S) {
-	cpu.setWriteBus(cpu.instructionRegister, 0x00)
 }
 
 // X = A
@@ -569,23 +526,6 @@ func actionTAY(cpu *Cpu65C02S) {
 	setZeroFlag(cpu, cpu.yRegister)
 	setNegativeFlag(cpu, cpu.yRegister)
 
-}
-
-// Z = M & A
-// M = M & ~A
-// The memory byte is tested to see if it contains any of the bits indicated by the value in the accumulator
-// then the bits are reset in the memory byte.
-func actionTRB(cpu *Cpu65C02S) {
-	setZeroFlag(cpu, cpu.dataRegister&cpu.accumulatorRegister)
-	cpu.dataRegister = cpu.dataRegister & (^cpu.accumulatorRegister)
-}
-
-// Z = M & A
-// M = M | A
-// The memory byte is tested to see if it contains any of the bits indicated by the value in the accumul
-func actionTSB(cpu *Cpu65C02S) {
-	setZeroFlag(cpu, cpu.dataRegister&cpu.accumulatorRegister)
-	cpu.dataRegister = cpu.dataRegister | cpu.accumulatorRegister
 }
 
 // X = S
@@ -621,22 +561,112 @@ func actionTYA(cpu *Cpu65C02S) {
 	setNegativeFlag(cpu, cpu.accumulatorRegister)
 }
 
+/**************************************************************************************************
+* 65C02S new instruction set
+**************************************************************************************************/
+// This a actually a set of 8 instructions. Each tests a specific bit of a byte held on zero page and causes a branch of the bit is resest (0).
+// They are 3 bytes long: OPCODE ZEROPAGE, BRANCH, for example BBR7 $10, $1A (Check if byte 7 of $0010 is reset and add $1A to PC)
+func actionBBR(cpu *Cpu65C02S) {
+	var bit uint8 = (uint8(cpu.currentOpCode) / 0x0F) - 1
+	var mask uint8 = 0x01 << bit
+
+	if (cpu.dataRegister & mask) == 0 {
+		cpu.branchTaken = true
+	}
+}
+
+// This a actually a set of 8 instructions. Each tests a specific bit of a byte held on zero page and causes a branch of the bit is set (1).
+// They are 3 bytes long: OPCODE ZEROPAGE, BRANCH, for example BBS2 $70, $10 (Check if byte 2 of $0070 is set and add $10 to PC)
+func actionBBS(cpu *Cpu65C02S) {
+	var bit uint8 = (uint8(cpu.currentOpCode) / 0x0F) - 9
+	var mask uint8 = 0x01 << bit
+
+	if (cpu.dataRegister & mask) > 0 {
+		cpu.branchTaken = true
+	}
+}
+
+// Adds the relative displacement to the program counter to cause a branch to a new location.
+func actionBRA(cpu *Cpu65C02S) {
+	cpu.branchTaken = true
+}
+
+// Pushes a copy of the X register  on to the stack.
+func actionPHX(cpu *Cpu65C02S) {
+	cpu.writeToStack(cpu.xRegister)
+	cpu.stackPointer--
+}
+
+// Pushes a copy of the Y register on to the stack.
+func actionPHY(cpu *Cpu65C02S) {
+	cpu.writeToStack(cpu.yRegister)
+	cpu.stackPointer--
+}
+
+// Pulls an 8 bit value from the stack and into the X register. The zero and negative flags are set as appropriate.
+func actionPLX(cpu *Cpu65C02S) {
+	cpu.xRegister = cpu.dataRegister
+
+	setZeroFlag(cpu, cpu.xRegister)
+	setNegativeFlag(cpu, cpu.xRegister)
+}
+
+// Pulls an 8 bit value from the stack and into the Y register. The zero and negative flags are set as appropriate.
+func actionPLY(cpu *Cpu65C02S) {
+	cpu.yRegister = cpu.dataRegister
+
+	setZeroFlag(cpu, cpu.yRegister)
+	setNegativeFlag(cpu, cpu.yRegister)
+}
+
+// M = 0
+// Stores a zero byte value into memory.
+func actionSTZ(cpu *Cpu65C02S) {
+	cpu.setWriteBus(cpu.instructionRegister, 0x00)
+}
+
+// This a actually a set of 8 instructions. Each resets a specific bit of a byte held on zero page.
+// For example RMB0 $10 (resets bit 0 of value in $0010)
+func actionRMB(cpu *Cpu65C02S) {
+	var bit uint8 = (uint8(cpu.currentOpCode) / 0x0F)
+	var mask uint8 = 0x01 << bit
+	mask = ^mask
+
+	cpu.dataRegister = cpu.dataRegister & mask
+	cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
+}
+
+// This a actually a set of 8 instructions. Each sets a specific bit of a byte held on zero page.
+// For example SMB2 $20 (sets bit 2 of value in $0020)
+func actionSMB(cpu *Cpu65C02S) {
+	var bit uint8 = (uint8(cpu.currentOpCode) / 0x0F) - 9
+	var mask uint8 = 0x01 << bit
+
+	cpu.dataRegister = cpu.dataRegister | mask
+	cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
+}
+
+// Z = M & A
+// M = M & ~A
+// The memory byte is tested to see if it contains any of the bits indicated by the value in the accumulator
+// then the bits are reset in the memory byte.
+func actionTRB(cpu *Cpu65C02S) {
+	setZeroFlag(cpu, cpu.dataRegister&cpu.accumulatorRegister)
+	cpu.dataRegister = cpu.dataRegister & (^cpu.accumulatorRegister)
+}
+
+// Z = M & A
+// M = M | A
+// The memory byte is tested to see if it contains any of the bits indicated by the value in the accumul
+func actionTSB(cpu *Cpu65C02S) {
+	setZeroFlag(cpu, cpu.dataRegister&cpu.accumulatorRegister)
+	cpu.dataRegister = cpu.dataRegister | cpu.accumulatorRegister
+}
+
 func actionWAI(cpu *Cpu65C02S) {
 
 }
 
-func actionRMB(cpu *Cpu65C02S) {
-
-}
-
-func actionSMB(cpu *Cpu65C02S) {
-
-}
-
-func actionBBS(cpu *Cpu65C02S) {
-
-}
-
-func actionBBR(cpu *Cpu65C02S) {
-
+func actionSTP(cpu *Cpu65C02S) {
+	// TODO: Implement
 }
