@@ -502,6 +502,21 @@ var addressModeZeroPageYActions []cycleActions = []cycleActions{
 	},
 }
 
+var addressModeZeroPageYWActions []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: intoInstructionRegisterLSB(),
+	},
+	{
+		cycle:     readFromInstructionRegister(),
+		postCycle: addToInstructionRegisterLSB(fromYRegister),
+	},
+	{
+		cycle:     readFromAddressInBus(true),
+		postCycle: doNothing(),
+	},
+}
+
 /**********************************
 * Absolute Indexed Addressing
 ***********************************/

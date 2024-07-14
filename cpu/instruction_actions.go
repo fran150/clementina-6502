@@ -446,11 +446,12 @@ func actionROL(cpu *Cpu65C02S) {
 	}
 
 	if cpu.getCurrentAddressMode().Name() != AddressModeAccumulator {
-		value := uint16(cpu.dataRegister)<<1 | carry
+		value = uint16(cpu.dataRegister)<<1 | carry
 		cpu.dataRegister = uint8(value)
+		cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
 
 	} else {
-		value := uint16(cpu.accumulatorRegister)<<1 | carry
+		value = uint16(cpu.accumulatorRegister)<<1 | carry
 		cpu.accumulatorRegister = uint8(value)
 	}
 
@@ -470,15 +471,16 @@ func actionROR(cpu *Cpu65C02S) {
 	}
 
 	if cpu.getCurrentAddressMode().Name() != AddressModeAccumulator {
-		value := carry | (uint16(cpu.dataRegister) >> 1)
+		cpu.processorStatusRegister.SetFlag(CarryFlagBit, cpu.dataRegister&0x01 > 0)
+		value = carry | (uint16(cpu.dataRegister) >> 1)
 		cpu.dataRegister = uint8(value)
-
+		cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
 	} else {
-		value := carry | (uint16(cpu.accumulatorRegister) >> 1)
+		cpu.processorStatusRegister.SetFlag(CarryFlagBit, cpu.dataRegister&0x01 > 0)
+		value = carry | (uint16(cpu.accumulatorRegister) >> 1)
 		cpu.accumulatorRegister = uint8(value)
 	}
 
-	setCarryFlag(cpu, value)
 	setZeroFlag16(cpu, value)
 	setNegativeFlag16(cpu, value)
 }
@@ -615,8 +617,8 @@ func actionTXS(cpu *Cpu65C02S) {
 func actionTYA(cpu *Cpu65C02S) {
 	cpu.accumulatorRegister = cpu.yRegister
 
-	setZeroFlag(cpu, cpu.stackPointer)
-	setNegativeFlag(cpu, cpu.stackPointer)
+	setZeroFlag(cpu, cpu.accumulatorRegister)
+	setNegativeFlag(cpu, cpu.accumulatorRegister)
 }
 
 func actionWAI(cpu *Cpu65C02S) {

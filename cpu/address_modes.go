@@ -37,6 +37,7 @@ const (
 	AddressModeZeroPageXRMW              AddressMode = "ZPXRMW"
 	AddressModeZeroPageXW                AddressMode = "ZPXW"
 	AddressModeZeroPageY                 AddressMode = "ZPY"
+	AddressModeZeroPageYW                AddressMode = "ZPYW"
 	AddressModeAbsolute                  AddressMode = "ABS"
 	AddressModeAbsoluteRMW               AddressMode = "ABSRMW"
 	AddressModeAbsoluteW                 AddressMode = "ABSW"
@@ -129,6 +130,7 @@ func CreateAddressModesSet() *AddressModeSet {
 		{AddressModeZeroPageXRMW, "zp,x", "$%02X, X", addressModeZeroPageXRMWActions, 2},
 		{AddressModeZeroPageXW, "zp,x", "$%02X, X", addressModeZeroPageXWActions, 2},
 		{AddressModeZeroPageY, "zp,y", "$%02X, Y", addressModeZeroPageYActions, 2},
+		{AddressModeZeroPageYW, "zp,y", "$%02X, Y", addressModeZeroPageYWActions, 2},
 		{AddressModeAbsoluteX, "a,x", "$%04X, X", addressModeAbsoluteXActions, 3},
 		{AddressModeAbsoluteXRMW, "a,x", "$%04X, X", addressModeAbsoluteXRMWActions, 3},
 		{AddressModeAbsoluteXW, "a,x", "$%04X, X", addressModeAbsoluteXWActions, 3},
