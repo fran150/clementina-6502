@@ -1560,3 +1560,179 @@ func TestActionTYA(t *testing.T) {
 	cpu.yRegister = 0x00
 	evaluateAccumulatorInstruction(t, cpu, ram, 2, "Zn", 0x00)
 }
+
+func TestActionBBR(t *testing.T) {
+	cpu, ram := createComputer()
+
+	ram.Poke(0x0010, 0xFD)
+	ram.Poke(0x0015, 0x7F)
+
+	ram.Poke(0xC000, 0x1F) // BBR1 $10, $07
+	ram.Poke(0xC001, 0x10)
+	ram.Poke(0xC002, 0x07)
+
+	ram.Poke(0xC00A, 0x1F) // BBR1 $10, $FA
+	ram.Poke(0xC00B, 0x10)
+	ram.Poke(0xC00C, 0xFA)
+
+	ram.Poke(0xC107, 0x1F) // BBR1 $15, $20  (won't be taken)
+	ram.Poke(0xC108, 0x15)
+	ram.Poke(0xC109, 0x20)
+
+	ram.Poke(0xC10A, 0xEA) // NOP
+
+	ram.Poke(0xC10B, 0x7F) // BBR7 $15, $20  (won't be taken)
+	ram.Poke(0xC10C, 0x15)
+	ram.Poke(0xC10D, 0x20)
+
+	evaluateBranchInstruction(t, cpu, ram, 6, "", 0xC00A)
+	evaluateBranchInstruction(t, cpu, ram, 7, "", 0xC107)
+	evaluateBranchInstruction(t, cpu, ram, 5, "", 0xC10A)
+	// Not Taken but check NOP executed normally
+	evaluateBranchInstruction(t, cpu, ram, 2, "", 0xC10B)
+	// Test another bit and branch taken
+	evaluateBranchInstruction(t, cpu, ram, 6, "", 0xC12E)
+}
+
+func TestActionBBS(t *testing.T) {
+	cpu, ram := createComputer()
+
+	ram.Poke(0x0010, 0x02)
+	ram.Poke(0x0015, 0x80)
+
+	ram.Poke(0xC000, 0x9F) // BBS1 $10, $07
+	ram.Poke(0xC001, 0x10)
+	ram.Poke(0xC002, 0x07)
+
+	ram.Poke(0xC00A, 0x9F) // BBS1 $10, $FA
+	ram.Poke(0xC00B, 0x10)
+	ram.Poke(0xC00C, 0xFA)
+
+	ram.Poke(0xC107, 0x9F) // BBS1 $15, $20  (won't be taken)
+	ram.Poke(0xC108, 0x15)
+	ram.Poke(0xC109, 0x20)
+
+	ram.Poke(0xC10A, 0xEA) // NOP
+
+	ram.Poke(0xC10B, 0xFF) // BBS7 $15, $20  (won't be taken)
+	ram.Poke(0xC10C, 0x15)
+	ram.Poke(0xC10D, 0x20)
+
+	evaluateBranchInstruction(t, cpu, ram, 6, "", 0xC00A)
+	evaluateBranchInstruction(t, cpu, ram, 7, "", 0xC107)
+	evaluateBranchInstruction(t, cpu, ram, 5, "", 0xC10A)
+	// Not Taken but check NOP executed normally
+	evaluateBranchInstruction(t, cpu, ram, 2, "", 0xC10B)
+	// Test another bit and branch taken
+	evaluateBranchInstruction(t, cpu, ram, 6, "", 0xC12E)
+}
+
+func TestActionRMB(t *testing.T) {
+	cpu, ram := createComputer()
+
+	ram.Poke(0x0010, 0xFF)
+
+	ram.Poke(0xC000, 0x07) // RMB0 $10
+	ram.Poke(0xC001, 0x10)
+	ram.Poke(0xC002, 0x17) // RMB1 $10
+	ram.Poke(0xC003, 0x10)
+	ram.Poke(0xC004, 0x27) // RMB2 $10
+	ram.Poke(0xC005, 0x10)
+	ram.Poke(0xC006, 0x37) // RMB3 $10
+	ram.Poke(0xC007, 0x10)
+	ram.Poke(0xC008, 0x47) // RMB4 $10
+	ram.Poke(0xC009, 0x10)
+	ram.Poke(0xC00A, 0x57) // RMB5 $10
+	ram.Poke(0xC00B, 0x10)
+	ram.Poke(0xC00C, 0x67) // RMB6 $10
+	ram.Poke(0xC00D, 0x10)
+	ram.Poke(0xC00E, 0x77) // RMB7 $10
+	ram.Poke(0xC00F, 0x10)
+
+	evaluateRMWInstruction(t, cpu, ram, 5, "", 0x0010, 0xFE)
+	evaluateRMWInstruction(t, cpu, ram, 5, "", 0x0010, 0xFC)
+	evaluateRMWInstruction(t, cpu, ram, 5, "", 0x0010, 0xF8)
+	evaluateRMWInstruction(t, cpu, ram, 5, "", 0x0010, 0xF0)
+	evaluateRMWInstruction(t, cpu, ram, 5, "", 0x0010, 0xE0)
+	evaluateRMWInstruction(t, cpu, ram, 5, "", 0x0010, 0xC0)
+	evaluateRMWInstruction(t, cpu, ram, 5, "", 0x0010, 0x80)
+	evaluateRMWInstruction(t, cpu, ram, 5, "", 0x0010, 0x00)
+}
+
+func TestActionSMB(t *testing.T) {
+	cpu, ram := createComputer()
+
+	ram.Poke(0x0010, 0x00)
+
+	ram.Poke(0xC000, 0x87) // RMB0 $10
+	ram.Poke(0xC001, 0x10)
+	ram.Poke(0xC002, 0x97) // RMB1 $10
+	ram.Poke(0xC003, 0x10)
+	ram.Poke(0xC004, 0xA7) // RMB2 $10
+	ram.Poke(0xC005, 0x10)
+	ram.Poke(0xC006, 0xB7) // RMB3 $10
+	ram.Poke(0xC007, 0x10)
+	ram.Poke(0xC008, 0xC7) // RMB4 $10
+	ram.Poke(0xC009, 0x10)
+	ram.Poke(0xC00A, 0xD7) // RMB5 $10
+	ram.Poke(0xC00B, 0x10)
+	ram.Poke(0xC00C, 0xE7) // RMB6 $10
+	ram.Poke(0xC00D, 0x10)
+	ram.Poke(0xC00E, 0xF7) // RMB7 $10
+	ram.Poke(0xC00F, 0x10)
+
+	evaluateRMWInstruction(t, cpu, ram, 5, "", 0x0010, 0x01)
+	evaluateRMWInstruction(t, cpu, ram, 5, "", 0x0010, 0x03)
+	evaluateRMWInstruction(t, cpu, ram, 5, "", 0x0010, 0x07)
+	evaluateRMWInstruction(t, cpu, ram, 5, "", 0x0010, 0x0F)
+	evaluateRMWInstruction(t, cpu, ram, 5, "", 0x0010, 0x1F)
+	evaluateRMWInstruction(t, cpu, ram, 5, "", 0x0010, 0x3F)
+	evaluateRMWInstruction(t, cpu, ram, 5, "", 0x0010, 0x7F)
+	evaluateRMWInstruction(t, cpu, ram, 5, "", 0x0010, 0xFF)
+}
+
+func TestActionTRB(t *testing.T) {
+	cpu, ram := createComputer()
+
+	ram.Poke(0x0010, 0xAA)
+
+	ram.Poke(0xD000, 0x2A)
+
+	ram.Poke(0xC000, 0x14) // TRB $10
+	ram.Poke(0xC001, 0x10)
+	ram.Poke(0xC002, 0x14) // TRB $10
+	ram.Poke(0xC003, 0x10)
+	ram.Poke(0xC004, 0x1C) // TRB $D000
+	ram.Poke(0xC005, 0x00)
+	ram.Poke(0xC006, 0xD0)
+
+	cpu.accumulatorRegister = 0x80
+	evaluateRMWInstruction(t, cpu, ram, 5, "Z", 0x0010, 0x2A)
+	cpu.accumulatorRegister = 0x40
+	evaluateRMWInstruction(t, cpu, ram, 5, "z", 0x0010, 0x2A)
+	cpu.accumulatorRegister = 0x28
+	evaluateRMWInstruction(t, cpu, ram, 6, "Z", 0xD000, 0x02)
+}
+
+func TestActionTSB(t *testing.T) {
+	cpu, ram := createComputer()
+
+	ram.Poke(0x0010, 0x00)
+
+	ram.Poke(0xD000, 0xAE)
+
+	ram.Poke(0xC000, 0x04) // TSB $10
+	ram.Poke(0xC001, 0x10)
+	ram.Poke(0xC002, 0x04) // TSB $10
+	ram.Poke(0xC003, 0x10)
+	ram.Poke(0xC004, 0x0C) // TSB $D000
+	ram.Poke(0xC005, 0x00)
+	ram.Poke(0xC006, 0xD0)
+
+	cpu.accumulatorRegister = 0xAA
+	evaluateRMWInstruction(t, cpu, ram, 5, "z", 0x0010, 0xAA)
+	cpu.accumulatorRegister = 0x84
+	evaluateRMWInstruction(t, cpu, ram, 5, "Z", 0x0010, 0xAE)
+	cpu.accumulatorRegister = 0x51
+	evaluateRMWInstruction(t, cpu, ram, 6, "z", 0xD000, 0xFF)
+}

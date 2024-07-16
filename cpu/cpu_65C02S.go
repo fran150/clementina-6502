@@ -8,6 +8,8 @@ import (
 
 // Represents the WDC 65C02S processor. See https://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf
 // for details.
+// There is another document for the rockwell processor that has better data about cycle timing here:
+// https://web.archive.org/web/20221112220234if_/http://archive.6502.org/datasheets/rockwell_r65c00_microprocessors.pdf
 //
 //   - Address bus are pins A0-A15
 //   - The Bus Enable (BE) input signal provides external control of the Address, Data and the RWB buffers. When
