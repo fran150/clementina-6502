@@ -146,7 +146,7 @@ func actionBPL(cpu *Cpu65C02S) {
 // The BRK instruction forces the generation of an interrupt request. The program counter and processor status are pushed on
 // the stack then the IRQ interrupt vector at $FFFE/F is loaded into the PC and the break flag in the status set to one.
 func actionBRK(cpu *Cpu65C02S) {
-
+	cpu.processorStatusRegister.SetFlag(IrqDisableFlagBit, true)
 }
 
 // If the overflow flag is clear then add the relative displacement to the program counter to cause a branch to a new location.

@@ -1064,7 +1064,7 @@ var addressModePullStackActions []cycleActions = []cycleActions{
 var addressModeBreakActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
-		postCycle: intoDataRegister(false),
+		postCycle: intoDataRegister(true),
 		signaling: defaultSignaling,
 	},
 	{

@@ -84,6 +84,7 @@ func CreateCPU() *Cpu65C02S {
 		memoryLock:           buses.CreateConnectorEnabledLow(),
 		nonMaskableInterrupt: buses.CreateConnectorEnabledLow(),
 		reset:                buses.CreateConnectorEnabledLow(),
+		setOverflow:          buses.CreateConnectorEnabledLow(),
 		readWrite:            buses.CreateConnectorEnabledLow(),
 		sync:                 buses.CreateConnectorEnabledHigh(),
 		vectorPull:           buses.CreateConnectorEnabledLow(),
@@ -153,6 +154,10 @@ func (cpu *Cpu65C02S) Reset() *buses.ConnectorEnabledLow {
 	return cpu.reset
 }
 
+func (cpu *Cpu65C02S) SetOverflow() *buses.ConnectorEnabledLow {
+	return cpu.setOverflow
+}
+
 func (cpu *Cpu65C02S) ReadWrite() *buses.ConnectorEnabledLow {
 	return cpu.readWrite
 }
@@ -175,14 +180,10 @@ func (cpu *Cpu65C02S) VectorPull() *buses.ConnectorEnabledLow {
 // First Tick for all emulated components and then PostTick.
 // The parameter T represents the elapsed time between executions
 func (cpu *Cpu65C02S) Tick(t uint64) {
-	//	cpu.checkInterrupts()
+	cpu.checkOverflowSet()
+	cpu.checkInterrupts()
 	cpu.setCycleSignaling()
-
-	continueCycle := cpu.currentCycle.cycle(cpu)
-	if !continueCycle {
-		cpu.moveToNextCycle()
-		cpu.Tick(t)
-	}
+	cpu.executeCycle(t)
 }
 
 // As part of the emulation for every cycle we will execute 2 functions:
@@ -201,10 +202,24 @@ func (cpu *Cpu65C02S) setCycleSignaling() {
 	cpu.vectorPull.SetEnable(signaling.vectorPull)
 }
 
+func (cpu *Cpu65C02S) checkOverflowSet() {
+	if cpu.setOverflow.Enabled() {
+		cpu.processorStatusRegister.SetFlag(OverflowFlagBit, true)
+	}
+}
+
 // Check the interrupt lines and marks if an intterup was requested
 func (cpu *Cpu65C02S) checkInterrupts() {
 	cpu.irqRequested = cpu.InterruptRequest().Enabled()
 	cpu.nmiRequested = cpu.NonMaskableInterrupt().Enabled()
+}
+
+func (cpu *Cpu65C02S) executeCycle(t uint64) {
+	continueCycle := cpu.currentCycle.cycle(cpu)
+	if !continueCycle {
+		cpu.moveToNextCycle()
+		cpu.Tick(t)
+	}
 }
 
 // Called after each cycle to move the processor to the next cycle.

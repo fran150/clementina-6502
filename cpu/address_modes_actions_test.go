@@ -55,6 +55,9 @@ func createComputer() (*Cpu65C02S, *memory.Ram) {
 	cpu.MemoryLock().Connect(memoryLockLine)
 	cpu.Sync().Connect(syncLine)
 	cpu.VectorPull().Connect(vectorPullLine)
+	cpu.InterruptRequest().Connect(alwaysHighLine)
+	cpu.NonMaskableInterrupt().Connect(alwaysHighLine)
+	cpu.SetOverflow().Connect(alwaysHighLine)
 
 	cpu.programCounter = 0xC000
 

@@ -444,11 +444,11 @@ func TestActionBRKandRTI(t *testing.T) {
 	ram.Poke(0xC002, 0xA9) // LDA #$77
 	ram.Poke(0xC003, 0x77)
 
-	evaluateBranchInstruction(t, cpu, ram, 7, "", 0xD000)        // Executes BRK
-	evaluateAddress(t, cpu, ram, 0x01FB, 0x34)                   // Validates Stack address
-	evaluateAccumulatorInstruction(t, cpu, ram, 2, "Nvzc", 0xFF) // Executes LDA
-	evaluateBranchInstruction(t, cpu, ram, 6, "", 0xC002)        // Executes RTI
-	evaluateAccumulatorInstruction(t, cpu, ram, 2, "nvzc", 0x77) // Executes LDA
+	evaluateBranchInstruction(t, cpu, ram, 7, "I", 0xD000)        // Executes BRK
+	evaluateAddress(t, cpu, ram, 0x01FB, 0x34)                    // Validates Stack address
+	evaluateAccumulatorInstruction(t, cpu, ram, 2, "INvzc", 0xFF) // Executes LDA
+	evaluateBranchInstruction(t, cpu, ram, 6, "I", 0xC002)        // Executes RTI
+	evaluateAccumulatorInstruction(t, cpu, ram, 2, "Invzc", 0x77) // Executes LDA
 }
 
 func TestActionBVC(t *testing.T) {
