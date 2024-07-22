@@ -2,10 +2,16 @@ package cpu
 
 type cycleAction func(cpu *Cpu65C02S) bool
 type cyclePostAction func(cpu *Cpu65C02S)
+type syncSignaling struct {
+	memoryLock bool
+	sync       bool
+	vectorPull bool
+}
 
 type cycleActions struct {
 	cycle     cycleAction
 	postCycle cyclePostAction
+	signaling syncSignaling
 }
 
 type sumOrigin uint8
@@ -23,6 +29,42 @@ const RESET_VECTOR_MSB uint16 = 0xFFFD
 
 const IRQ_VECTOR_LSB uint16 = 0xFFFE
 const IRQ_VECTOR_MSB uint16 = 0xFFFF
+
+/**********************************************************************************************************
+* Signaling status
+*
+* These values control the status for the sync signals for memory lock, opcode reading sync and vector pull
+***********************************************************************************************************/
+
+// This is the default status for most of the cycles
+var defaultSignaling = syncSignaling{
+	memoryLock: false,
+	sync:       false,
+	vectorPull: false,
+}
+
+// This signal indicates that the processor is reading an opcode
+var opCodeSyncSignaling = syncSignaling{
+	memoryLock: false,
+	sync:       true,
+	vectorPull: false,
+}
+
+// This is used to signal that memory updates must be locked to avoid inconsistencies
+// in RMW operations. It is enabled when the processor is performing the read and
+// write cycles
+var memoryLockRMWSignaling = syncSignaling{
+	memoryLock: true,
+	sync:       false,
+	vectorPull: false,
+}
+
+// This is used to signal that the processor is reading the interrupt vector
+var vectorPullingSignaling = syncSignaling{
+	memoryLock: false,
+	sync:       false,
+	vectorPull: true,
+}
 
 /**********************************************************************************************************
 * Cycle Actions
@@ -309,6 +351,7 @@ func doNothing() cyclePostAction {
 var readOpCode cycleActions = cycleActions{
 	cycle:     readFromProgramCounter(true),
 	postCycle: intoOpCode(),
+	signaling: opCodeSyncSignaling,
 }
 
 /**********************************
@@ -319,6 +362,7 @@ var addressModeImplicitOrAccumulatorActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(false),
 		postCycle: intoDataRegister(true),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -326,6 +370,7 @@ var addressModeImmediateActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoDataRegister(true),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -337,10 +382,12 @@ var addressModeAbsoluteJumpActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterMSB(true),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -348,14 +395,17 @@ var addressModeAbsoluteActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterMSB(false),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(true),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -363,22 +413,27 @@ var addressModeAbsoluteRMWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterMSB(false),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(false),
+		signaling: memoryLockRMWSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(false),
+		signaling: memoryLockRMWSignaling,
 	},
 	{
 		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
+		signaling: memoryLockRMWSignaling,
 	},
 }
 
@@ -386,14 +441,17 @@ var addressModeAbsoluteWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterMSB(false),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -405,10 +463,12 @@ var addressModeZeroPageActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(true),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -416,18 +476,22 @@ var addressModeZeroPageRMWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(false),
+		signaling: memoryLockRMWSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(false),
+		signaling: memoryLockRMWSignaling,
 	},
 	{
 		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
+		signaling: memoryLockRMWSignaling,
 	},
 }
 
@@ -435,10 +499,12 @@ var addressModeZeroPageWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -450,14 +516,17 @@ var addressModeZeroPageXActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: addToInstructionRegisterLSB(fromXRegister),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(true),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -465,22 +534,27 @@ var addressModeZeroPageXRMWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: addToInstructionRegisterLSB(fromXRegister),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(false),
+		signaling: memoryLockRMWSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(false),
+		signaling: memoryLockRMWSignaling,
 	},
 	{
 		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
+		signaling: memoryLockRMWSignaling,
 	},
 }
 
@@ -488,14 +562,17 @@ var addressModeZeroPageXWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: addToInstructionRegisterLSB(fromXRegister),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -503,14 +580,17 @@ var addressModeZeroPageYActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: addToInstructionRegisterLSB(fromYRegister),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(true),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -518,14 +598,17 @@ var addressModeZeroPageYWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: addToInstructionRegisterLSB(fromYRegister),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -536,18 +619,22 @@ var addressModeAbsoluteXActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: addToInstructionRegister(fromXRegister),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(true),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -555,26 +642,32 @@ var addressModeAbsoluteXRMWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: addToInstructionRegister(fromXRegister),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(false),
+		signaling: memoryLockRMWSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(false),
+		signaling: memoryLockRMWSignaling,
 	},
 	{
 		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
+		signaling: memoryLockRMWSignaling,
 	},
 }
 
@@ -582,18 +675,22 @@ var addressModeAbsoluteXWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: addToInstructionRegister(fromXRegister),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -601,18 +698,22 @@ var addressModeAbsoluteYActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: addToInstructionRegister(fromYRegister),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(true),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -620,18 +721,22 @@ var addressModeAbsoluteYWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: addToInstructionRegister(fromYRegister),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -642,14 +747,17 @@ var addressModeRelativeActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoDataRegister(true),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     extraCycleIfBranchTaken(),
 		postCycle: moveInstructionRegisterToProgramCounter(false),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -657,26 +765,32 @@ var addressModeRelativeExtendedActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(true),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoDataRegister(false),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     extraCycleIfBranchTaken(),
 		postCycle: moveInstructionRegisterToProgramCounterIfNotCarry(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
 		postCycle: moveInstructionRegisterToProgramCounter(false),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -687,22 +801,27 @@ var addressModeZeroPageIndexedIndirectXActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: addToInstructionRegisterLSB(fromXRegister),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromNextAddressInBus(),
 		postCycle: intoInstructionRegisterMSB(false),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(true),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -710,22 +829,27 @@ var addressModeZeroPageIndexedIndirectXWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: addToInstructionRegisterLSB(fromXRegister),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromNextAddressInBus(),
 		postCycle: intoInstructionRegisterMSB(false),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -737,22 +861,27 @@ var addressModeZeroPageIndirectIndexedYActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{ // TODO: If page boundary crossed might require extra cycle (couldn't find documentation might need to check with real hardware)
 		cycle:     readFromNextAddressInBus(),
 		postCycle: addToInstructionRegister(fromYRegister),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(true),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -760,22 +889,27 @@ var addressModeZeroPageIndirectIndexedYWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromNextAddressInBus(),
 		postCycle: addToInstructionRegister(fromYRegister),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -787,22 +921,27 @@ var addressModeIndirectActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterMSB(false),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromNextAddressInBus(),
 		postCycle: intoInstructionRegisterMSB(false),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(true),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -814,18 +953,22 @@ var addressModeIndirectZeroPageActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromNextAddressInBus(),
 		postCycle: intoInstructionRegisterMSB(false),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(true),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -833,18 +976,22 @@ var addressModeIndirectZeroPageWActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromNextAddressInBus(),
 		postCycle: intoInstructionRegisterMSB(false),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -856,22 +1003,27 @@ var addressModeAbsoluteIndexedIndirectActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: addToInstructionRegister(fromXRegister),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromNextAddressInBus(),
 		postCycle: intoInstructionRegisterMSB(false),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
 		postCycle: intoDataRegister(true),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -882,10 +1034,12 @@ var addressModePushStackActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(false),
 		postCycle: intoDataRegister(false),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromAddressInBus(true),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -893,14 +1047,17 @@ var addressModePullStackActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(false),
 		postCycle: intoDataRegister(false),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromStackPointer(true),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromStackPointer(false),
 		postCycle: intoDataRegister(true),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -908,26 +1065,32 @@ var addressModeBreakActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoDataRegister(false),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     writeProgramCounterMSBToStack(),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     writeProgramCounterLSBToStack(),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     writeProcessorStatusRegisterToStack(false),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromAddress(IRQ_VECTOR_LSB),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: vectorPullingSignaling,
 	},
 	{
 		cycle:     readFromAddress(IRQ_VECTOR_MSB),
 		postCycle: moveInstructionRegisterToProgramCounter(true),
+		signaling: vectorPullingSignaling,
 	},
 }
 
@@ -935,22 +1098,27 @@ var addressModeReturnFromInterruptActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(false),
 		postCycle: intoDataRegister(false),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromStackPointer(true),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromStackPointer(true),
 		postCycle: intoStatusRegister(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromStackPointer(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromStackPointer(true),
 		postCycle: moveInstructionRegisterToProgramCounter(true),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -958,22 +1126,27 @@ var addressModeJumpToSubroutineActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromStackPointer(false),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     writeProgramCounterMSBToStack(),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     writeProgramCounterLSBToStack(),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: moveInstructionRegisterToProgramCounter(true),
+		signaling: defaultSignaling,
 	},
 }
 
@@ -981,21 +1154,26 @@ var addressModeReturnFromSubroutineActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(false),
 		postCycle: intoDataRegister(false),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromStackPointer(true),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromStackPointer(true),
 		postCycle: intoInstructionRegisterLSB(),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromStackPointer(true),
 		postCycle: moveInstructionRegisterToProgramCounter(true),
+		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: doNothing(),
+		signaling: defaultSignaling,
 	},
 }

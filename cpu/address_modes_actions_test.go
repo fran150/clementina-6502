@@ -37,6 +37,10 @@ func createComputer() (*Cpu65C02S, *memory.Ram) {
 
 	writeEnableLine := buses.CreateStandaloneLine(true)
 
+	memoryLockLine := buses.CreateStandaloneLine(false)
+	syncLine := buses.CreateStandaloneLine(false)
+	vectorPullLine := buses.CreateStandaloneLine(false)
+
 	ram := memory.CreateRam()
 	ram.Connect(addressBus, dataBus, writeEnableLine, alwaysLowLine, alwaysLowLine)
 
@@ -46,6 +50,9 @@ func createComputer() (*Cpu65C02S, *memory.Ram) {
 
 	cpu.BusEnable().Connect(alwaysHighLine)
 	cpu.ReadWrite().Connect(writeEnableLine)
+	cpu.MemoryLock().Connect(memoryLockLine)
+	cpu.Sync().Connect(syncLine)
+	cpu.VectorPull().Connect(vectorPullLine)
 
 	cpu.programCounter = 0xC000
 

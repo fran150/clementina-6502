@@ -12,6 +12,7 @@ func (cn *ConnectorEnabledLow) Connect(line Line) {
 	cn.line = line
 }
 
+// TODO: Handle not connected lines, now is throwing null pointer exception
 func (cn *ConnectorEnabledLow) Enabled() bool {
 	return !cn.line.Status()
 }

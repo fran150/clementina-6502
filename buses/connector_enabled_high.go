@@ -12,6 +12,7 @@ func (cn *ConnectorEnabledHigh) Connect(line Line) {
 	cn.line = line
 }
 
+// Handle not connected lines
 func (cn *ConnectorEnabledHigh) Enabled() bool {
 	return cn.line.Status()
 }

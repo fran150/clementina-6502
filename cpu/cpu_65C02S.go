@@ -45,9 +45,14 @@ type Cpu65C02S struct {
 	busEnable            *buses.ConnectorEnabledHigh
 	dataBus              *buses.Bus[uint8]
 	interruptRequest     *buses.ConnectorEnabledLow
+	memoryLock           *buses.ConnectorEnabledLow
 	nonMaskableInterrupt *buses.ConnectorEnabledLow
-	reset                *buses.ConnectorEnabledLow
 	readWrite            *buses.ConnectorEnabledLow
+	ready                *buses.ConnectorEnabledHigh
+	reset                *buses.ConnectorEnabledLow
+	setOverflow          *buses.ConnectorEnabledLow
+	sync                 *buses.ConnectorEnabledHigh
+	vectorPull           *buses.ConnectorEnabledLow
 
 	addressModeSet *AddressModeSet
 	instructionSet *CpuInstructionSet
@@ -66,6 +71,9 @@ type Cpu65C02S struct {
 	currentOpCode            OpCode
 	instructionRegister      uint16
 	dataRegister             uint8
+
+	irqRequested bool
+	nmiRequested bool
 }
 
 // Creates a CPU with typical values for all registers, address and data bus are not connected
@@ -73,9 +81,12 @@ func CreateCPU() *Cpu65C02S {
 	return &Cpu65C02S{
 		busEnable:            buses.CreateConnectorEnabledHigh(),
 		interruptRequest:     buses.CreateConnectorEnabledLow(),
+		memoryLock:           buses.CreateConnectorEnabledLow(),
 		nonMaskableInterrupt: buses.CreateConnectorEnabledLow(),
 		reset:                buses.CreateConnectorEnabledLow(),
 		readWrite:            buses.CreateConnectorEnabledLow(),
+		sync:                 buses.CreateConnectorEnabledHigh(),
+		vectorPull:           buses.CreateConnectorEnabledLow(),
 
 		instructionSet: CreateInstructionSet(),
 		addressModeSet: CreateAddressModesSet(),
@@ -130,6 +141,10 @@ func (cpu *Cpu65C02S) InterruptRequest() *buses.ConnectorEnabledLow {
 	return cpu.interruptRequest
 }
 
+func (cpu *Cpu65C02S) MemoryLock() *buses.ConnectorEnabledLow {
+	return cpu.memoryLock
+}
+
 func (cpu *Cpu65C02S) NonMaskableInterrupt() *buses.ConnectorEnabledLow {
 	return cpu.nonMaskableInterrupt
 }
@@ -142,6 +157,14 @@ func (cpu *Cpu65C02S) ReadWrite() *buses.ConnectorEnabledLow {
 	return cpu.readWrite
 }
 
+func (cpu *Cpu65C02S) Sync() *buses.ConnectorEnabledHigh {
+	return cpu.sync
+}
+
+func (cpu *Cpu65C02S) VectorPull() *buses.ConnectorEnabledLow {
+	return cpu.vectorPull
+}
+
 /*
  ****************************************************
  * Timer Tick
@@ -152,7 +175,11 @@ func (cpu *Cpu65C02S) ReadWrite() *buses.ConnectorEnabledLow {
 // First Tick for all emulated components and then PostTick.
 // The parameter T represents the elapsed time between executions
 func (cpu *Cpu65C02S) Tick(t uint64) {
-	if !cpu.currentCycle.cycle(cpu) {
+	//	cpu.checkInterrupts()
+	cpu.setCycleSignaling()
+
+	continueCycle := cpu.currentCycle.cycle(cpu)
+	if !continueCycle {
 		cpu.moveToNextCycle()
 		cpu.Tick(t)
 	}
@@ -164,6 +191,20 @@ func (cpu *Cpu65C02S) Tick(t uint64) {
 func (cpu *Cpu65C02S) PostTick(t uint64) {
 	cpu.currentCycle.postCycle(cpu)
 	cpu.moveToNextCycle()
+}
+
+func (cpu *Cpu65C02S) setCycleSignaling() {
+	signaling := cpu.currentCycle.signaling
+
+	cpu.memoryLock.SetEnable(signaling.memoryLock)
+	cpu.sync.SetEnable(signaling.sync)
+	cpu.vectorPull.SetEnable(signaling.vectorPull)
+}
+
+// Check the interrupt lines and marks if an intterup was requested
+func (cpu *Cpu65C02S) checkInterrupts() {
+	cpu.irqRequested = cpu.InterruptRequest().Enabled()
+	cpu.nmiRequested = cpu.NonMaskableInterrupt().Enabled()
 }
 
 // Called after each cycle to move the processor to the next cycle.
