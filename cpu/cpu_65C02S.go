@@ -64,16 +64,20 @@ type Cpu65C02S struct {
 	programCounter          uint16
 	processorStatusRegister StatusRegister
 
-	currentCycleIndex        int
-	currentCycle             cycleActions
+	currentInstruction *CpuInstructionData
+	currentAddressMode *AddressModeData
+	currentCycleIndex  int
+	currentCycle       cycleActions
+
 	instructionRegisterCarry bool
 	branchTaken              bool
 	currentOpCode            OpCode
 	instructionRegister      uint16
 	dataRegister             uint8
 
-	irqRequested bool
-	nmiRequested bool
+	irqRequested      bool
+	previousNMIStatus bool
+	nmiRequested      bool
 }
 
 // Creates a CPU with typical values for all registers, address and data bus are not connected
@@ -109,6 +113,10 @@ func CreateCPU() *Cpu65C02S {
 
 		instructionRegister: 0x00,
 		dataRegister:        0x00,
+
+		irqRequested:      false,
+		previousNMIStatus: false,
+		nmiRequested:      false,
 	}
 }
 
@@ -208,14 +216,24 @@ func (cpu *Cpu65C02S) checkOverflowSet() {
 	}
 }
 
-// Check the interrupt lines and marks if an intterup was requested
+// Check the interrupt lines and marks if an interrupt was requested. The interrupts are served once the current
+// instruction completes.
 func (cpu *Cpu65C02S) checkInterrupts() {
-	cpu.irqRequested = cpu.InterruptRequest().Enabled()
-	cpu.nmiRequested = cpu.NonMaskableInterrupt().Enabled()
+	if cpu.InterruptRequest().Enabled() && !cpu.processorStatusRegister.Flag(IrqDisableFlagBit) {
+		cpu.irqRequested = true
+	}
+
+	// NMI is edge enabled, only will trigger interrupt when it transitions from high to low.
+	// If it's held low no further interrupts will be triggered
+	if !cpu.previousNMIStatus && cpu.NonMaskableInterrupt().Enabled() {
+		cpu.nmiRequested = true
+	}
+	cpu.previousNMIStatus = cpu.NonMaskableInterrupt().Enabled()
 }
 
 func (cpu *Cpu65C02S) executeCycle(t uint64) {
 	continueCycle := cpu.currentCycle.cycle(cpu)
+
 	if !continueCycle {
 		cpu.moveToNextCycle()
 		cpu.Tick(t)
@@ -232,15 +250,23 @@ func (cpu *Cpu65C02S) executeCycle(t uint64) {
 func (cpu *Cpu65C02S) moveToNextCycle() {
 	cpu.currentCycleIndex++
 
-	currentAddressMode := cpu.getCurrentAddressMode()
-
-	if int(cpu.currentCycleIndex) >= currentAddressMode.Cycles() {
+	if int(cpu.currentCycleIndex) >= cpu.currentAddressMode.Cycles() {
 		cpu.currentCycleIndex = 0
-		cpu.currentCycle = readOpCode
 		cpu.instructionRegister = 0x0000
 		cpu.dataRegister = 0x00
+
+		switch {
+		case cpu.nmiRequested:
+			cpu.currentAddressMode = cpu.addressModeSet.GetByName(AddressModeNMI)
+			cpu.currentCycle = interruptCycle
+		case cpu.irqRequested:
+			cpu.currentAddressMode = cpu.addressModeSet.GetByName(AddressModeIRQ)
+			cpu.currentCycle = interruptCycle
+		default:
+			cpu.currentCycle = readOpCode
+		}
 	} else {
-		cpu.currentCycle = currentAddressMode.Cycle(cpu.currentCycleIndex - 1)
+		cpu.currentCycle = cpu.currentAddressMode.Cycle(cpu.currentCycleIndex - 1)
 	}
 }
 
@@ -313,7 +339,7 @@ func (cpu *Cpu65C02S) writeToStack(value uint8) {
 
 // Executes the instruction action
 func (cpu *Cpu65C02S) performAction() {
-	cpu.GetCurrentInstruction().Execute(cpu)
+	cpu.currentInstruction.Execute(cpu)
 }
 
 /*
@@ -350,11 +376,11 @@ func (cpu *Cpu65C02S) setWriteBus(address uint16, data uint8) {
 
 // Returns data about the current instruction being executed by the processor
 func (cpu *Cpu65C02S) GetCurrentInstruction() *CpuInstructionData {
-	return cpu.instructionSet.GetByOpCode(cpu.currentOpCode)
+	return cpu.currentInstruction
 }
 
 // Returns data about the address mode of the current instruction being
 // executed by the processor.
-func (cpu *Cpu65C02S) getCurrentAddressMode() *AddressModeData {
-	return cpu.addressModeSet.GetByName(cpu.GetCurrentInstruction().AddressMode())
+func (cpu *Cpu65C02S) GetCurrentAddressMode() *AddressModeData {
+	return cpu.currentAddressMode
 }

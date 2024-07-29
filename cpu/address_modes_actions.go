@@ -21,6 +21,14 @@ const (
 	fromYRegister sumOrigin = 1
 )
 
+type clearRequestFlag uint8
+
+const (
+	clearNoRequestFlag  clearRequestFlag = 0
+	clearNMIRequestFlag clearRequestFlag = 1
+	clearIRQRequestFlag clearRequestFlag = 2
+)
+
 const NMI_VECTOR_LSB uint16 = 0xFFFA
 const NMI_VECTOR_MSB uint16 = 0xFFFB
 
@@ -131,11 +139,11 @@ func readFromAddress(address uint16) cycleAction {
 // the stack pointer value is automatically incremented.
 func readFromStackPointer(increaseStackPointer bool) cycleAction {
 	return func(cpu *Cpu65C02S) bool {
-		cpu.readFromStack()
-
 		if increaseStackPointer {
 			cpu.stackPointer++
 		}
+
+		cpu.readFromStack()
 
 		return true
 	}
@@ -203,8 +211,10 @@ func writeProgramCounterLSBToStack() cycleAction {
 // This is used to push the processor status to the stack. It configures the bus to write the processor status
 // into the stack pointer address and updates the stack pointer value accordingly
 // The B flag is always set, but it's written in 0 to the stack when the processor stauts is persisted to the
-// stack as part of a HW interrupt.
-func writeProcessorStatusRegisterToStack(hardwareInterrupt bool) cycleAction {
+// stack as part of a HW interrupt. The hardwareInterrup flag controls how the B flag is written
+// Both BRK instructions and hardware IRQ should set the I (IRQ disable) flag, right after the saving of the
+// processor status to the stack, the disableIrq flag controls this behaviour
+func writeProcessorStatusRegisterToStack(hardwareInterrupt bool, disableIrq bool) cycleAction {
 	return func(cpu *Cpu65C02S) bool {
 		value := uint8(cpu.processorStatusRegister)
 
@@ -215,6 +225,11 @@ func writeProcessorStatusRegisterToStack(hardwareInterrupt bool) cycleAction {
 
 		cpu.writeToStack(value)
 		cpu.stackPointer--
+
+		if disableIrq {
+			cpu.processorStatusRegister.SetFlag(IrqDisableFlagBit, true)
+		}
+
 		return true
 	}
 }
@@ -228,6 +243,11 @@ func writeProcessorStatusRegisterToStack(hardwareInterrupt bool) cycleAction {
 func intoOpCode() cyclePostAction {
 	return func(cpu *Cpu65C02S) {
 		cpu.currentOpCode = OpCode(cpu.dataBus.Read())
+
+		cpu.currentInstruction = cpu.instructionSet.GetByOpCode(cpu.currentOpCode)
+
+		addressModeName := cpu.currentInstruction.AddressMode()
+		cpu.currentAddressMode = cpu.addressModeSet.GetByName(addressModeName)
 	}
 }
 
@@ -318,13 +338,24 @@ func addToInstructionRegister(origin sumOrigin) cyclePostAction {
 // Because the same function is used for 1 byte or 2 byte operands the parameter
 // "setInstructionRegisterMSB" can be used to read the MSB of the 2nd byte from
 // the bus.
-func moveInstructionRegisterToProgramCounter(setInstructionRegisterMSB bool) cyclePostAction {
+// This is the last cycle for all instructions that handle interrupts. The interrupts
+// are only triggered when the current instruction completes. We use an internal flag
+// to know that an interrupt was requested. The clearFlag parameter allows to clear
+// that flag when the interrupt cycles are completed
+func moveInstructionRegisterToProgramCounter(setInstructionRegisterMSB bool, clearFlag clearRequestFlag) cyclePostAction {
 	return func(cpu *Cpu65C02S) {
 		if setInstructionRegisterMSB {
 			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
 		}
 		cpu.programCounter = cpu.instructionRegister
 		cpu.setReadBus(cpu.programCounter)
+
+		switch clearFlag {
+		case clearIRQRequestFlag:
+			cpu.irqRequested = false
+		case clearNMIRequestFlag:
+			cpu.nmiRequested = false
+		}
 	}
 }
 
@@ -352,6 +383,13 @@ var readOpCode cycleActions = cycleActions{
 	cycle:     readFromProgramCounter(true),
 	postCycle: intoOpCode(),
 	signaling: opCodeSyncSignaling,
+}
+
+// This is always the first cycle after an interrupt
+var interruptCycle cycleActions = cycleActions{
+	cycle:     readFromProgramCounter(false),
+	postCycle: doNothing(),
+	signaling: defaultSignaling,
 }
 
 /**********************************
@@ -751,7 +789,7 @@ var addressModeRelativeActions []cycleActions = []cycleActions{
 	},
 	{
 		cycle:     extraCycleIfBranchTaken(),
-		postCycle: moveInstructionRegisterToProgramCounter(false),
+		postCycle: moveInstructionRegisterToProgramCounter(false, clearNoRequestFlag),
 		signaling: defaultSignaling,
 	},
 	{
@@ -789,7 +827,7 @@ var addressModeRelativeExtendedActions []cycleActions = []cycleActions{
 	},
 	{
 		cycle:     extraCycleIfCarryInstructionRegister(),
-		postCycle: moveInstructionRegisterToProgramCounter(false),
+		postCycle: moveInstructionRegisterToProgramCounter(false, clearNoRequestFlag),
 		signaling: defaultSignaling,
 	},
 }
@@ -1050,12 +1088,12 @@ var addressModePullStackActions []cycleActions = []cycleActions{
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     readFromStackPointer(true),
+		cycle:     readFromStackPointer(false),
 		postCycle: doNothing(),
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     readFromStackPointer(false),
+		cycle:     readFromStackPointer(true),
 		postCycle: intoDataRegister(true),
 		signaling: defaultSignaling,
 	},
@@ -1064,7 +1102,7 @@ var addressModePullStackActions []cycleActions = []cycleActions{
 var addressModeBreakActions []cycleActions = []cycleActions{
 	{
 		cycle:     readFromProgramCounter(true),
-		postCycle: intoDataRegister(true),
+		postCycle: intoDataRegister(false),
 		signaling: defaultSignaling,
 	},
 	{
@@ -1078,7 +1116,7 @@ var addressModeBreakActions []cycleActions = []cycleActions{
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     writeProcessorStatusRegisterToStack(false),
+		cycle:     writeProcessorStatusRegisterToStack(false, true),
 		postCycle: doNothing(),
 		signaling: defaultSignaling,
 	},
@@ -1089,7 +1127,7 @@ var addressModeBreakActions []cycleActions = []cycleActions{
 	},
 	{
 		cycle:     readFromAddress(IRQ_VECTOR_MSB),
-		postCycle: moveInstructionRegisterToProgramCounter(true),
+		postCycle: moveInstructionRegisterToProgramCounter(true, clearNoRequestFlag),
 		signaling: vectorPullingSignaling,
 	},
 }
@@ -1101,7 +1139,7 @@ var addressModeReturnFromInterruptActions []cycleActions = []cycleActions{
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     readFromStackPointer(true),
+		cycle:     readFromStackPointer(false),
 		postCycle: doNothing(),
 		signaling: defaultSignaling,
 	},
@@ -1117,7 +1155,7 @@ var addressModeReturnFromInterruptActions []cycleActions = []cycleActions{
 	},
 	{
 		cycle:     readFromStackPointer(true),
-		postCycle: moveInstructionRegisterToProgramCounter(true),
+		postCycle: moveInstructionRegisterToProgramCounter(true, clearNoRequestFlag),
 		signaling: defaultSignaling,
 	},
 }
@@ -1145,7 +1183,7 @@ var addressModeJumpToSubroutineActions []cycleActions = []cycleActions{
 	},
 	{
 		cycle:     readFromProgramCounter(true),
-		postCycle: moveInstructionRegisterToProgramCounter(true),
+		postCycle: moveInstructionRegisterToProgramCounter(true, clearNoRequestFlag),
 		signaling: defaultSignaling,
 	},
 }
@@ -1157,7 +1195,7 @@ var addressModeReturnFromSubroutineActions []cycleActions = []cycleActions{
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     readFromStackPointer(true),
+		cycle:     readFromStackPointer(false),
 		postCycle: doNothing(),
 		signaling: defaultSignaling,
 	},
@@ -1168,12 +1206,121 @@ var addressModeReturnFromSubroutineActions []cycleActions = []cycleActions{
 	},
 	{
 		cycle:     readFromStackPointer(true),
-		postCycle: moveInstructionRegisterToProgramCounter(true),
+		postCycle: moveInstructionRegisterToProgramCounter(true, clearNoRequestFlag),
 		signaling: defaultSignaling,
 	},
 	{
 		cycle:     readFromProgramCounter(true),
 		postCycle: doNothing(),
 		signaling: defaultSignaling,
+	},
+}
+
+var addressModeIRQActions []cycleActions = []cycleActions{
+	{
+		cycle:     readFromNextAddressInBus(),
+		postCycle: intoDataRegister(false),
+		signaling: defaultSignaling,
+	},
+	{
+		cycle:     writeProgramCounterMSBToStack(),
+		postCycle: doNothing(),
+		signaling: defaultSignaling,
+	},
+	{
+		cycle:     writeProgramCounterLSBToStack(),
+		postCycle: doNothing(),
+		signaling: defaultSignaling,
+	},
+	{
+		cycle:     writeProcessorStatusRegisterToStack(true, true),
+		postCycle: doNothing(),
+		signaling: defaultSignaling,
+	},
+	{
+		cycle:     readFromAddress(IRQ_VECTOR_LSB),
+		postCycle: intoInstructionRegisterLSB(),
+		signaling: vectorPullingSignaling,
+	},
+	{
+		cycle:     readFromAddress(IRQ_VECTOR_MSB),
+		postCycle: moveInstructionRegisterToProgramCounter(true, clearIRQRequestFlag),
+		signaling: vectorPullingSignaling,
+	},
+}
+
+var addressModeNMIActions []cycleActions = []cycleActions{
+	{
+		cycle:     readFromNextAddressInBus(),
+		postCycle: intoDataRegister(false),
+		signaling: defaultSignaling,
+	},
+	{
+		cycle:     writeProgramCounterMSBToStack(),
+		postCycle: doNothing(),
+		signaling: defaultSignaling,
+	},
+	{
+		cycle:     writeProgramCounterLSBToStack(),
+		postCycle: doNothing(),
+		signaling: defaultSignaling,
+	},
+	{
+		cycle:     writeProcessorStatusRegisterToStack(true, true),
+		postCycle: doNothing(),
+		signaling: defaultSignaling,
+	},
+	{
+		cycle:     readFromAddress(NMI_VECTOR_LSB),
+		postCycle: intoInstructionRegisterLSB(),
+		signaling: vectorPullingSignaling,
+	},
+	{
+		cycle:     readFromAddress(NMI_VECTOR_MSB),
+		postCycle: moveInstructionRegisterToProgramCounter(true, clearNMIRequestFlag),
+		signaling: vectorPullingSignaling,
+	},
+}
+
+var addressModeResetActions []cycleActions = []cycleActions{
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: doNothing(),
+		signaling: defaultSignaling,
+	},
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: doNothing(),
+		signaling: defaultSignaling,
+	},
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: doNothing(),
+		signaling: defaultSignaling,
+	},
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: doNothing(),
+		signaling: defaultSignaling,
+	},
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: doNothing(),
+		signaling: defaultSignaling,
+	},
+	{
+		cycle:     readFromProgramCounter(true),
+		postCycle: doNothing(),
+		signaling: defaultSignaling,
+	},
+	{
+		cycle:     readFromAddress(RESET_VECTOR_LSB),
+		postCycle: intoInstructionRegisterLSB(),
+		signaling: vectorPullingSignaling,
+	},
+	{
+		cycle:     readFromAddress(RESET_VECTOR_MSB),
+		postCycle: moveInstructionRegisterToProgramCounter(true, clearNoRequestFlag),
+		signaling: vectorPullingSignaling,
 	},
 }

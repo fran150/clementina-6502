@@ -75,7 +75,7 @@ func actionAND(cpu *Cpu65C02S) {
 func actionASL(cpu *Cpu65C02S) {
 	var value uint16
 
-	if cpu.getCurrentAddressMode().name == AddressModeAccumulator {
+	if cpu.currentAddressMode.name == AddressModeAccumulator {
 		value = uint16(cpu.accumulatorRegister) << 1
 		cpu.accumulatorRegister = uint8(value)
 	} else {
@@ -146,7 +146,7 @@ func actionBPL(cpu *Cpu65C02S) {
 // The BRK instruction forces the generation of an interrupt request. The program counter and processor status are pushed on
 // the stack then the IRQ interrupt vector at $FFFE/F is loaded into the PC and the break flag in the status set to one.
 func actionBRK(cpu *Cpu65C02S) {
-	cpu.processorStatusRegister.SetFlag(IrqDisableFlagBit, true)
+	// Handled by the address mode
 }
 
 // If the overflow flag is clear then add the relative displacement to the program counter to cause a branch to a new location.
@@ -226,7 +226,7 @@ func actionCPY(cpu *Cpu65C02S) {
 func actionDEC(cpu *Cpu65C02S) {
 	var value uint8
 
-	if cpu.getCurrentAddressMode().Name() != AddressModeAccumulator {
+	if cpu.currentAddressMode.Name() != AddressModeAccumulator {
 		cpu.dataRegister--
 		value = cpu.dataRegister
 		cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
@@ -272,7 +272,7 @@ func actionEOR(cpu *Cpu65C02S) {
 func actionINC(cpu *Cpu65C02S) {
 	var value uint8
 
-	if cpu.getCurrentAddressMode().Name() != AddressModeAccumulator {
+	if cpu.currentAddressMode.Name() != AddressModeAccumulator {
 		cpu.dataRegister++
 		value = cpu.dataRegister
 		cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
@@ -312,7 +312,7 @@ func actionJMP(cpu *Cpu65C02S) {
 // The JSR instruction pushes the address (minus one) of the return point on to the stack and then sets
 // the program counter to the target memory address.
 func actionJSR(cpu *Cpu65C02S) {
-	cpu.programCounter = cpu.instructionRegister
+	// Handled by the address mode
 }
 
 // A,Z,N = M
@@ -347,7 +347,7 @@ func actionLDY(cpu *Cpu65C02S) {
 // into the carry flag. Bit 7 is set to zero.
 func actionLSR(cpu *Cpu65C02S) {
 	var value uint8
-	if cpu.getCurrentAddressMode().Name() != AddressModeAccumulator {
+	if cpu.currentAddressMode.Name() != AddressModeAccumulator {
 		cpu.processorStatusRegister.SetFlag(CarryFlagBit, cpu.dataRegister&0x01 > 0)
 		cpu.dataRegister = cpu.dataRegister >> 1
 		value = cpu.dataRegister
@@ -412,7 +412,7 @@ func actionROL(cpu *Cpu65C02S) {
 		carry = 1
 	}
 
-	if cpu.getCurrentAddressMode().Name() != AddressModeAccumulator {
+	if cpu.currentAddressMode.Name() != AddressModeAccumulator {
 		value = uint16(cpu.dataRegister)<<1 | carry
 		cpu.dataRegister = uint8(value)
 		cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
@@ -437,7 +437,7 @@ func actionROR(cpu *Cpu65C02S) {
 		carry = 1 << 7
 	}
 
-	if cpu.getCurrentAddressMode().Name() != AddressModeAccumulator {
+	if cpu.currentAddressMode.Name() != AddressModeAccumulator {
 		cpu.processorStatusRegister.SetFlag(CarryFlagBit, cpu.dataRegister&0x01 > 0)
 		value = carry | (uint16(cpu.dataRegister) >> 1)
 		cpu.dataRegister = uint8(value)

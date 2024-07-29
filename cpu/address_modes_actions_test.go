@@ -27,6 +27,15 @@ type addressModeTestData struct {
 	programCounter      uint16
 }
 
+// See addressModeTestData. This data is what it will be validated after each cycle.
+// This structs includes also values to trigger NMI or regular interrupts.
+type addressModeTestDataWithInterrupt struct {
+	addressModeTestData
+
+	triggerIRQ bool
+	triggerNMI bool
+}
+
 // Creates a computer for testing the CPU emulation.
 // It is only 64K of RAM memory connected to the bus, processor lines are wired
 // to always high or low lines.
@@ -55,13 +64,26 @@ func createComputer() (*Cpu65C02S, *memory.Ram) {
 	cpu.MemoryLock().Connect(memoryLockLine)
 	cpu.Sync().Connect(syncLine)
 	cpu.VectorPull().Connect(vectorPullLine)
+	cpu.SetOverflow().Connect(alwaysHighLine)
+
 	cpu.InterruptRequest().Connect(alwaysHighLine)
 	cpu.NonMaskableInterrupt().Connect(alwaysHighLine)
-	cpu.SetOverflow().Connect(alwaysHighLine)
 
 	cpu.programCounter = 0xC000
 
 	return cpu, ram
+}
+
+func createComputerWithInterruptLines() (*Cpu65C02S, *memory.Ram, *buses.StandaloneLine, *buses.StandaloneLine) {
+	cpu, ram := createComputer()
+
+	nmiLine := buses.CreateStandaloneLine(true)
+	irqLine := buses.CreateStandaloneLine(true)
+
+	cpu.NonMaskableInterrupt().Connect(nmiLine)
+	cpu.InterruptRequest().Connect(irqLine)
+
+	return cpu, ram, nmiLine, irqLine
 }
 
 // Evaluates the current status of the CPU on a given cycle and
@@ -155,7 +177,36 @@ func runTest(cpu *Cpu65C02S, ram *memory.Ram, steps []addressModeTestData, t *te
 
 		evaluateCycle(cycle, cpu, &step, t)
 	}
+}
 
+func runTestWithInterrupts(cpu *Cpu65C02S, ram *memory.Ram, irqLine *buses.StandaloneLine, nmiLine *buses.StandaloneLine, steps []addressModeTestDataWithInterrupt, t *testing.T) {
+	t.Logf("Cycle \t Addr \t Data \t R/W \t PC \t A \t X \t Y \t SP \t Flags \n")
+	t.Logf("---- \t ---- \t ---- \t ---- \t ---- \t -- \t -- \t -- \t -- \t ----- \n")
+
+	for cycle, step := range steps {
+		if step.triggerIRQ {
+			irqLine.Set(false)
+		}
+
+		if step.triggerNMI {
+			nmiLine.Set(false)
+		}
+
+		cpu.Tick(100)
+		ram.Tick(100)
+
+		evaluateRegister(cycle, cpu.addressBus.Read(), step.addressBus, t, "address bus")
+		evaluateRegister(cycle, cpu.dataBus.Read(), step.dataBus, t, "data bus")
+
+		cpu.PostTick(100)
+
+		t.Logf("%v \t %04X \t %02X \t %v \t %04X \t %02X \t %02X \t %02X \t %02X \t %08b \n", cycle, cpu.addressBus.Read(), cpu.dataBus.Read(), cpu.readWrite.GetLine().Status(), cpu.programCounter, cpu.accumulatorRegister, cpu.xRegister, cpu.yRegister, cpu.stackPointer, uint8(cpu.processorStatusRegister))
+
+		evaluateCycle(cycle, cpu, &step.addressModeTestData, t)
+
+		irqLine.Set(true)
+		nmiLine.Set(true)
+	}
 }
 
 /**************************************************************************
@@ -1214,12 +1265,57 @@ func TestJumpAndReturnFromSubroutineAddressMode(t *testing.T) {
 	runTest(cpu, ram, steps, t)
 }
 
-/**************************************************************************
-* Other tests
-* -----------
-* This section will tests if the address modes have the right output on
-* each cycle. For reference on the behaviour of each cycle see:
-* https://www.atarihq.com/danb/files/64doc.txt
-**************************************************************************/
-func TestCpuReadOpCodeCycle(t *testing.T) {
+func TestIRQAndReturnFromInterruptAddressMode(t *testing.T) {
+	cpu, ram, nmiLine, irqLine := createComputerWithInterruptLines()
+
+	cpu.processorStatusRegister.SetFlag(IrqDisableFlagBit, false)
+
+	ram.Poke(0xC000, 0xA9) // LDA #FF
+	ram.Poke(0xC001, 0xFF)
+	ram.Poke(0xC002, 0xA9) // LDA #AA
+	ram.Poke(0xC003, 0xAA)
+	ram.Poke(0xC004, 0xEA) // NOP
+	ram.Poke(0xC005, 0xEA) // NOP
+
+	ram.Poke(0xD000, 0xEA) // NOP
+	ram.Poke(0xD001, 0x40) // RTI
+	ram.Poke(0xD002, 0xAA)
+
+	ram.Poke(0xFFFE, 0x00)
+	ram.Poke(0xFFFF, 0xD0)
+
+	steps := []addressModeTestDataWithInterrupt{
+		{addressModeTestData{0xC000, 0xA9, true, 0x00, 0x00, 0x00, "S", 0xC001}, false, true},  // 0 LDA #FF IRQ Trigger
+		{addressModeTestData{0xC001, 0xFF, true, 0xFF, 0x00, 0x00, "", 0xC002}, false, true},   // 1
+		{addressModeTestData{0xC002, 0xA9, true, 0xFF, 0x00, 0x00, "", 0xC002}, false, true},   // 2 - BRK (7 cycles)
+		{addressModeTestData{0xC003, 0xAA, true, 0xFF, 0x00, 0x00, "", 0xC002}, false, true},   // 3
+		{addressModeTestData{0x01FD, 0xC0, false, 0xFF, 0x00, 0x00, "", 0xC002}, false, true},  // 4
+		{addressModeTestData{0x01FC, 0x02, false, 0xFF, 0x00, 0x00, "", 0xC002}, false, true},  // 5
+		{addressModeTestData{0x01FB, 0xA0, false, 0xFF, 0x00, 0x00, "", 0xC002}, false, true},  // 6
+		{addressModeTestData{0xFFFE, 0x00, true, 0xFF, 0x00, 0x00, "V", 0xC002}, false, true},  // 7
+		{addressModeTestData{0xFFFF, 0xD0, true, 0xFF, 0x00, 0x00, "V", 0xD000}, false, true},  // 8
+		{addressModeTestData{0xD000, 0xEA, true, 0xFF, 0x00, 0x00, "S", 0xD001}, false, true},  // 9 -- NOP (2 cycles) IRQ is trying to trigger but flag is disabled
+		{addressModeTestData{0xD001, 0x40, true, 0xFF, 0x00, 0x00, "", 0xD001}, false, false},  // 10
+		{addressModeTestData{0xD001, 0x40, true, 0xFF, 0x00, 0x00, "S", 0xD002}, false, false}, // 11 -- RTI (6 cycles)
+		{addressModeTestData{0xD002, 0xAA, true, 0xFF, 0x00, 0x00, "", 0xD002}, false, false},  // 12
+		{addressModeTestData{0x01FA, 0x00, true, 0xFF, 0x00, 0x00, "", 0xD002}, false, false},  // 13
+		{addressModeTestData{0x01FB, 0xA0, true, 0xFF, 0x00, 0x00, "", 0xD002}, false, false},  // 14
+		{addressModeTestData{0x01FC, 0x02, true, 0xFF, 0x00, 0x00, "", 0xD002}, false, false},  // 15
+		{addressModeTestData{0x01FD, 0xC0, true, 0xFF, 0x00, 0x00, "", 0xC002}, false, false},  // 16
+
+		{addressModeTestData{0xC002, 0xA9, true, 0xFF, 0x00, 0x00, "S", 0xC003}, false, true}, // 17 -- LDA #AA // IRQ triggered again as I flag was cleared on status restore
+		{addressModeTestData{0xC003, 0xAA, true, 0xAA, 0x00, 0x00, "", 0xC004}, false, true},  // 18
+		{addressModeTestData{0xC004, 0xEA, true, 0xAA, 0x00, 0x00, "", 0xC004}, false, true},  // 19 - BRK (7 cycles)
+		{addressModeTestData{0xC005, 0xEA, true, 0xAA, 0x00, 0x00, "", 0xC004}, false, true},  // 20
+		{addressModeTestData{0x01FD, 0xC0, false, 0xAA, 0x00, 0x00, "", 0xC004}, false, true}, // 21
+		{addressModeTestData{0x01FC, 0x04, false, 0xAA, 0x00, 0x00, "", 0xC004}, false, true}, // 22
+		{addressModeTestData{0x01FB, 0xA0, false, 0xAA, 0x00, 0x00, "", 0xC004}, false, true}, // 23
+		{addressModeTestData{0xFFFE, 0x00, true, 0xAA, 0x00, 0x00, "V", 0xC004}, false, true}, // 24
+		{addressModeTestData{0xFFFF, 0xD0, true, 0xAA, 0x00, 0x00, "V", 0xD000}, false, true}, // 25
+		{addressModeTestData{0xD000, 0xEA, true, 0xAA, 0x00, 0x00, "S", 0xD001}, false, true}, // 26 -- NOP (2 cycles) IRQ is trying to trigger but flag is disabled
+		{addressModeTestData{0xD001, 0x40, true, 0xAA, 0x00, 0x00, "", 0xD001}, false, false}, // 27
+
+	}
+
+	runTestWithInterrupts(cpu, ram, nmiLine, irqLine, steps, t)
 }
