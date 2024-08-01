@@ -145,9 +145,9 @@ func actionBPL(cpu *Cpu65C02S) {
 
 // The BRK instruction forces the generation of an interrupt request. The program counter and processor status are pushed on
 // the stack then the IRQ interrupt vector at $FFFE/F is loaded into the PC and the break flag in the status set to one.
-func actionBRK(cpu *Cpu65C02S) {
-	// Handled by the address mode
-}
+//func actionBRK(cpu *Cpu65C02S) {
+// Handled by the address mode
+//}
 
 // If the overflow flag is clear then add the relative displacement to the program counter to cause a branch to a new location.
 func actionBVC(cpu *Cpu65C02S) {
@@ -311,9 +311,9 @@ func actionJMP(cpu *Cpu65C02S) {
 
 // The JSR instruction pushes the address (minus one) of the return point on to the stack and then sets
 // the program counter to the target memory address.
-func actionJSR(cpu *Cpu65C02S) {
-	// Handled by the address mode
-}
+//func actionJSR(cpu *Cpu65C02S) {
+// Handled by the address mode
+//}
 
 // A,Z,N = M
 // Loads a byte of memory into the accumulator setting the zero and negative flags as appropriate.
@@ -454,15 +454,15 @@ func actionROR(cpu *Cpu65C02S) {
 
 // The RTI instruction is used at the end of an interrupt processing routine. It pulls the processor flags from the stack
 // followed by the program counter.
-func actionRTI(cpu *Cpu65C02S) {
-	// Handled by the address mode
-}
+// func actionRTI(cpu *Cpu65C02S) {
+// Handled by the address mode
+// }
 
 // The RTS instruction is used at the end of a subroutine to return to the calling routine.
 // It pulls the program counter (minus one) from the stack.
-func actionRTS(cpu *Cpu65C02S) {
-	// Handled by the address mode
-}
+// func actionRTS(cpu *Cpu65C02S) {
+// Handled by the address mode
+// }
 
 // A,Z,C,N = A-M-(1-C)
 // This instruction subtracts the contents of a memory location to the accumulator together with the not of the carry bit.

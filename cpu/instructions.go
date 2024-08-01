@@ -28,12 +28,7 @@ func (data *CpuInstructionData) AddressMode() AddressMode {
 // ----------------------------------------------------------------------
 
 type CpuInstructionSet struct {
-	opCodeIndex    map[OpCode]*CpuInstructionData
-	mnemonicsIndex map[Mnemonic]*CpuInstructionData
-}
-
-func (instruction *CpuInstructionSet) GetByMnemonic(mnemonic Mnemonic) *CpuInstructionData {
-	return instruction.mnemonicsIndex[mnemonic]
+	opCodeIndex map[OpCode]*CpuInstructionData
 }
 
 func (instruction *CpuInstructionSet) GetByOpCode(opCode OpCode) *CpuInstructionData {
@@ -42,7 +37,7 @@ func (instruction *CpuInstructionSet) GetByOpCode(opCode OpCode) *CpuInstruction
 
 func CreateInstructionSet() *CpuInstructionSet {
 	var data = []CpuInstructionData{
-		{0x00, BRK, actionBRK, AddressModeBreak},
+		{0x00, BRK, nil, AddressModeBreak},
 		{0x01, ORA, actionORA, AddressModeZeroPageIndexedIndirectX},
 		{0x04, TSB, actionTSB, AddressModeZeroPageRMW},
 		{0x05, ORA, actionORA, AddressModeZeroPage},
@@ -71,7 +66,7 @@ func CreateInstructionSet() *CpuInstructionSet {
 		{0x1E, ASL, actionASL, AddressModeAbsoluteXRMW},
 		{0x1F, BBR1, actionBBR, AddressModeRelativeExtended},
 
-		{0x20, JSR, actionJSR, AddressModeJumpToSubroutine},
+		{0x20, JSR, nil, AddressModeJumpToSubroutine},
 		{0x21, AND, actionAND, AddressModeZeroPageIndexedIndirectX},
 		{0x24, BIT, actionBIT, AddressModeZeroPage},
 		{0x25, AND, actionAND, AddressModeZeroPage},
@@ -100,7 +95,7 @@ func CreateInstructionSet() *CpuInstructionSet {
 		{0x3E, ROL, actionROL, AddressModeAbsoluteXRMW},
 		{0x3F, BBR3, actionBBR, AddressModeRelativeExtended},
 
-		{0x40, RTI, actionRTI, AddressModeReturnFromInterrupt},
+		{0x40, RTI, nil, AddressModeReturnFromInterrupt},
 		{0x41, EOR, actionEOR, AddressModeZeroPageIndexedIndirectX},
 		{0x45, EOR, actionEOR, AddressModeZeroPage},
 		{0x46, LSR, actionLSR, AddressModeZeroPageRMW},
@@ -126,7 +121,7 @@ func CreateInstructionSet() *CpuInstructionSet {
 		{0x5E, LSR, actionLSR, AddressModeAbsoluteXRMW},
 		{0x5F, BBR5, actionBBR, AddressModeRelativeExtended},
 
-		{0x60, RTS, actionRTS, AddressModeReturnFromSubroutine},
+		{0x60, RTS, nil, AddressModeReturnFromSubroutine},
 		{0x61, ADC, actionADC, AddressModeZeroPageIndexedIndirectX},
 		{0x64, STZ, actionSTZ, AddressModeZeroPageW},
 		{0x65, ADC, actionADC, AddressModeZeroPage},
@@ -272,12 +267,10 @@ func CreateInstructionSet() *CpuInstructionSet {
 	}
 
 	instructionSet := CpuInstructionSet{
-		opCodeIndex:    map[OpCode]*CpuInstructionData{},
-		mnemonicsIndex: map[Mnemonic]*CpuInstructionData{},
+		opCodeIndex: map[OpCode]*CpuInstructionData{},
 	}
 
 	for _, data := range data {
-		instructionSet.mnemonicsIndex[data.mnemonic] = &data
 		instructionSet.opCodeIndex[data.opcode] = &data
 	}
 
