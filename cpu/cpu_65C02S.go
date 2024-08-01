@@ -78,6 +78,10 @@ type Cpu65C02S struct {
 	irqRequested      bool
 	previousNMIStatus bool
 	nmiRequested      bool
+	cyclesWithReset   uint8
+
+	processorPaused  bool
+	processorStopped bool
 }
 
 // Creates a CPU with typical values for all registers, address and data bus are not connected
@@ -90,6 +94,7 @@ func CreateCPU() *Cpu65C02S {
 		reset:                buses.CreateConnectorEnabledLow(),
 		setOverflow:          buses.CreateConnectorEnabledLow(),
 		readWrite:            buses.CreateConnectorEnabledLow(),
+		ready:                buses.CreateConnectorEnabledHigh(),
 		sync:                 buses.CreateConnectorEnabledHigh(),
 		vectorPull:           buses.CreateConnectorEnabledLow(),
 
@@ -117,6 +122,11 @@ func CreateCPU() *Cpu65C02S {
 		irqRequested:      false,
 		previousNMIStatus: false,
 		nmiRequested:      false,
+
+		cyclesWithReset: 0,
+
+		processorPaused:  false,
+		processorStopped: false,
 	}
 }
 
@@ -170,6 +180,10 @@ func (cpu *Cpu65C02S) ReadWrite() *buses.ConnectorEnabledLow {
 	return cpu.readWrite
 }
 
+func (cpu *Cpu65C02S) Ready() *buses.ConnectorEnabledHigh {
+	return cpu.ready
+}
+
 func (cpu *Cpu65C02S) Sync() *buses.ConnectorEnabledHigh {
 	return cpu.sync
 }
@@ -188,20 +202,52 @@ func (cpu *Cpu65C02S) VectorPull() *buses.ConnectorEnabledLow {
 // First Tick for all emulated components and then PostTick.
 // The parameter T represents the elapsed time between executions
 func (cpu *Cpu65C02S) Tick(t uint64) {
-	cpu.checkOverflowSet()
-	cpu.checkInterrupts()
-	cpu.setCycleSignaling()
-	cpu.executeCycle(t)
+	if cpu.processorPaused || cpu.processorStopped {
+		cpu.Ready().SetEnable(false)
+	}
+
+	if !cpu.processorStopped {
+		cpu.checkInterrupts()
+
+		// If the processor was paused by a WAI instruction and an interrupt is requested
+		// then it must be unpaused
+		if cpu.processorPaused {
+			if cpu.NonMaskableInterrupt().Enabled() || cpu.InterruptRequest().Enabled() {
+				cpu.processorPaused = false
+				cpu.Ready().SetEnable(true)
+			}
+		}
+
+		if cpu.Ready().Enabled() {
+			cpu.checkOverflowSet()
+			cpu.setCycleSignaling()
+
+			cpu.executeCycle(t)
+		}
+	}
 }
 
 // As part of the emulation for every cycle we will execute 2 functions:
 // First Tick for all emulated components and then PostTick.
 // The parameter T represents the elapsed time between executions
 func (cpu *Cpu65C02S) PostTick(t uint64) {
-	cpu.currentCycle.postCycle(cpu)
-	cpu.moveToNextCycle()
+	// Execute post action if CPU is not paused or stopped
+	if cpu.Ready().Enabled() {
+		cpu.currentCycle.postCycle(cpu)
+		cpu.moveToNextCycle()
+	}
+
+	// If cpu is stopped only reset can remove it from that state
+	cpu.checkReset()
 }
 
+// Sets the signals according to the current cycle being executed.
+// Memory lock is enabled on last 3 cycles on RMW instructions and can be used to lock
+// memory updates and guarantee consistency.
+// Sync is enabled when processor is reading opcode
+// Vector pull is enabled when the processor is pulling the interrupt vector (FFFA - FFFF)
+// during an interrupt. It allows to change the response and have different handlers
+// depending on what triggered the interrupt
 func (cpu *Cpu65C02S) setCycleSignaling() {
 	signaling := cpu.currentCycle.signaling
 
@@ -210,6 +256,10 @@ func (cpu *Cpu65C02S) setCycleSignaling() {
 	cpu.vectorPull.SetEnable(signaling.vectorPull)
 }
 
+// If the set overflow flag pin is enabled then V flag is set.
+// SOB was originally intended for fast input recognition because it can be tested with a branch instruction;
+// however, it is not recommended in new system design
+// and was seldom used in the past.
 func (cpu *Cpu65C02S) checkOverflowSet() {
 	if cpu.setOverflow.Enabled() {
 		cpu.processorStatusRegister.SetFlag(OverflowFlagBit, true)
@@ -219,7 +269,7 @@ func (cpu *Cpu65C02S) checkOverflowSet() {
 // Check the interrupt lines and marks if an interrupt was requested. The interrupts are served once the current
 // instruction completes.
 func (cpu *Cpu65C02S) checkInterrupts() {
-	if cpu.InterruptRequest().Enabled() && !cpu.processorStatusRegister.Flag(IrqDisableFlagBit) {
+	if !cpu.irqRequested && cpu.InterruptRequest().Enabled() && !cpu.processorStatusRegister.Flag(IrqDisableFlagBit) {
 		cpu.irqRequested = true
 	}
 
@@ -229,6 +279,45 @@ func (cpu *Cpu65C02S) checkInterrupts() {
 		cpu.nmiRequested = true
 	}
 	cpu.previousNMIStatus = cpu.NonMaskableInterrupt().Enabled()
+}
+
+func (cpu *Cpu65C02S) checkReset() {
+	if cpu.reset.Enabled() {
+		cpu.cyclesWithReset++
+
+		if cpu.cyclesWithReset >= 2 {
+			cpu.currentAddressMode = cpu.addressModeSet.GetByName(AddressModeReset)
+			cpu.currentCycle = interruptCycle
+
+			cpu.setDefaultValues()
+		}
+	} else {
+		cpu.cyclesWithReset = 0
+	}
+}
+
+func (cpu *Cpu65C02S) setDefaultValues() {
+	cpu.stackPointer = 0xFD
+
+	// Set default value for flags B and I   (NV-BDIZC) = 0x34
+	cpu.processorStatusRegister = StatusRegister(0b00110100)
+
+	cpu.currentCycleIndex = 0
+	cpu.instructionRegisterCarry = false
+	cpu.branchTaken = false
+	cpu.currentOpCode = 0x00
+
+	cpu.instructionRegister = 0x00
+	cpu.dataRegister = 0x00
+
+	cpu.irqRequested = false
+	cpu.previousNMIStatus = false
+	cpu.nmiRequested = false
+
+	cpu.cyclesWithReset = 0
+
+	cpu.processorPaused = false
+	cpu.processorStopped = false
 }
 
 func (cpu *Cpu65C02S) executeCycle(t uint64) {

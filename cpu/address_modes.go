@@ -65,12 +65,9 @@ const (
 	AddressModeRelativeExtended          AddressMode = "RELEX"
 
 	// Non instructions address modes
-	AddressModeIRQ AddressMode = "IRQ"
-	AddressModeNMI AddressMode = "NMI"
-
-	// Pending implementation
-	AddressModeStop AddressMode = "STP"
-	AddressModeWait AddressMode = "WAI"
+	AddressModeIRQ   AddressMode = "IRQ"
+	AddressModeNMI   AddressMode = "NMI"
+	AddressModeReset AddressMode = "RESET"
 )
 
 // ----------------------------------------------------------------------
@@ -162,14 +159,10 @@ func CreateAddressModesSet() *AddressModeSet {
 		{AddressModeJumpToSubroutine, "a", "$%04X", addressModeJumpToSubroutineActions, 3},
 		{AddressModeReturnFromSubroutine, "i", "", addressModeReturnFromSubroutineActions, 1},
 
-		// 65C02S special address modes
-
-		{AddressModeStop, "i", "", []cycleActions{}, 1},
-		{AddressModeWait, "i", "", []cycleActions{}, 1},
-
 		// Non Instruction address modes. These are used to handle interrupt request and are similar to BRK
-		{AddressModeIRQ, "i", "", addressModeIRQActions, 0},
-		{AddressModeNMI, "i", "", addressModeNMIActions, 0},
+		{AddressModeIRQ, "irq", "", addressModeIRQActions, 0},
+		{AddressModeNMI, "nmi", "", addressModeNMIActions, 0},
+		{AddressModeReset, "reset", "", addressModeResetActions, 0},
 
 		// See discussions about BBR and BBS correct timing here:
 		// https://www.reddit.com/r/beneater/comments/1cac3ly/clarification_of_65c02_instruction_execution_times/

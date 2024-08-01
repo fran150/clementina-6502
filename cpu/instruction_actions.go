@@ -666,9 +666,9 @@ func actionTSB(cpu *Cpu65C02S) {
 }
 
 func actionWAI(cpu *Cpu65C02S) {
-
+	cpu.processorPaused = true
 }
 
 func actionSTP(cpu *Cpu65C02S) {
-	// TODO: Implement
+	cpu.processorStopped = true
 }
