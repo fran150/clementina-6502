@@ -488,7 +488,8 @@ func (cpu *Cpu65C02S) ShowProcessorStatus() {
 	address := cpu.addressBus.Read()
 	data := cpu.dataBus.Read()
 
-	if address == 0x3477 {
+	// https://github.com/Klaus2m5/6502_65C02_functional_tests/blob/master/bin_files/6502_functional_test.lst#L13377
+	if address == 0x3469 {
 		fmt.Printf("%04X, %02x, %s - %04X - %02X, %02X, %02X - %02X - %08b \n", address, data, mnemonic, cpu.programCounter, cpu.accumulatorRegister, cpu.xRegister, cpu.yRegister, cpu.stackPointer, cpu.processorStatusRegister.ReadValue())
 	}
 }

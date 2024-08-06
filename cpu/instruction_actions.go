@@ -24,6 +24,14 @@ func setCarryFlag(cpu *Cpu65C02S, value uint16) {
 	cpu.processorStatusRegister.SetFlag(CarryFlagBit, value&0xFF00 > 0)
 }
 
+func setCarryFlagDecimal(cpu *Cpu65C02S, value uint16) {
+	cpu.processorStatusRegister.SetFlag(CarryFlagBit, value > 0x99)
+}
+
+func setCarryFlagDecimalSubstraction(cpu *Cpu65C02S, value uint16) {
+	cpu.processorStatusRegister.SetFlag(CarryFlagBit, value < 0x100)
+}
+
 func setOverflowFlagAddition(cpu *Cpu65C02S, original uint8, register uint8, addedValue uint16) {
 	termA := ^(uint16(register) ^ uint16(original))
 	termB := (uint16(register) ^ addedValue)
@@ -36,6 +44,14 @@ func setOverflowFlagBit(cpu *Cpu65C02S, value uint8) {
 	cpu.processorStatusRegister.SetFlag(OverflowFlagBit, value&(1<<6) != 0)
 }
 
+func fromBCD(value uint8) uint8 {
+	return (((value & 0xf0) / 0x10) * 10) + (value & 0xf)
+}
+
+func toBCD(value uint8) uint8 {
+	return (value/10)*16 + (value % 10)
+}
+
 /**************************************************************************************************
 * 6502 traditional instruction set
 **************************************************************************************************/
@@ -45,13 +61,32 @@ func setOverflowFlagBit(cpu *Cpu65C02S, value uint8) {
 // If overflow occurs the carry bit is set, this enables multiple byte addition to be performed.
 func actionADC(cpu *Cpu65C02S) {
 	var carry uint8 = 0
+	var value uint16
+
 	if cpu.processorStatusRegister.Flag(CarryFlagBit) {
 		carry = 1
 	}
 
-	value := uint16(cpu.accumulatorRegister) + uint16(cpu.dataRegister) + uint16(carry)
+	if cpu.processorStatusRegister.Flag(DecimalModeFlagBit) {
+		tmp := uint16(cpu.dataRegister) + uint16(cpu.accumulatorRegister) + uint16(carry)
 
-	setCarryFlag(cpu, value)
+		if ((cpu.accumulatorRegister & 0xF) + (cpu.dataRegister & 0xF) + carry) > 0x09 {
+			tmp += 6
+		}
+
+		if tmp > 0x99 {
+			tmp += 96
+		}
+
+		value = tmp & 0xFF
+
+		setCarryFlagDecimal(cpu, tmp)
+	} else {
+		value = uint16(cpu.accumulatorRegister) + uint16(cpu.dataRegister) + uint16(carry)
+
+		setCarryFlag(cpu, value)
+	}
+
 	setZeroFlag16(cpu, value)
 	setNegativeFlag16(cpu, value)
 	setOverflowFlagAddition(cpu, cpu.dataRegister, cpu.accumulatorRegister, value)
@@ -193,11 +228,14 @@ func actionCLV(cpu *Cpu65C02S) {
 func actionCMP(cpu *Cpu65C02S) {
 	temp := cpu.accumulatorRegister
 	tempV := cpu.processorStatusRegister.Flag(OverflowFlagBit)
+	tempD := cpu.processorStatusRegister.Flag(DecimalModeFlagBit)
 
 	cpu.processorStatusRegister.SetFlag(CarryFlagBit, true)
+	cpu.processorStatusRegister.SetFlag(DecimalModeFlagBit, false)
 	actionSBC(cpu)
 
 	cpu.processorStatusRegister.SetFlag(OverflowFlagBit, tempV)
+	cpu.processorStatusRegister.SetFlag(DecimalModeFlagBit, tempD)
 	cpu.accumulatorRegister = temp
 }
 
@@ -467,10 +505,39 @@ func actionROR(cpu *Cpu65C02S) {
 // A,Z,C,N = A-M-(1-C)
 // This instruction subtracts the contents of a memory location to the accumulator together with the not of the carry bit.
 // If overflow occurs the carry bit is clear, this enables multiple byte subtraction to be performed.
+// Decimal Mode based on https://github.com/gianlucag/mos6502/blob/master/mos6502.cpp
 func actionSBC(cpu *Cpu65C02S) {
-	cpu.dataRegister = ^cpu.dataRegister
+	var carry uint8 = 0
+	var value uint16
 
-	actionADC(cpu)
+	if !cpu.processorStatusRegister.Flag(CarryFlagBit) {
+		carry = 1
+	}
+
+	if cpu.processorStatusRegister.Flag(DecimalModeFlagBit) {
+		tmp := uint16(cpu.accumulatorRegister) - uint16(cpu.dataRegister) - uint16(carry)
+
+		if ((cpu.accumulatorRegister & 0x0F) - (cpu.dataRegister & 0x0F) - carry) > 0x09 {
+			tmp -= 6
+		}
+
+		if tmp > 0x99 {
+			tmp -= 0x60
+		}
+
+		setCarryFlagDecimalSubstraction(cpu, tmp)
+
+		setZeroFlag16(cpu, tmp)
+		setNegativeFlag16(cpu, value)
+		setOverflowFlagAddition(cpu, cpu.dataRegister, cpu.accumulatorRegister, tmp)
+
+		value = tmp & 0xFF
+
+		cpu.accumulatorRegister = uint8(value)
+	} else {
+		cpu.dataRegister = ^cpu.dataRegister
+		actionADC(cpu)
+	}
 }
 
 // C = 1
