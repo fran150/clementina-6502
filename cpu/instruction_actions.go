@@ -118,8 +118,8 @@ func actionBEQ(cpu *Cpu65C02S) {
 func actionBIT(cpu *Cpu65C02S) {
 	value := cpu.dataRegister & cpu.accumulatorRegister
 	setZeroFlag(cpu, value)
-	setNegativeFlag(cpu, value)
-	setOverflowFlagBit(cpu, value)
+	setNegativeFlag(cpu, cpu.dataRegister)
+	setOverflowFlagBit(cpu, cpu.dataRegister)
 }
 
 // If the negative flag is set then add the relative displacement to the program counter to cause a branch to a new location.
@@ -384,7 +384,7 @@ func actionPHA(cpu *Cpu65C02S) {
 
 // Pushes a copy of the status flags on to the stack.
 func actionPHP(cpu *Cpu65C02S) {
-	cpu.writeToStack(uint8(cpu.processorStatusRegister))
+	cpu.writeToStack(cpu.processorStatusRegister.ReadValue())
 	cpu.stackPointer--
 }
 
@@ -399,7 +399,7 @@ func actionPLA(cpu *Cpu65C02S) {
 // Pulls an 8 bit value from the stack and into the processor flags. The flags will take on new states
 // as determined by the value pulled.
 func actionPLP(cpu *Cpu65C02S) {
-	cpu.processorStatusRegister = StatusRegister(cpu.dataRegister)
+	cpu.processorStatusRegister.SetValue(cpu.dataRegister)
 }
 
 // Move each of the bits in either A or M one place to the left. Bit 0 is filled with the current value
@@ -443,7 +443,7 @@ func actionROR(cpu *Cpu65C02S) {
 		cpu.dataRegister = uint8(value)
 		cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
 	} else {
-		cpu.processorStatusRegister.SetFlag(CarryFlagBit, cpu.dataRegister&0x01 > 0)
+		cpu.processorStatusRegister.SetFlag(CarryFlagBit, cpu.accumulatorRegister&0x01 > 0)
 		value = carry | (uint16(cpu.accumulatorRegister) >> 1)
 		cpu.accumulatorRegister = uint8(value)
 	}

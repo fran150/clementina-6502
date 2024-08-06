@@ -1,6 +1,11 @@
 package memory
 
-import "github.com/fran150/clementina6502/buses"
+import (
+	"bufio"
+	"os"
+
+	"github.com/fran150/clementina6502/buses"
+)
 
 type Ram struct {
 	values       [0xFFFF + 1]uint8
@@ -50,6 +55,29 @@ func (ram *Ram) read() {
 
 func (ram *Ram) write() {
 	ram.values[ram.addressBus.Read()] = ram.dataBus.Read()
+}
+
+// TODO: Needs improvement
+
+func (ram *Ram) Load(binFilePath string) {
+	file, err := os.Open(binFilePath)
+
+	if err != nil {
+		//return nil, err
+	}
+	defer file.Close()
+
+	stats, statsErr := file.Stat()
+	if statsErr != nil {
+		//return nil, statsErr
+	}
+
+	var size int64 = stats.Size()
+
+	if size <= int64(len(ram.values)) {
+		bufr := bufio.NewReader(file)
+		bufr.Read(ram.values[:])
+	}
 }
 
 // TODO: Add handling for disconnected lines

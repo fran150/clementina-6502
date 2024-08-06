@@ -1,6 +1,7 @@
 package cpu
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/fran150/clementina6502/buses"
@@ -108,7 +109,7 @@ func CreateCPU() *Cpu65C02S {
 		programCounter:      0xFFFC,
 
 		// Set default value for flags B and I   (NV-BDIZC) = 0x34
-		processorStatusRegister: StatusRegister(0b00110100),
+		processorStatusRegister: CreateStatusRegister(0b00110100),
 
 		currentCycleIndex:        0,
 		currentCycle:             readOpCode,
@@ -300,7 +301,7 @@ func (cpu *Cpu65C02S) setDefaultValues() {
 	cpu.stackPointer = 0xFD
 
 	// Set default value for flags B and I   (NV-BDIZC) = 0x34
-	cpu.processorStatusRegister = StatusRegister(0b00110100)
+	cpu.processorStatusRegister.SetValue(0b00110100)
 
 	cpu.currentCycleIndex = 0
 	cpu.instructionRegisterCarry = false
@@ -472,4 +473,22 @@ func (cpu *Cpu65C02S) GetCurrentInstruction() *CpuInstructionData {
 // executed by the processor.
 func (cpu *Cpu65C02S) GetCurrentAddressMode() *AddressModeData {
 	return cpu.currentAddressMode
+}
+
+func (cpu *Cpu65C02S) ForceProgramCounter(value uint16) {
+	cpu.programCounter = value
+}
+
+func (cpu *Cpu65C02S) GetProgramCounter() uint16 {
+	return cpu.programCounter
+}
+
+func (cpu *Cpu65C02S) ShowProcessorStatus() {
+	mnemonic := string(cpu.GetCurrentInstruction().Mnemonic())
+	address := cpu.addressBus.Read()
+	data := cpu.dataBus.Read()
+
+	if address == 0x3477 {
+		fmt.Printf("%04X, %02x, %s - %04X - %02X, %02X, %02X - %02X - %08b \n", address, data, mnemonic, cpu.programCounter, cpu.accumulatorRegister, cpu.xRegister, cpu.yRegister, cpu.stackPointer, cpu.processorStatusRegister.ReadValue())
+	}
 }

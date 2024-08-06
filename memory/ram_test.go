@@ -44,3 +44,16 @@ func TestRamReadWrite(t *testing.T) {
 	// Clear databus
 	dataBus.Write(0x00)
 }
+
+func TestReadBinFile(t *testing.T) {
+	addressBus := buses.CreateBus[uint16]()
+	dataBus := buses.CreateBus[uint8]()
+
+	ramWriteEnableLine := buses.CreateStandaloneLine(true)
+	alwaysLowLine := buses.CreateStandaloneLine(false)
+
+	ram := CreateRam()
+	ram.Connect(addressBus, dataBus, ramWriteEnableLine, addressBus.GetBusLine(15), alwaysLowLine)
+
+	ram.Load("../tests/6502_functional_test.bin")
+}

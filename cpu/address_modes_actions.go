@@ -175,8 +175,13 @@ func extraCycleIfBranchTaken() cycleAction {
 
 			cpu.setReadBus(cpu.programCounter)
 
-			cpu.instructionRegister = cpu.programCounter
-			cpu.addToInstructionRegister(uint16(cpu.dataRegister))
+			relative := uint16(cpu.dataRegister)
+
+			if cpu.dataRegister&0x80 == 0x80 {
+				relative |= 0xFF00
+			}
+
+			cpu.instructionRegister = cpu.programCounter + relative
 
 			return true
 		} else {
@@ -216,7 +221,7 @@ func writeProgramCounterLSBToStack() cycleAction {
 // processor status to the stack, the disableIrq flag controls this behaviour
 func writeProcessorStatusRegisterToStack(hardwareInterrupt bool, disableIrq bool) cycleAction {
 	return func(cpu *Cpu65C02S) bool {
-		value := uint8(cpu.processorStatusRegister)
+		value := cpu.processorStatusRegister.ReadValue()
 
 		if hardwareInterrupt {
 			// If it's a hardware interrupt disable B flag when pushing to the stack
@@ -291,7 +296,7 @@ func intoInstructionRegisterMSB(performAction bool) cyclePostAction {
 // an interruption but it can be also triggered manual for exmaple with PLP
 func intoStatusRegister() cyclePostAction {
 	return func(cpu *Cpu65C02S) {
-		cpu.processorStatusRegister = StatusRegister(cpu.dataBus.Read())
+		cpu.processorStatusRegister.SetValue(cpu.dataBus.Read())
 	}
 }
 

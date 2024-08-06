@@ -7,7 +7,7 @@ import (
 )
 
 func TestGetAndSetFlag(t *testing.T) {
-	status := StatusRegister(0x80)
+	status := CreateStatusRegister(0x80)
 
 	assert.Equal(t, true, status.Flag(NegativeFlagBit))
 

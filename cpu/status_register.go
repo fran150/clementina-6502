@@ -17,6 +17,10 @@ const (
 	NegativeFlagBit     StatusBit = 7
 )
 
+func CreateStatusRegister(value uint8) StatusRegister {
+	return StatusRegister(value | 0x30)
+}
+
 func (status StatusRegister) Flag(bit StatusBit) bool {
 	mask := uint8(math.Pow(2, float64(bit)))
 
@@ -31,4 +35,12 @@ func (status *StatusRegister) SetFlag(bit StatusBit, set bool) {
 	} else {
 		*status = StatusRegister(uint8(*status) & (0xFF - mask))
 	}
+}
+
+func (status *StatusRegister) SetValue(value uint8) {
+	*status = StatusRegister(value) | 0x30
+}
+
+func (status *StatusRegister) ReadValue() uint8 {
+	return uint8(*status) | 0x30
 }
