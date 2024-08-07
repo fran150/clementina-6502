@@ -1,7 +1,6 @@
 package cpu
 
 import (
-	"fmt"
 	"slices"
 
 	"github.com/fran150/clementina6502/buses"
@@ -393,6 +392,22 @@ func (cpu *Cpu65C02S) addToInstructionRegister(value uint16) {
 	}
 }
 
+func (cpu *Cpu65C02S) addToInstructionRegisterRelative(value uint16) {
+	originalMSB := cpu.programCounter & 0xFF00
+
+	if cpu.dataRegister&0x80 == 0x80 {
+		value |= 0xFF00
+	}
+
+	cpu.instructionRegister = cpu.programCounter + value
+
+	newMSB := cpu.instructionRegister & 0xFF00
+
+	if originalMSB != newMSB || slices.Contains(alwaysExtra, uint8(cpu.currentOpCode)) {
+		cpu.instructionRegisterCarry = true
+	}
+}
+
 // Adds the specified value to the instruction register LSB.
 // Any carry will be ignored. This is used mostly in the zero page indexed
 // address modes in where if the page boundary is reached it just
@@ -475,21 +490,12 @@ func (cpu *Cpu65C02S) GetCurrentAddressMode() *AddressModeData {
 	return cpu.currentAddressMode
 }
 
+// Forces the value of the program counter
 func (cpu *Cpu65C02S) ForceProgramCounter(value uint16) {
 	cpu.programCounter = value
 }
 
+// Returns the current value of the program counter
 func (cpu *Cpu65C02S) GetProgramCounter() uint16 {
 	return cpu.programCounter
-}
-
-func (cpu *Cpu65C02S) ShowProcessorStatus() {
-	mnemonic := string(cpu.GetCurrentInstruction().Mnemonic())
-	address := cpu.addressBus.Read()
-	data := cpu.dataBus.Read()
-
-	// https://github.com/Klaus2m5/6502_65C02_functional_tests/blob/master/bin_files/6502_functional_test.lst#L13377
-	if address == 0x3469 {
-		fmt.Printf("%04X, %02x, %s - %04X - %02X, %02X, %02X - %02X - %08b \n", address, data, mnemonic, cpu.programCounter, cpu.accumulatorRegister, cpu.xRegister, cpu.yRegister, cpu.stackPointer, cpu.processorStatusRegister.ReadValue())
-	}
 }

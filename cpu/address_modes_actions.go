@@ -175,13 +175,7 @@ func extraCycleIfBranchTaken() cycleAction {
 
 			cpu.setReadBus(cpu.programCounter)
 
-			relative := uint16(cpu.dataRegister)
-
-			if cpu.dataRegister&0x80 == 0x80 {
-				relative |= 0xFF00
-			}
-
-			cpu.instructionRegister = cpu.programCounter + relative
+			cpu.addToInstructionRegisterRelative(uint16(cpu.dataRegister))
 
 			return true
 		} else {

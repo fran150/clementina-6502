@@ -44,14 +44,6 @@ func setOverflowFlagBit(cpu *Cpu65C02S, value uint8) {
 	cpu.processorStatusRegister.SetFlag(OverflowFlagBit, value&(1<<6) != 0)
 }
 
-func fromBCD(value uint8) uint8 {
-	return (((value & 0xf0) / 0x10) * 10) + (value & 0xf)
-}
-
-func toBCD(value uint8) uint8 {
-	return (value/10)*16 + (value % 10)
-}
-
 /**************************************************************************************************
 * 6502 traditional instruction set
 **************************************************************************************************/

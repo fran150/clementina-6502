@@ -274,17 +274,18 @@ func TestActionBCC(t *testing.T) {
 
 	ram.Poke(0xC000, 0x90) // BCC $10
 	ram.Poke(0xC001, 0x10)
-	ram.Poke(0xC012, 0x90) // BCC $F0
-	ram.Poke(0xC013, 0xF0)
-	ram.Poke(0xC104, 0x90) // BCC $FF (not taken)
-	ram.Poke(0xC105, 0xFF)
-	ram.Poke(0xC106, 0xEA) // NOP
+	ram.Poke(0xC012, 0x90) // BCC $DF (backwards)
+	ram.Poke(0xC013, 0xDF)
+
+	ram.Poke(0xBFF3, 0x90) // BCC $FF (not taken)
+	ram.Poke(0xBFF4, 0xFF)
+	ram.Poke(0xBFF5, 0xEA) // NOP
 
 	evaluateBranchInstruction(t, cpu, ram, 3, "c", 0xC012)
-	evaluateBranchInstruction(t, cpu, ram, 4, "c", 0xC104)
+	evaluateBranchInstruction(t, cpu, ram, 4, "c", 0xBFF3)
 	cpu.processorStatusRegister.SetFlag(CarryFlagBit, true)
-	evaluateBranchInstruction(t, cpu, ram, 2, "C", 0xC106)
-	evaluateBranchInstruction(t, cpu, ram, 2, "z", 0xC107)
+	evaluateBranchInstruction(t, cpu, ram, 2, "C", 0xBFF5)
+	evaluateBranchInstruction(t, cpu, ram, 2, "z", 0xBFF6)
 }
 
 func TestActionBCS(t *testing.T) {
@@ -294,17 +295,18 @@ func TestActionBCS(t *testing.T) {
 
 	ram.Poke(0xC000, 0xB0) // BCS $10
 	ram.Poke(0xC001, 0x10)
-	ram.Poke(0xC012, 0xB0) // BCS $F0
-	ram.Poke(0xC013, 0xF0)
-	ram.Poke(0xC104, 0xB0) // BCS $FF (not taken)
-	ram.Poke(0xC105, 0xFF)
-	ram.Poke(0xC106, 0xEA) // NOP
+	ram.Poke(0xC012, 0xB0) // BCS $DF (backwards)
+	ram.Poke(0xC013, 0xDF)
+
+	ram.Poke(0xBFF3, 0xB0) // BCS $FF (not taken)
+	ram.Poke(0xBFF4, 0xFF)
+	ram.Poke(0xBFF5, 0xEA) // NOP
 
 	evaluateBranchInstruction(t, cpu, ram, 3, "C", 0xC012)
-	evaluateBranchInstruction(t, cpu, ram, 4, "C", 0xC104)
+	evaluateBranchInstruction(t, cpu, ram, 4, "C", 0xBFF3)
 	cpu.processorStatusRegister.SetFlag(CarryFlagBit, false)
-	evaluateBranchInstruction(t, cpu, ram, 2, "c", 0xC106)
-	evaluateBranchInstruction(t, cpu, ram, 2, "z", 0xC107)
+	evaluateBranchInstruction(t, cpu, ram, 2, "c", 0xBFF5)
+	evaluateBranchInstruction(t, cpu, ram, 2, "z", 0xBFF6)
 }
 
 func TestActionBEQ(t *testing.T) {
@@ -314,17 +316,18 @@ func TestActionBEQ(t *testing.T) {
 
 	ram.Poke(0xC000, 0xF0) // BEQ $10
 	ram.Poke(0xC001, 0x10)
-	ram.Poke(0xC012, 0xF0) // BEQ $F0
-	ram.Poke(0xC013, 0xF0)
-	ram.Poke(0xC104, 0xF0) // BEQ $FF (not taken)
-	ram.Poke(0xC105, 0xFF)
-	ram.Poke(0xC106, 0xEA) // NOP
+	ram.Poke(0xC012, 0xF0) // BEQ $DF (backwards)
+	ram.Poke(0xC013, 0xDF)
+
+	ram.Poke(0xBFF3, 0xF0) // BEQ $FF (not taken)
+	ram.Poke(0xBFF4, 0xFF)
+	ram.Poke(0xBFF5, 0xEA) // NOP
 
 	evaluateBranchInstruction(t, cpu, ram, 3, "Z", 0xC012)
-	evaluateBranchInstruction(t, cpu, ram, 4, "Z", 0xC104)
+	evaluateBranchInstruction(t, cpu, ram, 4, "Z", 0xBFF3)
 	cpu.processorStatusRegister.SetFlag(ZeroFlagBit, false)
-	evaluateBranchInstruction(t, cpu, ram, 2, "z", 0xC106)
-	evaluateBranchInstruction(t, cpu, ram, 2, "z", 0xC107)
+	evaluateBranchInstruction(t, cpu, ram, 2, "z", 0xBFF5)
+	evaluateBranchInstruction(t, cpu, ram, 2, "z", 0xBFF6)
 }
 
 func TestActionBIT(t *testing.T) {
@@ -368,17 +371,18 @@ func TestActionBMI(t *testing.T) {
 
 	ram.Poke(0xC000, 0x30) // BMI $10
 	ram.Poke(0xC001, 0x10)
-	ram.Poke(0xC012, 0x30) // BMI $F0
-	ram.Poke(0xC013, 0xF0)
-	ram.Poke(0xC104, 0x30) // BMI $FF (not taken)
-	ram.Poke(0xC105, 0xFF)
-	ram.Poke(0xC106, 0xEA) // NOP
+	ram.Poke(0xC012, 0x30) // BMI $DF (backwards)
+	ram.Poke(0xC013, 0xDF)
+
+	ram.Poke(0xBFF3, 0x30) // BMI $FF (not taken)
+	ram.Poke(0xBFF4, 0xFF)
+	ram.Poke(0xBFF5, 0xEA) // NOP
 
 	evaluateBranchInstruction(t, cpu, ram, 3, "N", 0xC012)
-	evaluateBranchInstruction(t, cpu, ram, 4, "N", 0xC104)
+	evaluateBranchInstruction(t, cpu, ram, 4, "N", 0xBFF3)
 	cpu.processorStatusRegister.SetFlag(NegativeFlagBit, false)
-	evaluateBranchInstruction(t, cpu, ram, 2, "n", 0xC106)
-	evaluateBranchInstruction(t, cpu, ram, 2, "n", 0xC107)
+	evaluateBranchInstruction(t, cpu, ram, 2, "n", 0xBFF5)
+	evaluateBranchInstruction(t, cpu, ram, 2, "n", 0xBFF6)
 }
 
 func TestActionBNE(t *testing.T) {
@@ -387,16 +391,17 @@ func TestActionBNE(t *testing.T) {
 	ram.Poke(0xC000, 0xD0) // BNE $10
 	ram.Poke(0xC001, 0x10)
 	ram.Poke(0xC012, 0xD0) // BNE $F0
-	ram.Poke(0xC013, 0xF0)
-	ram.Poke(0xC104, 0xD0) // BNE $FF (not taken)
-	ram.Poke(0xC105, 0xFF)
-	ram.Poke(0xC106, 0xEA) // NOP
+	ram.Poke(0xC013, 0xDF)
+
+	ram.Poke(0xBFF3, 0xD0) // BNE $FF (not taken)
+	ram.Poke(0xBFF4, 0xFF)
+	ram.Poke(0xBFF5, 0xEA) // NOP
 
 	evaluateBranchInstruction(t, cpu, ram, 3, "z", 0xC012)
-	evaluateBranchInstruction(t, cpu, ram, 4, "z", 0xC104)
+	evaluateBranchInstruction(t, cpu, ram, 4, "z", 0xBFF3)
 	cpu.processorStatusRegister.SetFlag(ZeroFlagBit, true)
-	evaluateBranchInstruction(t, cpu, ram, 2, "Z", 0xC106)
-	evaluateBranchInstruction(t, cpu, ram, 2, "Z", 0xC107)
+	evaluateBranchInstruction(t, cpu, ram, 2, "Z", 0xBFF5)
+	evaluateBranchInstruction(t, cpu, ram, 2, "Z", 0xBFF6)
 }
 
 func TestActionBPL(t *testing.T) {
@@ -405,16 +410,17 @@ func TestActionBPL(t *testing.T) {
 	ram.Poke(0xC000, 0x10) // BPL $10
 	ram.Poke(0xC001, 0x10)
 	ram.Poke(0xC012, 0x10) // BPL $F0
-	ram.Poke(0xC013, 0xF0)
-	ram.Poke(0xC104, 0x10) // BPL $FF (not taken)
-	ram.Poke(0xC105, 0xFF)
-	ram.Poke(0xC106, 0xEA) // NOP
+	ram.Poke(0xC013, 0xDF)
+
+	ram.Poke(0xBFF3, 0x10) // BPL $FF (not taken)
+	ram.Poke(0xBFF4, 0xFF)
+	ram.Poke(0xBFF5, 0xEA) // NOP
 
 	evaluateBranchInstruction(t, cpu, ram, 3, "n", 0xC012)
-	evaluateBranchInstruction(t, cpu, ram, 4, "n", 0xC104)
+	evaluateBranchInstruction(t, cpu, ram, 4, "n", 0xBFF3)
 	cpu.processorStatusRegister.SetFlag(NegativeFlagBit, true)
-	evaluateBranchInstruction(t, cpu, ram, 2, "N", 0xC106)
-	evaluateBranchInstruction(t, cpu, ram, 2, "N", 0xC107)
+	evaluateBranchInstruction(t, cpu, ram, 2, "N", 0xBFF5)
+	evaluateBranchInstruction(t, cpu, ram, 2, "N", 0xBFF6)
 }
 
 func TestActionBRA(t *testing.T) {
@@ -423,10 +429,10 @@ func TestActionBRA(t *testing.T) {
 	ram.Poke(0xC000, 0x80) // BRA $10
 	ram.Poke(0xC001, 0x10)
 	ram.Poke(0xC012, 0x80) // BRA $F0
-	ram.Poke(0xC013, 0xF0)
+	ram.Poke(0xC013, 0xDF)
 
 	evaluateBranchInstruction(t, cpu, ram, 3, "n", 0xC012)
-	evaluateBranchInstruction(t, cpu, ram, 4, "n", 0xC104)
+	evaluateBranchInstruction(t, cpu, ram, 4, "n", 0xBFF3)
 }
 
 func TestActionBRKandRTI(t *testing.T) {
@@ -457,16 +463,17 @@ func TestActionBVC(t *testing.T) {
 	ram.Poke(0xC000, 0x50) // BVC $10
 	ram.Poke(0xC001, 0x10)
 	ram.Poke(0xC012, 0x50) // BVC $F0
-	ram.Poke(0xC013, 0xF0)
-	ram.Poke(0xC104, 0x50) // BVC $FF (not taken)
-	ram.Poke(0xC105, 0xFF)
-	ram.Poke(0xC106, 0xEA) // NOP
+	ram.Poke(0xC013, 0xDF)
+
+	ram.Poke(0xBFF3, 0x50) // BVC $FF (not taken)
+	ram.Poke(0xBFF4, 0xFF)
+	ram.Poke(0xBFF5, 0xEA) // NOP
 
 	evaluateBranchInstruction(t, cpu, ram, 3, "v", 0xC012)
-	evaluateBranchInstruction(t, cpu, ram, 4, "v", 0xC104)
+	evaluateBranchInstruction(t, cpu, ram, 4, "v", 0xBFF3)
 	cpu.processorStatusRegister.SetFlag(OverflowFlagBit, true)
-	evaluateBranchInstruction(t, cpu, ram, 2, "V", 0xC106)
-	evaluateBranchInstruction(t, cpu, ram, 2, "V", 0xC107)
+	evaluateBranchInstruction(t, cpu, ram, 2, "V", 0xBFF5)
+	evaluateBranchInstruction(t, cpu, ram, 2, "V", 0xBFF6)
 }
 
 func TestActionBVS(t *testing.T) {
@@ -477,16 +484,17 @@ func TestActionBVS(t *testing.T) {
 	ram.Poke(0xC000, 0x70) // BVS $10
 	ram.Poke(0xC001, 0x10)
 	ram.Poke(0xC012, 0x70) // BVS $F0
-	ram.Poke(0xC013, 0xF0)
-	ram.Poke(0xC104, 0x70) // BVS $FF (not taken)
-	ram.Poke(0xC105, 0xFF)
-	ram.Poke(0xC106, 0xEA) // NOP
+	ram.Poke(0xC013, 0xDF)
+
+	ram.Poke(0xBFF3, 0x70) // BVS $FF (not taken)
+	ram.Poke(0xBFF4, 0xFF)
+	ram.Poke(0xBFF5, 0xEA) // NOP
 
 	evaluateBranchInstruction(t, cpu, ram, 3, "V", 0xC012)
-	evaluateBranchInstruction(t, cpu, ram, 4, "V", 0xC104)
+	evaluateBranchInstruction(t, cpu, ram, 4, "V", 0xBFF3)
 	cpu.processorStatusRegister.SetFlag(OverflowFlagBit, false)
-	evaluateBranchInstruction(t, cpu, ram, 2, "v", 0xC106)
-	evaluateBranchInstruction(t, cpu, ram, 2, "v", 0xC107)
+	evaluateBranchInstruction(t, cpu, ram, 2, "v", 0xBFF5)
+	evaluateBranchInstruction(t, cpu, ram, 2, "v", 0xBFF6)
 }
 
 func TestActionCLC(t *testing.T) {
@@ -1571,27 +1579,27 @@ func TestActionBBR(t *testing.T) {
 	ram.Poke(0xC001, 0x10)
 	ram.Poke(0xC002, 0x07)
 
-	ram.Poke(0xC00A, 0x1F) // BBR1 $10, $FA
+	ram.Poke(0xC00A, 0x1F) // BBR1 $10, $D3
 	ram.Poke(0xC00B, 0x10)
-	ram.Poke(0xC00C, 0xFA)
+	ram.Poke(0xC00C, 0xD3)
 
-	ram.Poke(0xC107, 0x1F) // BBR1 $15, $20  (won't be taken)
-	ram.Poke(0xC108, 0x15)
-	ram.Poke(0xC109, 0x20)
+	ram.Poke(0xBFE0, 0x1F) // BBR1 $15, $20  (won't be taken)
+	ram.Poke(0xBFE1, 0x15)
+	ram.Poke(0xBFE2, 0x20)
 
-	ram.Poke(0xC10A, 0xEA) // NOP
+	ram.Poke(0xBFE3, 0xEA) // NOP
 
-	ram.Poke(0xC10B, 0x7F) // BBR7 $15, $20  (won't be taken)
-	ram.Poke(0xC10C, 0x15)
-	ram.Poke(0xC10D, 0x20)
+	ram.Poke(0xBFE4, 0x7F) // BBR7 $15, $20  (won't be taken)
+	ram.Poke(0xBFE5, 0x15)
+	ram.Poke(0xBFE6, 0x20)
 
 	evaluateBranchInstruction(t, cpu, ram, 6, "", 0xC00A)
-	evaluateBranchInstruction(t, cpu, ram, 7, "", 0xC107)
-	evaluateBranchInstruction(t, cpu, ram, 5, "", 0xC10A)
+	evaluateBranchInstruction(t, cpu, ram, 7, "", 0xBFE0)
+	evaluateBranchInstruction(t, cpu, ram, 5, "", 0xBFE3)
 	// Not Taken but check NOP executed normally
-	evaluateBranchInstruction(t, cpu, ram, 2, "", 0xC10B)
+	evaluateBranchInstruction(t, cpu, ram, 2, "", 0xBFE4)
 	// Test another bit and branch taken
-	evaluateBranchInstruction(t, cpu, ram, 6, "", 0xC12E)
+	evaluateBranchInstruction(t, cpu, ram, 6, "", 0xBFE7)
 }
 
 func TestActionBBS(t *testing.T) {
@@ -1604,27 +1612,27 @@ func TestActionBBS(t *testing.T) {
 	ram.Poke(0xC001, 0x10)
 	ram.Poke(0xC002, 0x07)
 
-	ram.Poke(0xC00A, 0x9F) // BBS1 $10, $FA
+	ram.Poke(0xC00A, 0x9F) // BBS1 $10, $D3
 	ram.Poke(0xC00B, 0x10)
-	ram.Poke(0xC00C, 0xFA)
+	ram.Poke(0xC00C, 0xD3)
 
-	ram.Poke(0xC107, 0x9F) // BBS1 $15, $20  (won't be taken)
-	ram.Poke(0xC108, 0x15)
-	ram.Poke(0xC109, 0x20)
+	ram.Poke(0xBFE0, 0x9F) // BBS1 $15, $20  (won't be taken)
+	ram.Poke(0xBFE1, 0x15)
+	ram.Poke(0xBFE2, 0x20)
 
-	ram.Poke(0xC10A, 0xEA) // NOP
+	ram.Poke(0xBFE3, 0xEA) // NOP
 
-	ram.Poke(0xC10B, 0xFF) // BBS7 $15, $20  (won't be taken)
-	ram.Poke(0xC10C, 0x15)
-	ram.Poke(0xC10D, 0x20)
+	ram.Poke(0xBFE4, 0xFF) // BBS7 $15, $20  (won't be taken)
+	ram.Poke(0xBFE5, 0x15)
+	ram.Poke(0xBFE6, 0x20)
 
 	evaluateBranchInstruction(t, cpu, ram, 6, "", 0xC00A)
-	evaluateBranchInstruction(t, cpu, ram, 7, "", 0xC107)
-	evaluateBranchInstruction(t, cpu, ram, 5, "", 0xC10A)
+	evaluateBranchInstruction(t, cpu, ram, 7, "", 0xBFE0)
+	evaluateBranchInstruction(t, cpu, ram, 5, "", 0xBFE3)
 	// Not Taken but check NOP executed normally
-	evaluateBranchInstruction(t, cpu, ram, 2, "", 0xC10B)
+	evaluateBranchInstruction(t, cpu, ram, 2, "", 0xBFE4)
 	// Test another bit and branch taken
-	evaluateBranchInstruction(t, cpu, ram, 6, "", 0xC12E)
+	evaluateBranchInstruction(t, cpu, ram, 6, "", 0xBFE7)
 }
 
 func TestActionRMB(t *testing.T) {
