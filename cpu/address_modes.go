@@ -1,29 +1,28 @@
 package cpu
 
 /*
-	See http://www.6502.org/users/obelisk/65C02/addressing.html for details on the address modes.
+		See http://www.6502.org/users/obelisk/65C02/addressing.html for details on the address modes.
 
-	RMW modes:
-	According to the official documentation: https://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf
-	Read-Modify-Write (RMW) instructions should add 2 cycles.
-	The original 6502 made 2 write cycles, one with the unchaged value (internally modifies the value) and then a write with the updated values.
-	According to the official doc for the 65C02S the processor does one extra read and one write on effective address.
-	This is explained in the 65C02 wiki: https://en.wikipedia.org/wiki/WDC_65C02#Bug_fixes
+		RMW modes:
+		According to the official documentation: https://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf
+		Read-Modify-Write (RMW) instructions should add 2 cycles.
+		The original 6502 made 2 write cycles, one with the unchaged value (internally modifies the value) and then a write with the updated values.
+		According to the official doc for the 65C02S the processor does one extra read and one write on effective address.
+		This is explained in the 65C02 wiki: https://en.wikipedia.org/wiki/WDC_65C02#Bug_fixes
 
-	It seems that for RMW instructions the old 6502 has a bug in where the extra cycle is used even if there is no page boundary crossing
-    This was fixed in 65C02S for ROR, ROL, ASL, LSR instructions but not for INC and DEC
-    In 65C02 ROR, ROL, ASL, LSR has all 6 cycles when no boundary is crossed
-    INC and DEC has always 7 cycles
-    See http://forum.6502.org/viewtopic.php?p=38895#p38895
-	Address modes suffixed with RMWM (Mandatory) removes the "optional" from the extra cycle. Executing it even when no page boundary is crossed
+		It seems that for RMW instructions the old 6502 has a bug in where the extra cycle is used even if there is no page boundary crossing
+	    This was fixed in 65C02S for ROR, ROL, ASL, LSR instructions but not for INC and DEC
+	    In 65C02 ROR, ROL, ASL, LSR has all 6 cycles when no boundary is crossed
+	    INC and DEC has always 7 cycles
+	    See http://forum.6502.org/viewtopic.php?p=38895#p38895
+		Address modes suffixed with RMWM (Mandatory) removes the "optional" from the extra cycle. Executing it even when no page boundary is crossed
 
-	Absolute indexed modes:
-	When performing indexed addressing, if indexing crosses a page boundary all NMOS variants will read from an invalid address before accessing
-	the correct address. The 65C02 fixed this problem by performing a dummy read of the instruction opcode when indexing crosses a page boundary.
-	A dummy read is performed on the base address prior to indexing, such that LDA $1200,X will do a dummy read on $1200 prior to the value of X
-	being added to $1200
+		Absolute indexed modes:
+		When performing indexed addressing, if indexing crosses a page boundary all NMOS variants will read from an invalid address before accessing
+		the correct address. The 65C02 fixed this problem by performing a dummy read of the instruction opcode when indexing crosses a page boundary.
+		A dummy read is performed on the base address prior to indexing, such that LDA $1200,X will do a dummy read on $1200 prior to the value of X
+		being added to $1200
 */
-
 type AddressMode string
 
 const (
@@ -72,6 +71,7 @@ const (
 
 // ----------------------------------------------------------------------
 
+// Stores useful data for the different address modes
 type AddressModeData struct {
 	name              AddressMode
 	text              string

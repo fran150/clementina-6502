@@ -78,6 +78,8 @@ func createComputer() (*Cpu65C02S, *memory.Ram) {
 	return cpu, ram
 }
 
+// Similar to the createComputer() function but in this case it returns the NMI, IRQ, RESET and RDY lines
+// to allow testing
 func createComputerWithControlLines() (*Cpu65C02S, *memory.Ram, *buses.StandaloneLine, *buses.StandaloneLine, *buses.StandaloneLine, *buses.StandaloneLine) {
 	cpu, ram := createComputer()
 
@@ -115,6 +117,7 @@ func evaluateLine(cycle int, status bool, stepStatus bool, t *testing.T, lineNam
 	}
 }
 
+// Returns the appropriate signal line based on the letter specified for the test
 func getSignalLine(cpu *Cpu65C02S, signalCode rune) buses.LineConnector {
 	switch string(unicode.ToLower(signalCode)) {
 	case "m":
@@ -130,43 +133,52 @@ func getSignalLine(cpu *Cpu65C02S, signalCode rune) buses.LineConnector {
 	return nil
 }
 
+// Evaluates the status of the signal lines according to the letter specified in the signalString parameter.
+// If the letter is specified upper case, then the line is expected to be enabled, if the letter is specified lower case the line
+// is expected to be disabled.
+// If not specified M (Memory Lock), S (Sync) and V (lines) are expected to be disabled. If not specified, R (Ready) line is
+// expected to be enabled. For example, specifying "" will expect M,S and V disabled and R enabled.
 func evaluateSignalLines(t *testing.T, cpu *Cpu65C02S, signalString string) {
-	const signals string = "MSVr"
+	// Lines to be evaluated and their default expected status (upper case -> enabled, lower case -> disabled)
+	const signals string = "msvR"
+	// Line names to show when reporting error
 	lineNames := []string{"Memory Lock", "Sync", "Vector Pull", "Ready"}
 
+	// Gets the current instruction and address mode
 	instruction := cpu.instructionSet.GetByOpCode(cpu.currentOpCode)
 	addressMode := cpu.addressModeSet.GetByName(instruction.addressMode)
 
+	// For each line to be evaluated
 	for i, signal := range signals {
+		// Get the signal line.
 		line := getSignalLine(cpu, signal)
 
-		if signal == unicode.ToUpper(signal) {
-			if strings.Contains(signalString, string(signal)) {
-				if !line.Enabled() {
-					t.Errorf("%s - %s - Expected %s line to be enabled", instruction.Mnemonic(), addressMode.Text(), lineNames[i])
-				}
-			} else {
-				if line.Enabled() {
-					t.Errorf("%s - %s - Expected %s line NOT to be enabled", instruction.Mnemonic(), addressMode.Text(), lineNames[i])
-				}
-			}
+		// Get the upper and lower case values of the signal.
+		uc := unicode.ToUpper(signal)
+		lc := unicode.ToLower(signal)
+
+		// If it's specified, it Forces the signal expected status to the expected value
+		if strings.Contains(signalString, string(uc)) {
+			signal = uc
 		}
 
-		if signal == unicode.ToLower(signal) {
-			if strings.Contains(signalString, string(signal)) {
-				if line.Enabled() {
-					t.Errorf("%s - %s - Expected %s line to be enabled", instruction.Mnemonic(), addressMode.Text(), lineNames[i])
-				}
-			} else {
-				if !line.Enabled() {
-					t.Errorf("%s - %s - Expected %s line NOT to be enabled", instruction.Mnemonic(), addressMode.Text(), lineNames[i])
-				}
-			}
+		if strings.Contains(signalString, string(lc)) {
+			signal = lc
+		}
+
+		// Throw error if the signal is expected enabled but is disabled
+		if signal == uc && !line.Enabled() {
+			t.Errorf("%s - %s - Expected %s line to be enabled", instruction.Mnemonic(), addressMode.Text(), lineNames[i])
+		}
+
+		// Throw error if the signal is expected disabeld but is enabled
+		if signal == lc && line.Enabled() {
+			t.Errorf("%s - %s - Expected %s line NOT to be enabled", instruction.Mnemonic(), addressMode.Text(), lineNames[i])
 		}
 	}
 }
 
-// Evaluates the value of the sepcified register values
+// Evaluates the value of the specified register values.
 func evaluateRegister[U uint8 | uint16](cycle int, registerValue U, stepValue U, t *testing.T, registerName string) {
 	var text string
 
@@ -182,6 +194,7 @@ func evaluateRegister[U uint8 | uint16](cycle int, registerValue U, stepValue U,
 	}
 }
 
+// Iterates over the specified steps comparting the status of the CPU with the expected values.
 func runTest(cpu *Cpu65C02S, ram *memory.Ram, steps []addressModeTestData, t *testing.T) {
 	t.Logf("Cycle \t Addr \t Data \t R/W \t PC \t A \t X \t Y \t SP \t Flags \n")
 	t.Logf("---- \t ---- \t ---- \t ---- \t ---- \t -- \t -- \t -- \t -- \t ----- \n")
@@ -201,25 +214,24 @@ func runTest(cpu *Cpu65C02S, ram *memory.Ram, steps []addressModeTestData, t *te
 	}
 }
 
+// Same as ruuTest function but allows to evaluate and test the status of the CPU with respect
+// to IRQ, NMI, Reset and RDY control lines. IRQ, NMI and NMI triggers interruptions. Reset is used
+// to send the CPU to an initial known state, and RDY is and both input output, if it's pulled to disabled
+// halts the CPU leaving the address bus in the last status. When the processor halts during WAI and STP
+// instructions, it pulls this line to disable
 func runTestWithInterrupts(cpu *Cpu65C02S, ram *memory.Ram, irqLine *buses.StandaloneLine, nmiLine *buses.StandaloneLine, resetLine *buses.StandaloneLine, readyLine *buses.StandaloneLine, steps []addressModeTestDataWithControlLines, t *testing.T) {
 	t.Logf("Cycle \t Addr \t Data \t R/W \t PC \t A \t X \t Y \t SP \t Flags \n")
 	t.Logf("---- \t ---- \t ---- \t ---- \t ---- \t -- \t -- \t -- \t -- \t ----- \n")
 
+	lines := []*buses.StandaloneLine{irqLine, nmiLine, resetLine, readyLine}
+
 	for cycle, step := range steps {
-		if step.triggerIRQ {
-			irqLine.Set(false)
-		}
+		stepLinesActions := []bool{step.triggerIRQ, step.triggerNMI, step.triggerReset, step.setNotReady}
 
-		if step.triggerNMI {
-			nmiLine.Set(false)
-		}
-
-		if step.triggerReset {
-			resetLine.Set(false)
-		}
-
-		if step.setNotReady {
-			readyLine.Set(false)
+		for i := 0; i < len(lines); i++ {
+			if stepLinesActions[i] {
+				lines[i].Set(false)
+			}
 		}
 
 		cpu.Tick(100)
@@ -234,10 +246,9 @@ func runTestWithInterrupts(cpu *Cpu65C02S, ram *memory.Ram, irqLine *buses.Stand
 
 		evaluateCycle(cycle, cpu, &step.addressModeTestData, t)
 
-		irqLine.Set(true)
-		nmiLine.Set(true)
-		resetLine.Set(true)
-		readyLine.Set(true)
+		for i := 0; i < len(lines); i++ {
+			lines[i].Set(true)
+		}
 	}
 }
 

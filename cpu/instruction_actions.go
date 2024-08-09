@@ -237,17 +237,21 @@ func actionCLV(cpu *Cpu65C02S) {
 // This instruction compares the contents of the accumulator with another memory held value and sets the
 // zero and carry flags as appropriate.
 func actionCMP(cpu *Cpu65C02S) {
-	temp := cpu.accumulatorRegister
+	// We will use the substract instruction to make the comparison and set the appropriate flags
+	// before that we store the current status of affected registers and flags.
+	tempA := cpu.accumulatorRegister
 	tempV := cpu.processorStatusRegister.Flag(OverflowFlagBit)
 	tempD := cpu.processorStatusRegister.Flag(DecimalModeFlagBit)
 
+	// CMP will have carry set to start comparison and will not be decimal
 	cpu.processorStatusRegister.SetFlag(CarryFlagBit, true)
 	cpu.processorStatusRegister.SetFlag(DecimalModeFlagBit, false)
 	actionSBC(cpu)
 
+	// Set the values back to the flags and the accumulator
 	cpu.processorStatusRegister.SetFlag(OverflowFlagBit, tempV)
 	cpu.processorStatusRegister.SetFlag(DecimalModeFlagBit, tempD)
-	cpu.accumulatorRegister = temp
+	cpu.accumulatorRegister = tempA
 }
 
 // Z,C,N = X-M

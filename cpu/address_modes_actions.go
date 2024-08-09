@@ -1,26 +1,65 @@
 package cpu
 
+/*******************************************************************************************
+* Types and Constants
+********************************************************************************************/
+
+// Each address mode takes the CPU a number of cycles to execute. In this emulation
+// these actions will be divided in 2 functions, one set executed during the clock tick
+// to allow setting the bus values and control lines, and another "post tick" to set the
+// status of the processor according to the responses. This type allows to define the actions
+// executed on each clock tick for each address mode.
 type cycleAction func(cpu *Cpu65C02S) bool
+
+// Each address mode takes the CPU a number of cycles to execute. In this emulation
+// these actions will be divided in 2 functions, one set executed during the clock tick
+// to allow setting the bus values and control lines, and another "post tick" to set the
+// status of the processor according to the responses. This type allows to define the actions
+// executed after each clock tick for each address mode.
 type cyclePostAction func(cpu *Cpu65C02S)
+
+// During the execution of an instruction the CPU signals is internal status through 3 lines
+// that are set on specific cycles of certain combinations of address modes and execution types.
+// The memory lock line is set on the last 3 steps of RMW instructions and can be used to lock
+// memory updates to ensure consitency on the value being updated.
+// The sync line is set when the processor is reading memory looking for the next opCode,
+// it allows to detect the begining of a new instruction.
+// The vector pull line is set when the processor is reading the iterrupt vector on $FFFX, this
+// allow external hardware to customize the response and have multiple interrupt handlers depending
+// on the interrput source.
+// This type allows to specify which of these lines will be set on an specific cycle for each
+// address mode and instruction type.
 type syncSignaling struct {
 	memoryLock bool
 	sync       bool
 	vectorPull bool
 }
 
+// The processor executes an specific set of cycles depending of the address mode and type of each
+// instruction. This structs allows to specify actions the processor will execute on each cycle,
+// and the status of the pins used for external signaling.
 type cycleActions struct {
 	cycle     cycleAction
 	postCycle cyclePostAction
 	signaling syncSignaling
 }
 
+// Indicates the register that must be added when performing operations against
+// an address.
 type sumOrigin uint8
 
 const (
+	// X register value will be added to the current address
 	fromXRegister sumOrigin = 0
+	// T register value will be added to the current address
 	fromYRegister sumOrigin = 1
 )
 
+// Interrupts can happen at any point during an instruction execution but the processor
+// will wait for the current instruction to complete before jupmping to the interrupt sequence.
+// This emulation uses flags to signal if a NMI or IRQ must be triggered when the current instruction
+// execution completes. This type is used in certain functions to specify which of these flags must be
+// cleared.
 type clearRequestFlag uint8
 
 const (
@@ -29,13 +68,28 @@ const (
 	clearIRQRequestFlag clearRequestFlag = 2
 )
 
+// When an NMI is triggered the processor goes to this address to get the LSB of the address of the
+// interrupt handler
 const NMI_VECTOR_LSB uint16 = 0xFFFA
+
+// When an NMI is triggered the processor goes to this address to get the MSB of the address of the
+// interrupt handler
 const NMI_VECTOR_MSB uint16 = 0xFFFB
 
+// When an NMI is triggered the processor goes to this address to get the LSB of the address of the
+// next instruction
 const RESET_VECTOR_LSB uint16 = 0xFFFC
+
+// When an NMI is triggered the processor goes to this address to get the MSB of the address of the
+// next instruction
 const RESET_VECTOR_MSB uint16 = 0xFFFD
 
+// When an IRQ is triggered the processor goes to this address to get the LSB of the address of the
+// interrupt handler
 const IRQ_VECTOR_LSB uint16 = 0xFFFE
+
+// When an IRQ is triggered the processor goes to this address to get the MSB of the address of the
+// interrupt handler
 const IRQ_VECTOR_MSB uint16 = 0xFFFF
 
 /**********************************************************************************************************
@@ -44,7 +98,7 @@ const IRQ_VECTOR_MSB uint16 = 0xFFFF
 * These values control the status for the sync signals for memory lock, opcode reading sync and vector pull
 ***********************************************************************************************************/
 
-// This is the default status for most of the cycles
+// This is the default signal status for most of the cycles
 var defaultSignaling = syncSignaling{
 	memoryLock: false,
 	sync:       false,
@@ -101,7 +155,8 @@ func readFromInstructionRegister() cycleAction {
 }
 
 // Reads from the current value in the bus. This does basically leave the address in the bus untouched.
-// Just sets the R/W flag to read.
+// Just sets the R/W flag to read. If the performAction is true then the function with the specific ations
+// for the instruction is called.
 func readFromAddressInBus(performAction bool) cycleAction {
 	return func(cpu *Cpu65C02S) bool {
 		cpu.setReadBus(cpu.addressBus.Read())
@@ -358,6 +413,13 @@ func moveInstructionRegisterToProgramCounter(setInstructionRegisterMSB bool, cle
 	}
 }
 
+// Certain branch instructions will add one cycle if the calculation of the new instruction address results
+// in a carry (in real hardware the cycle is used to update the MSB). It will also add one cycle depending if
+// the branch is taken or not. This action is to move the new address value from the instruction register
+// to the program counter (effectively making the jump) only when there won't be an extra cycle due to the branch
+// being taken.
+// See discussions about BBR and BBS correct timing here:
+// https://www.reddit.com/r/beneater/comments/1cac3ly/clarification_of_65c02_instruction_execution_times/
 func moveInstructionRegisterToProgramCounterIfNotCarry() cyclePostAction {
 	return func(cpu *Cpu65C02S) {
 		if !cpu.instructionRegisterCarry {
