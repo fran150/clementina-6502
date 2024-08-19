@@ -1,5 +1,11 @@
 package cpu
 
+// Mnemonics are used in assembly langugate to represent the different OpCodes of all
+// available instructions in a more human readable way. Each mnemonic can be written differently
+// depending on the different address modes. For example LDA $C010 uses absolute address mode to
+// fetch the byte from $C010 address and store it in the accumulator, it is the OpCode $AD.
+// While LDA #$FF is the immediate version of LDA in where it directly stores $FF in the accumulator
+// and the OpCode is $A9.
 type Mnemonic string
 
 const (

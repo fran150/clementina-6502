@@ -10,36 +10,6 @@ import (
 // for details.
 // There is another document for the rockwell processor that has better data about cycle timing here:
 // https://web.archive.org/web/20221112220234if_/http://archive.6502.org/datasheets/rockwell_r65c00_microprocessors.pdf
-//
-//   - Address bus are pins A0-A15
-//   - The Bus Enable (BE) input signal provides external control of the Address, Data and the RWB buffers. When
-//     Bus Enable is high, the Address, Data and RWB buffers are active.
-//   - Data bus are pins D0-D7
-//   - The Interrupt Request (IRQB) input signal is used to request that an interrupt sequence be initiated. The
-//     program counter (PC) and Processor Status Register (P) are pushed onto the stack and the IRQB disable
-//     (I) flag is set to a “1” disabling further interrupts before jumping to the interrupt handler. These values are
-//     used to return the processor to its original state prior to the IRQB interrupt. The IRQB low level should be
-//     held until the interrupt handler clears the interrupt request source. When Return from Interrupt (RTI) is
-//     executed the (I) flag is restored and a new interrupt can be handled. If the (I) flag is cleared in an interrupt
-//     handler, nested interrupts can occur.
-//   - A negative transition on the Non-Maskable Interrupt (NMIB) input initiates an interrupt sequence after the
-//     current instruction is completed. Since NMIB is an edge-sensitive input, an interrupt will occur if there is a
-//     negative transition while servicing a previous interrupt. Also, after the edge interrupt occurs no further
-//     interrupts will occur if NMIB remains low. The NMIB signal going low causes the Program Counter (PC) and
-//     Processor Status Register information to be pushed onto the stack before jumping to the interrupt handler.
-//     These values are used to return the processor to its original state prior to the NMIB interrupt.
-//   - The Read/Write (RWB) output signal is used to control data transfer. When in the high state, the
-//     microprocessor is reading data from memory or I/O. When in the low state, the Data Bus contains valid data
-//     to be written from the microprocessor and stored at the addressed memory or I/O location. The RWB signal
-//     is set to the high impedance state when Bus Enable (BE) is low
-//   - The Reset (RESB) input is used to initialize the microprocessor and start program execution. The RESB
-//     signal must be held low for at least two clock cycles after VDD reaches operating voltage.
-//     All Registers are initialized by software except the Decimal and Interrupt disable mode select bits of
-//     the Processor Status Register (P) are initialized by hardware.
-//     When a positive edge is detected, there will be a reset sequence lasting seven clock cycles. The program
-//     counter is loaded with the reset vector from locations FFFC (low byte) and FFFD (high byte). This is the
-//     start location for program control. RESB should be held high after reset for normal operation
-
 type Cpu65C02S struct {
 	addressBus           *buses.Bus[uint16]
 	busEnable            *buses.ConnectorEnabledHigh
@@ -152,42 +122,103 @@ func (cpu *Cpu65C02S) ConnectDataBus(dataBus *buses.Bus[uint8]) {
  ****************************************************
  */
 
+// The sixteen bit Address Bus formed by A0-A15, address memory and I/O registers that exchange data on
+// the Data Bus. The address lines can be set to the high impedance state by the Bus Enable (BE) signal.
+func (cpu *Cpu65C02S) AddressBus() *buses.Bus[uint16] {
+	return cpu.addressBus
+}
+
+// The Bus Enable (BE) input signal provides external control of the Address, Data and the RWB buffers. When
+// Bus Enable is high, the Address, Data and RWB buffers are active.
 func (cpu *Cpu65C02S) BusEnable() *buses.ConnectorEnabledHigh {
 	return cpu.busEnable
 }
 
+// The eight Data Bus lines D0-D7 are used to provide instructions, data and addresses to the
+// microprocessor and exchange data with memory and I/O registers. These lines may be set to the high
+// impedance state by the Bus Enable (BE) signal.
+func (cpu *Cpu65C02S) DataBus() *buses.Bus[uint16] {
+	return cpu.addressBus
+}
+
+// The Interrupt Request (IRQB) input signal is used to request that an interrupt sequence be initiated. The
+// program counter (PC) and Processor Status Register (P) are pushed onto the stack and the IRQB disable
+// (I) flag is set to a “1” disabling further interrupts before jumping to the interrupt handler. These values are
+// used to return the processor to its original state prior to the IRQB interrupt. The IRQB low level should be
+// held until the interrupt handler clears the interrupt request source. When Return from Interrupt (RTI) is
+// executed the (I) flag is restored and a new interrupt can be handled. If the (I) flag is cleared in an interrupt
+// handler, nested interrupts can occur.
 func (cpu *Cpu65C02S) InterruptRequest() *buses.ConnectorEnabledLow {
 	return cpu.interruptRequest
 }
 
+// The Memory Lock (MLB) output may be used to ensure the integrity of Read-Modify-Write instructions in
+// a multiprocessor system. Memory Lock indicates the need to defer arbitration of the bus cycle when MLB
+// is low. Memory Lock is low during the last three cycles of ASL, DEC, INC, LSR, ROL, ROR, TRB, and
+// TSB (all RMW) memory referencing instructions.
 func (cpu *Cpu65C02S) MemoryLock() *buses.ConnectorEnabledLow {
 	return cpu.memoryLock
 }
 
+// A negative transition on the Non-Maskable Interrupt (NMIB) input initiates an interrupt sequence after the
+// current instruction is completed. Since NMIB is an edge-sensitive input, an interrupt will occur if there is a
+// negative transition while servicing a previous interrupt. Also, after the edge interrupt occurs no further
+// interrupts will occur if NMIB remains low. The NMIB signal going low causes the Program Counter (PC) and
+// Processor Status Register information to be pushed onto the stack before jumping to the interrupt handler.
+// These values are used to return the processor to its original state prior to the NMIB interrupt.
 func (cpu *Cpu65C02S) NonMaskableInterrupt() *buses.ConnectorEnabledLow {
 	return cpu.nonMaskableInterrupt
 }
 
+// The Reset (RESB) input is used to initialize the microprocessor and start program execution. The RESB
+// signal must be held low for at least two clock cycles after VDD reaches operating voltage.
+// All Registers are initialized by software except the Decimal and Interrupt disable mode select bits of
+// the Processor Status Register (P) are initialized by hardware.
+// When a positive edge is detected, there will be a reset sequence lasting seven clock cycles. The program
+// counter is loaded with the reset vector from locations FFFC (low byte) and FFFD (high byte). This is the
+// start location for program control. RESB should be held high after reset for normal operation
 func (cpu *Cpu65C02S) Reset() *buses.ConnectorEnabledLow {
 	return cpu.reset
 }
 
+// A negative transition on the Set Overflow (SOB) pin sets the overflow bit (V) in the status code register.
+// The signal is sampled on the rising edge of PHI2. SOB was originally intended for fast input recognition
+// because it can be tested with a branch instruction; however, it is not recommended in new system design
+// and was seldom used in the past.
 func (cpu *Cpu65C02S) SetOverflow() *buses.ConnectorEnabledLow {
 	return cpu.setOverflow
 }
 
+// The Read/Write (RWB) output signal is used to control data transfer. When in the high state, the
+// microprocessor is reading data from memory or I/O. When in the low state, the Data Bus contains valid data
+// to be written from the microprocessor and stored at the addressed memory or I/O location. The RWB signal
+// is set to the high impedance state when Bus Enable (BE) is low
 func (cpu *Cpu65C02S) ReadWrite() *buses.ConnectorEnabledLow {
 	return cpu.readWrite
 }
 
+// A low input logic level on the Ready (RDY) will halt the microprocessor in its current state. Returning
+// RDY to the high state allows the microprocessor to continue operation following the next PHI2 negative
+// transition. The WAI instruction pulls RDY low signaling the WAit-for-Interrupt condition, thus
+// RDY is a bi-directional pin.
 func (cpu *Cpu65C02S) Ready() *buses.ConnectorEnabledHigh {
 	return cpu.ready
 }
 
+// The OpCode fetch cycle of the microprocessor instruction is indicated with SYNC high. The SYNC output
+// is provided to identify those cycles during which the microprocessor is fetching an OpCode. The SYNC
+// line goes high during the clock cycle of an OpCode fetch and stays high for the entire cycle. If the RDY
+// line is pulled low during the clock cycle in which SYNC went high, the processor will stop in its current
+// state and will remain in the state until the RDY line goes high. In this manner, the SYNC signal can be
+// used to control RDY to cause single instruction execution.
 func (cpu *Cpu65C02S) Sync() *buses.ConnectorEnabledHigh {
 	return cpu.sync
 }
 
+// The Vector Pull (VPB) output indicates that a vector location is being addressed during an interrupt
+// sequence. VPB is low during the last interrupt sequence cycles, during which time the processor reads
+// the interrupt vector. The VPB signal may be used to select and prioritize interrupts from several sources
+// by modifying the vector addresses.
 func (cpu *Cpu65C02S) VectorPull() *buses.ConnectorEnabledLow {
 	return cpu.vectorPull
 }
@@ -200,7 +231,7 @@ func (cpu *Cpu65C02S) VectorPull() *buses.ConnectorEnabledLow {
 
 // As part of the emulation for every cycle we will execute 2 functions:
 // First Tick for all emulated components and then PostTick.
-// The parameter T represents the elapsed time between executions
+// The parameter T represents the elapsed time between executions.
 func (cpu *Cpu65C02S) Tick(t uint64) {
 	if cpu.processorPaused || cpu.processorStopped {
 		cpu.Ready().SetEnable(false)
@@ -222,7 +253,7 @@ func (cpu *Cpu65C02S) Tick(t uint64) {
 			cpu.checkOverflowSet()
 			cpu.setCycleSignaling()
 
-			cpu.executeCycle(t)
+			cpu.executeCycleAction(t)
 		}
 	}
 }
@@ -281,6 +312,8 @@ func (cpu *Cpu65C02S) checkInterrupts() {
 	cpu.previousNMIStatus = cpu.NonMaskableInterrupt().Enabled()
 }
 
+// Reset must be held low for 2 cycles for the processor to reset.
+// This function checks the number of cycles it has been enabled and resets the CPU if needed
 func (cpu *Cpu65C02S) checkReset() {
 	if cpu.reset.Enabled() {
 		cpu.cyclesWithReset++
@@ -296,6 +329,7 @@ func (cpu *Cpu65C02S) checkReset() {
 	}
 }
 
+// Sets default values for all the CPU's internal variables
 func (cpu *Cpu65C02S) setDefaultValues() {
 	cpu.stackPointer = 0xFD
 
@@ -320,7 +354,11 @@ func (cpu *Cpu65C02S) setDefaultValues() {
 	cpu.processorStopped = false
 }
 
-func (cpu *Cpu65C02S) executeCycle(t uint64) {
+// Executes the cycle action according to the current instruction's address mode
+// and cycle number. If cycle action returns false, it means that this cycle must
+// be skipped so this function immediately and (recursively) moves to next cycle
+// so all the micro-instructions are executed on the same cycle.
+func (cpu *Cpu65C02S) executeCycleAction(t uint64) {
 	continueCycle := cpu.currentCycle.cycle(cpu)
 
 	if !continueCycle {
@@ -355,7 +393,7 @@ func (cpu *Cpu65C02S) moveToNextCycle() {
 			cpu.currentCycle = readOpCode
 		}
 	} else {
-		cpu.currentCycle = cpu.currentAddressMode.Cycle(cpu.currentCycleIndex - 1)
+		cpu.currentCycle = cpu.currentAddressMode.cycle(cpu.currentCycleIndex - 1)
 	}
 }
 
@@ -368,6 +406,7 @@ func (cpu *Cpu65C02S) moveToNextCycle() {
 // The 65C02S has optimized RMW instructions and they will take 6 cycles when
 // no page boundary is crossed vs the typical 7 cycles of the regular 6502.
 // This was fixed on most instructions except the ones below.
+// See http://forum.6502.org/viewtopic.php?p=38895#p38895
 var alwaysExtra []uint8 = []uint8{
 	0xFE, // INC,x
 	0xDE, // DEC,x
@@ -392,6 +431,10 @@ func (cpu *Cpu65C02S) addToInstructionRegister(value uint16) {
 	}
 }
 
+// Relative instructions are treated as signed addition. Allowing for a value between (-128 and +127)
+// This function performs signed addition of the specified value to the instruction register.
+// It also sets the instruction register carry flag in case the address mode requires extra cycles
+// in case of page boundary crossing.
 func (cpu *Cpu65C02S) addToInstructionRegisterRelative(value uint16) {
 	originalMSB := cpu.programCounter & 0xFF00
 
@@ -444,7 +487,7 @@ func (cpu *Cpu65C02S) writeToStack(value uint8) {
 
 // Executes the instruction action
 func (cpu *Cpu65C02S) performAction() {
-	cpu.currentInstruction.Execute(cpu)
+	cpu.currentInstruction.execute(cpu)
 }
 
 /*

@@ -113,7 +113,7 @@ func evaluateCycle(cycle int, cpu *Cpu65C02S, step *addressModeTestData, t *test
 // Evaluates the value of the specified CPU line
 func evaluateLine(cycle int, status bool, stepStatus bool, t *testing.T, lineName string) {
 	if status != stepStatus {
-		t.Errorf("Cycle %v - Current %v and expected %v status %s line don´t match", cycle, status, stepStatus, lineName)
+		t.Errorf("Cycle %v - Current %v and expected %v status %s line don't match", cycle, status, stepStatus, lineName)
 	}
 }
 
@@ -171,7 +171,7 @@ func evaluateSignalLines(t *testing.T, cpu *Cpu65C02S, signalString string) {
 			t.Errorf("%s - %s - Expected %s line to be enabled", instruction.Mnemonic(), addressMode.Text(), lineNames[i])
 		}
 
-		// Throw error if the signal is expected disabeld but is enabled
+		// Throw error if the signal is expected disabled but is enabled
 		if signal == lc && line.Enabled() {
 			t.Errorf("%s - %s - Expected %s line NOT to be enabled", instruction.Mnemonic(), addressMode.Text(), lineNames[i])
 		}
@@ -1105,6 +1105,42 @@ func TestIndirectAddressMode(t *testing.T) {
 		{0xC002, 0xC1, true, 0x00, 0x00, 0x00, "", 0xC003},
 		{0xC100, 0x00, true, 0x00, 0x00, 0x00, "", 0xC003},
 		{0xC101, 0xD0, true, 0x00, 0x00, 0x00, "", 0xC003},
+		{0xD000, 0xEA, true, 0x00, 0x00, 0x00, "", 0xD000},
+		{0xD000, 0xEA, true, 0x00, 0x00, 0x00, "S", 0xD001},
+	}
+
+	runTest(cpu, ram, steps, t)
+}
+
+// A bug that is present in all NMOS variants of the 6502 involves the jump instruction when using indirect addressing.
+// In this addressing mode, the target address of the JMP instruction is fetched from memory, the jump vector, rather than
+// being an operand to the JMP instruction. For example, JMP ($1234) would fetch the value in memory locations $1234
+// (least significant byte) and $1235 (most significant byte) and load those values into the program counter, which would then
+// cause the processor to continue execution at the address stored in the vector.
+
+// The bug appears when the vector address ends in $FF, which is the boundary of a memory page. In this case, JMP will fetch the
+// most significant byte of the target address from $00 of the original page rather than $00 of the new page. Hence JMP ($12FF)
+// would get the least significant byte of the target address at $12FF and the most significant byte of the target address from $1200
+// rather than $1300. The 65C02 corrected this issue
+func TestIndirectAddressMode65C02BugFix(t *testing.T) {
+	cpu, ram := createComputer()
+
+	ram.Poke(0xC000, 0x6C) // JMP ($12FF)
+	ram.Poke(0xC001, 0xFF)
+	ram.Poke(0xC002, 0x12)
+	ram.Poke(0xC003, 0xEA) // NOP
+
+	ram.Poke(0x12FF, 0x00)
+	ram.Poke(0x1300, 0xD0)
+
+	ram.Poke(0xD000, 0xEA)
+
+	steps := []addressModeTestData{
+		{0xC000, 0x6C, true, 0x00, 0x00, 0x00, "S", 0xC001},
+		{0xC001, 0xFF, true, 0x00, 0x00, 0x00, "", 0xC002},
+		{0xC002, 0x12, true, 0x00, 0x00, 0x00, "", 0xC003},
+		{0x12FF, 0x00, true, 0x00, 0x00, 0x00, "", 0xC003},
+		{0x1300, 0xD0, true, 0x00, 0x00, 0x00, "", 0xC003},
 		{0xD000, 0xEA, true, 0x00, 0x00, 0x00, "", 0xD000},
 		{0xD000, 0xEA, true, 0x00, 0x00, 0x00, "S", 0xD001},
 	}

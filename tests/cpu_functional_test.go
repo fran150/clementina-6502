@@ -14,14 +14,14 @@ import (
 *******************************************************************************************************/
 
 // Number of times a jump or branch instruction is repeated before detecting error condition.
-const MAX_REPEATS int = 10
+const maxRepeats int = 10
 
 // Expected procgram counter at the end of execution
 // https://github.com/Klaus2m5/6502_65C02_functional_tests/blob/master/bin_files/6502_functional_test.lst#L13377
-const SUCCESS_PC_VALUE uint16 = 0x346B
+const successPcValue uint16 = 0x346B
 
 // Max number of cycles allowed to copmlete execution
-const MAX_ALLOWED_CYCLES uint64 = 100_000_000
+const maxAllowedCycles uint64 = 100_000_000
 
 /******************************************************************************************************
 * Support functions
@@ -88,19 +88,19 @@ func verifyAndCountRepeats(processor *cpu.Cpu65C02S) bool {
 
 	// If we reach the maximum number of repeats we can consider that the code is "trapped"
 	// This signals either an error condition or the end of the tests
-	return repeats >= MAX_REPEATS
+	return repeats >= maxRepeats
 }
 
 // Validates the status of the processor when the test finish and fails the test if required.
 func showFinishCondition(processor *cpu.Cpu65C02S, cycles uint64, t *testing.T) {
 	// If processor is trapped in SUCCESS_PC_VALUE, this means that the tests were completed successfullly
 	// Otherwise this is an error condition and must fail the tests
-	if processor.GetProgramCounter() != SUCCESS_PC_VALUE {
+	if processor.GetProgramCounter() != successPcValue {
 		t.Errorf("Possible ERROR trap found with PC in %04X", processor.GetProgramCounter())
 	}
 
 	// If the execution was cancelled due to exceeding the number of allowed cycles then fail the tests
-	if cycles >= MAX_ALLOWED_CYCLES {
+	if cycles >= maxAllowedCycles {
 		t.Errorf("Maximum limit of %v cycles was reached, typical execution is 96,241,272", cycles)
 	}
 
@@ -131,7 +131,7 @@ func TestProcessorFunctional(t *testing.T) {
 	// Will count the cycles required to complete execution
 	var cycles uint64 = 0
 
-	for cycles < MAX_ALLOWED_CYCLES {
+	for cycles < maxAllowedCycles {
 
 		// Exeutes the CPU cycles
 		processor.Tick(cycles)

@@ -736,10 +736,12 @@ func actionTSB(cpu *Cpu65C02S) {
 	cpu.setWriteBus(cpu.instructionRegister, cpu.dataRegister)
 }
 
+// The processor pauses at the current location until the next interrupt occurs.
 func actionWAI(cpu *Cpu65C02S) {
 	cpu.processorPaused = true
 }
 
+// The processor halts until a hardware reset is applied.
 func actionSTP(cpu *Cpu65C02S) {
 	cpu.processorStopped = true
 }

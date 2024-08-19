@@ -70,27 +70,27 @@ const (
 
 // When an NMI is triggered the processor goes to this address to get the LSB of the address of the
 // interrupt handler
-const NMI_VECTOR_LSB uint16 = 0xFFFA
+const nmiVectorLSB uint16 = 0xFFFA
 
 // When an NMI is triggered the processor goes to this address to get the MSB of the address of the
 // interrupt handler
-const NMI_VECTOR_MSB uint16 = 0xFFFB
+const nmiVectorMSB uint16 = 0xFFFB
 
 // When an NMI is triggered the processor goes to this address to get the LSB of the address of the
 // next instruction
-const RESET_VECTOR_LSB uint16 = 0xFFFC
+const resetVectorLSB uint16 = 0xFFFC
 
 // When an NMI is triggered the processor goes to this address to get the MSB of the address of the
 // next instruction
-const RESET_VECTOR_MSB uint16 = 0xFFFD
+const resetVectorMSB uint16 = 0xFFFD
 
 // When an IRQ is triggered the processor goes to this address to get the LSB of the address of the
 // interrupt handler
-const IRQ_VECTOR_LSB uint16 = 0xFFFE
+const irqVectorLSB uint16 = 0xFFFE
 
 // When an IRQ is triggered the processor goes to this address to get the MSB of the address of the
 // interrupt handler
-const IRQ_VECTOR_MSB uint16 = 0xFFFF
+const irqVectorMSB uint16 = 0xFFFF
 
 /**********************************************************************************************************
 * Signaling status
@@ -1182,12 +1182,12 @@ var addressModeBreakActions []cycleActions = []cycleActions{
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     readFromAddress(IRQ_VECTOR_LSB),
+		cycle:     readFromAddress(irqVectorLSB),
 		postCycle: intoInstructionRegisterLSB(),
 		signaling: vectorPullingSignaling,
 	},
 	{
-		cycle:     readFromAddress(IRQ_VECTOR_MSB),
+		cycle:     readFromAddress(irqVectorMSB),
 		postCycle: moveInstructionRegisterToProgramCounter(true, clearNoRequestFlag),
 		signaling: vectorPullingSignaling,
 	},
@@ -1299,12 +1299,12 @@ var addressModeIRQActions []cycleActions = []cycleActions{
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     readFromAddress(IRQ_VECTOR_LSB),
+		cycle:     readFromAddress(irqVectorLSB),
 		postCycle: intoInstructionRegisterLSB(),
 		signaling: vectorPullingSignaling,
 	},
 	{
-		cycle:     readFromAddress(IRQ_VECTOR_MSB),
+		cycle:     readFromAddress(irqVectorMSB),
 		postCycle: moveInstructionRegisterToProgramCounter(true, clearIRQRequestFlag),
 		signaling: vectorPullingSignaling,
 	},
@@ -1332,12 +1332,12 @@ var addressModeNMIActions []cycleActions = []cycleActions{
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     readFromAddress(NMI_VECTOR_LSB),
+		cycle:     readFromAddress(nmiVectorLSB),
 		postCycle: intoInstructionRegisterLSB(),
 		signaling: vectorPullingSignaling,
 	},
 	{
-		cycle:     readFromAddress(NMI_VECTOR_MSB),
+		cycle:     readFromAddress(nmiVectorMSB),
 		postCycle: moveInstructionRegisterToProgramCounter(true, clearNMIRequestFlag),
 		signaling: vectorPullingSignaling,
 	},
@@ -1375,12 +1375,12 @@ var addressModeResetActions []cycleActions = []cycleActions{
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     readFromAddress(RESET_VECTOR_LSB),
+		cycle:     readFromAddress(resetVectorLSB),
 		postCycle: intoInstructionRegisterLSB(),
 		signaling: vectorPullingSignaling,
 	},
 	{
-		cycle:     readFromAddress(RESET_VECTOR_MSB),
+		cycle:     readFromAddress(resetVectorMSB),
 		postCycle: moveInstructionRegisterToProgramCounter(true, clearNoRequestFlag),
 		signaling: vectorPullingSignaling,
 	},

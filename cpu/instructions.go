@@ -1,7 +1,10 @@
 package cpu
 
+// Each instruction and it's different address mode is represented by a number from 0 to 0xFF called OpCode
+// See http://www.6502.org/users/obelisk/65C02/reference.html
 type OpCode uint
 
+// Contains information about each instruction.
 type CpuInstructionData struct {
 	opcode      OpCode
 	mnemonic    Mnemonic
@@ -9,32 +12,40 @@ type CpuInstructionData struct {
 	addressMode AddressMode
 }
 
+// Returns the OpCode value of this instruction and address mode
 func (data *CpuInstructionData) OpCode() OpCode {
 	return data.opcode
 }
 
+// Returns the Mnemonic for the instruction.
 func (data *CpuInstructionData) Mnemonic() Mnemonic {
 	return data.mnemonic
 }
 
-func (data *CpuInstructionData) Execute(cpu *Cpu65C02S) {
+// Executes the instruction actions modifying the CPU state. For example, INX will increment
+// the value in the X register.
+func (data *CpuInstructionData) execute(cpu *Cpu65C02S) {
 	data.action(cpu)
 }
 
+// Returns the address mode corresponding to this instruction's OpCode
 func (data *CpuInstructionData) AddressMode() AddressMode {
 	return data.addressMode
 }
 
 // ----------------------------------------------------------------------
 
+// Returns all the instructions available for the CPU
 type CpuInstructionSet struct {
 	opCodeIndex map[OpCode]*CpuInstructionData
 }
 
+// Gets data about the instruction and address mode represented by the specified Opcode.
 func (instruction *CpuInstructionSet) GetByOpCode(opCode OpCode) *CpuInstructionData {
 	return instruction.opCodeIndex[opCode]
 }
 
+// Creates the instruction set supported by this CPU
 func CreateInstructionSet() *CpuInstructionSet {
 	var data = []CpuInstructionData{
 		{0x00, BRK, nil, AddressModeBreak},

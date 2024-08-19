@@ -173,6 +173,36 @@ func TestActionADC(t *testing.T) {
 	evaluateAccumulatorInstruction(t, cpu, ram, 5, "ZnC", 0x00) // (zp) -> FF + 1 = 00
 }
 
+func TestActionADCDecimal(t *testing.T) {
+	cpu, ram := createComputer()
+
+	cpu.processorStatusRegister.SetFlag(DecimalModeFlagBit, true)
+	cpu.accumulatorRegister = 0x11
+
+	ram.Poke(0xC000, 0x69) // ADC #$22 -> A + $22 = $33 (decimal mode)
+	ram.Poke(0xC001, 0x22)
+	ram.Poke(0xC002, 0x69) // ADC #$22 -> A + $77 = $10 (decimal mode)
+	ram.Poke(0xC003, 0x77)
+
+	evaluateAccumulatorInstruction(t, cpu, ram, 2, "zn", 0x33)
+	evaluateAccumulatorInstruction(t, cpu, ram, 2, "zn", 0x10)
+}
+
+func TestActionADC2bytes(t *testing.T) {
+	cpu, ram := createComputer()
+
+	cpu.accumulatorRegister = 0x11
+
+	ram.Poke(0xC000, 0x69) // ADC #$FF -> A + $FF = $0110
+	ram.Poke(0xC001, 0xFF)
+	ram.Poke(0xC002, 0x69) // ADC #$10 -> A + $10 = $11 (carry)
+	ram.Poke(0xC003, 0x10)
+
+	evaluateAccumulatorInstruction(t, cpu, ram, 2, "zn", 0x10)
+	cpu.accumulatorRegister = 0x00
+	evaluateAccumulatorInstruction(t, cpu, ram, 2, "zn", 0x11)
+}
+
 func TestActionAND(t *testing.T) {
 	cpu, ram := createComputer()
 
@@ -1332,6 +1362,39 @@ func TestActionSBC(t *testing.T) {
 	evaluateAccumulatorInstruction(t, cpu, ram, 6, "znC", 0x0A) // (zp,x) -> 0C - 02 = 0A
 	evaluateAccumulatorInstruction(t, cpu, ram, 6, "ZnC", 0x00) // (zp),y -> 0A - 0A = 00
 	evaluateAccumulatorInstruction(t, cpu, ram, 5, "zNc", 0xFF) // (zp) -> 00 - 1 = FF
+}
+
+func TestActionSBCDecimal(t *testing.T) {
+	cpu, ram := createComputer()
+
+	cpu.accumulatorRegister = 0x99
+
+	// A = 99
+	ram.Poke(0xC000, 0xE9) // SBC #$77 -> A - 77 = 22 (decimal)
+	ram.Poke(0xC001, 0x77)
+	ram.Poke(0xC002, 0xE9) // SBC #$77 -> A - 33 = 89 (decimal)
+	ram.Poke(0xC003, 0x33)
+
+	cpu.processorStatusRegister.SetFlag(CarryFlagBit, true)
+	cpu.processorStatusRegister.SetFlag(DecimalModeFlagBit, true)
+	evaluateAccumulatorInstruction(t, cpu, ram, 2, "znC", 0x22) // i -> FF - 77 = 22
+	evaluateAccumulatorInstruction(t, cpu, ram, 2, "zNc", 0x89) // i -> FF - 33 = 89
+}
+
+func TestActionSBC2Bytes(t *testing.T) {
+	cpu, ram := createComputer()
+
+	cpu.accumulatorRegister = 0x99
+
+	// A = 99
+	ram.Poke(0xC000, 0xE9) // SBC #$AA -> A - AA = FF
+	ram.Poke(0xC001, 0xAA)
+	ram.Poke(0xC002, 0xE9) // SBC #$10 -> A - 10 = EE
+	ram.Poke(0xC003, 0x10)
+
+	cpu.processorStatusRegister.SetFlag(CarryFlagBit, true)
+	evaluateAccumulatorInstruction(t, cpu, ram, 2, "zNc", 0xEF)
+	evaluateAccumulatorInstruction(t, cpu, ram, 2, "zNC", 0xDE)
 }
 
 func TestActionSEC(t *testing.T) {
