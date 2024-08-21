@@ -58,8 +58,8 @@ func createComputer() (*Cpu65C02S, *memory.Ram) {
 	ram.Connect(addressBus, dataBus, writeEnableLine, alwaysLowLine, alwaysLowLine)
 
 	cpu := CreateCPU()
-	cpu.ConnectAddressBus(addressBus)
-	cpu.ConnectDataBus(dataBus)
+	cpu.AddressBus().Connect(addressBus)
+	cpu.DataBus().Connect(dataBus)
 
 	cpu.BusEnable().Connect(alwaysHighLine)
 	cpu.ReadWrite().Connect(writeEnableLine)

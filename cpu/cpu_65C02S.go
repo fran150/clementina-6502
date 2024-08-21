@@ -11,9 +11,9 @@ import (
 // There is another document for the rockwell processor that has better data about cycle timing here:
 // https://web.archive.org/web/20221112220234if_/http://archive.6502.org/datasheets/rockwell_r65c00_microprocessors.pdf
 type Cpu65C02S struct {
-	addressBus           *buses.Bus[uint16]
+	addressBus           *buses.BusConnector[uint16]
 	busEnable            *buses.ConnectorEnabledHigh
-	dataBus              *buses.Bus[uint8]
+	dataBus              *buses.BusConnector[uint8]
 	interruptRequest     *buses.ConnectorEnabledLow
 	memoryLock           *buses.ConnectorEnabledLow
 	nonMaskableInterrupt *buses.ConnectorEnabledLow
@@ -56,7 +56,10 @@ type Cpu65C02S struct {
 
 // Creates a CPU with typical values for all registers, address and data bus are not connected
 func CreateCPU() *Cpu65C02S {
-	return &Cpu65C02S{
+	cpu := &Cpu65C02S{
+		addressBus: buses.CreateBusConnector[uint16](),
+		dataBus:    buses.CreateBusConnector[uint8](),
+
 		busEnable:            buses.CreateConnectorEnabledHigh(),
 		interruptRequest:     buses.CreateConnectorEnabledLow(),
 		memoryLock:           buses.CreateConnectorEnabledLow(),
@@ -76,44 +79,12 @@ func CreateCPU() *Cpu65C02S {
 		yRegister:           0x00,
 		stackPointer:        0xFD,
 		programCounter:      0xFFFC,
-
-		// Set default value for flags B and I   (NV-BDIZC) = 0x34
-		processorStatusRegister: CreateStatusRegister(0b00110100),
-
-		currentCycleIndex:        0,
-		currentCycle:             readOpCode,
-		instructionRegisterCarry: false,
-		branchTaken:              false,
-		currentOpCode:            0x00,
-
-		instructionRegister: 0x00,
-		dataRegister:        0x00,
-
-		irqRequested:      false,
-		previousNMIStatus: false,
-		nmiRequested:      false,
-
-		cyclesWithReset: 0,
-
-		processorPaused:  false,
-		processorStopped: false,
+		currentCycle:        readOpCode,
 	}
-}
 
-/*
- ****************************************************
- * Buses
- ****************************************************
- */
+	cpu.setDefaultValues()
 
-// Connects the CPU to an address bus, must be 16 bits long
-func (cpu *Cpu65C02S) ConnectAddressBus(addressBus *buses.Bus[uint16]) {
-	cpu.addressBus = addressBus
-}
-
-// Connects the CPU to a data bus, must be 8 bits long
-func (cpu *Cpu65C02S) ConnectDataBus(dataBus *buses.Bus[uint8]) {
-	cpu.dataBus = dataBus
+	return cpu
 }
 
 /*
@@ -124,7 +95,7 @@ func (cpu *Cpu65C02S) ConnectDataBus(dataBus *buses.Bus[uint8]) {
 
 // The sixteen bit Address Bus formed by A0-A15, address memory and I/O registers that exchange data on
 // the Data Bus. The address lines can be set to the high impedance state by the Bus Enable (BE) signal.
-func (cpu *Cpu65C02S) AddressBus() *buses.Bus[uint16] {
+func (cpu *Cpu65C02S) AddressBus() *buses.BusConnector[uint16] {
 	return cpu.addressBus
 }
 
@@ -137,8 +108,8 @@ func (cpu *Cpu65C02S) BusEnable() *buses.ConnectorEnabledHigh {
 // The eight Data Bus lines D0-D7 are used to provide instructions, data and addresses to the
 // microprocessor and exchange data with memory and I/O registers. These lines may be set to the high
 // impedance state by the Bus Enable (BE) signal.
-func (cpu *Cpu65C02S) DataBus() *buses.Bus[uint16] {
-	return cpu.addressBus
+func (cpu *Cpu65C02S) DataBus() *buses.BusConnector[uint8] {
+	return cpu.dataBus
 }
 
 // The Interrupt Request (IRQB) input signal is used to request that an interrupt sequence be initiated. The

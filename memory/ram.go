@@ -2,6 +2,7 @@ package memory
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 
 	"github.com/fran150/clementina6502/buses"
@@ -9,8 +10,8 @@ import (
 
 type Ram struct {
 	values       [0xFFFF + 1]uint8
-	addressBus   *buses.Bus[uint16]
-	dataBus      *buses.Bus[uint8]
+	addressBus   *buses.BusConnector[uint16]
+	dataBus      *buses.BusConnector[uint8]
 	writeEnable  buses.ConnectorEnabledLow
 	chipSelect   buses.ConnectorEnabledLow
 	outputEnable buses.ConnectorEnabledLow
@@ -19,23 +20,17 @@ type Ram struct {
 func CreateRam() *Ram {
 	return &Ram{
 		values:       [0xFFFF + 1]uint8{},
+		addressBus:   buses.CreateBusConnector[uint16](),
+		dataBus:      buses.CreateBusConnector[uint8](),
 		writeEnable:  *buses.CreateConnectorEnabledLow(),
 		chipSelect:   *buses.CreateConnectorEnabledLow(),
 		outputEnable: *buses.CreateConnectorEnabledLow(),
 	}
 }
 
-func (ram *Ram) ConnectToAddressBus(addressBus *buses.Bus[uint16]) {
-	ram.addressBus = addressBus
-}
-
-func (ram *Ram) ConnectToDataBus(dataBus *buses.Bus[uint8]) {
-	ram.dataBus = dataBus
-}
-
 func (ram *Ram) Connect(addressBus *buses.Bus[uint16], dataBus *buses.Bus[uint8], writeEnable buses.Line, chipSelect buses.Line, outputEnable buses.Line) {
-	ram.ConnectToAddressBus(addressBus)
-	ram.ConnectToDataBus(dataBus)
+	ram.addressBus.Connect(addressBus)
+	ram.dataBus.Connect(dataBus)
 	ram.writeEnable.Connect(writeEnable)
 	ram.chipSelect.Connect(chipSelect)
 	ram.outputEnable.Connect(outputEnable)
@@ -57,19 +52,17 @@ func (ram *Ram) write() {
 	ram.values[ram.addressBus.Read()] = ram.dataBus.Read()
 }
 
-// TODO: Needs improvement
-
-func (ram *Ram) Load(binFilePath string) {
+func (ram *Ram) Load(binFilePath string) error {
 	file, err := os.Open(binFilePath)
 
 	if err != nil {
-		//return nil, err
+		return err
 	}
 	defer file.Close()
 
 	stats, statsErr := file.Stat()
 	if statsErr != nil {
-		//return nil, statsErr
+		return statsErr
 	}
 
 	var size int64 = stats.Size()
@@ -77,7 +70,11 @@ func (ram *Ram) Load(binFilePath string) {
 	if size <= int64(len(ram.values)) {
 		bufr := bufio.NewReader(file)
 		bufr.Read(ram.values[:])
+	} else {
+		return fmt.Errorf("the file %s is too large for this ram memory (file size: %v, ram size: %v)", binFilePath, size, len(ram.values))
 	}
+
+	return nil
 }
 
 // TODO: Add handling for disconnected lines

@@ -14,7 +14,7 @@ func CreateBus[T uint16 | uint8]() *Bus[T] {
 	}
 
 	for i := range uint8(16) {
-		bus.busLines[i] = createBusLine[T](&bus, i)
+		bus.busLines[i] = createBusLine(&bus, i)
 	}
 
 	return &bus
