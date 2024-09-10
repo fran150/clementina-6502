@@ -19,3 +19,7 @@ func (connector *BusConnector[T]) Read() T {
 func (connector *BusConnector[T]) Write(value T) {
 	connector.bus.Write(value)
 }
+
+func (connector *BusConnector[T]) GetLine(line uint8) Line {
+	return connector.bus.GetBusLine(line)
+}

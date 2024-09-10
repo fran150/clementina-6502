@@ -25,22 +25,26 @@ type Via65C22S struct {
 	caHandshakeInProgress bool
 	cbHandshakeInProgress bool
 
-	register [16]uint8
+	registers map[viaRegisterCode]*uint8
 }
 
 type viaRegisterCode uint8
 
 const (
-	ioRegisterB                viaRegisterCode = 0x00
-	ioRegisterA                viaRegisterCode = 0x01
+	outputRegisterB            viaRegisterCode = 0x00
+	inputRegisterB             viaRegisterCode = 0x10
+	outputRegisterA            viaRegisterCode = 0x01
+	inputRegisterA             viaRegisterCode = 0x11
 	dataDirectionRegisterB     viaRegisterCode = 0x02
 	dataDirectionRegisterA     viaRegisterCode = 0x03
-	t1lowLatchesCounter        viaRegisterCode = 0x04
-	t1highCounter              viaRegisterCode = 0x05
-	t1lowLatches               viaRegisterCode = 0x06
-	t1highLatches              viaRegisterCode = 0x07
-	t2lowLatchesCounter        viaRegisterCode = 0x08
-	t2highCounter              viaRegisterCode = 0x09
+	t1LowLatches               viaRegisterCode = 0x04
+	t1LowCounter               viaRegisterCode = 0x14
+	t1HighCounter              viaRegisterCode = 0x05
+	t1LowLatches2              viaRegisterCode = 0x06
+	t1HighLatches              viaRegisterCode = 0x07
+	t2LowLatches               viaRegisterCode = 0x08
+	t2LowCounter               viaRegisterCode = 0x18
+	t2HighCounter              viaRegisterCode = 0x09
 	shiftRegister              viaRegisterCode = 0x0A
 	auxiliaryControl           viaRegisterCode = 0x0B
 	peripheralControl          viaRegisterCode = 0x0C
@@ -52,14 +56,14 @@ const (
 type viaIRQFlags uint8
 
 const (
-	irqCA2 viaIRQFlags = 0x00
-	irqCA1 viaIRQFlags = 0x01
-	irqSR  viaIRQFlags = 0x02
-	irqCB2 viaIRQFlags = 0x03
-	irqCB1 viaIRQFlags = 0x04
-	irqT2  viaIRQFlags = 0x05
-	irqT1  viaIRQFlags = 0x06
-	irqAny viaIRQFlags = 0x07
+	irqCA2 viaIRQFlags = 0x01
+	irqCA1 viaIRQFlags = 0x02
+	irqSR  viaIRQFlags = 0x04
+	irqCB2 viaIRQFlags = 0x08
+	irqCB1 viaIRQFlags = 0x10
+	irqT2  viaIRQFlags = 0x20
+	irqT1  viaIRQFlags = 0x40
+	irqAny viaIRQFlags = 0x80
 )
 
 func CreateVia65C22() *Via65C22S {
@@ -88,6 +92,29 @@ func CreateVia65C22() *Via65C22S {
 		readWrite:     buses.CreateConnectorEnabledLow(),
 		previousCtrlA: [2]bool{false, false},
 		previousCtrlB: [2]bool{false, false},
+
+		registers: map[viaRegisterCode]*uint8{
+			outputRegisterB:            new(uint8),
+			inputRegisterB:             new(uint8),
+			outputRegisterA:            new(uint8),
+			inputRegisterA:             new(uint8),
+			dataDirectionRegisterB:     new(uint8),
+			dataDirectionRegisterA:     new(uint8),
+			t1LowLatches:               new(uint8),
+			t1LowCounter:               new(uint8),
+			t1HighCounter:              new(uint8),
+			t1LowLatches2:              new(uint8),
+			t1HighLatches:              new(uint8),
+			t2LowLatches:               new(uint8),
+			t2LowCounter:               new(uint8),
+			t2HighCounter:              new(uint8),
+			shiftRegister:              new(uint8),
+			auxiliaryControl:           new(uint8),
+			peripheralControl:          new(uint8),
+			interruptFlag:              new(uint8),
+			interruptEnable:            new(uint8),
+			outputRegisterBNoHandshake: new(uint8),
+		},
 	}
 
 	return &via
@@ -193,14 +220,6 @@ func (via *Via65C22S) ConnectRegisterSelectLines(lines [4]buses.Line) {
 * Internal functions
 *************************************************************************************/
 
-func (via *Via65C22S) getRegister(code viaRegisterCode) *uint8 {
-	return &via.register[uint8(code)]
-}
-
-func (via *Via65C22S) getSelectedRegister() *uint8 {
-	return &via.register[via.getRegisterSelectValue()]
-}
-
 func (via *Via65C22S) getRegisterSelectValue() uint8 {
 	var value uint8
 
@@ -215,7 +234,7 @@ func (via *Via65C22S) getRegisterSelectValue() uint8 {
 
 func (via *Via65C22S) isCA1ConfiguredForPositiveTransition() bool {
 	// Get the peripheral control register
-	pcr := via.getRegister(peripheralControl)
+	pcr := via.registers[peripheralControl]
 
 	// Bit 0 in PCR determines CA 1 control. 1 is latch on positive edge, 0 is latch on negative edge
 	return (*pcr & 0x01) > 0
@@ -223,7 +242,7 @@ func (via *Via65C22S) isCA1ConfiguredForPositiveTransition() bool {
 
 func (via *Via65C22S) isCA2ConfiguredForPositiveTransition() bool {
 	// Get the peripheral control register
-	pcr := via.getRegister(peripheralControl)
+	pcr := via.registers[peripheralControl]
 
 	// Bit 1, 2 and 3 in PCR determines CA 2 control.
 	// 000 and 001 transition on negative edge
@@ -233,7 +252,7 @@ func (via *Via65C22S) isCA2ConfiguredForPositiveTransition() bool {
 
 func (via *Via65C22S) isCA2ConfiguredForClearOnRW() bool {
 	// Get the peripheral control register
-	pcr := via.getRegister(peripheralControl)
+	pcr := via.registers[peripheralControl]
 
 	// Bit 1, 2 and 3 in PCR determines CA 2 control.
 	// 000 and 010 allows clearing CA2 interrupt when Reading or Writing ORA/IRA
@@ -242,7 +261,7 @@ func (via *Via65C22S) isCA2ConfiguredForClearOnRW() bool {
 
 func (via *Via65C22S) isCB1ConfiguredForPositiveTransition() bool {
 	// Get the peripheral control register
-	pcr := via.getRegister(peripheralControl)
+	pcr := via.registers[peripheralControl]
 
 	// Bit 4 in PCR determines CB 1 control. 1 is latch on positive edge, 0 is latch on negative edge
 	return (*pcr & 0x10) > 0
@@ -250,7 +269,7 @@ func (via *Via65C22S) isCB1ConfiguredForPositiveTransition() bool {
 
 func (via *Via65C22S) isCB2ConfiguredForPositiveTransition() bool {
 	// Get the peripheral control register
-	pcr := via.getRegister(peripheralControl)
+	pcr := via.registers[peripheralControl]
 
 	// Bit 7, 6 and 5 in PCR determines CA B control.
 	// 000 and 001 transition on negative edge
@@ -260,7 +279,7 @@ func (via *Via65C22S) isCB2ConfiguredForPositiveTransition() bool {
 
 func (via *Via65C22S) isCB2ConfiguredForClearOnRW() bool {
 	// Get the peripheral control register
-	pcr := via.getRegister(peripheralControl)
+	pcr := via.registers[peripheralControl]
 
 	// Bit 7, 6 and 5 in PCR determines CA 2 control.
 	// 000 and 010 allows clearing CA2 interrupt when Reading or Writing ORA/IRA
@@ -269,7 +288,7 @@ func (via *Via65C22S) isCB2ConfiguredForClearOnRW() bool {
 
 func (via *Via65C22S) isCA2ConfiguredForOutput() bool {
 	// Get the peripheral control register
-	pcr := via.getRegister(peripheralControl)
+	pcr := via.registers[peripheralControl]
 
 	// Bit 3 determines if output mode is active
 	return (*pcr & 0x08) > 0x00
@@ -277,7 +296,7 @@ func (via *Via65C22S) isCA2ConfiguredForOutput() bool {
 
 func (via *Via65C22S) isCB2ConfiguredForOutput() bool {
 	// Get the peripheral control register
-	pcr := via.getRegister(peripheralControl)
+	pcr := via.registers[peripheralControl]
 
 	// Bit 7 determines if output mode is active
 	return (*pcr & 0x80) > 0x00
@@ -285,21 +304,21 @@ func (via *Via65C22S) isCB2ConfiguredForOutput() bool {
 
 func (via *Via65C22S) isCA2ConfiguredForHandshake() bool {
 	// Get the peripheral control register
-	pcr := via.getRegister(peripheralControl)
+	pcr := via.registers[peripheralControl]
 
 	return (*pcr & 0x0C) == 0x08
 }
 
 func (via *Via65C22S) isCB2ConfiguredForHandshake() bool {
 	// Get the peripheral control register
-	pcr := via.getRegister(peripheralControl)
+	pcr := via.registers[peripheralControl]
 
 	return (*pcr & 0xC0) > 0x80
 }
 
 func (via *Via65C22S) setCAOutputMode() {
 	// Get the peripheral control register
-	pcr := via.getRegister(peripheralControl)
+	pcr := via.registers[peripheralControl]
 
 	switch *pcr & 0x0E {
 	case 0x08:
@@ -331,7 +350,7 @@ func (via *Via65C22S) setCAOutputMode() {
 
 func (via *Via65C22S) setCBOutputMode() {
 	// Get the peripheral control register
-	pcr := via.getRegister(peripheralControl)
+	pcr := via.registers[peripheralControl]
 
 	switch *pcr & 0xE0 {
 	case 0x80:
@@ -408,7 +427,7 @@ func (via *Via65C22S) checkTransitionedCB2() bool {
 
 func (via *Via65C22S) isLatchingEnabledPortA() bool {
 	// Get the auxiliary control register
-	acr := via.getRegister(auxiliaryControl)
+	acr := via.registers[auxiliaryControl]
 
 	// Bit 0 of ACR determines if latching is enabled for port A
 	return (*acr & 0x01) > 0
@@ -416,35 +435,42 @@ func (via *Via65C22S) isLatchingEnabledPortA() bool {
 
 func (via *Via65C22S) isLatchingEnabledPortB() bool {
 	// Get the auxiliary control register
-	acr := via.getRegister(auxiliaryControl)
+	acr := via.registers[auxiliaryControl]
 
 	// Bit 1 of ACR determines if latching is enabled for port B
 	return (*acr & 0x02) > 0
 }
 
-func (via *Via65C22S) readPortA() {
+func (via *Via65C22S) latchPortA() {
 	// Read pin levels on port A
 	value := via.peripheralPortA.Read()
 
-	// Get the ORA / IRA register
-	register := via.getRegister(ioRegisterA)
+	// Get the IRA register
+	register := via.registers[inputRegisterA]
+
+	// Get the data direction register
+	ddr := via.registers[dataDirectionRegisterA]
+
+	// Read pins are all the ones with 0 in the DDR
+	readPins := ^*ddr
 
 	if via.isLatchingEnabledPortA() {
 		// If latching is enabled value is the one at the time of CB transition
 		if via.checkTransitionedCA1() {
-			*register = value
+			*register = value & readPins
 		}
 	}
 }
 
-func (via *Via65C22S) readPortB() {
+func (via *Via65C22S) latchPortB() {
 	// Read pin levels on port B
 	value := via.peripheralPortB.Read()
 
 	// Get the ORB / IRB register
-	register := via.getRegister(ioRegisterB)
+	register := via.registers[inputRegisterB]
+
 	// Get the data direction register
-	ddr := via.getRegister(dataDirectionRegisterB)
+	ddr := via.registers[dataDirectionRegisterB]
 
 	// Read pins are all the ones with 0 in the DDR
 	readPins := ^*ddr
@@ -457,26 +483,42 @@ func (via *Via65C22S) readPortB() {
 	}
 }
 
+func (via *Via65C22S) isByteSet(value uint8, bitNumber uint8) bool {
+	mask := uint8(math.Pow(2, float64(bitNumber)))
+
+	return (value & mask) > 0
+}
+
 func (via *Via65C22S) writePortA() {
-	register := via.getRegister(ioRegisterA)
+	register := via.registers[outputRegisterA]
+
 	// Bytes in 1 are the output pins
-	outputPins := via.getRegister(dataDirectionRegisterA)
-	// Only output pins are affected
-	via.peripheralPortA.Write(*register & *outputPins)
+	outputPins := via.registers[dataDirectionRegisterA]
+
+	for i := range uint8(8) {
+		if via.isByteSet(*outputPins, i) {
+			via.PeripheralPortA().GetLine(i).Set(via.isByteSet(*register, i))
+		}
+	}
 }
 
 func (via *Via65C22S) writePortB() {
-	register := via.getRegister(ioRegisterB)
+	register := via.registers[outputRegisterB]
+
 	// Bytes in 1 are the output pins
-	outputPins := via.getRegister(dataDirectionRegisterB)
-	// Only output pins are affected
-	via.peripheralPortB.Write(*register & *outputPins)
+	outputPins := via.registers[dataDirectionRegisterB]
+
+	for i := range uint8(8) {
+		if via.isByteSet(*outputPins, i) {
+			via.PeripheralPortB().GetLine(i).Set(via.isByteSet(*register, i))
+		}
+	}
 }
 
 // If any of the bits 0 - 6 in the IFR is 1 then the bit 7 is 1
 // If not, then the bit 7 is 0.
 func (via *Via65C22S) writeInterruptFlagRegister(value uint8) {
-	ier := via.getRegister(interruptEnable)
+	ier := via.registers[interruptEnable]
 
 	if (value & *ier & 0x7F) > 0 {
 		value |= 0x80
@@ -484,17 +526,17 @@ func (via *Via65C22S) writeInterruptFlagRegister(value uint8) {
 		value &= 0x7F
 	}
 
-	ifr := via.getRegister(interruptFlag)
+	ifr := via.registers[interruptFlag]
 	*ifr = value
 }
 
 func (via *Via65C22S) setInterruptFlag(flag viaIRQFlags) {
-	register := via.getRegister(interruptFlag)
+	register := via.registers[interruptFlag]
 	via.writeInterruptFlagRegister(*register | uint8(flag))
 }
 
 func (via *Via65C22S) clearInterruptFlag(flag viaIRQFlags) {
-	register := via.getRegister(interruptFlag)
+	register := via.registers[interruptFlag]
 	via.writeInterruptFlagRegister(*register & ^uint8(flag))
 }
 
@@ -540,8 +582,8 @@ func (via *Via65C22S) clearControlLinesInterruptFlagOnRWPortB() {
 }
 
 func (via *Via65C22S) handleIRQLine() {
-	ifr := via.getRegister(interruptFlag)
-	ier := via.getRegister(interruptEnable)
+	ifr := via.registers[interruptFlag]
+	ier := via.registers[interruptEnable]
 
 	if (*ifr & *ier & 0x7F) > 0 {
 		via.IrqRequest().SetEnable(true)
@@ -559,17 +601,31 @@ func (via *Via65C22S) Tick(t uint64) {
 	// The ORs are also never transparent Whereas an input bus which has input latching turned off can change with its
 	// input without the Enable pin even being cycled, outputting to an OR will not take effect until the Enable pin has made
 	// a transition to low or high.
-	via.readPortA()
-	via.readPortB()
+	via.latchPortA()
+	via.latchPortB()
 
 	if via.chipSelect1.Enabled() && via.chipSelect2.Enabled() {
+		var selectedRegister *uint8
+
 		selectedRegisterValue := via.getRegisterSelectValue()
-		selectedRegister := via.getSelectedRegister()
 
 		if !via.readWrite.Enabled() {
-			registerReadHandlers[selectedRegisterValue](via, selectedRegister)
+			var ok bool
+			selectedRegisterValue += 0x10
+
+			selectedRegister, ok = via.registers[viaRegisterCode(selectedRegisterValue)]
+
+			if !ok {
+				selectedRegister = via.registers[viaRegisterCode(selectedRegisterValue-0x10)]
+			}
 		} else {
-			registerWriteHandlers[selectedRegisterValue](via, selectedRegister)
+			selectedRegister = via.registers[viaRegisterCode(selectedRegisterValue)]
+		}
+
+		if !via.readWrite.Enabled() {
+			registerReadHandlers[selectedRegisterValue&0x0F](via, selectedRegister)
+		} else {
+			registerWriteHandlers[selectedRegisterValue&0x0F](via, selectedRegister)
 		}
 	}
 }
@@ -603,14 +659,21 @@ func (via *Via65C22S) PostTick(t uint64) {
 
 func inputOutuputRegisterBReadHandler(via *Via65C22S, register *uint8) {
 	// Get the data direction register
-	outputPins := via.getRegister(dataDirectionRegisterB)
+	outputPins := via.registers[dataDirectionRegisterB]
 	inputPins := ^*outputPins
-	value := *register & *outputPins
 
-	if via.isLatchingEnabledPortB() {
+	irb := via.registers[inputRegisterB]
+	orb := via.registers[outputRegisterB]
+
+	// MPU reads output register bit in ORB. Pin level has no effect.
+	value := *orb & *outputPins
+
+	if !via.isLatchingEnabledPortB() {
+		// MPU reads input level on PB pin.
 		value |= via.peripheralPortB.Read() & inputPins
 	} else {
-		value |= *register & inputPins
+		// MPU reads IRB bit
+		value |= *irb & inputPins
 	}
 
 	via.clearControlLinesInterruptFlagOnRWPortB()
@@ -636,7 +699,7 @@ func inputOutuputRegisterBWriteHandler(via *Via65C22S, register *uint8) {
 func inputOutuputRegisterAReadHandler(via *Via65C22S, register *uint8) {
 	var value uint8
 
-	if via.isLatchingEnabledPortA() {
+	if !via.isLatchingEnabledPortA() {
 		value = via.peripheralPortA.Read()
 	} else {
 		value = *register
