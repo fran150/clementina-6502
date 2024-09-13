@@ -107,6 +107,21 @@ func readFromVia(via *Via65C22S, circuit *testCircuit, register viaRegisterCode,
 	return circuit.dataBus.Read()
 }
 
+func disableChipAndStepTime(via *Via65C22S, circuit *testCircuit, t *uint64) {
+	circuit.cs1.Set(false)
+	circuit.cs2.Set(true)
+
+	via.Tick(*t)
+	via.PostTick(*t)
+
+	*t = *t + 1
+}
+
+func enableChip(circuit *testCircuit) {
+	circuit.cs1.Set(true)
+	circuit.cs2.Set(false)
+}
+
 func TestOutputToPortAChangingTheDirectionAndDeselectingChip(t *testing.T) {
 	var step uint64
 
@@ -427,4 +442,262 @@ func TestInputFromPortBLatching(t *testing.T) {
 	// First 4 bits are the ORB value = 5 as MPU reads from ORB, pin level has no effect.
 	// Last 4 bits are from IRA at the last CB1 transition = A
 	assert.Equal(t, uint8(0x5A), value)
+}
+
+/***********************************************************************************************************************
+* See page 5 of the link below to understand the timing of handshake modes. This test is copying and validating
+* the behaviour described there.
+*
+* https://web.archive.org/web/20160108173129if_/http://archive.6502.org/datasheets/mos_6522_preliminary_nov_1977.pdf
+************************************************************************************************************************/
+
+func readHandshakeOnPortA(t *testing.T, mode uint8) {
+	var step uint64
+
+	via := CreateVia65C22()
+	circuit := createTestCircuit()
+
+	circuit.wire(via)
+
+	// Set all pins on Port A to input
+	writeToVia(via, circuit, dataDirectionRegisterA, 0x00, &step)
+
+	// Set interrupt on CA1 transition enabled
+	writeToVia(via, circuit, interruptEnable, 0x82, &step)
+
+	// Set interrupt on positive edge of CA1 (0x01) and CA2 in handshake desired handshake mode
+	writeToVia(via, circuit, peripheralControl, mode|0x01, &step)
+
+	// In handshake mode CA2 is default high
+	assert.Equal(t, true, circuit.ca2.Status())
+	// At this point IRQ is clear (high)
+	assert.Equal(t, true, circuit.irq.Status())
+
+	// Signal Data Ready on CA1
+	circuit.ca1.Set(true)
+
+	// Step time and check that IRQ is now active (low)
+	disableChipAndStepTime(via, circuit, &step)
+	assert.Equal(t, false, circuit.irq.Status())
+
+	// Simulate some more steps and check
+	disableChipAndStepTime(via, circuit, &step)
+	disableChipAndStepTime(via, circuit, &step)
+	disableChipAndStepTime(via, circuit, &step)
+	assert.Equal(t, false, circuit.irq.Status())
+
+	// Clear the data ready signal in CA 1
+	circuit.ca1.Set(false)
+	disableChipAndStepTime(via, circuit, &step)
+	disableChipAndStepTime(via, circuit, &step)
+	// IRQ stays triggered
+	assert.Equal(t, false, circuit.irq.Status())
+
+	// Re-enable the chip and read IRA
+	enableChip(circuit)
+	readFromVia(via, circuit, inputRegisterA, &step)
+
+	// CA2 should have dropped to signal "data taken"
+	assert.Equal(t, false, circuit.ca2.Status())
+	// IRQ must be cleared
+	assert.Equal(t, true, circuit.irq.Status())
+
+	if mode == 0x08 {
+		// Simulate some more steps and check, in this mode CA2 will stay
+		// low until transition of CB1 happens
+		disableChipAndStepTime(via, circuit, &step)
+		disableChipAndStepTime(via, circuit, &step)
+		disableChipAndStepTime(via, circuit, &step)
+		assert.Equal(t, false, circuit.ca2.Status())
+		assert.Equal(t, true, circuit.irq.Status())
+	} else {
+		// In this mode CA2 will stay low for only 1 cycle after read IRA
+		// and return to high
+		disableChipAndStepTime(via, circuit, &step)
+		assert.Equal(t, false, circuit.ca2.Status())
+		assert.Equal(t, true, circuit.irq.Status())
+
+		disableChipAndStepTime(via, circuit, &step)
+		assert.Equal(t, true, circuit.ca2.Status())
+		assert.Equal(t, true, circuit.irq.Status())
+		disableChipAndStepTime(via, circuit, &step)
+		assert.Equal(t, true, circuit.ca2.Status())
+		assert.Equal(t, true, circuit.irq.Status())
+	}
+
+	// Signaling data ready on CA1 should make CA2 reset to high
+	circuit.ca1.Set(true)
+	disableChipAndStepTime(via, circuit, &step)
+	assert.Equal(t, true, circuit.ca2.Status())
+	assert.Equal(t, false, circuit.irq.Status())
+}
+
+func TestReadHandshakeOnPortA(t *testing.T) {
+	readHandshakeOnPortA(t, 0x08)
+}
+
+func TestReadHandshakePulseOnPortA(t *testing.T) {
+	readHandshakeOnPortA(t, 0x0A)
+}
+
+func writeHandshakeOnPortA(t *testing.T, mode uint8) {
+	var step uint64
+
+	via := CreateVia65C22()
+	circuit := createTestCircuit()
+
+	circuit.wire(via)
+
+	// Set all pins on Port A to output
+	writeToVia(via, circuit, dataDirectionRegisterA, 0xFF, &step)
+
+	// Set interrupt on CA1 transition enabled
+	writeToVia(via, circuit, interruptEnable, 0x82, &step)
+
+	// Set interrupt on positive edge of CA1 (0x01) and CA2 in handshake desired handshake mode
+	writeToVia(via, circuit, peripheralControl, mode|0x01, &step)
+
+	// Data taken is low
+	assert.Equal(t, false, circuit.ca1.Status())
+	// In handshake mode CA2 is default high
+	assert.Equal(t, true, circuit.ca2.Status())
+	// At this point IRQ is clear (high)
+	assert.Equal(t, true, circuit.irq.Status())
+
+	// Write to ORA
+	writeToVia(via, circuit, outputRegisterA, 0xFF, &step)
+
+	// CA2 will drop to signal "data ready"
+	if mode == 0x08 {
+		// Simulate some more steps and check, in this mode CA2 will stay
+		// low until transition of CB1 happens
+		disableChipAndStepTime(via, circuit, &step)
+		disableChipAndStepTime(via, circuit, &step)
+		disableChipAndStepTime(via, circuit, &step)
+		assert.Equal(t, false, circuit.ca2.Status())
+	} else {
+		// In this mode CA2 will stay low for only 1 cycle
+		// and return to high
+		disableChipAndStepTime(via, circuit, &step)
+		assert.Equal(t, false, circuit.ca2.Status())
+
+		disableChipAndStepTime(via, circuit, &step)
+		assert.Equal(t, true, circuit.ca2.Status())
+		disableChipAndStepTime(via, circuit, &step)
+		assert.Equal(t, true, circuit.ca2.Status())
+	}
+
+	// Signal Data Taken on CA1
+	circuit.ca1.Set(true)
+
+	// Step time and check that IRQ is now active (low)
+	// And CA2 has been returned to high
+	disableChipAndStepTime(via, circuit, &step)
+	assert.Equal(t, false, circuit.irq.Status())
+	assert.Equal(t, true, circuit.ca2.Status())
+
+	// Do some steps and renable the Data Taken flag,
+	// IRQ must stay triggered (low)
+	disableChipAndStepTime(via, circuit, &step)
+	disableChipAndStepTime(via, circuit, &step)
+	circuit.ca1.Set(false)
+	disableChipAndStepTime(via, circuit, &step)
+	assert.Equal(t, false, circuit.irq.Status())
+
+	// Re-enable the chip and write to ORA
+	enableChip(circuit)
+	writeToVia(via, circuit, outputRegisterA, 0xFE, &step)
+
+	// IRQ must be reset and CA2 goes low again
+	assert.Equal(t, true, circuit.irq.Status())
+	assert.Equal(t, false, circuit.ca2.Status())
+}
+
+func TestWriteHandshakeOnPortA(t *testing.T) {
+	writeHandshakeOnPortA(t, 0x08)
+}
+
+func TestWriteHandshakePulseOnPortA(t *testing.T) {
+	writeHandshakeOnPortA(t, 0x0A)
+}
+
+func writeHandshakeOnPortB(t *testing.T, mode uint8) {
+	var step uint64
+
+	via := CreateVia65C22()
+	circuit := createTestCircuit()
+
+	circuit.wire(via)
+
+	// Set all pins on Port B to output
+	writeToVia(via, circuit, dataDirectionRegisterB, 0xFF, &step)
+
+	// Set interrupt on CB1 transition enabled
+	writeToVia(via, circuit, interruptEnable, 0x90, &step)
+
+	// Set interrupt on positive edge of CB1 (0x10) and CB2 in handshake desired handshake mode
+	writeToVia(via, circuit, peripheralControl, mode|0x10, &step)
+
+	// Data taken is low
+	assert.Equal(t, false, circuit.cb1.Status())
+	// In handshake mode CB2 is default high
+	assert.Equal(t, true, circuit.cb2.Status())
+	// At this point IRQ is clear (high)
+	assert.Equal(t, true, circuit.irq.Status())
+
+	// Write to ORB
+	writeToVia(via, circuit, outputRegisterB, 0xFF, &step)
+
+	// CB2 will drop to signal "data ready"
+	if mode == 0x80 {
+		// Simulate some more steps and check, in this mode CB2 will stay
+		// low until transition of CB1 happens
+		disableChipAndStepTime(via, circuit, &step)
+		disableChipAndStepTime(via, circuit, &step)
+		disableChipAndStepTime(via, circuit, &step)
+		assert.Equal(t, false, circuit.cb2.Status())
+	} else {
+		// In this mode CB2 will stay low for only 1 cycle
+		// and return to high
+		disableChipAndStepTime(via, circuit, &step)
+		assert.Equal(t, false, circuit.cb2.Status())
+
+		disableChipAndStepTime(via, circuit, &step)
+		assert.Equal(t, true, circuit.cb2.Status())
+		disableChipAndStepTime(via, circuit, &step)
+		assert.Equal(t, true, circuit.cb2.Status())
+	}
+
+	// Signal Data Taken on CB1
+	circuit.cb1.Set(true)
+
+	// Step time and check that IRQ is now active (low)
+	// And CB2 has been returned to high
+	disableChipAndStepTime(via, circuit, &step)
+	assert.Equal(t, false, circuit.irq.Status())
+	assert.Equal(t, true, circuit.cb2.Status())
+
+	// Do some steps and renable the Data Taken flag,
+	// IRQ must stay triggered (low)
+	disableChipAndStepTime(via, circuit, &step)
+	disableChipAndStepTime(via, circuit, &step)
+	circuit.cb1.Set(false)
+	disableChipAndStepTime(via, circuit, &step)
+	assert.Equal(t, false, circuit.irq.Status())
+
+	// Re-enable the chip and write to ORB
+	enableChip(circuit)
+	writeToVia(via, circuit, outputRegisterB, 0xFE, &step)
+
+	// IRQ must be reset and CB2 goes low again
+	assert.Equal(t, true, circuit.irq.Status())
+	assert.Equal(t, false, circuit.cb2.Status())
+}
+
+func TestWriteHandshakeOnPortB(t *testing.T) {
+	writeHandshakeOnPortB(t, 0x80)
+}
+
+func TestWriteHandshakePulseOnPortB(t *testing.T) {
+	writeHandshakeOnPortB(t, 0xA0)
 }

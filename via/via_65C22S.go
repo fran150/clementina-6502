@@ -25,6 +25,9 @@ type Via65C22S struct {
 	caHandshakeInProgress bool
 	cbHandshakeInProgress bool
 
+	caHandshakeCycleCounter uint8
+	cbHandshakeCycleCounter uint8
+
 	registers map[viaRegisterCode]*uint8
 }
 
@@ -313,7 +316,7 @@ func (via *Via65C22S) isCB2ConfiguredForHandshake() bool {
 	// Get the peripheral control register
 	pcr := via.registers[peripheralControl]
 
-	return (*pcr & 0xC0) > 0x80
+	return (*pcr & 0xC0) == 0x80
 }
 
 func (via *Via65C22S) setCAOutputMode() {
@@ -332,7 +335,11 @@ func (via *Via65C22S) setCAOutputMode() {
 			via.peripheralAControlLines[1].SetEnable(true)
 		}
 	case 0x0A:
-		if via.caHandshakeInProgress && !via.peripheralAControlLines[1].Enabled() {
+		if via.caHandshakeInProgress {
+			via.caHandshakeCycleCounter += 1
+		}
+
+		if via.caHandshakeCycleCounter > 2 && !via.peripheralAControlLines[1].Enabled() {
 			via.caHandshakeInProgress = false
 		}
 
@@ -364,7 +371,11 @@ func (via *Via65C22S) setCBOutputMode() {
 			via.peripheralBControlLines[1].SetEnable(true)
 		}
 	case 0xA0:
-		if via.cbHandshakeInProgress && !via.peripheralBControlLines[1].Enabled() {
+		if via.cbHandshakeInProgress {
+			via.cbHandshakeCycleCounter += 1
+		}
+
+		if via.cbHandshakeCycleCounter > 2 && !via.peripheralBControlLines[1].Enabled() {
 			via.cbHandshakeInProgress = false
 		}
 
@@ -683,6 +694,7 @@ func inputOutuputRegisterBReadHandler(via *Via65C22S, register *uint8) {
 
 func inputOutuputRegisterBWriteHandler(via *Via65C22S, register *uint8) {
 	if via.isCB2ConfiguredForHandshake() {
+		via.cbHandshakeCycleCounter = 0
 		via.cbHandshakeInProgress = true
 	}
 
@@ -706,6 +718,7 @@ func inputOutuputRegisterAReadHandler(via *Via65C22S, register *uint8) {
 	}
 
 	if via.isCA2ConfiguredForHandshake() {
+		via.caHandshakeCycleCounter = 0
 		via.caHandshakeInProgress = true
 	}
 
@@ -716,6 +729,7 @@ func inputOutuputRegisterAReadHandler(via *Via65C22S, register *uint8) {
 
 func inputOutuputRegisterAWriteHandler(via *Via65C22S, register *uint8) {
 	if via.isCA2ConfiguredForHandshake() {
+		via.caHandshakeCycleCounter = 0
 		via.caHandshakeInProgress = true
 	}
 
