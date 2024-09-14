@@ -36,20 +36,20 @@ const (
 	pcrCB2OutputModeFix       viaPCROutputModes = 0xC0
 )
 
-type ViaPeripheralControlRegiter uint8
+type ViaPeripheralControlRegister uint8
 
-func (pcr *ViaPeripheralControlRegiter) isTransitionPositive(mask viaPCRTranstitionMasks) bool {
+func (pcr *ViaPeripheralControlRegister) isTransitionPositive(mask viaPCRTranstitionMasks) bool {
 	return (uint8(*pcr) & uint8(mask)) > 0x00
 }
 
-func (pcr *ViaPeripheralControlRegiter) isSetToClearOnRW(mask viaPCRInterruptClearMasks) bool {
+func (pcr *ViaPeripheralControlRegister) isSetToClearOnRW(mask viaPCRInterruptClearMasks) bool {
 	return (uint8(*pcr) & uint8(mask)) == 0x00
 }
 
-func (pcr *ViaPeripheralControlRegiter) isSetForOutput(mask viaPCROutputMasks) bool {
+func (pcr *ViaPeripheralControlRegister) isSetForOutput(mask viaPCROutputMasks) bool {
 	return (uint8(*pcr) & uint8(mask)) > 0x00
 }
 
-func (pcr *ViaPeripheralControlRegiter) getOutputMode(mask viaPCROutputMasks) viaPCROutputModes {
+func (pcr *ViaPeripheralControlRegister) getOutputMode(mask viaPCROutputMasks) viaPCROutputModes {
 	return viaPCROutputModes(uint8(*pcr) & uint8(mask))
 }

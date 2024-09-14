@@ -21,14 +21,14 @@ type Via65C22SRegisters struct {
 	t2Counter              uint16
 	shiftRegister          uint8
 	auxiliaryControl       uint8
-	peripheralControl      ViaPeripheralControlRegiter
+	peripheralControl      ViaPeripheralControlRegister
 	interruptFlag          uint8
 	interruptEnable        uint8
 }
 
 type Via65C22S struct {
-	peripheralAControlLines [2]*buses.ConnectorEnabledHigh
-	peripheralBControlLines [2]*buses.ConnectorEnabledHigh
+	peripheralAControlLines *ViaControlLines
+	peripheralBControlLines *ViaControlLines
 	chipSelect1             *buses.ConnectorEnabledHigh
 	chipSelect2             *buses.ConnectorEnabledLow
 	dataBus                 *buses.BusConnector[uint8]
@@ -38,15 +38,6 @@ type Via65C22S struct {
 	reset                   *buses.ConnectorEnabledLow
 	registerSelect          [4]*buses.ConnectorEnabledHigh
 	readWrite               *buses.ConnectorEnabledLow
-
-	previousCtrlA [2]bool
-	previousCtrlB [2]bool
-
-	caHandshakeInProgress bool
-	cbHandshakeInProgress bool
-
-	caHandshakeCycleCounter uint8
-	cbHandshakeCycleCounter uint8
 
 	registers Via65C22SRegisters
 
@@ -90,30 +81,22 @@ const (
 
 func CreateVia65C22() *Via65C22S {
 	via := Via65C22S{
-		peripheralAControlLines: [2]*buses.ConnectorEnabledHigh{
-			buses.CreateConnectorEnabledHigh(),
-			buses.CreateConnectorEnabledHigh(),
-		},
-		peripheralBControlLines: [2]*buses.ConnectorEnabledHigh{
-			buses.CreateConnectorEnabledHigh(),
-			buses.CreateConnectorEnabledHigh(),
-		},
-		chipSelect1:     buses.CreateConnectorEnabledHigh(),
-		chipSelect2:     buses.CreateConnectorEnabledLow(),
-		dataBus:         buses.CreateBusConnector[uint8](),
-		irqRequest:      buses.CreateConnectorEnabledLow(),
-		peripheralPortA: buses.CreateBusConnector[uint8](),
-		peripheralPortB: buses.CreateBusConnector[uint8](),
-		reset:           buses.CreateConnectorEnabledLow(),
+		peripheralAControlLines: createControlLines([2]viaPCRTranstitionMasks{pcrMaskCA1TransitionType, pcrMaskCA2TransitionType}),
+		peripheralBControlLines: createControlLines([2]viaPCRTranstitionMasks{pcrMaskCB1TransitionType, pcrMaskCB2TransitionType}),
+		chipSelect1:             buses.CreateConnectorEnabledHigh(),
+		chipSelect2:             buses.CreateConnectorEnabledLow(),
+		dataBus:                 buses.CreateBusConnector[uint8](),
+		irqRequest:              buses.CreateConnectorEnabledLow(),
+		peripheralPortA:         buses.CreateBusConnector[uint8](),
+		peripheralPortB:         buses.CreateBusConnector[uint8](),
+		reset:                   buses.CreateConnectorEnabledLow(),
 		registerSelect: [4]*buses.ConnectorEnabledHigh{
 			buses.CreateConnectorEnabledHigh(),
 			buses.CreateConnectorEnabledHigh(),
 			buses.CreateConnectorEnabledHigh(),
 			buses.CreateConnectorEnabledHigh(),
 		},
-		readWrite:     buses.CreateConnectorEnabledLow(),
-		previousCtrlA: [2]bool{false, false},
-		previousCtrlB: [2]bool{false, false},
+		readWrite: buses.CreateConnectorEnabledLow(),
 
 		registers: Via65C22SRegisters{},
 	}
@@ -175,11 +158,11 @@ func (via *Via65C22S) populateRegisterWriteHandlers() {
 *************************************************************************************/
 
 func (via *Via65C22S) PeripheralAControlLines(num uint8) *buses.ConnectorEnabledHigh {
-	return via.peripheralAControlLines[num]
+	return via.peripheralAControlLines.GetLine(num)
 }
 
 func (via *Via65C22S) PeripheralBControlLines(num uint8) *buses.ConnectorEnabledHigh {
-	return via.peripheralBControlLines[num]
+	return via.peripheralBControlLines.GetLine(num)
 }
 
 func (via *Via65C22S) ChipSelect1() *buses.ConnectorEnabledHigh {
@@ -243,84 +226,23 @@ func (via *Via65C22S) getRegisterSelectValue() viaRegisterCode {
 func (via *Via65C22S) setCAOutputMode() {
 	switch via.registers.peripheralControl.getOutputMode(pcrMaskCAOutputMode) {
 	case pcrCA2OutputModeHandshake:
-		transitionedCA1 := via.checkControlLineTransitioned(pcrMaskCA1TransitionType, via.peripheralAControlLines[0], via.previousCtrlA[0])
-
-		if via.caHandshakeInProgress && transitionedCA1 {
-			via.caHandshakeInProgress = false
-		}
-
-		if via.caHandshakeInProgress {
-			via.peripheralAControlLines[1].SetEnable(false)
-		} else {
-			via.peripheralAControlLines[1].SetEnable(true)
-		}
+		via.peripheralAControlLines.setOutputHandshakeMode(&via.registers.peripheralControl)
 	case pcrCA2OutputModePulse:
-		if via.caHandshakeInProgress {
-			via.caHandshakeCycleCounter += 1
-		}
-
-		if via.caHandshakeCycleCounter > 2 && !via.peripheralAControlLines[1].Enabled() {
-			via.caHandshakeInProgress = false
-		}
-
-		if via.caHandshakeInProgress {
-			via.peripheralAControlLines[1].SetEnable(false)
-		} else {
-			via.peripheralAControlLines[1].SetEnable(true)
-		}
+		via.peripheralAControlLines.setOutputPulseMode()
 	case pcrCA2OutputModeFix:
-		if via.registers.peripheralControl.isTransitionPositive(pcrMaskCA2TransitionType) {
-			via.peripheralAControlLines[1].SetEnable(true)
-		} else {
-			via.peripheralAControlLines[1].SetEnable(false)
-		}
+		via.peripheralAControlLines.setFixedMode(&via.registers.peripheralControl)
 	}
 }
 
 func (via *Via65C22S) setCBOutputMode() {
 	switch via.registers.peripheralControl.getOutputMode(pcrMaskCBOutputMode) {
 	case pcrCB2OutputModeHandshake:
-		transitionedCB1 := via.checkControlLineTransitioned(pcrMaskCB1TransitionType, via.peripheralBControlLines[0], via.previousCtrlB[0])
-
-		if via.cbHandshakeInProgress && transitionedCB1 {
-			via.cbHandshakeInProgress = false
-		}
-
-		if via.cbHandshakeInProgress {
-			via.peripheralBControlLines[1].SetEnable(false)
-		} else {
-			via.peripheralBControlLines[1].SetEnable(true)
-		}
+		via.peripheralBControlLines.setOutputHandshakeMode(&via.registers.peripheralControl)
 	case pcrCB2OutputModePulse:
-		if via.cbHandshakeInProgress {
-			via.cbHandshakeCycleCounter += 1
-		}
-
-		if via.cbHandshakeCycleCounter > 2 && !via.peripheralBControlLines[1].Enabled() {
-			via.cbHandshakeInProgress = false
-		}
-
-		if via.cbHandshakeInProgress {
-			via.peripheralBControlLines[1].SetEnable(false)
-		} else {
-			via.peripheralBControlLines[1].SetEnable(true)
-		}
+		via.peripheralBControlLines.setOutputPulseMode()
 	case pcrCB2OutputModeFix:
-		if via.registers.peripheralControl.isTransitionPositive(pcrMaskCB2TransitionType) {
-			via.peripheralBControlLines[1].SetEnable(true)
-		} else {
-			via.peripheralBControlLines[1].SetEnable(false)
-		}
+		via.peripheralBControlLines.setFixedMode(&via.registers.peripheralControl)
 	}
-}
-
-func (via *Via65C22S) checkControlLineTransitioned(mask viaPCRTranstitionMasks, controlLine *buses.ConnectorEnabledHigh, previousLineState bool) bool {
-	caCtrlPositive := via.registers.peripheralControl.isTransitionPositive(mask)
-
-	currentCrl := controlLine.Enabled()
-	previousCtrl := previousLineState
-
-	return (caCtrlPositive && !previousCtrl && currentCrl) || (!caCtrlPositive && previousCtrl && !currentCrl)
 }
 
 type viaACRLatchingMasks uint8
@@ -342,10 +264,8 @@ func (via *Via65C22S) latchPortA() {
 	readPins := ^via.registers.dataDirectionRegisterA
 
 	if via.isLatchingEnabled(acrMaskLatchingA) {
-		transitioned := via.checkControlLineTransitioned(pcrMaskCA1TransitionType, via.peripheralAControlLines[0], via.previousCtrlA[0])
-
 		// If latching is enabled value is the one at the time of CB transition
-		if transitioned {
+		if via.peripheralAControlLines.checkControlLineTransitioned(&via.registers.peripheralControl, 0) {
 			via.registers.inputRegisterA = value & readPins
 		}
 	}
@@ -359,10 +279,8 @@ func (via *Via65C22S) latchPortB() {
 	readPins := ^via.registers.dataDirectionRegisterB
 
 	if via.isLatchingEnabled(acrMaskLatchingB) {
-		transitioned := via.checkControlLineTransitioned(pcrMaskCB1TransitionType, via.peripheralBControlLines[0], via.previousCtrlB[0])
-
 		// If latching is enabled value is the one at the time of CB transition
-		if transitioned {
+		if via.peripheralBControlLines.checkControlLineTransitioned(&via.registers.peripheralControl, 0) {
 			via.registers.inputRegisterB = value & readPins
 		}
 	}
@@ -410,27 +328,21 @@ func (via *Via65C22S) clearInterruptFlag(flag viaIRQFlags) {
 	via.writeInterruptFlagRegister(via.registers.interruptFlag & ^uint8(flag))
 }
 
-func (via *Via65C22S) storePreviousControlLinesValues() {
-	via.previousCtrlA[0] = via.peripheralAControlLines[0].Enabled()
-	via.previousCtrlB[0] = via.peripheralBControlLines[0].Enabled()
-	via.previousCtrlA[1] = via.peripheralAControlLines[1].Enabled()
-	via.previousCtrlB[1] = via.peripheralBControlLines[1].Enabled()
-}
-
 func (via *Via65C22S) setInterruptFlagOnControlLinesTransition() {
-	if via.checkControlLineTransitioned(pcrMaskCA1TransitionType, via.peripheralAControlLines[0], via.previousCtrlA[0]) {
+
+	if via.peripheralAControlLines.checkControlLineTransitioned(&via.registers.peripheralControl, 0) {
 		via.setInterruptFlag(irqCA1)
 	}
 
-	if via.checkControlLineTransitioned(pcrMaskCA2TransitionType, via.peripheralAControlLines[1], via.previousCtrlA[1]) {
+	if via.peripheralAControlLines.checkControlLineTransitioned(&via.registers.peripheralControl, 1) {
 		via.setInterruptFlag(irqCA2)
 	}
 
-	if via.checkControlLineTransitioned(pcrMaskCB1TransitionType, via.peripheralBControlLines[0], via.previousCtrlB[0]) {
+	if via.peripheralBControlLines.checkControlLineTransitioned(&via.registers.peripheralControl, 0) {
 		via.setInterruptFlag(irqCB1)
 	}
 
-	if via.checkControlLineTransitioned(pcrMaskCB2TransitionType, via.peripheralBControlLines[1], via.previousCtrlB[1]) {
+	if via.peripheralBControlLines.checkControlLineTransitioned(&via.registers.peripheralControl, 1) {
 		via.setInterruptFlag(irqCB2)
 	}
 }
@@ -501,6 +413,9 @@ func (via *Via65C22S) PostTick(t uint64) {
 	}
 
 	via.setInterruptFlagOnControlLinesTransition()
-	via.storePreviousControlLinesValues()
+
+	via.peripheralAControlLines.storePreviousControlLinesValues()
+	via.peripheralBControlLines.storePreviousControlLinesValues()
+
 	via.handleIRQLine()
 }
