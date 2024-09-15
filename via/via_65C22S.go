@@ -20,7 +20,7 @@ type Via65C22SRegisters struct {
 	t1Counter              uint16
 	t2Counter              uint16
 	shiftRegister          uint8
-	auxiliaryControl       uint8
+	auxiliaryControl       ViaAuxiliaryControlRegister
 	peripheralControl      ViaPeripheralControlRegister
 	interruptFlag          uint8
 	interruptEnable        uint8
@@ -33,8 +33,8 @@ type Via65C22S struct {
 	chipSelect2             *buses.ConnectorEnabledLow
 	dataBus                 *buses.BusConnector[uint8]
 	irqRequest              *buses.ConnectorEnabledLow
-	peripheralPortA         *buses.BusConnector[uint8]
-	peripheralPortB         *buses.BusConnector[uint8]
+	peripheralPortA         *ViaPort
+	peripheralPortB         *ViaPort
 	reset                   *buses.ConnectorEnabledLow
 	registerSelect          [4]*buses.ConnectorEnabledHigh
 	readWrite               *buses.ConnectorEnabledLow
@@ -79,16 +79,36 @@ const (
 	irqAny viaIRQFlags = 0x80
 )
 
+var caTransitionConfigurationMasks [2]viaPCRTranstitionMasks = [2]viaPCRTranstitionMasks{
+	pcrMaskCA1TransitionType,
+	pcrMaskCA2TransitionType,
+}
+
+var caOutputConfigurationModes [3]viaPCROutputModes = [3]viaPCROutputModes{
+	pcrCA2OutputModeHandshake,
+	pcrCA2OutputModePulse,
+	pcrCA2OutputModeFix,
+}
+
+var cbTransitionConfigurationMasks [2]viaPCRTranstitionMasks = [2]viaPCRTranstitionMasks{
+	pcrMaskCB1TransitionType,
+	pcrMaskCB2TransitionType,
+}
+
+var cbOutputConfigurationModes [3]viaPCROutputModes = [3]viaPCROutputModes{
+	pcrCB2OutputModeHandshake,
+	pcrCB2OutputModePulse,
+	pcrCB2OutputModeFix,
+}
+
 func CreateVia65C22() *Via65C22S {
 	via := Via65C22S{
-		peripheralAControlLines: createControlLines([2]viaPCRTranstitionMasks{pcrMaskCA1TransitionType, pcrMaskCA2TransitionType}),
-		peripheralBControlLines: createControlLines([2]viaPCRTranstitionMasks{pcrMaskCB1TransitionType, pcrMaskCB2TransitionType}),
+		peripheralAControlLines: createControlLines(caTransitionConfigurationMasks, pcrMaskCAOutputMode, caOutputConfigurationModes),
+		peripheralBControlLines: createControlLines(cbTransitionConfigurationMasks, pcrMaskCBOutputMode, cbOutputConfigurationModes),
 		chipSelect1:             buses.CreateConnectorEnabledHigh(),
 		chipSelect2:             buses.CreateConnectorEnabledLow(),
 		dataBus:                 buses.CreateBusConnector[uint8](),
 		irqRequest:              buses.CreateConnectorEnabledLow(),
-		peripheralPortA:         buses.CreateBusConnector[uint8](),
-		peripheralPortB:         buses.CreateBusConnector[uint8](),
 		reset:                   buses.CreateConnectorEnabledLow(),
 		registerSelect: [4]*buses.ConnectorEnabledHigh{
 			buses.CreateConnectorEnabledHigh(),
@@ -100,6 +120,9 @@ func CreateVia65C22() *Via65C22S {
 
 		registers: Via65C22SRegisters{},
 	}
+
+	via.peripheralPortA = createViaPort(&via.registers.auxiliaryControl, &via.registers.peripheralControl, via.peripheralAControlLines)
+	via.peripheralPortB = createViaPort(&via.registers.auxiliaryControl, &via.registers.peripheralControl, via.peripheralBControlLines)
 
 	via.populateRegisterReadHandlers()
 	via.populateRegisterWriteHandlers()
@@ -124,7 +147,7 @@ func (via *Via65C22S) populateRegisterReadHandlers() {
 		dummyHandler, // 0x08
 		dummyHandler, // 0x09
 		dummyHandler, // 0x0A
-		readFromRecord(&via.registers.auxiliaryControl),            // 0x0B
+		readFromRecord((*uint8)(&via.registers.auxiliaryControl)),  // 0x0B
 		readFromRecord((*uint8)(&via.registers.peripheralControl)), // 0x0C
 		readFromRecord(&via.registers.interruptFlag),               // 0x0D
 		readInterruptEnableHandler,                                 // 0x0E
@@ -145,7 +168,7 @@ func (via *Via65C22S) populateRegisterWriteHandlers() {
 		dummyHandler, // 0x08
 		dummyHandler, // 0x09
 		dummyHandler, // 0x0A
-		writeToRecord(&via.registers.auxiliaryControl),            // 0x0B
+		writeToRecord((*uint8)(&via.registers.auxiliaryControl)),  // 0x0B
 		writeToRecord((*uint8)(&via.registers.peripheralControl)), // 0x0C
 		writeInterruptFlagHandler,                                 // 0x0D
 		writeInterruptEnableHandler,                               // 0x0E
@@ -182,11 +205,11 @@ func (via *Via65C22S) IrqRequest() *buses.ConnectorEnabledLow {
 }
 
 func (via *Via65C22S) PeripheralPortA() *buses.BusConnector[uint8] {
-	return via.peripheralPortA
+	return via.peripheralPortA.getConnector()
 }
 
 func (via *Via65C22S) PeripheralPortB() *buses.BusConnector[uint8] {
-	return via.peripheralPortB
+	return via.peripheralPortB.getConnector()
 }
 
 func (via *Via65C22S) Reset() *buses.ConnectorEnabledLow {
@@ -221,91 +244,6 @@ func (via *Via65C22S) getRegisterSelectValue() viaRegisterCode {
 	}
 
 	return viaRegisterCode(value)
-}
-
-func (via *Via65C22S) setCAOutputMode() {
-	switch via.registers.peripheralControl.getOutputMode(pcrMaskCAOutputMode) {
-	case pcrCA2OutputModeHandshake:
-		via.peripheralAControlLines.setOutputHandshakeMode(&via.registers.peripheralControl)
-	case pcrCA2OutputModePulse:
-		via.peripheralAControlLines.setOutputPulseMode()
-	case pcrCA2OutputModeFix:
-		via.peripheralAControlLines.setFixedMode(&via.registers.peripheralControl)
-	}
-}
-
-func (via *Via65C22S) setCBOutputMode() {
-	switch via.registers.peripheralControl.getOutputMode(pcrMaskCBOutputMode) {
-	case pcrCB2OutputModeHandshake:
-		via.peripheralBControlLines.setOutputHandshakeMode(&via.registers.peripheralControl)
-	case pcrCB2OutputModePulse:
-		via.peripheralBControlLines.setOutputPulseMode()
-	case pcrCB2OutputModeFix:
-		via.peripheralBControlLines.setFixedMode(&via.registers.peripheralControl)
-	}
-}
-
-type viaACRLatchingMasks uint8
-
-const (
-	acrMaskLatchingA viaACRLatchingMasks = 0x01
-	acrMaskLatchingB viaACRLatchingMasks = 0x02
-)
-
-func (via *Via65C22S) isLatchingEnabled(mask viaACRLatchingMasks) bool {
-	return via.registers.auxiliaryControl&uint8(mask) > 0x00
-}
-
-func (via *Via65C22S) latchPortA() {
-	// Read pin levels on port A
-	value := via.peripheralPortA.Read()
-
-	// Read pins are all the ones with 0 in the DDR
-	readPins := ^via.registers.dataDirectionRegisterA
-
-	if via.isLatchingEnabled(acrMaskLatchingA) {
-		// If latching is enabled value is the one at the time of CB transition
-		if via.peripheralAControlLines.checkControlLineTransitioned(&via.registers.peripheralControl, 0) {
-			via.registers.inputRegisterA = value & readPins
-		}
-	}
-}
-
-func (via *Via65C22S) latchPortB() {
-	// Read pin levels on port B
-	value := via.peripheralPortB.Read()
-
-	// Read pins are all the ones with 0 in the DDR
-	readPins := ^via.registers.dataDirectionRegisterB
-
-	if via.isLatchingEnabled(acrMaskLatchingB) {
-		// If latching is enabled value is the one at the time of CB transition
-		if via.peripheralBControlLines.checkControlLineTransitioned(&via.registers.peripheralControl, 0) {
-			via.registers.inputRegisterB = value & readPins
-		}
-	}
-}
-
-func (via *Via65C22S) isByteSet(value uint8, bitNumber uint8) bool {
-	mask := uint8(math.Pow(2, float64(bitNumber)))
-
-	return (value & mask) > 0
-}
-
-func (via *Via65C22S) writePortA() {
-	for i := range uint8(8) {
-		if via.isByteSet(via.registers.dataDirectionRegisterA, i) {
-			via.PeripheralPortA().GetLine(i).Set(via.isByteSet(via.registers.outputRegisterA, i))
-		}
-	}
-}
-
-func (via *Via65C22S) writePortB() {
-	for i := range uint8(8) {
-		if via.isByteSet(via.registers.dataDirectionRegisterB, i) {
-			via.PeripheralPortB().GetLine(i).Set(via.isByteSet(via.registers.outputRegisterB, i))
-		}
-	}
 }
 
 // If any of the bits 0 - 6 in the IFR is 1 then the bit 7 is 1
@@ -380,8 +318,8 @@ func (via *Via65C22S) Tick(t uint64) {
 	// The ORs are also never transparent Whereas an input bus which has input latching turned off can change with its
 	// input without the Enable pin even being cycled, outputting to an OR will not take effect until the Enable pin has made
 	// a transition to low or high.
-	via.latchPortA()
-	via.latchPortB()
+	via.peripheralPortA.latchPort(via.registers.dataDirectionRegisterA, &via.registers.inputRegisterA, acrMaskLatchingA)
+	via.peripheralPortB.latchPort(via.registers.dataDirectionRegisterB, &via.registers.inputRegisterB, acrMaskLatchingB)
 
 	if via.chipSelect1.Enabled() && via.chipSelect2.Enabled() {
 		selectedRegisterValue := via.getRegisterSelectValue()
@@ -400,16 +338,16 @@ func (via *Via65C22S) PostTick(t uint64) {
 	// input without the Enable pin even being cycled, outputting to an OR will not take effect until the Enable pin has made
 	// a transition to low or high.
 	if via.chipSelect1.Enabled() && via.chipSelect2.Enabled() {
-		via.writePortA()
-		via.writePortB()
+		via.peripheralPortA.writePort(via.registers.dataDirectionRegisterA, via.registers.outputRegisterA)
+		via.peripheralPortB.writePort(via.registers.dataDirectionRegisterB, via.registers.outputRegisterB)
 	}
 
 	if via.registers.peripheralControl.isSetForOutput(pcrMaskCA2OutputEnabled) {
-		via.setCAOutputMode()
+		via.peripheralAControlLines.setOutputMode(&via.registers.peripheralControl)
 	}
 
 	if via.registers.peripheralControl.isSetForOutput(pcrMaskCB2OutputEnabled) {
-		via.setCBOutputMode()
+		via.peripheralBControlLines.setOutputMode(&via.registers.peripheralControl)
 	}
 
 	via.setInterruptFlagOnControlLinesTransition()

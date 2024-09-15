@@ -12,9 +12,9 @@ func inputOutputRegisterBReadHandler(via *Via65C22S) {
 	// MPU reads output register bit in ORB. Pin level has no effect.
 	value := via.registers.outputRegisterB & outputPins
 
-	if !via.isLatchingEnabled(acrMaskLatchingB) {
+	if !via.registers.auxiliaryControl.isLatchingEnabled(acrMaskLatchingB) {
 		// MPU reads input level on PB pin.
-		value |= via.peripheralPortB.Read() & inputPins
+		value |= via.peripheralPortB.getConnector().Read() & inputPins
 	} else {
 		// MPU reads IRB bit
 		value |= via.registers.inputRegisterB & inputPins
@@ -45,8 +45,8 @@ func inputOutputRegisterBWriteHandler(via *Via65C22S) {
 func inputOutputRegisterAReadHandler(via *Via65C22S) {
 	var value uint8
 
-	if !via.isLatchingEnabled(acrMaskLatchingA) {
-		value = via.peripheralPortA.Read()
+	if !via.registers.auxiliaryControl.isLatchingEnabled(acrMaskLatchingA) {
+		value = via.peripheralPortA.connector.Read()
 	} else {
 		value = via.registers.inputRegisterA
 	}

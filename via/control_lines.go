@@ -3,21 +3,26 @@ package via
 import "github.com/fran150/clementina6502/buses"
 
 type ViaControlLines struct {
-	lines          [2]*buses.ConnectorEnabledHigh
-	masks          [2]viaPCRTranstitionMasks
-	previousStatus [2]bool
+	lines                        [2]*buses.ConnectorEnabledHigh
+	transitionConfigurationMasks [2]viaPCRTranstitionMasks
+	outputConfigurationMask      viaPCROutputMasks
+	enabledOutputModes           [3]viaPCROutputModes
+	previousStatus               [2]bool
 
 	handshakeInProgress   bool
 	handshakeCycleCounter uint8
 }
 
-func createControlLines(masks [2]viaPCRTranstitionMasks) *ViaControlLines {
+func createControlLines(transitionConfigurationMasks [2]viaPCRTranstitionMasks, outputConfigurationMask viaPCROutputMasks, enabledOutputModes [3]viaPCROutputModes) *ViaControlLines {
 	return &ViaControlLines{
 		lines: [2]*buses.ConnectorEnabledHigh{
 			buses.CreateConnectorEnabledHigh(),
 			buses.CreateConnectorEnabledHigh(),
 		},
-		masks:          masks,
+		transitionConfigurationMasks: transitionConfigurationMasks,
+		enabledOutputModes:           enabledOutputModes,
+		outputConfigurationMask:      outputConfigurationMask,
+
 		previousStatus: [2]bool{false, false},
 
 		handshakeInProgress:   false,
@@ -30,7 +35,7 @@ func (cb *ViaControlLines) GetLine(num uint8) *buses.ConnectorEnabledHigh {
 }
 
 func (cb *ViaControlLines) checkControlLineTransitioned(pcr *ViaPeripheralControlRegister, num int) bool {
-	caCtrlPositive := pcr.isTransitionPositive(cb.masks[num])
+	caCtrlPositive := pcr.isTransitionPositive(cb.transitionConfigurationMasks[num])
 
 	currentCrl := cb.lines[num].Enabled()
 	previousCtrl := cb.previousStatus[num]
@@ -43,11 +48,7 @@ func (cb *ViaControlLines) setOutputHandshakeMode(pcr *ViaPeripheralControlRegis
 		cb.handshakeInProgress = false
 	}
 
-	if cb.handshakeInProgress {
-		cb.lines[1].SetEnable(false)
-	} else {
-		cb.lines[1].SetEnable(true)
-	}
+	cb.lines[1].SetEnable(!cb.handshakeInProgress)
 }
 
 func (cb *ViaControlLines) setOutputPulseMode() {
@@ -59,19 +60,11 @@ func (cb *ViaControlLines) setOutputPulseMode() {
 		cb.handshakeInProgress = false
 	}
 
-	if cb.handshakeInProgress {
-		cb.lines[1].SetEnable(false)
-	} else {
-		cb.lines[1].SetEnable(true)
-	}
+	cb.lines[1].SetEnable(!cb.handshakeInProgress)
 }
 
 func (cb *ViaControlLines) setFixedMode(pcr *ViaPeripheralControlRegister) {
-	if pcr.isTransitionPositive(cb.masks[1]) {
-		cb.lines[1].SetEnable(true)
-	} else {
-		cb.lines[1].SetEnable(false)
-	}
+	cb.lines[1].SetEnable(pcr.isTransitionPositive(cb.transitionConfigurationMasks[1]))
 }
 
 func (cb *ViaControlLines) initHandshake() {
@@ -82,4 +75,15 @@ func (cb *ViaControlLines) initHandshake() {
 func (cb *ViaControlLines) storePreviousControlLinesValues() {
 	cb.previousStatus[0] = cb.lines[0].Enabled()
 	cb.previousStatus[1] = cb.lines[1].Enabled()
+}
+
+func (cb *ViaControlLines) setOutputMode(pcr *ViaPeripheralControlRegister) {
+	switch pcr.getOutputMode(cb.outputConfigurationMask) {
+	case cb.enabledOutputModes[0]:
+		cb.setOutputHandshakeMode(pcr)
+	case cb.enabledOutputModes[1]:
+		cb.setOutputPulseMode()
+	case cb.enabledOutputModes[2]:
+		cb.setFixedMode(pcr)
+	}
 }
