@@ -9,14 +9,18 @@ import (
 type ViaPort struct {
 	side *ViaSide
 
-	auxiliaryControlRegister  *viaAuxiliaryControlRegister
-	peripheralControlRegister *ViaPeripheralControlRegister
+	auxiliaryControlRegister  *uint8
+	peripheralControlRegister *uint8
 
 	connector *buses.BusConnector[uint8]
 }
 
 func (port *ViaPort) getConnector() *buses.BusConnector[uint8] {
 	return port.connector
+}
+
+func (port *ViaPort) isLatchingEnabled() bool {
+	return *port.auxiliaryControlRegister&uint8(port.side.configuration.latchingEnabledMasks) > 0x00
 }
 
 func (port *ViaPort) latchPort() {
@@ -26,7 +30,7 @@ func (port *ViaPort) latchPort() {
 	// Read pins are all the ones with 0 in the DDR
 	readPins := ^port.side.registers.dataDirectionRegister
 
-	if port.auxiliaryControlRegister.isLatchingEnabledForSide(port.side) {
+	if port.isLatchingEnabled() {
 		// If latching is enabled value is the one at the time of transition
 		if port.side.controlLines.checkControlLineTransitioned(0) {
 			port.side.registers.inputRegister = value & readPins

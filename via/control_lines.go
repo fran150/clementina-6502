@@ -7,7 +7,7 @@ type viaControlLines struct {
 	lines          [2]*buses.ConnectorEnabledHigh
 	previousStatus [2]bool
 
-	peripheralControlRegister *ViaPeripheralControlRegister
+	peripheralControlRegister *uint8
 
 	handshakeInProgress   bool
 	handshakeCycleCounter uint8
@@ -17,13 +17,19 @@ func (ctrlLine *viaControlLines) getLine(num uint8) *buses.ConnectorEnabledHigh 
 	return ctrlLine.lines[num]
 }
 
+func (ctrlLine *viaControlLines) configForTransitionOnPositiveEdge(num int) bool {
+	mask := ctrlLine.side.configuration.transitionConfigurationMasks[num]
+
+	return (*ctrlLine.peripheralControlRegister & uint8(mask)) > 0x00
+}
+
 func (ctrlLine *viaControlLines) checkControlLineTransitioned(num int) bool {
-	caCtrlPositive := ctrlLine.peripheralControlRegister.isTransitionPositive(ctrlLine.side.configuration.transitionConfigurationMasks[num])
+	onPositive := ctrlLine.configForTransitionOnPositiveEdge(num)
 
 	currentCrl := ctrlLine.lines[num].Enabled()
 	previousCtrl := ctrlLine.previousStatus[num]
 
-	return (caCtrlPositive && !previousCtrl && currentCrl) || (!caCtrlPositive && previousCtrl && !currentCrl)
+	return (onPositive && !previousCtrl && currentCrl) || (!onPositive && previousCtrl && !currentCrl)
 }
 
 func (crtlLine *viaControlLines) setOutputHandshakeMode() {
@@ -47,7 +53,7 @@ func (crtlLine *viaControlLines) setOutputPulseMode() {
 }
 
 func (crtlLine *viaControlLines) setFixedMode() {
-	crtlLine.lines[1].SetEnable(crtlLine.peripheralControlRegister.isTransitionPositive(crtlLine.side.configuration.transitionConfigurationMasks[1]))
+	crtlLine.lines[1].SetEnable(crtlLine.configForTransitionOnPositiveEdge(1))
 }
 
 func (ctrlLine *viaControlLines) initHandshake() {
@@ -60,8 +66,13 @@ func (ctrlLine *viaControlLines) storePreviousControlLinesValues() {
 	ctrlLine.previousStatus[1] = ctrlLine.lines[1].Enabled()
 }
 
-func (ctrlLine *viaControlLines) setOutputMode(pcr *ViaPeripheralControlRegister) {
-	switch pcr.getOutputMode(ctrlLine.side.configuration.outputConfigurationMask) {
+func (ctrlLine *viaControlLines) getOutputMode() viaPCROutputModes {
+	mask := ctrlLine.side.configuration.outputConfigurationMask
+	return viaPCROutputModes(*ctrlLine.peripheralControlRegister & uint8(mask))
+}
+
+func (ctrlLine *viaControlLines) setOutputMode() {
+	switch ctrlLine.getOutputMode() {
 	case ctrlLine.side.configuration.handshakeMode:
 		ctrlLine.setOutputHandshakeMode()
 	case ctrlLine.side.configuration.pulseMode:

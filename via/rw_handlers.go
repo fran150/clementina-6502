@@ -12,7 +12,7 @@ func inputOutputRegisterBReadHandler(via *Via65C22S) {
 	// MPU reads output register bit in ORB. Pin level has no effect.
 	value := via.sideB.registers.outputRegister & outputPins
 
-	if !via.registers.auxiliaryControl.isLatchingEnabledForSide(&via.sideB) {
+	if !via.sideB.peripheralPort.isLatchingEnabled() {
 		// MPU reads input level on PB pin.
 		value |= via.sideB.peripheralPort.getConnector().Read() & inputPins
 	} else {
@@ -26,7 +26,7 @@ func inputOutputRegisterBReadHandler(via *Via65C22S) {
 }
 
 func inputOutputRegisterBWriteHandler(via *Via65C22S) {
-	mode := via.registers.peripheralControl.getOutputMode(pcrMaskCBOutputMode)
+	mode := via.sideB.controlLines.getOutputMode()
 
 	if mode == pcrCB2OutputModeHandshake || mode == pcrCB2OutputModePulse {
 		via.sideB.controlLines.initHandshake()
@@ -45,13 +45,13 @@ func inputOutputRegisterBWriteHandler(via *Via65C22S) {
 func inputOutputRegisterAReadHandler(via *Via65C22S) {
 	var value uint8
 
-	if !via.registers.auxiliaryControl.isLatchingEnabledForSide(&via.sideA) {
+	if !via.sideA.peripheralPort.isLatchingEnabled() {
 		value = via.sideA.peripheralPort.connector.Read()
 	} else {
 		value = via.sideA.registers.inputRegister
 	}
 
-	mode := via.registers.peripheralControl.getOutputMode(pcrMaskCAOutputMode)
+	mode := via.sideA.controlLines.getOutputMode()
 
 	if mode == pcrCA2OutputModeHandshake || mode == pcrCA2OutputModePulse {
 		via.sideA.controlLines.initHandshake()
@@ -63,7 +63,7 @@ func inputOutputRegisterAReadHandler(via *Via65C22S) {
 }
 
 func inputOutputRegisterAWriteHandler(via *Via65C22S) {
-	mode := via.registers.peripheralControl.getOutputMode(pcrMaskCAOutputMode)
+	mode := via.sideA.controlLines.getOutputMode()
 
 	if mode == pcrCA2OutputModeHandshake || mode == pcrCA2OutputModePulse {
 		via.sideA.controlLines.initHandshake()

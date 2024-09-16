@@ -8,8 +8,8 @@ import (
 
 type Via65C22SRegisters struct {
 	shiftRegister     uint8
-	auxiliaryControl  viaAuxiliaryControlRegister
-	peripheralControl ViaPeripheralControlRegister
+	auxiliaryControl  uint8
+	peripheralControl uint8
 	interruptFlag     uint8
 	interruptEnable   uint8
 }
@@ -276,10 +276,14 @@ func (via *Via65C22S) setInterruptFlagOnControlLinesTransition() {
 	}
 }
 
+func (via *Via65C22S) isSetToClearOnRW(mask viaPCRInterruptClearMasks) bool {
+	return (via.registers.peripheralControl & uint8(mask)) == 0x00
+}
+
 func (via *Via65C22S) clearControlLinesInterruptFlagOnRWPortA() {
 	via.clearInterruptFlag(irqCA1)
 
-	if via.registers.peripheralControl.isSetToClearOnRW(pcrMaskCA2ClearOnRW) {
+	if via.isSetToClearOnRW(pcrMaskCA2ClearOnRW) {
 		via.clearInterruptFlag(irqCA2)
 	}
 }
@@ -287,7 +291,7 @@ func (via *Via65C22S) clearControlLinesInterruptFlagOnRWPortA() {
 func (via *Via65C22S) clearControlLinesInterruptFlagOnRWPortB() {
 	via.clearInterruptFlag(irqCB1)
 
-	if via.registers.peripheralControl.isSetToClearOnRW(pcrMaskCB2ClearOnRW) {
+	if via.isSetToClearOnRW(pcrMaskCB2ClearOnRW) {
 		via.clearInterruptFlag(irqCB2)
 	}
 }
@@ -323,6 +327,12 @@ func (via *Via65C22S) Tick(t uint64) {
 	}
 }
 
+/*
+func (pcr *ViaPeripheralControlRegister) isSetForOutput(mask viaPCROutputMasks) bool {
+	return (uint8(*pcr) & uint8(mask)) > 0x00
+}
+*/
+
 func (via *Via65C22S) PostTick(t uint64) {
 	// From https://lateblt.tripod.com/bit67.txt:
 	// The ORs are also never transparent Whereas an input bus which has input latching turned off can change with its
@@ -333,13 +343,8 @@ func (via *Via65C22S) PostTick(t uint64) {
 		via.sideB.peripheralPort.writePort()
 	}
 
-	if via.registers.peripheralControl.isSetForOutput(pcrMaskCA2OutputEnabled) {
-		via.sideA.controlLines.setOutputMode(&via.registers.peripheralControl)
-	}
-
-	if via.registers.peripheralControl.isSetForOutput(pcrMaskCB2OutputEnabled) {
-		via.sideB.controlLines.setOutputMode(&via.registers.peripheralControl)
-	}
+	via.sideA.controlLines.setOutputMode()
+	via.sideB.controlLines.setOutputMode()
 
 	via.setInterruptFlagOnControlLinesTransition()
 

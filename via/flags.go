@@ -1,5 +1,12 @@
 package via
 
+type viaACRLatchingMasks uint8
+
+const (
+	acrMaskLatchingEnabledA viaACRLatchingMasks = 0x01
+	acrMaskLatchingEnabledB viaACRLatchingMasks = 0x02
+)
+
 type viaPCRTranstitionMasks uint8
 
 const (
@@ -19,10 +26,8 @@ const (
 type viaPCROutputMasks uint8
 
 const (
-	pcrMaskCA2OutputEnabled viaPCROutputMasks = 0x08
-	pcrMaskCB2OutputEnabled viaPCROutputMasks = 0x80
-	pcrMaskCAOutputMode     viaPCROutputMasks = 0x0E
-	pcrMaskCBOutputMode     viaPCROutputMasks = 0xE0
+	pcrMaskCAOutputMode viaPCROutputMasks = 0x0E
+	pcrMaskCBOutputMode viaPCROutputMasks = 0xE0
 )
 
 type viaPCROutputModes uint8
@@ -35,21 +40,3 @@ const (
 	pcrCB2OutputModePulse     viaPCROutputModes = 0xA0
 	pcrCB2OutputModeFix       viaPCROutputModes = 0xC0
 )
-
-type ViaPeripheralControlRegister uint8
-
-func (pcr *ViaPeripheralControlRegister) isTransitionPositive(mask viaPCRTranstitionMasks) bool {
-	return (uint8(*pcr) & uint8(mask)) > 0x00
-}
-
-func (pcr *ViaPeripheralControlRegister) isSetToClearOnRW(mask viaPCRInterruptClearMasks) bool {
-	return (uint8(*pcr) & uint8(mask)) == 0x00
-}
-
-func (pcr *ViaPeripheralControlRegister) isSetForOutput(mask viaPCROutputMasks) bool {
-	return (uint8(*pcr) & uint8(mask)) > 0x00
-}
-
-func (pcr *ViaPeripheralControlRegister) getOutputMode(mask viaPCROutputMasks) viaPCROutputModes {
-	return viaPCROutputModes(uint8(*pcr) & uint8(mask))
-}
