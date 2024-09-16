@@ -7,36 +7,29 @@ import (
 )
 
 type ViaPort struct {
-	connector    *buses.BusConnector[uint8]
-	acr          *ViaAuxiliaryControlRegister
-	pcr          *ViaPeripheralControlRegister
-	controlLines *ViaControlLines
-}
+	side *ViaSide
 
-func createViaPort(acr *ViaAuxiliaryControlRegister, pcr *ViaPeripheralControlRegister, controlLines *ViaControlLines) *ViaPort {
-	return &ViaPort{
-		connector:    buses.CreateBusConnector[uint8](),
-		acr:          acr,
-		pcr:          pcr,
-		controlLines: controlLines,
-	}
+	auxiliaryControlRegister  *viaAuxiliaryControlRegister
+	peripheralControlRegister *ViaPeripheralControlRegister
+
+	connector *buses.BusConnector[uint8]
 }
 
 func (port *ViaPort) getConnector() *buses.BusConnector[uint8] {
 	return port.connector
 }
 
-func (port *ViaPort) latchPort(ddr uint8, register *uint8, mask viaACRLatchingMasks) {
+func (port *ViaPort) latchPort() {
 	// Read pin levels on port
 	value := port.connector.Read()
 
 	// Read pins are all the ones with 0 in the DDR
-	readPins := ^ddr
+	readPins := ^port.side.registers.dataDirectionRegister
 
-	if port.acr.isLatchingEnabled(mask) {
+	if port.auxiliaryControlRegister.isLatchingEnabledForSide(port.side) {
 		// If latching is enabled value is the one at the time of transition
-		if port.controlLines.checkControlLineTransitioned(port.pcr, 0) {
-			*register = value & readPins
+		if port.side.controlLines.checkControlLineTransitioned(0) {
+			port.side.registers.inputRegister = value & readPins
 		}
 	}
 }
@@ -47,10 +40,10 @@ func isByteSet(value uint8, bitNumber uint8) bool {
 	return (value & mask) > 0
 }
 
-func (port *ViaPort) writePort(ddr uint8, register uint8) {
+func (port *ViaPort) writePort() {
 	for i := range uint8(8) {
-		if isByteSet(ddr, i) {
-			port.connector.GetLine(i).Set(isByteSet(register, i))
+		if isByteSet(port.side.registers.dataDirectionRegister, i) {
+			port.connector.GetLine(i).Set(isByteSet(port.side.registers.outputRegister, i))
 		}
 	}
 }

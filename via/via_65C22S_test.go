@@ -319,7 +319,7 @@ func TestInputFromPortALatching(t *testing.T) {
 
 	// As we never wrote to ORA value should be 0 on all 4 pins. So output should be 0x0? with ? being F
 	// set in the previous steps as input
-	assert.Equal(t, uint8(0x0F), via.peripheralPortA.getConnector().Read())
+	assert.Equal(t, uint8(0x0F), via.sideA.peripheralPort.getConnector().Read())
 
 	// Read IRA
 	value = readFromVia(via, circuit, regORAIRA, &step)
@@ -428,7 +428,7 @@ func TestInputFromPortBLatching(t *testing.T) {
 
 	// As we never wrote to ORB value should be 0 on all 4 pins. So output should be 0x0? with ? being F
 	// set in the previous steps as input
-	assert.Equal(t, uint8(0x0F), via.peripheralPortB.getConnector().Read())
+	assert.Equal(t, uint8(0x0F), via.sideB.peripheralPort.getConnector().Read())
 
 	// Write 0x5A on the output register
 	writeToVia(via, circuit, regORBIRB, 0x5A, &step)

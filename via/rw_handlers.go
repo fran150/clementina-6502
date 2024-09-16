@@ -6,18 +6,18 @@ package via
 
 func inputOutputRegisterBReadHandler(via *Via65C22S) {
 	// Get the data direction register
-	outputPins := via.registers.dataDirectionRegisterB
+	outputPins := via.sideB.registers.dataDirectionRegister
 	inputPins := ^outputPins
 
 	// MPU reads output register bit in ORB. Pin level has no effect.
-	value := via.registers.outputRegisterB & outputPins
+	value := via.sideB.registers.outputRegister & outputPins
 
-	if !via.registers.auxiliaryControl.isLatchingEnabled(acrMaskLatchingB) {
+	if !via.registers.auxiliaryControl.isLatchingEnabledForSide(&via.sideB) {
 		// MPU reads input level on PB pin.
-		value |= via.peripheralPortB.getConnector().Read() & inputPins
+		value |= via.sideB.peripheralPort.getConnector().Read() & inputPins
 	} else {
 		// MPU reads IRB bit
-		value |= via.registers.inputRegisterB & inputPins
+		value |= via.sideB.registers.inputRegister & inputPins
 	}
 
 	via.clearControlLinesInterruptFlagOnRWPortB()
@@ -29,13 +29,13 @@ func inputOutputRegisterBWriteHandler(via *Via65C22S) {
 	mode := via.registers.peripheralControl.getOutputMode(pcrMaskCBOutputMode)
 
 	if mode == pcrCB2OutputModeHandshake || mode == pcrCB2OutputModePulse {
-		via.peripheralBControlLines.initHandshake()
+		via.sideB.controlLines.initHandshake()
 	}
 
 	via.clearControlLinesInterruptFlagOnRWPortB()
 
 	// MPU writes to ORB
-	via.registers.outputRegisterB = via.dataBus.Read()
+	via.sideB.registers.outputRegister = via.dataBus.Read()
 }
 
 /************************************************************************************
@@ -45,16 +45,16 @@ func inputOutputRegisterBWriteHandler(via *Via65C22S) {
 func inputOutputRegisterAReadHandler(via *Via65C22S) {
 	var value uint8
 
-	if !via.registers.auxiliaryControl.isLatchingEnabled(acrMaskLatchingA) {
-		value = via.peripheralPortA.connector.Read()
+	if !via.registers.auxiliaryControl.isLatchingEnabledForSide(&via.sideA) {
+		value = via.sideA.peripheralPort.connector.Read()
 	} else {
-		value = via.registers.inputRegisterA
+		value = via.sideA.registers.inputRegister
 	}
 
 	mode := via.registers.peripheralControl.getOutputMode(pcrMaskCAOutputMode)
 
 	if mode == pcrCA2OutputModeHandshake || mode == pcrCA2OutputModePulse {
-		via.peripheralAControlLines.initHandshake()
+		via.sideA.controlLines.initHandshake()
 	}
 
 	via.clearControlLinesInterruptFlagOnRWPortA()
@@ -66,13 +66,13 @@ func inputOutputRegisterAWriteHandler(via *Via65C22S) {
 	mode := via.registers.peripheralControl.getOutputMode(pcrMaskCAOutputMode)
 
 	if mode == pcrCA2OutputModeHandshake || mode == pcrCA2OutputModePulse {
-		via.peripheralAControlLines.initHandshake()
+		via.sideA.controlLines.initHandshake()
 	}
 
 	via.clearControlLinesInterruptFlagOnRWPortA()
 
 	// MPU writes to ORA
-	via.registers.outputRegisterA = via.dataBus.Read()
+	via.sideA.registers.outputRegister = via.dataBus.Read()
 }
 
 /************************************************************************************
