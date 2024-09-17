@@ -44,6 +44,7 @@ func isByteSet(value uint8, bitNumber uint8) bool {
 	return (value & mask) > 0
 }
 
+// TODO: Would it be easier to write the whole number instead of line by line?
 func (port *ViaPort) writePort() {
 	for i := range uint8(8) {
 		if isByteSet(port.side.registers.dataDirectionRegister, i) {

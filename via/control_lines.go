@@ -13,71 +13,61 @@ type viaControlLines struct {
 	handshakeCycleCounter uint8
 }
 
-func (ctrlLine *viaControlLines) getLine(num uint8) *buses.ConnectorEnabledHigh {
-	return ctrlLine.lines[num]
+func (cl *viaControlLines) getLine(num uint8) *buses.ConnectorEnabledHigh {
+	return cl.lines[num]
 }
 
-func (ctrlLine *viaControlLines) configForTransitionOnPositiveEdge(num int) bool {
-	mask := ctrlLine.side.configuration.transitionConfigurationMasks[num]
+func (cl *viaControlLines) configForTransitionOnPositiveEdge(num int) bool {
+	mask := cl.side.configuration.transitionConfigurationMasks[num]
 
-	return (*ctrlLine.peripheralControlRegister & uint8(mask)) > 0x00
+	return (*cl.peripheralControlRegister & uint8(mask)) > 0x00
 }
 
-func (ctrlLine *viaControlLines) checkControlLineTransitioned(num int) bool {
-	onPositive := ctrlLine.configForTransitionOnPositiveEdge(num)
+func (cl *viaControlLines) checkControlLineTransitioned(num int) bool {
+	onPositive := cl.configForTransitionOnPositiveEdge(num)
 
-	currentCrl := ctrlLine.lines[num].Enabled()
-	previousCtrl := ctrlLine.previousStatus[num]
+	currentCrl := cl.lines[num].Enabled()
+	previousCtrl := cl.previousStatus[num]
 
 	return (onPositive && !previousCtrl && currentCrl) || (!onPositive && previousCtrl && !currentCrl)
 }
 
-func (crtlLine *viaControlLines) setOutputHandshakeMode() {
-	if crtlLine.handshakeInProgress && crtlLine.checkControlLineTransitioned(0) {
-		crtlLine.handshakeInProgress = false
-	}
-
-	crtlLine.lines[1].SetEnable(!crtlLine.handshakeInProgress)
+func (cl *viaControlLines) initHandshake() {
+	cl.handshakeCycleCounter = 0
+	cl.handshakeInProgress = true
 }
 
-func (crtlLine *viaControlLines) setOutputPulseMode() {
-	if crtlLine.handshakeInProgress {
-		crtlLine.handshakeCycleCounter += 1
-	}
-
-	if crtlLine.handshakeCycleCounter > 2 && !crtlLine.lines[1].Enabled() {
-		crtlLine.handshakeInProgress = false
-	}
-
-	crtlLine.lines[1].SetEnable(!crtlLine.handshakeInProgress)
+func (cl *viaControlLines) storePreviousControlLinesValues() {
+	cl.previousStatus[0] = cl.lines[0].Enabled()
+	cl.previousStatus[1] = cl.lines[1].Enabled()
 }
 
-func (crtlLine *viaControlLines) setFixedMode() {
-	crtlLine.lines[1].SetEnable(crtlLine.configForTransitionOnPositiveEdge(1))
+func (cl *viaControlLines) getOutputMode() viaPCROutputModes {
+	mask := cl.side.configuration.outputConfigurationMask
+	return viaPCROutputModes(*cl.peripheralControlRegister & uint8(mask))
 }
 
-func (ctrlLine *viaControlLines) initHandshake() {
-	ctrlLine.handshakeCycleCounter = 0
-	ctrlLine.handshakeInProgress = true
-}
+func (cl *viaControlLines) setOutputMode() {
+	switch cl.getOutputMode() {
+	case cl.side.configuration.handshakeMode:
+		if cl.handshakeInProgress && cl.checkControlLineTransitioned(0) {
+			cl.handshakeInProgress = false
+		}
 
-func (ctrlLine *viaControlLines) storePreviousControlLinesValues() {
-	ctrlLine.previousStatus[0] = ctrlLine.lines[0].Enabled()
-	ctrlLine.previousStatus[1] = ctrlLine.lines[1].Enabled()
-}
+		cl.lines[1].SetEnable(!cl.handshakeInProgress)
 
-func (ctrlLine *viaControlLines) getOutputMode() viaPCROutputModes {
-	mask := ctrlLine.side.configuration.outputConfigurationMask
-	return viaPCROutputModes(*ctrlLine.peripheralControlRegister & uint8(mask))
-}
+	case cl.side.configuration.pulseMode:
+		if cl.handshakeInProgress {
+			cl.handshakeCycleCounter += 1
+		}
 
-func (ctrlLine *viaControlLines) setOutputMode() {
-	switch ctrlLine.getOutputMode() {
-	case ctrlLine.side.configuration.handshakeMode:
-		ctrlLine.setOutputHandshakeMode()
-	case ctrlLine.side.configuration.pulseMode:
-		ctrlLine.setOutputPulseMode()
-	case ctrlLine.side.configuration.fixedMode:
-		ctrlLine.setFixedMode()
+		if cl.handshakeCycleCounter > 2 && !cl.lines[1].Enabled() {
+			cl.handshakeInProgress = false
+		}
+
+		cl.lines[1].SetEnable(!cl.handshakeInProgress)
+
+	case cl.side.configuration.fixedMode:
+		cl.lines[1].SetEnable(cl.configForTransitionOnPositiveEdge(1))
 	}
 }

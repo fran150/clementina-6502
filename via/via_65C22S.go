@@ -327,12 +327,6 @@ func (via *Via65C22S) Tick(t uint64) {
 	}
 }
 
-/*
-func (pcr *ViaPeripheralControlRegister) isSetForOutput(mask viaPCROutputMasks) bool {
-	return (uint8(*pcr) & uint8(mask)) > 0x00
-}
-*/
-
 func (via *Via65C22S) PostTick(t uint64) {
 	// From https://lateblt.tripod.com/bit67.txt:
 	// The ORs are also never transparent Whereas an input bus which has input latching turned off can change with its
