@@ -10,7 +10,7 @@ type Via65C22SRegisters struct {
 	shiftRegister     uint8
 	auxiliaryControl  uint8
 	peripheralControl uint8
-	interruptFlag     uint8
+	interruptFlag     ViaIFR
 	interruptEnable   uint8
 }
 
@@ -140,7 +140,7 @@ func (via *Via65C22S) populateRegisterReadHandlers() {
 		dummyHandler, // 0x0A
 		readFromRecord((*uint8)(&via.registers.auxiliaryControl)),  // 0x0B
 		readFromRecord((*uint8)(&via.registers.peripheralControl)), // 0x0C
-		readFromRecord(&via.registers.interruptFlag),               // 0x0D
+		readnterruptFlagHandler,                                    // 0x0D
 		readInterruptEnableHandler,                                 // 0x0E
 		dummyHandler,                                               // 0x0F
 	}
@@ -235,45 +235,6 @@ func (via *Via65C22S) getRegisterSelectValue() viaRegisterCode {
 	}
 
 	return viaRegisterCode(value)
-}
-
-// If any of the bits 0 - 6 in the IFR is 1 then the bit 7 is 1
-// If not, then the bit 7 is 0.
-func (via *Via65C22S) writeInterruptFlagRegister(value uint8) {
-	if (value & via.registers.interruptEnable & 0x7F) > 0 {
-		value |= 0x80
-	} else {
-		value &= 0x7F
-	}
-
-	via.registers.interruptFlag = value
-}
-
-func (via *Via65C22S) setInterruptFlag(flag viaIRQFlags) {
-	via.writeInterruptFlagRegister(via.registers.interruptFlag | uint8(flag))
-}
-
-func (via *Via65C22S) clearInterruptFlag(flag viaIRQFlags) {
-	via.writeInterruptFlagRegister(via.registers.interruptFlag & ^uint8(flag))
-}
-
-func (via *Via65C22S) setInterruptFlagOnControlLinesTransition() {
-
-	if via.sideA.controlLines.checkControlLineTransitioned(0) {
-		via.setInterruptFlag(irqCA1)
-	}
-
-	if via.sideA.controlLines.checkControlLineTransitioned(1) {
-		via.setInterruptFlag(irqCA2)
-	}
-
-	if via.sideB.controlLines.checkControlLineTransitioned(0) {
-		via.setInterruptFlag(irqCB1)
-	}
-
-	if via.sideB.controlLines.checkControlLineTransitioned(1) {
-		via.setInterruptFlag(irqCB2)
-	}
 }
 
 func (via *Via65C22S) isSetToClearOnRW(mask viaPCRInterruptClearMasks) bool {

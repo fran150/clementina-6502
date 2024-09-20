@@ -95,8 +95,12 @@ func writeToRecord(register *uint8) func(via *Via65C22S) {
 * Reads and writes the Interrupt Flag Register
 *************************************************************************************/
 
+func readnterruptFlagHandler(via *Via65C22S) {
+	via.dataBus.Write(via.registers.interruptFlag.getValue())
+}
+
 func writeInterruptFlagHandler(via *Via65C22S) {
-	via.writeInterruptFlagRegister(via.dataBus.Read())
+	via.registers.interruptFlag.setValue(via.dataBus.Read())
 }
 
 /************************************************************************************
