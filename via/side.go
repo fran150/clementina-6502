@@ -9,6 +9,9 @@ type ViaSideConfiguration struct {
 	handshakeMode                viaPCROutputModes
 	pulseMode                    viaPCROutputModes
 	fixedMode                    viaPCROutputModes
+	clearC2OnRWMask              viaPCRInterruptClearMasks
+
+	controlLinesIRQBits [2]viaIRQFlags
 }
 
 type ViaSideRegisters struct {
@@ -44,6 +47,7 @@ func createViaSide(via *Via65C22S, configuration ViaSideConfiguration) ViaSide {
 		previousStatus: [2]bool{false, false},
 
 		peripheralControlRegister: &via.registers.peripheralControl,
+		interrupts:                &via.registers.interrupts,
 		handshakeInProgress:       false,
 		handshakeCycleCounter:     0,
 	}
@@ -53,6 +57,7 @@ func createViaSide(via *Via65C22S, configuration ViaSideConfiguration) ViaSide {
 
 		auxiliaryControlRegister:  &via.registers.auxiliaryControl,
 		peripheralControlRegister: &via.registers.peripheralControl,
+		interrupts:                &via.registers.interrupts,
 
 		connector: buses.CreateBusConnector[uint8](),
 	}

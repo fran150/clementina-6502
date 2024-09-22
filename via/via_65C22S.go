@@ -10,8 +10,7 @@ type Via65C22SRegisters struct {
 	shiftRegister     uint8
 	auxiliaryControl  uint8
 	peripheralControl uint8
-	interruptFlag     ViaIFR
-	interruptEnable   uint8
+	interrupts        ViaIFR
 }
 
 type Via65C22S struct {
@@ -66,33 +65,42 @@ const (
 	irqAny viaIRQFlags = 0x80
 )
 
-var caTransitionConfigurationMasks [2]viaPCRTranstitionMasks = [2]viaPCRTranstitionMasks{
-	pcrMaskCA1TransitionType,
-	pcrMaskCA2TransitionType,
-}
-
-var cbTransitionConfigurationMasks [2]viaPCRTranstitionMasks = [2]viaPCRTranstitionMasks{
-	pcrMaskCB1TransitionType,
-	pcrMaskCB2TransitionType,
-}
-
 func CreateVia65C22() *Via65C22S {
 	sideAConfiguration := ViaSideConfiguration{
-		latchingEnabledMasks:         acrMaskLatchingEnabledA,
-		transitionConfigurationMasks: caTransitionConfigurationMasks,
-		outputConfigurationMask:      pcrMaskCAOutputMode,
-		handshakeMode:                pcrCA2OutputModeHandshake,
-		pulseMode:                    pcrCA2OutputModePulse,
-		fixedMode:                    pcrCA2OutputModeFix,
+		transitionConfigurationMasks: [2]viaPCRTranstitionMasks{
+			pcrMaskCA1TransitionType,
+			pcrMaskCA2TransitionType,
+		},
+
+		latchingEnabledMasks:    acrMaskLatchingEnabledA,
+		outputConfigurationMask: pcrMaskCAOutputMode,
+		handshakeMode:           pcrCA2OutputModeHandshake,
+		pulseMode:               pcrCA2OutputModePulse,
+		fixedMode:               pcrCA2OutputModeFix,
+		clearC2OnRWMask:         pcrMaskCA2ClearOnRW,
+
+		controlLinesIRQBits: [2]viaIRQFlags{
+			irqCA1,
+			irqCA2,
+		},
 	}
 
 	sideBConfiguration := ViaSideConfiguration{
-		latchingEnabledMasks:         acrMaskLatchingEnabledB,
-		transitionConfigurationMasks: cbTransitionConfigurationMasks,
-		outputConfigurationMask:      pcrMaskCBOutputMode,
-		handshakeMode:                pcrCB2OutputModeHandshake,
-		pulseMode:                    pcrCB2OutputModePulse,
-		fixedMode:                    pcrCB2OutputModeFix,
+		transitionConfigurationMasks: [2]viaPCRTranstitionMasks{
+			pcrMaskCB1TransitionType,
+			pcrMaskCB2TransitionType,
+		},
+
+		latchingEnabledMasks:    acrMaskLatchingEnabledB,
+		outputConfigurationMask: pcrMaskCBOutputMode,
+		handshakeMode:           pcrCB2OutputModeHandshake,
+		pulseMode:               pcrCB2OutputModePulse,
+		fixedMode:               pcrCB2OutputModeFix,
+
+		controlLinesIRQBits: [2]viaIRQFlags{
+			irqCB1,
+			irqCB2,
+		},
 	}
 
 	via := Via65C22S{
@@ -237,28 +245,8 @@ func (via *Via65C22S) getRegisterSelectValue() viaRegisterCode {
 	return viaRegisterCode(value)
 }
 
-func (via *Via65C22S) isSetToClearOnRW(mask viaPCRInterruptClearMasks) bool {
-	return (via.registers.peripheralControl & uint8(mask)) == 0x00
-}
-
-func (via *Via65C22S) clearControlLinesInterruptFlagOnRWPortA() {
-	via.clearInterruptFlag(irqCA1)
-
-	if via.isSetToClearOnRW(pcrMaskCA2ClearOnRW) {
-		via.clearInterruptFlag(irqCA2)
-	}
-}
-
-func (via *Via65C22S) clearControlLinesInterruptFlagOnRWPortB() {
-	via.clearInterruptFlag(irqCB1)
-
-	if via.isSetToClearOnRW(pcrMaskCB2ClearOnRW) {
-		via.clearInterruptFlag(irqCB2)
-	}
-}
-
 func (via *Via65C22S) handleIRQLine() {
-	if (via.registers.interruptFlag & via.registers.interruptEnable & 0x7F) > 0 {
+	if via.registers.interrupts.isInterruptTriggered() {
 		via.IrqRequest().SetEnable(true)
 	} else {
 		via.IrqRequest().SetEnable(false)
@@ -301,7 +289,8 @@ func (via *Via65C22S) PostTick(t uint64) {
 	via.sideA.controlLines.setOutputMode()
 	via.sideB.controlLines.setOutputMode()
 
-	via.setInterruptFlagOnControlLinesTransition()
+	via.sideA.controlLines.setInterruptFlagOnControlLinesTransition()
+	via.sideB.controlLines.setInterruptFlagOnControlLinesTransition()
 
 	via.sideA.controlLines.storePreviousControlLinesValues()
 	via.sideB.controlLines.storePreviousControlLinesValues()

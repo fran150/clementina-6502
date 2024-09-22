@@ -8,7 +8,7 @@ type viaControlLines struct {
 	previousStatus [2]bool
 
 	peripheralControlRegister *uint8
-	interruptFlag *ViaIFR
+	interrupts                *ViaIFR
 
 	handshakeInProgress   bool
 	handshakeCycleCounter uint8
@@ -48,7 +48,7 @@ func (cl *viaControlLines) getOutputMode() viaPCROutputModes {
 	return viaPCROutputModes(*cl.peripheralControlRegister & uint8(mask))
 }
 
-func (cl *) setOutputMode() {
+func (cl *viaControlLines) setOutputMode() {
 	switch cl.getOutputMode() {
 	case cl.side.configuration.handshakeMode:
 		if cl.handshakeInProgress && cl.checkControlLineTransitioned(0) {
@@ -75,19 +75,11 @@ func (cl *) setOutputMode() {
 
 func (cl *viaControlLines) setInterruptFlagOnControlLinesTransition() {
 
-	if  cl.checkControlLineTransitioned(0) {
-		cl.interruptFlag.setBit(irqCA1)
+	if cl.checkControlLineTransitioned(0) {
+		cl.interrupts.setInterruptFlagBit(cl.side.configuration.controlLinesIRQBits[0])
 	}
 
-	if via.sideA.controlLines.checkControlLineTransitioned(1) {
-		cl.interruptFlag.setBit(irqCA2)
-	}
-
-	if via.sideB.controlLines.checkControlLineTransitioned(0) {
-		cl.interruptFlag.setBit(irqCB1)
-	}
-
-	if via.sideB.controlLines.checkControlLineTransitioned(1) {
-		via.setInterruptFlag(irqCB2)
+	if cl.side.controlLines.checkControlLineTransitioned(1) {
+		cl.interrupts.setInterruptFlagBit(cl.side.configuration.controlLinesIRQBits[1])
 	}
 }

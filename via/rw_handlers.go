@@ -20,7 +20,7 @@ func inputOutputRegisterBReadHandler(via *Via65C22S) {
 		value |= via.sideB.registers.inputRegister & inputPins
 	}
 
-	via.clearControlLinesInterruptFlagOnRWPortB()
+	via.sideB.peripheralPort.clearControlLinesInterruptFlagOnRW()
 
 	via.dataBus.Write(value)
 }
@@ -32,7 +32,7 @@ func inputOutputRegisterBWriteHandler(via *Via65C22S) {
 		via.sideB.controlLines.initHandshake()
 	}
 
-	via.clearControlLinesInterruptFlagOnRWPortB()
+	via.sideB.peripheralPort.clearControlLinesInterruptFlagOnRW()
 
 	// MPU writes to ORB
 	via.sideB.registers.outputRegister = via.dataBus.Read()
@@ -57,7 +57,7 @@ func inputOutputRegisterAReadHandler(via *Via65C22S) {
 		via.sideA.controlLines.initHandshake()
 	}
 
-	via.clearControlLinesInterruptFlagOnRWPortA()
+	via.sideA.peripheralPort.clearControlLinesInterruptFlagOnRW()
 
 	via.dataBus.Write(value)
 }
@@ -69,7 +69,7 @@ func inputOutputRegisterAWriteHandler(via *Via65C22S) {
 		via.sideA.controlLines.initHandshake()
 	}
 
-	via.clearControlLinesInterruptFlagOnRWPortA()
+	via.sideA.peripheralPort.clearControlLinesInterruptFlagOnRW()
 
 	// MPU writes to ORA
 	via.sideA.registers.outputRegister = via.dataBus.Read()
@@ -96,11 +96,11 @@ func writeToRecord(register *uint8) func(via *Via65C22S) {
 *************************************************************************************/
 
 func readnterruptFlagHandler(via *Via65C22S) {
-	via.dataBus.Write(via.registers.interruptFlag.getValue())
+	via.dataBus.Write(via.registers.interrupts.getInterruptFlagValue())
 }
 
 func writeInterruptFlagHandler(via *Via65C22S) {
-	via.registers.interruptFlag.setValue(via.dataBus.Read())
+	via.registers.interrupts.setInterruptFlagValue(via.dataBus.Read())
 }
 
 /************************************************************************************
@@ -111,7 +111,7 @@ func writeInterruptFlagHandler(via *Via65C22S) {
 // on the register select and chip select inputs with the R/W line high. Bit 7 will
 // read as a logic 0.
 func readInterruptEnableHandler(via *Via65C22S) {
-	via.dataBus.Write(via.registers.interruptEnable & 0x7F)
+	via.dataBus.Write(via.registers.interrupts.getInterruptEnabledFlag())
 }
 
 // If bit 7 of the data placed on the system data bus during this write operation is a 0,
@@ -121,14 +121,7 @@ func readInterruptEnableHandler(via *Via65C22S) {
 // In this case, each 1 in bits 6 through 0 will set the corresponding bit. For each zero,
 // the corresponding bit will be unaffected. T
 func writeInterruptEnableHandler(via *Via65C22S) {
-	mustSet := (via.dataBus.Read() & 0x80) > 0
-	value := via.dataBus.Read() & 0x7F
-
-	if mustSet {
-		via.registers.interruptEnable |= value
-	} else {
-		via.registers.interruptEnable &= ^value
-	}
+	via.registers.interrupts.setInterruptEnabledFlag(via.dataBus.Read())
 }
 
 /************************************************************************************

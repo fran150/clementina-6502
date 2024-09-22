@@ -12,6 +12,8 @@ type ViaPort struct {
 	auxiliaryControlRegister  *uint8
 	peripheralControlRegister *uint8
 
+	interrupts *ViaIFR
+
 	connector *buses.BusConnector[uint8]
 }
 
@@ -50,5 +52,17 @@ func (port *ViaPort) writePort() {
 		if isByteSet(port.side.registers.dataDirectionRegister, i) {
 			port.connector.GetLine(i).Set(isByteSet(port.side.registers.outputRegister, i))
 		}
+	}
+}
+
+func (port *ViaPort) isSetToClearOnRW() bool {
+	return (*port.peripheralControlRegister & uint8(port.side.configuration.clearC2OnRWMask)) == 0x00
+}
+
+func (port *ViaPort) clearControlLinesInterruptFlagOnRW() {
+	port.interrupts.clearInterruptFlagBit(port.side.configuration.controlLinesIRQBits[0])
+
+	if port.isSetToClearOnRW() {
+		port.interrupts.clearInterruptFlagBit(port.side.configuration.controlLinesIRQBits[1])
 	}
 }
