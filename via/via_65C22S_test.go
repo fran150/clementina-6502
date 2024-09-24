@@ -701,3 +701,61 @@ func TestWriteHandshakeOnPortB(t *testing.T) {
 func TestWriteHandshakePulseOnPortB(t *testing.T) {
 	writeHandshakeOnPortB(t, 0xA0)
 }
+
+func TestTimer1OneShotMode(t *testing.T) {
+	var step uint64
+
+	via := CreateVia65C22()
+	circuit := createTestCircuit()
+
+	circuit.wire(via)
+
+	// Set ACR to 0x00, for this test is important bit 6 and 7 = 00 -> Timer 1 single shot PB7 disabled
+	writeToVia(via, circuit, regACR, 0x00, &step)
+
+	// Enable interrupts for T1 timeout (bit 7 -> enable, bit 6 -> T1)
+	writeToVia(via, circuit, regIER, 0xC0, &step)
+
+	setupAndCountFrom(t, via, circuit, regT1CL, regT1CH, 10, 0x00, &step)
+
+	// After counting to 0 requires 0.5 / 1 more step to trigger IRQ
+	disableChipAndStepTime(via, circuit, &step)
+
+	// At this point IRQ is set (low)
+	assert.Equal(t, false, circuit.irq.Status())
+
+	// Counter keeps counting down
+	disableChipAndStepTime(via, circuit, &step)
+	disableChipAndStepTime(via, circuit, &step)
+
+	assert.Equal(t, uint16(0xFFFD), via.sideB.registers.counter)
+
+	// Reenable the chip
+	enableChip(circuit)
+
+	setupAndCountFrom(t, via, circuit, regT1CL, regT1CH, 10, 0x00, &step)
+
+	// After counting to 0 requires 0.5 / 1 more step to trigger IRQ
+	disableChipAndStepTime(via, circuit, &step)
+
+	// At this point IRQ is set (low)
+	assert.Equal(t, false, circuit.irq.Status())
+}
+
+func setupAndCountFrom(t *testing.T, via *Via65C22S, circuit *testCircuit, lcRegister viaRegisterCode, hcRegister viaRegisterCode, counterLSB uint8, counterMSB uint8, step *uint64) {
+	// Will count down from 10 decimal
+	writeToVia(via, circuit, lcRegister, counterLSB, step)
+
+	// Starts the timer
+	writeToVia(via, circuit, hcRegister, counterMSB, step)
+
+	// At this point IRQ is clear (high)
+	assert.Equal(t, true, circuit.irq.Status())
+
+	for range 10 {
+		disableChipAndStepTime(via, circuit, step)
+
+		// IRQ remains low when counting
+		assert.Equal(t, true, circuit.irq.Status())
+	}
+}

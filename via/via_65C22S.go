@@ -79,6 +79,9 @@ func CreateVia65C22() *Via65C22S {
 		fixedMode:               pcrCA2OutputModeFix,
 		clearC2OnRWMask:         pcrMaskCA2ClearOnRW,
 
+		timerRunModeMask:  t2ControlRunModeMask,
+		timerInterruptBit: irqT2,
+
 		controlLinesIRQBits: [2]viaIRQFlags{
 			irqCA1,
 			irqCA2,
@@ -96,6 +99,10 @@ func CreateVia65C22() *Via65C22S {
 		handshakeMode:           pcrCB2OutputModeHandshake,
 		pulseMode:               pcrCB2OutputModePulse,
 		fixedMode:               pcrCB2OutputModeFix,
+
+		timerRunModeMask:  t1ControlRunModeMask,
+		timerOutputMask:   t1ControlOutputMask,
+		timerInterruptBit: irqT1,
 
 		controlLinesIRQBits: [2]viaIRQFlags{
 			irqCB1,
@@ -139,10 +146,10 @@ func (via *Via65C22S) populateRegisterReadHandlers() {
 		inputOutputRegisterAReadHandler,                            // 0x01
 		readFromRecord(&via.sideB.registers.dataDirectionRegister), // 0x02
 		readFromRecord(&via.sideA.registers.dataDirectionRegister), // 0x03
-		dummyHandler, // 0x04
-		dummyHandler, // 0x05
-		dummyHandler, // 0x06
-		dummyHandler, // 0x07
+		readT1LowOrderCounter,                                      // 0x04
+		readT1HighOrderCounter,                                     // 0x05
+		readFromRecord(&via.sideB.registers.lowLatches),            // 0x06
+		readFromRecord(&via.sideB.registers.highLatches),           // 0x07
 		dummyHandler, // 0x08
 		dummyHandler, // 0x09
 		dummyHandler, // 0x0A
@@ -160,13 +167,13 @@ func (via *Via65C22S) populateRegisterWriteHandlers() {
 		inputOutputRegisterAWriteHandler,                          // 0x01
 		writeToRecord(&via.sideB.registers.dataDirectionRegister), // 0x02
 		writeToRecord(&via.sideA.registers.dataDirectionRegister), // 0x03
-		dummyHandler, // 0x04
-		dummyHandler, // 0x05
-		dummyHandler, // 0x06
-		dummyHandler, // 0x07
-		dummyHandler, // 0x08
-		dummyHandler, // 0x09
-		dummyHandler, // 0x0A
+		writeToRecord(&via.sideB.registers.lowLatches),            // 0x04
+		writeT1HighOrderCounter,                                   // 0x05
+		writeToRecord(&via.sideB.registers.lowLatches),            // 0x06
+		writeT1HighOrderLatch,                                     // 0x07
+		dummyHandler,                                              // 0x08
+		dummyHandler,                                              // 0x09
+		dummyHandler,                                              // 0x0A
 		writeToRecord((*uint8)(&via.registers.auxiliaryControl)),  // 0x0B
 		writeToRecord((*uint8)(&via.registers.peripheralControl)), // 0x0C
 		writeInterruptFlagHandler,                                 // 0x0D
@@ -265,6 +272,12 @@ func (via *Via65C22S) Tick(t uint64) {
 	via.sideA.peripheralPort.latchPort()
 	via.sideB.peripheralPort.latchPort()
 
+	via.sideA.timer.tickIfEnabled()
+	via.sideB.timer.tickIfEnabled()
+
+	// Count down pulse only enabled in timer 2 which in this case is on Side A
+	via.sideA.peripheralPort.countDownPulseIfEnabled()
+
 	if via.chipSelect1.Enabled() && via.chipSelect2.Enabled() {
 		selectedRegisterValue := via.getRegisterSelectValue()
 
@@ -282,12 +295,18 @@ func (via *Via65C22S) PostTick(t uint64) {
 	// input without the Enable pin even being cycled, outputting to an OR will not take effect until the Enable pin has made
 	// a transition to low or high.
 	if via.chipSelect1.Enabled() && via.chipSelect2.Enabled() {
-		via.sideA.peripheralPort.writePort()
-		via.sideB.peripheralPort.writePort()
+		via.sideA.peripheralPort.writePortOutputRegister()
+		via.sideB.peripheralPort.writePortOutputRegister()
 	}
+
+	via.sideA.peripheralPort.writeTimerOutput()
+	via.sideB.peripheralPort.writeTimerOutput()
 
 	via.sideA.controlLines.setOutputMode()
 	via.sideB.controlLines.setOutputMode()
+
+	via.sideA.timer.timerInterruptHandling()
+	via.sideB.timer.timerInterruptHandling()
 
 	via.sideA.controlLines.setInterruptFlagOnControlLinesTransition()
 	via.sideB.controlLines.setInterruptFlagOnControlLinesTransition()

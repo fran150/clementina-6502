@@ -25,6 +25,12 @@ func (port *ViaPort) isLatchingEnabled() bool {
 	return *port.auxiliaryControlRegister&uint8(port.side.configuration.latchingEnabledMasks) > 0x00
 }
 
+func (port *ViaPort) countDownPulseIfEnabled() {
+	if port.side.timer.timerEnabled && port.side.timer.getRunningMode() == t2RunModePulseCounting && !port.connector.GetLine(6).Status() {
+		port.side.registers.counter -= 1
+	}
+}
+
 func (port *ViaPort) latchPort() {
 	// Read pin levels on port
 	value := port.connector.Read()
@@ -47,10 +53,21 @@ func isByteSet(value uint8, bitNumber uint8) bool {
 }
 
 // TODO: Would it be easier to write the whole number instead of line by line?
-func (port *ViaPort) writePort() {
+func (port *ViaPort) writePortOutputRegister() {
 	for i := range uint8(8) {
 		if isByteSet(port.side.registers.dataDirectionRegister, i) {
 			port.connector.GetLine(i).Set(isByteSet(port.side.registers.outputRegister, i))
+		}
+	}
+}
+
+func (port *ViaPort) writeTimerOutput() {
+	if port.side.timer.hasCountedToZero() && port.side.timer.isTimerOutputEnabled() {
+		switch port.side.timer.getRunningMode() {
+		case txRunModeOneShot:
+			port.connector.GetLine(7).Set(true)
+		case t1RunModeFree:
+			port.connector.GetLine(7).Toggle()
 		}
 	}
 }

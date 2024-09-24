@@ -11,6 +11,10 @@ type ViaSideConfiguration struct {
 	fixedMode                    viaPCROutputModes
 	clearC2OnRWMask              viaPCRInterruptClearMasks
 
+	timerRunModeMask viaTimerControlMask
+	timerOutputMask  viaTimerControlMask
+
+	timerInterruptBit   viaIRQFlags
 	controlLinesIRQBits [2]viaIRQFlags
 }
 
@@ -29,6 +33,7 @@ type ViaSide struct {
 
 	controlLines   *viaControlLines
 	peripheralPort *ViaPort
+	timer          *ViaTimer
 }
 
 func createViaSide(via *Via65C22S, configuration ViaSideConfiguration) ViaSide {
@@ -62,8 +67,18 @@ func createViaSide(via *Via65C22S, configuration ViaSideConfiguration) ViaSide {
 		connector: buses.CreateBusConnector[uint8](),
 	}
 
+	timer := ViaTimer{
+		side: &side,
+
+		timerEnabled: false,
+
+		auxiliaryControlRegister: &via.registers.auxiliaryControl,
+		interrupts:               &via.registers.interrupts,
+	}
+
 	side.peripheralPort = &peripheralPort
 	side.controlLines = &controlLines
+	side.timer = &timer
 
 	return side
 }
