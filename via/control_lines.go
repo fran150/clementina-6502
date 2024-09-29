@@ -48,7 +48,7 @@ func (cl *viaControlLines) getOutputMode() viaPCROutputModes {
 	return viaPCROutputModes(*cl.peripheralControlRegister & uint8(mask))
 }
 
-func (cl *viaControlLines) setOutputMode() {
+func (cl *viaControlLines) setOutput() {
 	switch cl.getOutputMode() {
 	case cl.side.configuration.handshakeMode:
 		if cl.handshakeInProgress && cl.checkControlLineTransitioned(0) {

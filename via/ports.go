@@ -62,14 +62,26 @@ func (port *ViaPort) writePortOutputRegister() {
 }
 
 func (port *ViaPort) writeTimerOutput() {
-	if port.side.timer.hasCountedToZero() && port.side.timer.isTimerOutputEnabled() {
-		switch port.side.timer.getRunningMode() {
-		case txRunModeOneShot:
-			port.connector.GetLine(7).Set(true)
-		case t1RunModeFree:
-			port.connector.GetLine(7).Toggle()
+	// From the manual: With the output enabled (ACR7=1) a "write T1C-H operation will cause PB7 to go low.
+	// I'm assuming that setting ACR7=1 with timer not running will cause PB7 to go high
+	if port.side.timer.isTimerOutputEnabled() {
+		if !port.side.timer.timerEnabled {
+			port.side.peripheralPort.connector.GetLine(7).Set(true)
+		} else {
+			if port.side.registers.counter == 0xFFFF {
+				switch port.side.timer.getRunningMode() {
+				case txRunModeOneShot:
+					port.connector.GetLine(7).Set(true)
+				case t1RunModeFree:
+					port.side.timer.outputStatusWhenEnabled = !port.side.timer.outputStatusWhenEnabled
+					port.side.peripheralPort.connector.GetLine(7).Set(port.side.timer.outputStatusWhenEnabled)
+				}
+			} else {
+				port.side.peripheralPort.connector.GetLine(7).Set(port.side.timer.outputStatusWhenEnabled)
+			}
 		}
 	}
+
 }
 
 func (port *ViaPort) isSetToClearOnRW() bool {

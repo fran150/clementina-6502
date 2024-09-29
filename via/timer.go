@@ -3,7 +3,8 @@ package via
 type ViaTimer struct {
 	side *ViaSide
 
-	timerEnabled bool
+	timerEnabled            bool
+	outputStatusWhenEnabled bool
 
 	auxiliaryControlRegister *uint8
 	interrupts               *ViaIFR
@@ -25,9 +26,20 @@ const (
 	t2RunModePulseCounting viaTimerRunningMode = 0x20
 )
 
-func (t *ViaTimer) tickIfEnabled() {
-	if t.timerEnabled && t.getRunningMode() != t2RunModePulseCounting {
+func (t *ViaTimer) tick() {
+	if t.getRunningMode() != t2RunModePulseCounting {
 		t.side.registers.counter -= 1
+	}
+
+	if t.side.registers.counter == 0xFFFE {
+		if t.getRunningMode() == txRunModeOneShot {
+			t.timerEnabled = false
+		}
+
+		if t.getRunningMode() == t1RunModeFree {
+			t.side.registers.counter = uint16(t.side.registers.lowLatches)
+			t.side.registers.counter |= (uint16(t.side.registers.highLatches) << 8)
+		}
 	}
 }
 
@@ -39,23 +51,8 @@ func (t *ViaTimer) getRunningMode() viaTimerRunningMode {
 	return viaTimerRunningMode(*t.auxiliaryControlRegister & uint8(t.side.configuration.timerRunModeMask))
 }
 
-func (t *ViaTimer) hasCountedToZero() bool {
-	return t.side.registers.counter == 0xFFFF
-}
-
 func (t *ViaTimer) timerInterruptHandling() {
-	if t.hasCountedToZero() {
-		switch t.getRunningMode() {
-		case txRunModeOneShot:
-			t.interrupts.setInterruptFlagBit(t.side.configuration.timerInterruptBit)
-
-		case t1RunModeFree:
-			t.side.registers.counter = uint16(t.side.registers.lowLatches)
-			t.side.registers.counter |= (uint16(t.side.registers.highLatches) << 8)
-
-			t.interrupts.setInterruptFlagBit(t.side.configuration.timerInterruptBit)
-		case t2RunModePulseCounting:
-			t.interrupts.setInterruptFlagBit(t.side.configuration.timerInterruptBit)
-		}
+	if t.side.registers.counter == 0xFFFF && t.timerEnabled {
+		t.interrupts.setInterruptFlagBit(t.side.configuration.timerInterruptBit)
 	}
 }

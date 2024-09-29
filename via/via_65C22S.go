@@ -150,9 +150,9 @@ func (via *Via65C22S) populateRegisterReadHandlers() {
 		readT1HighOrderCounter,                                     // 0x05
 		readFromRecord(&via.sideB.registers.lowLatches),            // 0x06
 		readFromRecord(&via.sideB.registers.highLatches),           // 0x07
-		dummyHandler, // 0x08
-		dummyHandler, // 0x09
-		dummyHandler, // 0x0A
+		readT2LowOrderCounter,                                      // 0x08
+		readT2HighOrderCounter,                                     // 0x09
+		dummyHandler,                                               // 0x0A
 		readFromRecord((*uint8)(&via.registers.auxiliaryControl)),  // 0x0B
 		readFromRecord((*uint8)(&via.registers.peripheralControl)), // 0x0C
 		readnterruptFlagHandler,                                    // 0x0D
@@ -171,8 +171,8 @@ func (via *Via65C22S) populateRegisterWriteHandlers() {
 		writeT1HighOrderCounter,                                   // 0x05
 		writeToRecord(&via.sideB.registers.lowLatches),            // 0x06
 		writeT1HighOrderLatch,                                     // 0x07
-		dummyHandler,                                              // 0x08
-		dummyHandler,                                              // 0x09
+		writeToRecord(&via.sideA.registers.lowLatches),            // 0x08
+		writeT2HighOrderCounter,                                   // 0x09
 		dummyHandler,                                              // 0x0A
 		writeToRecord((*uint8)(&via.registers.auxiliaryControl)),  // 0x0B
 		writeToRecord((*uint8)(&via.registers.peripheralControl)), // 0x0C
@@ -272,8 +272,8 @@ func (via *Via65C22S) Tick(t uint64) {
 	via.sideA.peripheralPort.latchPort()
 	via.sideB.peripheralPort.latchPort()
 
-	via.sideA.timer.tickIfEnabled()
-	via.sideB.timer.tickIfEnabled()
+	via.sideA.timer.tick()
+	via.sideB.timer.tick()
 
 	// Count down pulse only enabled in timer 2 which in this case is on Side A
 	via.sideA.peripheralPort.countDownPulseIfEnabled()
@@ -302,8 +302,8 @@ func (via *Via65C22S) PostTick(t uint64) {
 	via.sideA.peripheralPort.writeTimerOutput()
 	via.sideB.peripheralPort.writeTimerOutput()
 
-	via.sideA.controlLines.setOutputMode()
-	via.sideB.controlLines.setOutputMode()
+	via.sideA.controlLines.setOutput()
+	via.sideB.controlLines.setOutput()
 
 	via.sideA.timer.timerInterruptHandling()
 	via.sideB.timer.timerInterruptHandling()

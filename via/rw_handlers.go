@@ -135,18 +135,14 @@ func writeT1HighOrderCounter(via *Via65C22S) {
 	// Write into high order latch
 	via.sideB.registers.highLatches = via.dataBus.Read()
 	// Write into high order counter (first clear MSB and then assign)
-	via.sideB.registers.counter = (via.sideB.registers.counter & 0x0F) | high
+	via.sideB.registers.counter = (via.sideB.registers.counter & 0x00FF) | high
 
 	// Transfer low order latch to low order counter
-	via.sideB.registers.counter = (via.sideB.registers.counter & 0xF0) | uint16(via.sideB.registers.lowLatches)
+	via.sideB.registers.counter = (via.sideB.registers.counter & 0xFF00) | uint16(via.sideB.registers.lowLatches)
 
 	// Enable the counter
 	via.sideB.timer.timerEnabled = true
-	// With the output enabled (ACR7=1) a "write T1C-H operation will cause PB7 to go low. PB7 will return high
-	// when Timer 1 times out. The result is a single programmable width pulse.
-	if via.sideB.timer.isTimerOutputEnabled() {
-		via.sideB.peripheralPort.connector.GetLine(7).Set(false)
-	}
+	via.sideB.timer.outputStatusWhenEnabled = false
 
 	// Clears interrupt flags
 	via.registers.interrupts.clearInterruptFlagBit(irqT1)
@@ -168,7 +164,47 @@ func readT1LowOrderCounter(via *Via65C22S) {
 // Reads the MSB from the counter
 func readT1HighOrderCounter(via *Via65C22S) {
 	// Makes 0 the LSB and moves the MSB to the lower byte
-	value := (via.sideB.registers.counter & 0xF0) >> 8
+	value := (via.sideB.registers.counter & 0xFF00) >> 8
+	// Writes the value on the bus
+	via.dataBus.Write(uint8(value))
+}
+
+/************************************************************************************
+* Writes / Reads to T2 Low and High order counters and latches
+*************************************************************************************/
+
+func writeT2HighOrderCounter(via *Via65C22S) {
+	// MSB value for the current value in the bus
+	var high uint16 = uint16(via.dataBus.Read()) << 8
+
+	// Write into high order latch
+	via.sideA.registers.highLatches = via.dataBus.Read()
+	// Write into high order counter (first clear MSB and then assign)
+	via.sideA.registers.counter = (via.sideA.registers.counter & 0x00FF) | high
+
+	// Transfer low order latch to low order counter
+	via.sideA.registers.counter = (via.sideA.registers.counter & 0xFF00) | uint16(via.sideA.registers.lowLatches)
+
+	// Enable the counter
+	via.sideA.timer.timerEnabled = true
+	via.sideA.timer.outputStatusWhenEnabled = false
+
+	// Clears interrupt flags
+	via.registers.interrupts.clearInterruptFlagBit(irqT2)
+}
+
+// Reads the LSB from the counter
+func readT2LowOrderCounter(via *Via65C22S) {
+	via.dataBus.Write(uint8(via.sideA.registers.counter))
+
+	// Clears interrupt flags
+	via.registers.interrupts.clearInterruptFlagBit(irqT2)
+}
+
+// Reads the MSB from the counter
+func readT2HighOrderCounter(via *Via65C22S) {
+	// Makes 0 the LSB and moves the MSB to the lower byte
+	value := (via.sideA.registers.counter & 0xFF00) >> 8
 	// Writes the value on the bus
 	via.dataBus.Write(uint8(value))
 }
