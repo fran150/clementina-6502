@@ -159,6 +159,9 @@ func writeT1HighOrderLatch(via *Via65C22S) {
 // Reads the LSB from the counter
 func readT1LowOrderCounter(via *Via65C22S) {
 	via.dataBus.Write(uint8(via.sideB.registers.counter))
+
+	// Clear interrupt flags
+	via.registers.interrupts.clearInterruptFlagBit(irqT1)
 }
 
 // Reads the MSB from the counter

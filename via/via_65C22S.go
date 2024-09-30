@@ -274,7 +274,6 @@ func (via *Via65C22S) Tick(t uint64) {
 
 	via.sideA.timer.tick()
 	via.sideB.timer.tick()
-
 	// Count down pulse only enabled in timer 2 which in this case is on Side A
 	via.sideA.peripheralPort.countDownPulseIfEnabled()
 
@@ -287,9 +286,7 @@ func (via *Via65C22S) Tick(t uint64) {
 			via.registerWriteHandlers[uint8(selectedRegisterValue)](via)
 		}
 	}
-}
 
-func (via *Via65C22S) PostTick(t uint64) {
 	// From https://lateblt.tripod.com/bit67.txt:
 	// The ORs are also never transparent Whereas an input bus which has input latching turned off can change with its
 	// input without the Enable pin even being cycled, outputting to an OR will not take effect until the Enable pin has made
@@ -304,9 +301,6 @@ func (via *Via65C22S) PostTick(t uint64) {
 
 	via.sideA.controlLines.setOutput()
 	via.sideB.controlLines.setOutput()
-
-	via.sideA.timer.timerInterruptHandling()
-	via.sideB.timer.timerInterruptHandling()
 
 	via.sideA.controlLines.setInterruptFlagOnControlLinesTransition()
 	via.sideB.controlLines.setInterruptFlagOnControlLinesTransition()

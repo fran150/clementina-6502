@@ -68,7 +68,7 @@ func (port *ViaPort) writeTimerOutput() {
 		if !port.side.timer.timerEnabled {
 			port.side.peripheralPort.connector.GetLine(7).Set(true)
 		} else {
-			if port.side.registers.counter == 0xFFFF {
+			if port.side.timer.hasCountedToZero {
 				switch port.side.timer.getRunningMode() {
 				case txRunModeOneShot:
 					port.connector.GetLine(7).Set(true)

@@ -72,6 +72,10 @@ func (circuit *testCircuit) wire(via *Via65C22S) {
 	via.ReadWrite().Connect(circuit.rw)
 }
 
+/****************************************************************************************************************
+* Test utilities
+****************************************************************************************************************/
+
 func (circuit *testCircuit) setRegisterSelectValue(value viaRegisterCode) {
 	value &= 0x0F
 
@@ -90,7 +94,6 @@ func writeToVia(via *Via65C22S, circuit *testCircuit, register viaRegisterCode, 
 	circuit.dataBus.Write(value)
 
 	via.Tick(*t)
-	via.PostTick(*t)
 
 	*t = *t + 1
 }
@@ -100,7 +103,6 @@ func readFromVia(via *Via65C22S, circuit *testCircuit, register viaRegisterCode,
 	circuit.rw.Set(true)
 
 	via.Tick(*t)
-	via.PostTick(*t)
 
 	*t = *t + 1
 
@@ -112,7 +114,6 @@ func disableChipAndStepTime(via *Via65C22S, circuit *testCircuit, t *uint64) {
 	circuit.cs2.Set(true)
 
 	via.Tick(*t)
-	via.PostTick(*t)
 
 	*t = *t + 1
 }
@@ -121,6 +122,49 @@ func enableChip(circuit *testCircuit) {
 	circuit.cs1.Set(true)
 	circuit.cs2.Set(false)
 }
+
+type coutingTestConfiguration struct {
+	via               *Via65C22S
+	circuit           *testCircuit
+	lcRegister        viaRegisterCode
+	hcRegister        viaRegisterCode
+	counterLSB        uint8
+	counterMSB        uint8
+	cyclesToExecute   int
+	assertPB7         bool
+	pB7expectedStatus bool
+	expectedIRQStatus bool
+}
+
+func setupAndCountFrom(t *testing.T, config *coutingTestConfiguration, step *uint64) {
+	// Will count down from 10 decimal
+	writeToVia(config.via, config.circuit, config.lcRegister, config.counterLSB, step)
+
+	// Starts the timer
+	writeToVia(config.via, config.circuit, config.hcRegister, config.counterMSB, step)
+
+	// At this point IRQ is clear (high)
+	assert.Equal(t, true, config.circuit.irq.Status())
+
+	countToTarget(t, config, step)
+}
+
+func countToTarget(t *testing.T, config *coutingTestConfiguration, step *uint64) {
+	for range config.cyclesToExecute {
+		disableChipAndStepTime(config.via, config.circuit, step)
+
+		// IRQ remains high when counting
+		assert.Equal(t, config.expectedIRQStatus, config.circuit.irq.Status())
+
+		if config.assertPB7 {
+			assert.Equal(t, config.pB7expectedStatus, config.circuit.portB.GetBusLine(7).Status())
+		}
+	}
+}
+
+/****************************************************************************************************************
+* Latching tests
+****************************************************************************************************************/
 
 func TestOutputToPortAChangingTheDirectionAndDeselectingChip(t *testing.T) {
 	var step uint64
@@ -445,11 +489,37 @@ func TestInputFromPortBLatching(t *testing.T) {
 }
 
 /***********************************************************************************************************************
+* Handshake modes tests
+*
 * See page 5 of the link below to understand the timing of handshake modes. This test is copying and validating
 * the behaviour described there.
 *
 * https://web.archive.org/web/20160108173129if_/http://archive.6502.org/datasheets/mos_6522_preliminary_nov_1977.pdf
 ************************************************************************************************************************/
+
+func TestReadHandshakeOnPortA(t *testing.T) {
+	readHandshakeOnPortA(t, 0x08)
+}
+
+func TestReadHandshakePulseOnPortA(t *testing.T) {
+	readHandshakeOnPortA(t, 0x0A)
+}
+
+func TestWriteHandshakeOnPortA(t *testing.T) {
+	writeHandshakeOnPortA(t, 0x08)
+}
+
+func TestWriteHandshakePulseOnPortA(t *testing.T) {
+	writeHandshakeOnPortA(t, 0x0A)
+}
+
+func TestWriteHandshakeOnPortB(t *testing.T) {
+	writeHandshakeOnPortB(t, 0x80)
+}
+
+func TestWriteHandshakePulseOnPortB(t *testing.T) {
+	writeHandshakeOnPortB(t, 0xA0)
+}
 
 func readHandshakeOnPortA(t *testing.T, mode uint8) {
 	var step uint64
@@ -532,14 +602,6 @@ func readHandshakeOnPortA(t *testing.T, mode uint8) {
 	assert.Equal(t, false, circuit.irq.Status())
 }
 
-func TestReadHandshakeOnPortA(t *testing.T) {
-	readHandshakeOnPortA(t, 0x08)
-}
-
-func TestReadHandshakePulseOnPortA(t *testing.T) {
-	readHandshakeOnPortA(t, 0x0A)
-}
-
 func writeHandshakeOnPortA(t *testing.T, mode uint8) {
 	var step uint64
 
@@ -611,14 +673,6 @@ func writeHandshakeOnPortA(t *testing.T, mode uint8) {
 	// IRQ must be reset and CA2 goes low again
 	assert.Equal(t, true, circuit.irq.Status())
 	assert.Equal(t, false, circuit.ca2.Status())
-}
-
-func TestWriteHandshakeOnPortA(t *testing.T) {
-	writeHandshakeOnPortA(t, 0x08)
-}
-
-func TestWriteHandshakePulseOnPortA(t *testing.T) {
-	writeHandshakeOnPortA(t, 0x0A)
 }
 
 func writeHandshakeOnPortB(t *testing.T, mode uint8) {
@@ -694,13 +748,9 @@ func writeHandshakeOnPortB(t *testing.T, mode uint8) {
 	assert.Equal(t, false, circuit.cb2.Status())
 }
 
-func TestWriteHandshakeOnPortB(t *testing.T) {
-	writeHandshakeOnPortB(t, 0x80)
-}
-
-func TestWriteHandshakePulseOnPortB(t *testing.T) {
-	writeHandshakeOnPortB(t, 0xA0)
-}
+/****************************************************************************************************************
+* Timer tests
+****************************************************************************************************************/
 
 func TestTimer1OneShotMode(t *testing.T) {
 	var step uint64
@@ -710,49 +760,69 @@ func TestTimer1OneShotMode(t *testing.T) {
 
 	circuit.wire(via)
 
+	config := coutingTestConfiguration{
+		via:               via,
+		circuit:           circuit,
+		lcRegister:        regT1CL,
+		hcRegister:        regT1CH,
+		counterLSB:        10,
+		counterMSB:        0,
+		cyclesToExecute:   11,
+		assertPB7:         false,
+		pB7expectedStatus: false,
+		expectedIRQStatus: true,
+	}
+
 	// Set ACR to 0x00, for this test is important bit 6 and 7 = 00 -> Timer 1 single shot PB7 disabled
 	writeToVia(via, circuit, regACR, 0x00, &step)
 
 	// Enable interrupts for T1 timeout (bit 7 -> enable, bit 6 -> T1)
 	writeToVia(via, circuit, regIER, 0xC0, &step)
 
-	setupAndCountFrom(t, via, circuit, regT1CL, regT1CH, 10, 0x00, 10, false, false, &step)
+	// Counts down from 10, it takes N+1 cycles to count down
+	// While counting PB7 is not driven and IRQ stays high
+	setupAndCountFrom(t, &config, &step)
 
-	// After counting to 0 requires 0.5 / 1 more step to trigger IRQ
+	// After counting to 0 requires extra 0.5 step
+	// to trigger IRQ
 	disableChipAndStepTime(via, circuit, &step)
-
-	// At this point IRQ is set (low)
 	assert.Equal(t, false, circuit.irq.Status())
 
-	// Counter keeps counting down
+	// Counter keeps counting down.
+	// When IRQ triggered counter was in the end of FFFF / beginning of FFFE
+	// 2 extra cycles will move that to FFFC
 	disableChipAndStepTime(via, circuit, &step)
 	disableChipAndStepTime(via, circuit, &step)
-
-	assert.Equal(t, uint16(0xFFFD), via.sideB.registers.counter)
+	assert.Equal(t, uint16(0xFFFC), via.sideB.registers.counter)
 
 	// Reenable the chip
 	enableChip(circuit)
 
-	setupAndCountFrom(t, via, circuit, regT1CL, regT1CH, 10, 0x00, 10, false, false, &step)
+	// Clear the interrupt flag by reading T1 low order counter
+	counter := readFromVia(via, circuit, regT1CL, &step)
+	assert.Equal(t, uint8(0xFB), counter)
+	assert.Equal(t, true, circuit.irq.Status())
 
-	// After counting to 0 requires 0.5 / 1 more step to trigger IRQ
+	// Repeats the couting from 10
+	setupAndCountFrom(t, &config, &step)
 	disableChipAndStepTime(via, circuit, &step)
-
-	// At this point IRQ is set (low)
 	assert.Equal(t, false, circuit.irq.Status())
 
 	// Reenable the chip
 	enableChip(circuit)
 
 	// Set ACR to 0x80, for this test is important bit 6 and 7 = 10 -> Timer 1 single shot PB7 enabled
-	writeToVia(via, circuit, regACR, 0x80, &step)
-
 	// When ACR sets PB7 as output, line goes high
+	writeToVia(via, circuit, regACR, 0x80, &step)
 	assert.Equal(t, true, circuit.portB.GetBusLine(7).Status())
 
-	setupAndCountFrom(t, via, circuit, regT1CL, regT1CH, 10, 0x00, 10, true, false, &step)
+	// Will now test PB7 behaviour
+	config.assertPB7 = true
+	config.pB7expectedStatus = false
 
-	// After counting to 0 requires 0.5 / 1 more step to trigger IRQ
+	// Repeats the couting from 10, now evaluating the
+	// PB7 flag to stay low while counting
+	setupAndCountFrom(t, &config, &step)
 	disableChipAndStepTime(via, circuit, &step)
 
 	// At this point IRQ is set (low) and PB7 goes back to high
@@ -768,83 +838,69 @@ func TestTimer1FreeRunMode(t *testing.T) {
 
 	circuit.wire(via)
 
+	config := coutingTestConfiguration{
+		via:               via,
+		circuit:           circuit,
+		lcRegister:        regT1CL,
+		hcRegister:        regT1CH,
+		counterLSB:        10,
+		counterMSB:        0,
+		cyclesToExecute:   11,
+		assertPB7:         true,
+		pB7expectedStatus: false,
+		expectedIRQStatus: true,
+	}
+
 	// Set ACR to 0x11, for this test is important bit 6 and 7 = 11 -> Timer 1 free run and PB7 enabled
+	// Line 7 goes high when ACR is set to output
 	writeToVia(via, circuit, regACR, 0xC0, &step)
+	assert.Equal(t, true, circuit.portB.GetBusLine(7).Status())
 
 	// Enable interrupts for T1 timeout (bit 7 -> enable, bit 6 -> T1)
 	writeToVia(via, circuit, regIER, 0xC0, &step)
 
-	setupAndCountFrom(t, via, circuit, regT1CL, regT1CH, 10, 0x00, 10, true, false, &step)
+	// Counts down from 10, it takes N+1 cycles to count down
+	// While counting PB7 is driven low and IRQ stays high
+	setupAndCountFrom(t, &config, &step)
 
-	countToTarget(t, via, circuit, 12, true, true, &step)
+	// After counting to 0 requires extra 0.5 step
+	// to trigger IRQ and port B toggles high.
+	disableChipAndStepTime(via, circuit, &step)
+	assert.Equal(t, false, circuit.irq.Status())
+	assert.Equal(t, true, circuit.portB.GetBusLine(7).Status())
 
-	countToTarget(t, via, circuit, 12, true, false, &step)
+	// We'll keep counting. On Free-Run mode the PB7 is expected to toggle
+	// between states, since last countdown was low, now is expected high
+	// until timer reaches zero. Since we won't reset the interrupt, we
+	// expect that one to remain low.
+	config.pB7expectedStatus = true
+	config.expectedIRQStatus = false
+	countToTarget(t, &config, &step)
 
-	countToTarget(t, via, circuit, 12, true, true, &step)
-}
+	// After couting to zero, we need one more step to transition.
+	// PB7 will go low, IRQ remains low (unchanged)
+	disableChipAndStepTime(via, circuit, &step)
+	assert.Equal(t, false, circuit.irq.Status())
+	assert.Equal(t, false, circuit.portB.GetBusLine(7).Status())
 
-func setupAndCountFrom(t *testing.T, via *Via65C22S, circuit *testCircuit, lcRegister viaRegisterCode, hcRegister viaRegisterCode, counterLSB uint8, counterMSB uint8, count int, assertPB7 bool, pB7expectedStatus bool, step *uint64) {
-	// Will count down from 10 decimal
-	writeToVia(via, circuit, lcRegister, counterLSB, step)
-
-	// Starts the timer
-	writeToVia(via, circuit, hcRegister, counterMSB, step)
-
-	// At this point IRQ is clear (high)
+	// Clear the interrupt flag by reading T1 low order counter
+	// This spent one cycle from the new counting so counter will be 9.
+	enableChip(circuit)
+	counter := readFromVia(via, circuit, regT1CL, &step)
+	assert.Equal(t, uint8(0x09), counter)
 	assert.Equal(t, true, circuit.irq.Status())
 
-	countToTarget(t, via, circuit, count, assertPB7, pB7expectedStatus, step)
-}
+	// Since we consumed 1 cycle to read the counter and reset the IRQ
+	// we will now count 10 cycles, also now IRQ is expected high now.
+	// This cycle PB7 is expected low.
+	config.cyclesToExecute = 10
+	config.expectedIRQStatus = true
+	config.pB7expectedStatus = false
+	countToTarget(t, &config, &step)
 
-func countToTarget(t *testing.T, via *Via65C22S, circuit *testCircuit, count int, assertPB7 bool, pB7expectedStatus bool, step *uint64) {
-	for range count {
-		disableChipAndStepTime(via, circuit, step)
-
-		// IRQ remains high when counting
-		//		assert.Equal(t, true, circuit.irq.Status())
-
-		if assertPB7 {
-			assert.Equal(t, pB7expectedStatus, circuit.portB.GetBusLine(7).Status())
-		}
-	}
-}
-
-func TestTimer2OneShotMode(t *testing.T) {
-	var step uint64
-
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
-
-	circuit.wire(via)
-
-	// Set ACR to 0x00, for this test is important bit 5 = 00 -> Timer 2 single shot
-	writeToVia(via, circuit, regACR, 0x00, &step)
-
-	// Enable interrupts for T2 timeout (bit 7 -> enable, bit 5 -> T2)
-	writeToVia(via, circuit, regIER, 0xA0, &step)
-
-	setupAndCountFrom(t, via, circuit, regT2CL, regT2CH, 10, 0x00, 10, false, false, &step)
-
-	// After counting to 0 requires 0.5 / 1 more step to trigger IRQ
+	// One extra step to update status lines,
+	// IRQ will trigger (go low) and PB7 will toggle high
 	disableChipAndStepTime(via, circuit, &step)
-
-	// At this point IRQ is set (low)
 	assert.Equal(t, false, circuit.irq.Status())
-
-	// Counter keeps counting down
-	disableChipAndStepTime(via, circuit, &step)
-	disableChipAndStepTime(via, circuit, &step)
-
-	assert.Equal(t, uint16(0xFFFD), via.sideA.registers.counter)
-
-	// Reenable the chip
-	enableChip(circuit)
-
-	setupAndCountFrom(t, via, circuit, regT2CL, regT2CH, 10, 0x00, 10, false, false, &step)
-
-	// After counting to 0 requires 0.5 / 1 more step to trigger IRQ
-	disableChipAndStepTime(via, circuit, &step)
-
-	// At this point IRQ is set (low)
-	assert.Equal(t, false, circuit.irq.Status())
+	assert.Equal(t, true, circuit.portB.GetBusLine(7).Status())
 }

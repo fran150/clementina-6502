@@ -5,6 +5,7 @@ type ViaTimer struct {
 
 	timerEnabled            bool
 	outputStatusWhenEnabled bool
+	hasCountedToZero        bool
 
 	auxiliaryControlRegister *uint8
 	interrupts               *ViaIFR
@@ -32,6 +33,11 @@ func (t *ViaTimer) tick() {
 	}
 
 	if t.side.registers.counter == 0xFFFE {
+		if t.timerEnabled {
+			t.hasCountedToZero = true
+			t.interrupts.setInterruptFlagBit(t.side.configuration.timerInterruptBit)
+		}
+
 		if t.getRunningMode() == txRunModeOneShot {
 			t.timerEnabled = false
 		}
@@ -40,6 +46,8 @@ func (t *ViaTimer) tick() {
 			t.side.registers.counter = uint16(t.side.registers.lowLatches)
 			t.side.registers.counter |= (uint16(t.side.registers.highLatches) << 8)
 		}
+	} else {
+		t.hasCountedToZero = false
 	}
 }
 
@@ -49,10 +57,4 @@ func (t *ViaTimer) isTimerOutputEnabled() bool {
 
 func (t *ViaTimer) getRunningMode() viaTimerRunningMode {
 	return viaTimerRunningMode(*t.auxiliaryControlRegister & uint8(t.side.configuration.timerRunModeMask))
-}
-
-func (t *ViaTimer) timerInterruptHandling() {
-	if t.side.registers.counter == 0xFFFF && t.timerEnabled {
-		t.interrupts.setInterruptFlagBit(t.side.configuration.timerInterruptBit)
-	}
 }
