@@ -25,12 +25,6 @@ func (port *ViaPort) isLatchingEnabled() bool {
 	return *port.auxiliaryControlRegister&uint8(port.side.configuration.latchingEnabledMasks) > 0x00
 }
 
-func (port *ViaPort) countDownPulseIfEnabled() {
-	if port.side.timer.timerEnabled && port.side.timer.getRunningMode() == t2RunModePulseCounting && !port.connector.GetLine(6).Status() {
-		port.side.registers.counter -= 1
-	}
-}
-
 func (port *ViaPort) latchPort() {
 	// Read pin levels on port
 	value := port.connector.Read()

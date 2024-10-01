@@ -272,10 +272,9 @@ func (via *Via65C22S) Tick(t uint64) {
 	via.sideA.peripheralPort.latchPort()
 	via.sideB.peripheralPort.latchPort()
 
-	via.sideA.timer.tick()
-	via.sideB.timer.tick()
-	// Count down pulse only enabled in timer 2 which in this case is on Side A
-	via.sideA.peripheralPort.countDownPulseIfEnabled()
+	pbLine6Status := via.sideB.peripheralPort.connector.GetLine(6).Status()
+	via.sideA.timer.tick(pbLine6Status)
+	via.sideB.timer.tick(true)
 
 	if via.chipSelect1.Enabled() && via.chipSelect2.Enabled() {
 		selectedRegisterValue := via.getRegisterSelectValue()

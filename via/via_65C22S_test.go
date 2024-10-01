@@ -904,3 +904,108 @@ func TestTimer1FreeRunMode(t *testing.T) {
 	assert.Equal(t, false, circuit.irq.Status())
 	assert.Equal(t, true, circuit.portB.GetBusLine(7).Status())
 }
+
+func TestTimer2OneShotMode(t *testing.T) {
+	var step uint64
+
+	via := CreateVia65C22()
+	circuit := createTestCircuit()
+
+	circuit.wire(via)
+
+	config := coutingTestConfiguration{
+		via:               via,
+		circuit:           circuit,
+		lcRegister:        regT2CL,
+		hcRegister:        regT2CH,
+		counterLSB:        10,
+		counterMSB:        0,
+		cyclesToExecute:   11,
+		assertPB7:         false,
+		pB7expectedStatus: false,
+		expectedIRQStatus: true,
+	}
+
+	// Set ACR to 0x00, for this test is important bit 5 = 00 -> Timer 2 single shot
+	writeToVia(via, circuit, regACR, 0x00, &step)
+
+	// Enable interrupts for T2 timeout (bit 7 -> enable, bit 5 -> T2)
+	writeToVia(via, circuit, regIER, 0xA0, &step)
+
+	// Counts down from 10, it takes N+1 cycles to count down
+	// While counting PB7 is not driven and IRQ stays high
+	setupAndCountFrom(t, &config, &step)
+
+	// After counting to 0 requires extra 0.5 step
+	// to trigger IRQ
+	disableChipAndStepTime(via, circuit, &step)
+	assert.Equal(t, false, circuit.irq.Status())
+
+	// Counter keeps counting down.
+	// When IRQ triggered counter was in the end of FFFF / beginning of FFFE
+	// 2 extra cycles will move that to FFFC
+	disableChipAndStepTime(via, circuit, &step)
+	disableChipAndStepTime(via, circuit, &step)
+	assert.Equal(t, uint16(0xFFFC), via.sideA.registers.counter)
+
+	// Reenable the chip
+	enableChip(circuit)
+
+	// Clear the interrupt flag by reading T2 low order counter
+	counter := readFromVia(via, circuit, regT2CL, &step)
+	assert.Equal(t, uint8(0xFB), counter)
+	assert.Equal(t, true, circuit.irq.Status())
+
+	// Repeats the couting from 10
+	setupAndCountFrom(t, &config, &step)
+	disableChipAndStepTime(via, circuit, &step)
+	assert.Equal(t, false, circuit.irq.Status())
+}
+
+func TestTimer2PulseCountingMode(t *testing.T) {
+	var step uint64
+
+	via := CreateVia65C22()
+	circuit := createTestCircuit()
+
+	circuit.wire(via)
+
+	// Set ACR to 0x00, for this test is important bit 5 = 1 -> Timer 2 pulse counting
+	writeToVia(via, circuit, regACR, 0x20, &step)
+
+	// Enable interrupts for T2 timeout (bit 7 -> enable, bit 5 -> T2)
+	writeToVia(via, circuit, regIER, 0xA0, &step)
+
+	// Set PB6 high so it doesn't count down
+	circuit.portB.GetBusLine(6).Set(true)
+
+	// Set counter to 10
+	writeToVia(via, circuit, regT2CL, 10, &step)
+	writeToVia(via, circuit, regT2CH, 0x00, &step)
+
+	// Pass 2 cycles, counter should still be in 10
+	disableChipAndStepTime(via, circuit, &step)
+	disableChipAndStepTime(via, circuit, &step)
+
+	assert.Equal(t, uint16(10), via.sideA.registers.counter)
+
+	// According to https://web.archive.org/web/20220708103848if_/http://archive.6502.org/datasheets/synertek_sy6522.pdf
+	// IRQ is set when counter rolls over to FFFF
+	// TODO: I cannot find documentation online about this behaviour and official manual states that this happens on
+	// beggining of cycle with 0 in the counter. Might need to test in real hardware
+	for n := 11; n > 0; n-- {
+		circuit.portB.GetBusLine(6).Set(false)
+		disableChipAndStepTime(via, circuit, &step)
+		assert.Equal(t, uint16(n-2), via.sideA.registers.counter)
+
+		circuit.portB.GetBusLine(6).Set(true)
+		disableChipAndStepTime(via, circuit, &step)
+		assert.Equal(t, uint16(n-2), via.sideA.registers.counter)
+	}
+
+	// After counting to 0 requires extra 0.5 step
+	// to trigger IRQ
+	circuit.portB.GetBusLine(6).Set(false)
+	disableChipAndStepTime(via, circuit, &step)
+	assert.Equal(t, false, circuit.irq.Status())
+}

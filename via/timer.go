@@ -27,9 +27,13 @@ const (
 	t2RunModePulseCounting viaTimerRunningMode = 0x20
 )
 
-func (t *ViaTimer) tick() {
+func (t *ViaTimer) tick(pbLine6Status bool) {
 	if t.getRunningMode() != t2RunModePulseCounting {
 		t.side.registers.counter -= 1
+	} else {
+		if !pbLine6Status {
+			t.side.registers.counter -= 1
+		}
 	}
 
 	if t.side.registers.counter == 0xFFFE {
