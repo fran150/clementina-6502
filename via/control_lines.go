@@ -2,16 +2,42 @@ package via
 
 import "github.com/fran150/clementina6502/buses"
 
+type viaControlLineConfiguration struct {
+	transitionConfigurationMasks [2]viaPCRTranstitionMasks
+	outputConfigurationMask      viaPCROutputMasks
+	handshakeMode                viaPCROutputModes
+	pulseMode                    viaPCROutputModes
+	fixedMode                    viaPCROutputModes
+	controlLinesIRQBits          [2]viaIRQFlags
+}
+
 type viaControlLines struct {
-	side           *ViaSide
-	lines          [2]*buses.ConnectorEnabledHigh
-	previousStatus [2]bool
+	lines                 [2]*buses.ConnectorEnabledHigh
+	previousStatus        [2]bool
+	handshakeInProgress   bool
+	handshakeCycleCounter uint8
+
+	configuration viaControlLineConfiguration
 
 	peripheralControlRegister *uint8
 	interrupts                *ViaIFR
+}
 
-	handshakeInProgress   bool
-	handshakeCycleCounter uint8
+func createViaControlLines(via *Via65C22S, config *viaControlLineConfiguration) *viaControlLines {
+	return &viaControlLines{
+		lines: [2]*buses.ConnectorEnabledHigh{
+			buses.CreateConnectorEnabledHigh(),
+			buses.CreateConnectorEnabledHigh(),
+		},
+		previousStatus:        [2]bool{false, false},
+		handshakeInProgress:   false,
+		handshakeCycleCounter: 0,
+
+		configuration: *config,
+
+		peripheralControlRegister: &via.registers.peripheralControl,
+		interrupts:                &via.registers.interrupts,
+	}
 }
 
 func (cl *viaControlLines) getLine(num uint8) *buses.ConnectorEnabledHigh {
@@ -19,7 +45,7 @@ func (cl *viaControlLines) getLine(num uint8) *buses.ConnectorEnabledHigh {
 }
 
 func (cl *viaControlLines) configForTransitionOnPositiveEdge(num int) bool {
-	mask := cl.side.configuration.transitionConfigurationMasks[num]
+	mask := cl.configuration.transitionConfigurationMasks[num]
 
 	return (*cl.peripheralControlRegister & uint8(mask)) > 0x00
 }
@@ -44,20 +70,20 @@ func (cl *viaControlLines) storePreviousControlLinesValues() {
 }
 
 func (cl *viaControlLines) getOutputMode() viaPCROutputModes {
-	mask := cl.side.configuration.outputConfigurationMask
+	mask := cl.configuration.outputConfigurationMask
 	return viaPCROutputModes(*cl.peripheralControlRegister & uint8(mask))
 }
 
 func (cl *viaControlLines) setOutput() {
 	switch cl.getOutputMode() {
-	case cl.side.configuration.handshakeMode:
+	case cl.configuration.handshakeMode:
 		if cl.handshakeInProgress && cl.checkControlLineTransitioned(0) {
 			cl.handshakeInProgress = false
 		}
 
 		cl.lines[1].SetEnable(!cl.handshakeInProgress)
 
-	case cl.side.configuration.pulseMode:
+	case cl.configuration.pulseMode:
 		if cl.handshakeInProgress {
 			cl.handshakeCycleCounter += 1
 		}
@@ -68,7 +94,7 @@ func (cl *viaControlLines) setOutput() {
 
 		cl.lines[1].SetEnable(!cl.handshakeInProgress)
 
-	case cl.side.configuration.fixedMode:
+	case cl.configuration.fixedMode:
 		cl.lines[1].SetEnable(cl.configForTransitionOnPositiveEdge(1))
 	}
 }
@@ -76,10 +102,10 @@ func (cl *viaControlLines) setOutput() {
 func (cl *viaControlLines) setInterruptFlagOnControlLinesTransition() {
 
 	if cl.checkControlLineTransitioned(0) {
-		cl.interrupts.setInterruptFlagBit(cl.side.configuration.controlLinesIRQBits[0])
+		cl.interrupts.setInterruptFlagBit(cl.configuration.controlLinesIRQBits[0])
 	}
 
-	if cl.side.controlLines.checkControlLineTransitioned(1) {
-		cl.interrupts.setInterruptFlagBit(cl.side.configuration.controlLinesIRQBits[1])
+	if cl.checkControlLineTransitioned(1) {
+		cl.interrupts.setInterruptFlagBit(cl.configuration.controlLinesIRQBits[1])
 	}
 }

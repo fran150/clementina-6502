@@ -7,16 +7,25 @@ import (
 )
 
 type Via65C22SRegisters struct {
-	shiftRegister     uint8
-	auxiliaryControl  uint8
-	peripheralControl uint8
-	interrupts        ViaIFR
+	outputRegisterA        uint8
+	outputRegisterB        uint8
+	inputRegisterA         uint8
+	inputRegisterB         uint8
+	dataDirectionRegisterA uint8
+	dataDirectionRegisterB uint8
+	lowLatches2            uint8
+	lowLatches1            uint8
+	highLatches2           uint8
+	highLatches1           uint8
+	counter2               uint16
+	counter1               uint16
+	shiftRegister          uint8
+	auxiliaryControl       uint8
+	peripheralControl      uint8
+	interrupts             ViaIFR
 }
 
 type Via65C22S struct {
-	sideA ViaSide
-	sideB ViaSide
-
 	chipSelect1    *buses.ConnectorEnabledHigh
 	chipSelect2    *buses.ConnectorEnabledLow
 	dataBus        *buses.BusConnector[uint8]
@@ -26,6 +35,13 @@ type Via65C22S struct {
 	readWrite      *buses.ConnectorEnabledLow
 
 	registers Via65C22SRegisters
+
+	peripheralPortA *ViaPort
+	peripheralPortB *ViaPort
+	timer1          *ViaTimer
+	timer2          *ViaTimer
+	controlLinesA   *viaControlLines
+	controlLinesB   *viaControlLines
 
 	registerReadHandlers  []func(*Via65C22S)
 	registerWriteHandlers []func(*Via65C22S)
@@ -66,50 +82,6 @@ const (
 )
 
 func CreateVia65C22() *Via65C22S {
-	sideAConfiguration := ViaSideConfiguration{
-		transitionConfigurationMasks: [2]viaPCRTranstitionMasks{
-			pcrMaskCA1TransitionType,
-			pcrMaskCA2TransitionType,
-		},
-
-		latchingEnabledMasks:    acrMaskLatchingEnabledA,
-		outputConfigurationMask: pcrMaskCAOutputMode,
-		handshakeMode:           pcrCA2OutputModeHandshake,
-		pulseMode:               pcrCA2OutputModePulse,
-		fixedMode:               pcrCA2OutputModeFix,
-		clearC2OnRWMask:         pcrMaskCA2ClearOnRW,
-
-		timerRunModeMask:  t2ControlRunModeMask,
-		timerInterruptBit: irqT2,
-
-		controlLinesIRQBits: [2]viaIRQFlags{
-			irqCA1,
-			irqCA2,
-		},
-	}
-
-	sideBConfiguration := ViaSideConfiguration{
-		transitionConfigurationMasks: [2]viaPCRTranstitionMasks{
-			pcrMaskCB1TransitionType,
-			pcrMaskCB2TransitionType,
-		},
-
-		latchingEnabledMasks:    acrMaskLatchingEnabledB,
-		outputConfigurationMask: pcrMaskCBOutputMode,
-		handshakeMode:           pcrCB2OutputModeHandshake,
-		pulseMode:               pcrCB2OutputModePulse,
-		fixedMode:               pcrCB2OutputModeFix,
-
-		timerRunModeMask:  t1ControlRunModeMask,
-		timerOutputMask:   t1ControlOutputMask,
-		timerInterruptBit: irqT1,
-
-		controlLinesIRQBits: [2]viaIRQFlags{
-			irqCB1,
-			irqCB2,
-		},
-	}
-
 	via := Via65C22S{
 		chipSelect1: buses.CreateConnectorEnabledHigh(),
 		chipSelect2: buses.CreateConnectorEnabledLow(),
@@ -127,8 +99,80 @@ func CreateVia65C22() *Via65C22S {
 		registers: Via65C22SRegisters{},
 	}
 
-	via.sideA = createViaSide(&via, sideAConfiguration)
-	via.sideB = createViaSide(&via, sideBConfiguration)
+	via.controlLinesA = createViaControlLines(&via, &viaControlLineConfiguration{
+		transitionConfigurationMasks: [2]viaPCRTranstitionMasks{
+			pcrMaskCA1TransitionType,
+			pcrMaskCA2TransitionType,
+		},
+		outputConfigurationMask: pcrMaskCAOutputMode,
+		handshakeMode:           pcrCA2OutputModeHandshake,
+		pulseMode:               pcrCA2OutputModePulse,
+		fixedMode:               pcrCA2OutputModeFix,
+		controlLinesIRQBits: [2]viaIRQFlags{
+			irqCA1,
+			irqCA2,
+		},
+	})
+
+	via.controlLinesB = createViaControlLines(&via, &viaControlLineConfiguration{
+		transitionConfigurationMasks: [2]viaPCRTranstitionMasks{
+			pcrMaskCB1TransitionType,
+			pcrMaskCB2TransitionType,
+		},
+		outputConfigurationMask: pcrMaskCBOutputMode,
+		handshakeMode:           pcrCB2OutputModeHandshake,
+		pulseMode:               pcrCB2OutputModePulse,
+		fixedMode:               pcrCB2OutputModeFix,
+		controlLinesIRQBits: [2]viaIRQFlags{
+			irqCB1,
+			irqCB2,
+		},
+	})
+
+	via.timer1 = createViaTimer(&via, &viaTimerConfiguration{
+		timerInterruptBit: irqT1,
+		timerRunModeMask:  t1ControlRunModeMask,
+		timerOutputMask:   t1ControlOutputMask,
+		lowLatches:        &via.registers.lowLatches1,
+		highLatches:       &via.registers.highLatches1,
+		counter:           &via.registers.counter1,
+	})
+
+	via.timer2 = createViaTimer(&via, &viaTimerConfiguration{
+		timerInterruptBit: irqT2,
+		timerRunModeMask:  t2ControlRunModeMask,
+		lowLatches:        &via.registers.lowLatches2,
+		highLatches:       &via.registers.highLatches2,
+		counter:           &via.registers.counter2,
+	})
+
+	via.peripheralPortA = createViaPort(&via, &viaPortConfiguration{
+		latchingEnabledMasks: acrMaskLatchingEnabledA,
+		clearC2OnRWMask:      pcrMaskCA2ClearOnRW,
+		controlLinesIRQBits: [2]viaIRQFlags{
+			irqCA1,
+			irqCA2,
+		},
+		inputRegister:         &via.registers.inputRegisterA,
+		outputRegister:        &via.registers.outputRegisterA,
+		dataDirectionRegister: &via.registers.dataDirectionRegisterA,
+		controlLines:          via.controlLinesA,
+		timer:                 via.timer2,
+	})
+
+	via.peripheralPortB = createViaPort(&via, &viaPortConfiguration{
+		latchingEnabledMasks: acrMaskLatchingEnabledB,
+		clearC2OnRWMask:      pcrMaskCB2ClearOnRW,
+		controlLinesIRQBits: [2]viaIRQFlags{
+			irqCB1,
+			irqCB2,
+		},
+		inputRegister:         &via.registers.inputRegisterB,
+		outputRegister:        &via.registers.outputRegisterB,
+		dataDirectionRegister: &via.registers.dataDirectionRegisterB,
+		controlLines:          via.controlLinesB,
+		timer:                 via.timer1,
+	})
 
 	via.populateRegisterReadHandlers()
 	via.populateRegisterWriteHandlers()
@@ -144,12 +188,12 @@ func (via *Via65C22S) populateRegisterReadHandlers() {
 	via.registerReadHandlers = []func(*Via65C22S){
 		inputOutputRegisterBReadHandler,                            // 0x00
 		inputOutputRegisterAReadHandler,                            // 0x01
-		readFromRecord(&via.sideB.registers.dataDirectionRegister), // 0x02
-		readFromRecord(&via.sideA.registers.dataDirectionRegister), // 0x03
+		readFromRecord(&via.registers.dataDirectionRegisterB),      // 0x02
+		readFromRecord(&via.registers.dataDirectionRegisterA),      // 0x03
 		readT1LowOrderCounter,                                      // 0x04
 		readT1HighOrderCounter,                                     // 0x05
-		readFromRecord(&via.sideB.registers.lowLatches),            // 0x06
-		readFromRecord(&via.sideB.registers.highLatches),           // 0x07
+		readFromRecord(&via.registers.lowLatches1),                 // 0x06
+		readFromRecord(&via.registers.highLatches1),                // 0x07
 		readT2LowOrderCounter,                                      // 0x08
 		readT2HighOrderCounter,                                     // 0x09
 		dummyHandler,                                               // 0x0A
@@ -165,13 +209,13 @@ func (via *Via65C22S) populateRegisterWriteHandlers() {
 	via.registerWriteHandlers = []func(*Via65C22S){
 		inputOutputRegisterBWriteHandler,                          // 0x00
 		inputOutputRegisterAWriteHandler,                          // 0x01
-		writeToRecord(&via.sideB.registers.dataDirectionRegister), // 0x02
-		writeToRecord(&via.sideA.registers.dataDirectionRegister), // 0x03
-		writeToRecord(&via.sideB.registers.lowLatches),            // 0x04
+		writeToRecord(&via.registers.dataDirectionRegisterB),      // 0x02
+		writeToRecord(&via.registers.dataDirectionRegisterA),      // 0x03
+		writeToRecord(&via.registers.lowLatches1),                 // 0x04
 		writeT1HighOrderCounter,                                   // 0x05
-		writeToRecord(&via.sideB.registers.lowLatches),            // 0x06
+		writeToRecord(&via.registers.lowLatches1),                 // 0x06
 		writeT1HighOrderLatch,                                     // 0x07
-		writeToRecord(&via.sideA.registers.lowLatches),            // 0x08
+		writeToRecord(&via.registers.lowLatches2),                 // 0x08
 		writeT2HighOrderCounter,                                   // 0x09
 		dummyHandler,                                              // 0x0A
 		writeToRecord((*uint8)(&via.registers.auxiliaryControl)),  // 0x0B
@@ -187,11 +231,11 @@ func (via *Via65C22S) populateRegisterWriteHandlers() {
 *************************************************************************************/
 
 func (via *Via65C22S) PeripheralAControlLines(num uint8) *buses.ConnectorEnabledHigh {
-	return via.sideA.controlLines.getLine(num)
+	return via.controlLinesA.getLine(num)
 }
 
 func (via *Via65C22S) PeripheralBControlLines(num uint8) *buses.ConnectorEnabledHigh {
-	return via.sideB.controlLines.getLine(num)
+	return via.controlLinesB.getLine(num)
 }
 
 func (via *Via65C22S) ChipSelect1() *buses.ConnectorEnabledHigh {
@@ -211,11 +255,11 @@ func (via *Via65C22S) IrqRequest() *buses.ConnectorEnabledLow {
 }
 
 func (via *Via65C22S) PeripheralPortA() *buses.BusConnector[uint8] {
-	return via.sideA.peripheralPort.getConnector()
+	return via.peripheralPortA.getConnector()
 }
 
 func (via *Via65C22S) PeripheralPortB() *buses.BusConnector[uint8] {
-	return via.sideB.peripheralPort.getConnector()
+	return via.peripheralPortB.getConnector()
 }
 
 func (via *Via65C22S) Reset() *buses.ConnectorEnabledLow {
@@ -269,12 +313,12 @@ func (via *Via65C22S) Tick(t uint64) {
 	// The ORs are also never transparent Whereas an input bus which has input latching turned off can change with its
 	// input without the Enable pin even being cycled, outputting to an OR will not take effect until the Enable pin has made
 	// a transition to low or high.
-	via.sideA.peripheralPort.latchPort()
-	via.sideB.peripheralPort.latchPort()
+	via.peripheralPortA.latchPort()
+	via.peripheralPortB.latchPort()
 
-	pbLine6Status := via.sideB.peripheralPort.connector.GetLine(6).Status()
-	via.sideA.timer.tick(pbLine6Status)
-	via.sideB.timer.tick(true)
+	pbLine6Status := via.peripheralPortB.connector.GetLine(6).Status()
+	via.timer1.tick(true)
+	via.timer2.tick(pbLine6Status)
 
 	if via.chipSelect1.Enabled() && via.chipSelect2.Enabled() {
 		selectedRegisterValue := via.getRegisterSelectValue()
@@ -291,21 +335,21 @@ func (via *Via65C22S) Tick(t uint64) {
 	// input without the Enable pin even being cycled, outputting to an OR will not take effect until the Enable pin has made
 	// a transition to low or high.
 	if via.chipSelect1.Enabled() && via.chipSelect2.Enabled() {
-		via.sideA.peripheralPort.writePortOutputRegister()
-		via.sideB.peripheralPort.writePortOutputRegister()
+		via.peripheralPortA.writePortOutputRegister()
+		via.peripheralPortB.writePortOutputRegister()
 	}
 
-	via.sideA.peripheralPort.writeTimerOutput()
-	via.sideB.peripheralPort.writeTimerOutput()
+	via.peripheralPortA.writeTimerOutput()
+	via.peripheralPortB.writeTimerOutput()
 
-	via.sideA.controlLines.setOutput()
-	via.sideB.controlLines.setOutput()
+	via.controlLinesA.setOutput()
+	via.controlLinesB.setOutput()
 
-	via.sideA.controlLines.setInterruptFlagOnControlLinesTransition()
-	via.sideB.controlLines.setInterruptFlagOnControlLinesTransition()
+	via.controlLinesA.setInterruptFlagOnControlLinesTransition()
+	via.controlLinesB.setInterruptFlagOnControlLinesTransition()
 
-	via.sideA.controlLines.storePreviousControlLinesValues()
-	via.sideB.controlLines.storePreviousControlLinesValues()
+	via.controlLinesA.storePreviousControlLinesValues()
+	via.controlLinesB.storePreviousControlLinesValues()
 
 	via.handleIRQLine()
 }

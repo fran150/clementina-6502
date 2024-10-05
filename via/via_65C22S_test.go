@@ -363,7 +363,7 @@ func TestInputFromPortALatching(t *testing.T) {
 
 	// As we never wrote to ORA value should be 0 on all 4 pins. So output should be 0x0? with ? being F
 	// set in the previous steps as input
-	assert.Equal(t, uint8(0x0F), via.sideA.peripheralPort.getConnector().Read())
+	assert.Equal(t, uint8(0x0F), via.peripheralPortA.getConnector().Read())
 
 	// Read IRA
 	value = readFromVia(via, circuit, regORAIRA, &step)
@@ -472,7 +472,7 @@ func TestInputFromPortBLatching(t *testing.T) {
 
 	// As we never wrote to ORB value should be 0 on all 4 pins. So output should be 0x0? with ? being F
 	// set in the previous steps as input
-	assert.Equal(t, uint8(0x0F), via.sideB.peripheralPort.getConnector().Read())
+	assert.Equal(t, uint8(0x0F), via.peripheralPortB.getConnector().Read())
 
 	// Write 0x5A on the output register
 	writeToVia(via, circuit, regORBIRB, 0x5A, &step)
@@ -793,7 +793,7 @@ func TestTimer1OneShotMode(t *testing.T) {
 	// 2 extra cycles will move that to FFFC
 	disableChipAndStepTime(via, circuit, &step)
 	disableChipAndStepTime(via, circuit, &step)
-	assert.Equal(t, uint16(0xFFFC), via.sideB.registers.counter)
+	assert.Equal(t, uint16(0xFFFC), via.registers.counter1)
 
 	// Reenable the chip
 	enableChip(circuit)
@@ -946,7 +946,7 @@ func TestTimer2OneShotMode(t *testing.T) {
 	// 2 extra cycles will move that to FFFC
 	disableChipAndStepTime(via, circuit, &step)
 	disableChipAndStepTime(via, circuit, &step)
-	assert.Equal(t, uint16(0xFFFC), via.sideA.registers.counter)
+	assert.Equal(t, uint16(0xFFFC), via.registers.counter2)
 
 	// Reenable the chip
 	enableChip(circuit)
@@ -987,7 +987,7 @@ func TestTimer2PulseCountingMode(t *testing.T) {
 	disableChipAndStepTime(via, circuit, &step)
 	disableChipAndStepTime(via, circuit, &step)
 
-	assert.Equal(t, uint16(10), via.sideA.registers.counter)
+	assert.Equal(t, uint16(10), via.registers.counter2)
 
 	// According to https://web.archive.org/web/20220708103848if_/http://archive.6502.org/datasheets/synertek_sy6522.pdf
 	// IRQ is set when counter rolls over to FFFF
@@ -996,11 +996,11 @@ func TestTimer2PulseCountingMode(t *testing.T) {
 	for n := 11; n > 0; n-- {
 		circuit.portB.GetBusLine(6).Set(false)
 		disableChipAndStepTime(via, circuit, &step)
-		assert.Equal(t, uint16(n-2), via.sideA.registers.counter)
+		assert.Equal(t, uint16(n-2), via.registers.counter2)
 
 		circuit.portB.GetBusLine(6).Set(true)
 		disableChipAndStepTime(via, circuit, &step)
-		assert.Equal(t, uint16(n-2), via.sideA.registers.counter)
+		assert.Equal(t, uint16(n-2), via.registers.counter2)
 	}
 
 	// After counting to 0 requires extra 0.5 step

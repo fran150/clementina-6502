@@ -6,36 +6,36 @@ package via
 
 func inputOutputRegisterBReadHandler(via *Via65C22S) {
 	// Get the data direction register
-	outputPins := via.sideB.registers.dataDirectionRegister
+	outputPins := via.registers.dataDirectionRegisterB
 	inputPins := ^outputPins
 
 	// MPU reads output register bit in ORB. Pin level has no effect.
-	value := via.sideB.registers.outputRegister & outputPins
+	value := via.registers.outputRegisterB & outputPins
 
-	if !via.sideB.peripheralPort.isLatchingEnabled() {
+	if !via.peripheralPortB.isLatchingEnabled() {
 		// MPU reads input level on PB pin.
-		value |= via.sideB.peripheralPort.getConnector().Read() & inputPins
+		value |= via.peripheralPortB.getConnector().Read() & inputPins
 	} else {
 		// MPU reads IRB bit
-		value |= via.sideB.registers.inputRegister & inputPins
+		value |= via.registers.inputRegisterB & inputPins
 	}
 
-	via.sideB.peripheralPort.clearControlLinesInterruptFlagOnRW()
+	via.peripheralPortB.clearControlLinesInterruptFlagOnRW()
 
 	via.dataBus.Write(value)
 }
 
 func inputOutputRegisterBWriteHandler(via *Via65C22S) {
-	mode := via.sideB.controlLines.getOutputMode()
+	mode := via.controlLinesB.getOutputMode()
 
 	if mode == pcrCB2OutputModeHandshake || mode == pcrCB2OutputModePulse {
-		via.sideB.controlLines.initHandshake()
+		via.controlLinesB.initHandshake()
 	}
 
-	via.sideB.peripheralPort.clearControlLinesInterruptFlagOnRW()
+	via.peripheralPortB.clearControlLinesInterruptFlagOnRW()
 
 	// MPU writes to ORB
-	via.sideB.registers.outputRegister = via.dataBus.Read()
+	via.registers.outputRegisterB = via.dataBus.Read()
 }
 
 /************************************************************************************
@@ -45,34 +45,34 @@ func inputOutputRegisterBWriteHandler(via *Via65C22S) {
 func inputOutputRegisterAReadHandler(via *Via65C22S) {
 	var value uint8
 
-	if !via.sideA.peripheralPort.isLatchingEnabled() {
-		value = via.sideA.peripheralPort.connector.Read()
+	if !via.peripheralPortA.isLatchingEnabled() {
+		value = via.peripheralPortA.connector.Read()
 	} else {
-		value = via.sideA.registers.inputRegister
+		value = via.registers.inputRegisterA
 	}
 
-	mode := via.sideA.controlLines.getOutputMode()
+	mode := via.controlLinesA.getOutputMode()
 
 	if mode == pcrCA2OutputModeHandshake || mode == pcrCA2OutputModePulse {
-		via.sideA.controlLines.initHandshake()
+		via.controlLinesA.initHandshake()
 	}
 
-	via.sideA.peripheralPort.clearControlLinesInterruptFlagOnRW()
+	via.peripheralPortA.clearControlLinesInterruptFlagOnRW()
 
 	via.dataBus.Write(value)
 }
 
 func inputOutputRegisterAWriteHandler(via *Via65C22S) {
-	mode := via.sideA.controlLines.getOutputMode()
+	mode := via.controlLinesA.getOutputMode()
 
 	if mode == pcrCA2OutputModeHandshake || mode == pcrCA2OutputModePulse {
-		via.sideA.controlLines.initHandshake()
+		via.controlLinesA.initHandshake()
 	}
 
-	via.sideA.peripheralPort.clearControlLinesInterruptFlagOnRW()
+	via.peripheralPortA.clearControlLinesInterruptFlagOnRW()
 
 	// MPU writes to ORA
-	via.sideA.registers.outputRegister = via.dataBus.Read()
+	via.registers.outputRegisterA = via.dataBus.Read()
 }
 
 /************************************************************************************
@@ -133,16 +133,16 @@ func writeT1HighOrderCounter(via *Via65C22S) {
 	var high uint16 = uint16(via.dataBus.Read()) << 8
 
 	// Write into high order latch
-	via.sideB.registers.highLatches = via.dataBus.Read()
+	via.registers.highLatches1 = via.dataBus.Read()
 	// Write into high order counter (first clear MSB and then assign)
-	via.sideB.registers.counter = (via.sideB.registers.counter & 0x00FF) | high
+	via.registers.counter1 = (via.registers.counter1 & 0x00FF) | high
 
 	// Transfer low order latch to low order counter
-	via.sideB.registers.counter = (via.sideB.registers.counter & 0xFF00) | uint16(via.sideB.registers.lowLatches)
+	via.registers.counter1 = (via.registers.counter1 & 0xFF00) | uint16(via.registers.lowLatches1)
 
 	// Enable the counter
-	via.sideB.timer.timerEnabled = true
-	via.sideB.timer.outputStatusWhenEnabled = false
+	via.timer1.timerEnabled = true
+	via.timer1.outputStatusWhenEnabled = false
 
 	// Clears interrupt flags
 	via.registers.interrupts.clearInterruptFlagBit(irqT1)
@@ -150,7 +150,7 @@ func writeT1HighOrderCounter(via *Via65C22S) {
 
 func writeT1HighOrderLatch(via *Via65C22S) {
 	// Write into high order latch
-	via.sideB.registers.highLatches = via.dataBus.Read()
+	via.registers.highLatches1 = via.dataBus.Read()
 
 	// Clear interrupt flags
 	via.registers.interrupts.clearInterruptFlagBit(irqT1)
@@ -158,7 +158,7 @@ func writeT1HighOrderLatch(via *Via65C22S) {
 
 // Reads the LSB from the counter
 func readT1LowOrderCounter(via *Via65C22S) {
-	via.dataBus.Write(uint8(via.sideB.registers.counter))
+	via.dataBus.Write(uint8(via.registers.counter1))
 
 	// Clear interrupt flags
 	via.registers.interrupts.clearInterruptFlagBit(irqT1)
@@ -167,7 +167,7 @@ func readT1LowOrderCounter(via *Via65C22S) {
 // Reads the MSB from the counter
 func readT1HighOrderCounter(via *Via65C22S) {
 	// Makes 0 the LSB and moves the MSB to the lower byte
-	value := (via.sideB.registers.counter & 0xFF00) >> 8
+	value := (via.registers.counter1 & 0xFF00) >> 8
 	// Writes the value on the bus
 	via.dataBus.Write(uint8(value))
 }
@@ -181,16 +181,16 @@ func writeT2HighOrderCounter(via *Via65C22S) {
 	var high uint16 = uint16(via.dataBus.Read()) << 8
 
 	// Write into high order latch
-	via.sideA.registers.highLatches = via.dataBus.Read()
+	via.registers.highLatches2 = via.dataBus.Read()
 	// Write into high order counter (first clear MSB and then assign)
-	via.sideA.registers.counter = (via.sideA.registers.counter & 0x00FF) | high
+	via.registers.counter2 = (via.registers.counter2 & 0x00FF) | high
 
 	// Transfer low order latch to low order counter
-	via.sideA.registers.counter = (via.sideA.registers.counter & 0xFF00) | uint16(via.sideA.registers.lowLatches)
+	via.registers.counter2 = (via.registers.counter2 & 0xFF00) | uint16(via.registers.lowLatches2)
 
 	// Enable the counter
-	via.sideA.timer.timerEnabled = true
-	via.sideA.timer.outputStatusWhenEnabled = false
+	via.timer2.timerEnabled = true
+	via.timer2.outputStatusWhenEnabled = false
 
 	// Clears interrupt flags
 	via.registers.interrupts.clearInterruptFlagBit(irqT2)
@@ -198,7 +198,7 @@ func writeT2HighOrderCounter(via *Via65C22S) {
 
 // Reads the LSB from the counter
 func readT2LowOrderCounter(via *Via65C22S) {
-	via.dataBus.Write(uint8(via.sideA.registers.counter))
+	via.dataBus.Write(uint8(via.registers.counter2))
 
 	// Clears interrupt flags
 	via.registers.interrupts.clearInterruptFlagBit(irqT2)
@@ -207,7 +207,7 @@ func readT2LowOrderCounter(via *Via65C22S) {
 // Reads the MSB from the counter
 func readT2HighOrderCounter(via *Via65C22S) {
 	// Makes 0 the LSB and moves the MSB to the lower byte
-	value := (via.sideA.registers.counter & 0xFF00) >> 8
+	value := (via.registers.counter2 & 0xFF00) >> 8
 	// Writes the value on the bus
 	via.dataBus.Write(uint8(value))
 }
