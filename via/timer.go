@@ -7,6 +7,7 @@ type viaTimerConfiguration struct {
 	lowLatches        *uint8
 	highLatches       *uint8
 	counter           *uint16
+	port              *ViaPort
 }
 
 type ViaTimer struct {
@@ -83,4 +84,26 @@ func (t *ViaTimer) isTimerOutputEnabled() bool {
 
 func (t *ViaTimer) getRunningMode() viaTimerRunningMode {
 	return viaTimerRunningMode(*t.auxiliaryControlRegister & uint8(t.configuration.timerRunModeMask))
+}
+
+func (t *ViaTimer) writeTimerOutput() {
+	// From the manual: With the output enabled (ACR7=1) a "write T1C-H operation will cause PB7 to go low.
+	// I'm assuming that setting ACR7=1 with timer not running will cause PB7 to go high
+	if t.isTimerOutputEnabled() {
+		if !t.timerEnabled {
+			t.configuration.port.connector.GetLine(7).Set(true)
+		} else {
+			if t.hasCountedToZero {
+				switch t.getRunningMode() {
+				case txRunModeOneShot:
+					t.configuration.port.connector.GetLine(7).Set(true)
+				case t1RunModeFree:
+					t.outputStatusWhenEnabled = !t.outputStatusWhenEnabled
+					t.configuration.port.connector.GetLine(7).Set(t.outputStatusWhenEnabled)
+				}
+			} else {
+				t.configuration.port.connector.GetLine(7).Set(t.outputStatusWhenEnabled)
+			}
+		}
+	}
 }

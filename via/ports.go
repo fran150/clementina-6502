@@ -14,7 +14,6 @@ type viaPortConfiguration struct {
 	outputRegister        *uint8
 	dataDirectionRegister *uint8
 	controlLines          *viaControlLines
-	timer                 *ViaTimer
 }
 
 type ViaPort struct {
@@ -75,29 +74,6 @@ func (port *ViaPort) writePortOutputRegister() {
 			port.connector.GetLine(i).Set(isByteSet(*port.configuration.outputRegister, i))
 		}
 	}
-}
-
-func (port *ViaPort) writeTimerOutput() {
-	// From the manual: With the output enabled (ACR7=1) a "write T1C-H operation will cause PB7 to go low.
-	// I'm assuming that setting ACR7=1 with timer not running will cause PB7 to go high
-	if port.configuration.timer.isTimerOutputEnabled() {
-		if !port.configuration.timer.timerEnabled {
-			port.connector.GetLine(7).Set(true)
-		} else {
-			if port.configuration.timer.hasCountedToZero {
-				switch port.configuration.timer.getRunningMode() {
-				case txRunModeOneShot:
-					port.connector.GetLine(7).Set(true)
-				case t1RunModeFree:
-					port.configuration.timer.outputStatusWhenEnabled = !port.configuration.timer.outputStatusWhenEnabled
-					port.connector.GetLine(7).Set(port.configuration.timer.outputStatusWhenEnabled)
-				}
-			} else {
-				port.connector.GetLine(7).Set(port.configuration.timer.outputStatusWhenEnabled)
-			}
-		}
-	}
-
 }
 
 func (port *ViaPort) isSetToClearOnRW() bool {

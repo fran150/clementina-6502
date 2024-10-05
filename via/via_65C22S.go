@@ -139,23 +139,6 @@ func CreateVia65C22() *Via65C22S {
 		controlLines:            via.controlLinesB,
 	})
 
-	via.timer1 = createViaTimer(&via, &viaTimerConfiguration{
-		timerInterruptBit: irqT1,
-		timerRunModeMask:  t1ControlRunModeMask,
-		timerOutputMask:   t1ControlOutputMask,
-		lowLatches:        &via.registers.lowLatches1,
-		highLatches:       &via.registers.highLatches1,
-		counter:           &via.registers.counter1,
-	})
-
-	via.timer2 = createViaTimer(&via, &viaTimerConfiguration{
-		timerInterruptBit: irqT2,
-		timerRunModeMask:  t2ControlRunModeMask,
-		lowLatches:        &via.registers.lowLatches2,
-		highLatches:       &via.registers.highLatches2,
-		counter:           &via.registers.counter2,
-	})
-
 	via.peripheralPortA = createViaPort(&via, &viaPortConfiguration{
 		latchingEnabledMasks: acrMaskLatchingEnabledA,
 		clearC2OnRWMask:      pcrMaskCA2ClearOnRW,
@@ -167,7 +150,6 @@ func CreateVia65C22() *Via65C22S {
 		outputRegister:        &via.registers.outputRegisterA,
 		dataDirectionRegister: &via.registers.dataDirectionRegisterA,
 		controlLines:          via.controlLinesA,
-		timer:                 via.timer2,
 	})
 
 	via.peripheralPortB = createViaPort(&via, &viaPortConfiguration{
@@ -181,7 +163,25 @@ func CreateVia65C22() *Via65C22S {
 		outputRegister:        &via.registers.outputRegisterB,
 		dataDirectionRegister: &via.registers.dataDirectionRegisterB,
 		controlLines:          via.controlLinesB,
-		timer:                 via.timer1,
+	})
+
+	via.timer1 = createViaTimer(&via, &viaTimerConfiguration{
+		timerInterruptBit: irqT1,
+		timerRunModeMask:  t1ControlRunModeMask,
+		timerOutputMask:   t1ControlOutputMask,
+		lowLatches:        &via.registers.lowLatches1,
+		highLatches:       &via.registers.highLatches1,
+		counter:           &via.registers.counter1,
+		port:              via.peripheralPortB,
+	})
+
+	via.timer2 = createViaTimer(&via, &viaTimerConfiguration{
+		timerInterruptBit: irqT2,
+		timerRunModeMask:  t2ControlRunModeMask,
+		lowLatches:        &via.registers.lowLatches2,
+		highLatches:       &via.registers.highLatches2,
+		counter:           &via.registers.counter2,
+		port:              via.peripheralPortA,
 	})
 
 	via.populateRegisterReadHandlers()
@@ -349,8 +349,8 @@ func (via *Via65C22S) Tick(t uint64) {
 		via.peripheralPortB.writePortOutputRegister()
 	}
 
-	via.peripheralPortA.writeTimerOutput()
-	via.peripheralPortB.writeTimerOutput()
+	via.timer1.writeTimerOutput()
+	via.timer2.writeTimerOutput()
 
 	via.latchesA.setOutput()
 	via.latchesB.setOutput()
