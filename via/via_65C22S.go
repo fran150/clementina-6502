@@ -38,6 +38,8 @@ type Via65C22S struct {
 
 	peripheralPortA *ViaPort
 	peripheralPortB *ViaPort
+	latchesA        *viaLatches
+	latchesB        *viaLatches
 	timer1          *ViaTimer
 	timer2          *ViaTimer
 	controlLinesA   *viaControlLines
@@ -104,10 +106,6 @@ func CreateVia65C22() *Via65C22S {
 			pcrMaskCA1TransitionType,
 			pcrMaskCA2TransitionType,
 		},
-		outputConfigurationMask: pcrMaskCAOutputMode,
-		handshakeMode:           pcrCA2OutputModeHandshake,
-		pulseMode:               pcrCA2OutputModePulse,
-		fixedMode:               pcrCA2OutputModeFix,
 		controlLinesIRQBits: [2]viaIRQFlags{
 			irqCA1,
 			irqCA2,
@@ -119,14 +117,26 @@ func CreateVia65C22() *Via65C22S {
 			pcrMaskCB1TransitionType,
 			pcrMaskCB2TransitionType,
 		},
-		outputConfigurationMask: pcrMaskCBOutputMode,
-		handshakeMode:           pcrCB2OutputModeHandshake,
-		pulseMode:               pcrCB2OutputModePulse,
-		fixedMode:               pcrCB2OutputModeFix,
 		controlLinesIRQBits: [2]viaIRQFlags{
 			irqCB1,
 			irqCB2,
 		},
+	})
+
+	via.latchesA = createViaLatches(&via, &viaLatchesConfifuration{
+		outputConfigurationMask: pcrMaskCAOutputMode,
+		handshakeMode:           pcrCA2OutputModeHandshake,
+		pulseMode:               pcrCA2OutputModePulse,
+		fixedMode:               pcrCA2OutputModeFix,
+		controlLines:            via.controlLinesA,
+	})
+
+	via.latchesB = createViaLatches(&via, &viaLatchesConfifuration{
+		outputConfigurationMask: pcrMaskCBOutputMode,
+		handshakeMode:           pcrCB2OutputModeHandshake,
+		pulseMode:               pcrCB2OutputModePulse,
+		fixedMode:               pcrCB2OutputModeFix,
+		controlLines:            via.controlLinesB,
 	})
 
 	via.timer1 = createViaTimer(&via, &viaTimerConfiguration{
@@ -342,8 +352,8 @@ func (via *Via65C22S) Tick(t uint64) {
 	via.peripheralPortA.writeTimerOutput()
 	via.peripheralPortB.writeTimerOutput()
 
-	via.controlLinesA.setOutput()
-	via.controlLinesB.setOutput()
+	via.latchesA.setOutput()
+	via.latchesB.setOutput()
 
 	via.controlLinesA.setInterruptFlagOnControlLinesTransition()
 	via.controlLinesB.setInterruptFlagOnControlLinesTransition()

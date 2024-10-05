@@ -26,10 +26,10 @@ func inputOutputRegisterBReadHandler(via *Via65C22S) {
 }
 
 func inputOutputRegisterBWriteHandler(via *Via65C22S) {
-	mode := via.controlLinesB.getOutputMode()
+	mode := via.latchesB.getOutputMode()
 
 	if mode == pcrCB2OutputModeHandshake || mode == pcrCB2OutputModePulse {
-		via.controlLinesB.initHandshake()
+		via.latchesB.initHandshake()
 	}
 
 	via.peripheralPortB.clearControlLinesInterruptFlagOnRW()
@@ -51,10 +51,10 @@ func inputOutputRegisterAReadHandler(via *Via65C22S) {
 		value = via.registers.inputRegisterA
 	}
 
-	mode := via.controlLinesA.getOutputMode()
+	mode := via.latchesA.getOutputMode()
 
 	if mode == pcrCA2OutputModeHandshake || mode == pcrCA2OutputModePulse {
-		via.controlLinesA.initHandshake()
+		via.latchesA.initHandshake()
 	}
 
 	via.peripheralPortA.clearControlLinesInterruptFlagOnRW()
@@ -63,10 +63,10 @@ func inputOutputRegisterAReadHandler(via *Via65C22S) {
 }
 
 func inputOutputRegisterAWriteHandler(via *Via65C22S) {
-	mode := via.controlLinesA.getOutputMode()
+	mode := via.latchesA.getOutputMode()
 
 	if mode == pcrCA2OutputModeHandshake || mode == pcrCA2OutputModePulse {
-		via.controlLinesA.initHandshake()
+		via.latchesA.initHandshake()
 	}
 
 	via.peripheralPortA.clearControlLinesInterruptFlagOnRW()
