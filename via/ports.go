@@ -7,7 +7,6 @@ import (
 )
 
 type viaPortConfiguration struct {
-	latchingEnabledMasks  viaACRLatchingMasks
 	clearC2OnRWMask       viaPCRInterruptClearMasks
 	controlLinesIRQBits   [2]viaIRQFlags
 	inputRegister         *uint8
@@ -42,25 +41,6 @@ func (port *ViaPort) getConnector() *buses.BusConnector[uint8] {
 	return port.connector
 }
 
-func (port *ViaPort) isLatchingEnabled() bool {
-	return *port.auxiliaryControlRegister&uint8(port.configuration.latchingEnabledMasks) > 0x00
-}
-
-func (port *ViaPort) latchPort() {
-	// Read pin levels on port
-	value := port.connector.Read()
-
-	// Read pins are all the ones with 0 in the DDR
-	readPins := ^*port.configuration.dataDirectionRegister
-
-	if port.isLatchingEnabled() {
-		// If latching is enabled value is the one at the time of transition
-		if port.configuration.controlLines.checkControlLineTransitioned(0) {
-			*port.configuration.inputRegister = value & readPins
-		}
-	}
-}
-
 func isByteSet(value uint8, bitNumber uint8) bool {
 	mask := uint8(math.Pow(2, float64(bitNumber)))
 
@@ -86,4 +66,14 @@ func (port *ViaPort) clearControlLinesInterruptFlagOnRW() {
 	if port.isSetToClearOnRW() {
 		port.interrupts.clearInterruptFlagBit(port.configuration.controlLinesIRQBits[1])
 	}
+}
+
+func (port *ViaPort) readPins() uint8 {
+	// Read pin levels on port
+	value := port.connector.Read()
+
+	// Read pins are all the ones with 0 in the DDR
+	readPins := ^*port.configuration.dataDirectionRegister
+
+	return value & readPins
 }

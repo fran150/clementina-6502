@@ -1,11 +1,15 @@
 package via
 
 type viaLatchesConfifuration struct {
+	latchingEnabledMasks    viaACRLatchingMasks
 	outputConfigurationMask viaPCROutputMasks
 	handshakeMode           viaPCROutputModes
 	pulseMode               viaPCROutputModes
 	fixedMode               viaPCROutputModes
-	controlLines            *viaControlLines
+
+	inputRegister *uint8
+	port          *ViaPort
+	controlLines  *viaControlLines
 }
 
 type viaLatches struct {
@@ -15,6 +19,7 @@ type viaLatches struct {
 	configuration *viaLatchesConfifuration
 
 	peripheralControlRegister *uint8
+	auxiliaryControlRegister  *uint8
 }
 
 func createViaLatches(via *Via65C22S, configuration *viaLatchesConfifuration) *viaLatches {
@@ -25,6 +30,20 @@ func createViaLatches(via *Via65C22S, configuration *viaLatchesConfifuration) *v
 		configuration: configuration,
 
 		peripheralControlRegister: &via.registers.peripheralControl,
+		auxiliaryControlRegister:  &via.registers.auxiliaryControl,
+	}
+}
+
+func (l *viaLatches) isLatchingEnabled() bool {
+	return *l.auxiliaryControlRegister&uint8(l.configuration.latchingEnabledMasks) > 0x00
+}
+
+func (l *viaLatches) latchPort() {
+	if l.isLatchingEnabled() {
+		// If latching is enabled value is the one at the time of transition
+		if l.configuration.controlLines.checkControlLineTransitioned(0) {
+			*l.configuration.inputRegister = l.configuration.port.readPins()
+		}
 	}
 }
 

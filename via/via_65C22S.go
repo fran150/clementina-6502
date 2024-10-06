@@ -123,25 +123,8 @@ func CreateVia65C22() *Via65C22S {
 		},
 	})
 
-	via.latchesA = createViaLatches(&via, &viaLatchesConfifuration{
-		outputConfigurationMask: pcrMaskCAOutputMode,
-		handshakeMode:           pcrCA2OutputModeHandshake,
-		pulseMode:               pcrCA2OutputModePulse,
-		fixedMode:               pcrCA2OutputModeFix,
-		controlLines:            via.controlLinesA,
-	})
-
-	via.latchesB = createViaLatches(&via, &viaLatchesConfifuration{
-		outputConfigurationMask: pcrMaskCBOutputMode,
-		handshakeMode:           pcrCB2OutputModeHandshake,
-		pulseMode:               pcrCB2OutputModePulse,
-		fixedMode:               pcrCB2OutputModeFix,
-		controlLines:            via.controlLinesB,
-	})
-
 	via.peripheralPortA = createViaPort(&via, &viaPortConfiguration{
-		latchingEnabledMasks: acrMaskLatchingEnabledA,
-		clearC2OnRWMask:      pcrMaskCA2ClearOnRW,
+		clearC2OnRWMask: pcrMaskCA2ClearOnRW,
 		controlLinesIRQBits: [2]viaIRQFlags{
 			irqCA1,
 			irqCA2,
@@ -153,8 +136,7 @@ func CreateVia65C22() *Via65C22S {
 	})
 
 	via.peripheralPortB = createViaPort(&via, &viaPortConfiguration{
-		latchingEnabledMasks: acrMaskLatchingEnabledB,
-		clearC2OnRWMask:      pcrMaskCB2ClearOnRW,
+		clearC2OnRWMask: pcrMaskCB2ClearOnRW,
 		controlLinesIRQBits: [2]viaIRQFlags{
 			irqCB1,
 			irqCB2,
@@ -163,6 +145,28 @@ func CreateVia65C22() *Via65C22S {
 		outputRegister:        &via.registers.outputRegisterB,
 		dataDirectionRegister: &via.registers.dataDirectionRegisterB,
 		controlLines:          via.controlLinesB,
+	})
+
+	via.latchesA = createViaLatches(&via, &viaLatchesConfifuration{
+		latchingEnabledMasks:    acrMaskLatchingEnabledA,
+		outputConfigurationMask: pcrMaskCAOutputMode,
+		handshakeMode:           pcrCA2OutputModeHandshake,
+		pulseMode:               pcrCA2OutputModePulse,
+		fixedMode:               pcrCA2OutputModeFix,
+		inputRegister:           &via.registers.inputRegisterA,
+		port:                    via.peripheralPortA,
+		controlLines:            via.controlLinesA,
+	})
+
+	via.latchesB = createViaLatches(&via, &viaLatchesConfifuration{
+		latchingEnabledMasks:    acrMaskLatchingEnabledB,
+		outputConfigurationMask: pcrMaskCBOutputMode,
+		handshakeMode:           pcrCB2OutputModeHandshake,
+		pulseMode:               pcrCB2OutputModePulse,
+		fixedMode:               pcrCB2OutputModeFix,
+		inputRegister:           &via.registers.inputRegisterB,
+		port:                    via.peripheralPortB,
+		controlLines:            via.controlLinesB,
 	})
 
 	via.timer1 = createViaTimer(&via, &viaTimerConfiguration{
@@ -323,8 +327,8 @@ func (via *Via65C22S) Tick(t uint64) {
 	// The ORs are also never transparent Whereas an input bus which has input latching turned off can change with its
 	// input without the Enable pin even being cycled, outputting to an OR will not take effect until the Enable pin has made
 	// a transition to low or high.
-	via.peripheralPortA.latchPort()
-	via.peripheralPortB.latchPort()
+	via.latchesA.latchPort()
+	via.latchesB.latchPort()
 
 	pbLine6Status := via.peripheralPortB.connector.GetLine(6).Status()
 	via.timer1.tick(true)
