@@ -1009,3 +1009,111 @@ func TestTimer2PulseCountingMode(t *testing.T) {
 	disableChipAndStepTime(via, circuit, &step)
 	assert.Equal(t, false, circuit.irq.Status())
 }
+
+/****************************************************************************************************************
+* Shift register tests
+****************************************************************************************************************/
+
+func executeShiftingCycle(t *testing.T, via *Via65C22S, circuit *testCircuit, size uint8, bit bool, changeStep uint8, step *uint64) {
+	// This will mark the start of shifting, CB1 is dropped low.
+	disableChipAndStepTime(via, circuit, step)
+	assert.Equal(t, true, circuit.irq.Status())
+	assert.Equal(t, false, circuit.cb1.Status())
+
+	for i := range size - 1 {
+		if i == changeStep {
+			// Change CB2 in the middle of the period to shift.
+			circuit.cb2.Set(bit)
+		}
+
+		disableChipAndStepTime(via, circuit, step)
+		assert.Equal(t, true, circuit.irq.Status())
+		assert.Equal(t, false, circuit.cb1.Status())
+	}
+}
+
+func executeNonShiftingCycle(t *testing.T, via *Via65C22S, circuit *testCircuit, size uint8, step *uint64) {
+	for range size {
+		disableChipAndStepTime(via, circuit, step)
+		assert.Equal(t, true, circuit.irq.Status())
+		assert.Equal(t, true, circuit.cb1.Status())
+	}
+}
+
+func TestShiftInAtT2Rate(t *testing.T) {
+	var step uint64
+
+	via := CreateVia65C22()
+	circuit := createTestCircuit()
+
+	circuit.wire(via)
+
+	// Set ACR to 0x04, for this test is important bit 4, 3 and 2 = 001 (Shift under T2 control)
+	writeToVia(via, circuit, regACR, 0x04, &step)
+
+	// Enable interrupts for SR completion (Bit 2)
+	writeToVia(via, circuit, regIER, 0x84, &step)
+
+	// Trigger shifting by writing 0 to SR
+	writeToVia(via, circuit, regSR, 0x00, &step)
+
+	// Write T2 low latch to set shifting every 5 cycles
+	writeToVia(via, circuit, regT2CL, 0x05, &step)
+
+	// IRQ is not triggered and CB1 is raised high for 1.5 cycles (see WDC data sheet for 65C22S page 22)
+	assert.Equal(t, true, circuit.irq.Status())
+	assert.Equal(t, true, circuit.cb1.Status())
+	// SR is 0
+	assert.Equal(t, uint8(0x00), via.registers.shiftRegister)
+
+	// Step will just decrement timer, no expected change
+	disableChipAndStepTime(via, circuit, &step)
+	assert.Equal(t, true, circuit.irq.Status())
+	assert.Equal(t, true, circuit.cb1.Status())
+
+	// Step will just decrement timer, no expected change
+	disableChipAndStepTime(via, circuit, &step)
+	assert.Equal(t, true, circuit.irq.Status())
+	assert.Equal(t, true, circuit.cb1.Status())
+
+	// Execute shifting cycle, a total of N+2 cycles will be needed
+	// to complete the shifting. CB1 will be down until cycle completion
+	executeShiftingCycle(t, via, circuit, 7, true, 3, &step)
+	assert.Equal(t, uint8(0x01), via.registers.shiftRegister)
+	executeNonShiftingCycle(t, via, circuit, 7, &step)
+
+	// Shift a 0 on second cycle
+	executeShiftingCycle(t, via, circuit, 7, false, 1, &step)
+	assert.Equal(t, uint8(0x02), via.registers.shiftRegister)
+	executeNonShiftingCycle(t, via, circuit, 7, &step)
+
+	// Shift a 1 on last cycle
+	executeShiftingCycle(t, via, circuit, 7, true, 5, &step)
+	assert.Equal(t, uint8(0x05), via.registers.shiftRegister)
+	executeNonShiftingCycle(t, via, circuit, 7, &step)
+
+	// Shift a 1 on second cycle
+	executeShiftingCycle(t, via, circuit, 7, false, 0, &step)
+	assert.Equal(t, uint8(0x0a), via.registers.shiftRegister)
+	executeNonShiftingCycle(t, via, circuit, 7, &step)
+
+	// Shift 3 bits in one in a row
+	for range 3 {
+		// Shift a 1 on second cycle
+		executeShiftingCycle(t, via, circuit, 7, true, 0, &step)
+		executeNonShiftingCycle(t, via, circuit, 7, &step)
+	}
+
+	assert.Equal(t, uint8(0x57), via.registers.shiftRegister)
+
+	// Shift 1 more bit but stop 1 cycle short of shift completion
+	executeShiftingCycle(t, via, circuit, 6, true, 0, &step)
+
+	disableChipAndStepTime(via, circuit, &step)
+
+	// 8 bits were shifted, IRQ is triggered shifting stops.
+	assert.Equal(t, uint8(0xaf), via.registers.shiftRegister)
+	assert.Equal(t, false, circuit.irq.Status())
+	assert.Equal(t, true, circuit.cb1.Status())
+
+}

@@ -14,6 +14,7 @@ type ViaTimer struct {
 	timerEnabled            bool
 	outputStatusWhenEnabled bool
 	hasCountedToZero        bool
+	hasCountedToZeroLow     bool
 
 	configuration *viaTimerConfiguration
 
@@ -42,6 +43,7 @@ func createViaTimer(via *Via65C22S, configuration *viaTimerConfiguration) *ViaTi
 		timerEnabled:            false,
 		outputStatusWhenEnabled: false,
 		hasCountedToZero:        false,
+		hasCountedToZeroLow:     false,
 
 		configuration: configuration,
 
@@ -57,6 +59,20 @@ func (t *ViaTimer) tick(pbLine6Status bool) {
 		if !pbLine6Status {
 			*t.configuration.counter -= 1
 		}
+	}
+
+	// Counting on the low part of the counter is used mainly by the shift register.
+	// https://web.archive.org/web/20160108173129if_/http://archive.6502.org/datasheets/mos_6522_preliminary_nov_1977.pdf is not clear
+	// on expected timing of CB1 pulses.
+	// https://swh.princeton.edu/~mae412/TEXT/NTRAK2002/20.pdf points to N+2 which seems aligned with behaviour for timers
+	// although is not clear on how much time passes between SR R/W and the initial drop of CB1 (first shift)
+	// According to WDC W65C22S datasheet (page 22) it seems to drop 1.5 cycles after the SR set.
+	// I will use an assumption of 1.5 cycles for preparation and N+2 pulse size.
+	// TODO: Might need to validate in real hardware
+	if (*t.configuration.counter & 0x00FF) == 0xFE {
+		t.hasCountedToZeroLow = true
+	} else {
+		t.hasCountedToZeroLow = false
 	}
 
 	if *t.configuration.counter == 0xFFFE {

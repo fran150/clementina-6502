@@ -44,6 +44,7 @@ type Via65C22S struct {
 	timer2          *ViaTimer
 	controlLinesA   *viaControlLines
 	controlLinesB   *viaControlLines
+	shifter         *viaShifter
 
 	registerReadHandlers  []func(*Via65C22S)
 	registerWriteHandlers []func(*Via65C22S)
@@ -188,6 +189,11 @@ func CreateVia65C22() *Via65C22S {
 		port:              via.peripheralPortA,
 	})
 
+	via.shifter = createViaShifter(&via, &viaShifterConfiguration{
+		timer:        via.timer2,
+		controlLines: via.controlLinesB,
+	})
+
 	via.populateRegisterReadHandlers()
 	via.populateRegisterWriteHandlers()
 
@@ -210,7 +216,7 @@ func (via *Via65C22S) populateRegisterReadHandlers() {
 		readFromRecord(&via.registers.highLatches1),                // 0x07
 		readT2LowOrderCounter,                                      // 0x08
 		readT2HighOrderCounter,                                     // 0x09
-		dummyHandler,                                               // 0x0A
+		readShiftRegister,                                          // 0x0A
 		readFromRecord((*uint8)(&via.registers.auxiliaryControl)),  // 0x0B
 		readFromRecord((*uint8)(&via.registers.peripheralControl)), // 0x0C
 		readnterruptFlagHandler,                                    // 0x0D
@@ -231,7 +237,7 @@ func (via *Via65C22S) populateRegisterWriteHandlers() {
 		writeT1HighOrderLatch,                                     // 0x07
 		writeToRecord(&via.registers.lowLatches2),                 // 0x08
 		writeT2HighOrderCounter,                                   // 0x09
-		dummyHandler,                                              // 0x0A
+		writeShiftRegister,                                        // 0x0A
 		writeToRecord((*uint8)(&via.registers.auxiliaryControl)),  // 0x0B
 		writeToRecord((*uint8)(&via.registers.peripheralControl)), // 0x0C
 		writeInterruptFlagHandler,                                 // 0x0D
@@ -334,6 +340,8 @@ func (via *Via65C22S) Tick(t uint64) {
 	via.timer1.tick(true)
 	via.timer2.tick(pbLine6Status)
 
+	via.shifter.tick()
+
 	if via.chipSelect1.Enabled() && via.chipSelect2.Enabled() {
 		selectedRegisterValue := via.getRegisterSelectValue()
 
@@ -355,6 +363,8 @@ func (via *Via65C22S) Tick(t uint64) {
 
 	via.timer1.writeTimerOutput()
 	via.timer2.writeTimerOutput()
+
+	via.shifter.writeShifterOutput()
 
 	via.latchesA.setOutput()
 	via.latchesB.setOutput()

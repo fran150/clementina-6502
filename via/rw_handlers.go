@@ -213,6 +213,24 @@ func readT2HighOrderCounter(via *Via65C22S) {
 }
 
 /************************************************************************************
+* Shift register handling
+*************************************************************************************/
+
+// Reads the LSB from the counter
+func readShiftRegister(via *Via65C22S) {
+	via.dataBus.Write(via.registers.shiftRegister)
+	via.shifter.initCounter()
+	via.shifter.shifterEnabled = true
+}
+
+// Reads the MSB from the counter
+func writeShiftRegister(via *Via65C22S) {
+	via.registers.shiftRegister = via.dataBus.Read()
+	via.shifter.initCounter()
+	via.shifter.shifterEnabled = true
+}
+
+/************************************************************************************
 * Temporary
 *************************************************************************************/
 
