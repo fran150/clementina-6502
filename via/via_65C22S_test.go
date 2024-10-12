@@ -1014,29 +1014,54 @@ func TestTimer2PulseCountingMode(t *testing.T) {
 * Shift register tests
 ****************************************************************************************************************/
 
-func executeShiftingCycle(t *testing.T, via *Via65C22S, circuit *testCircuit, size uint8, bit bool, changeStep uint8, step *uint64) {
-	// This will mark the start of shifting, CB1 is dropped low.
-	disableChipAndStepTime(via, circuit, step)
-	assert.Equal(t, true, circuit.irq.Status())
-	assert.Equal(t, false, circuit.cb1.Status())
+type shiftingTestConfiguration struct {
+	via              *Via65C22S
+	circuit          *testCircuit
+	automatic        bool  // Shifting is manual or automatic
+	numberOfCycles   uint8 // Total of shifing cycles to execute
+	bitValue         bool  // Value to shift in (this will be set in CB2)
+	dataChangeCyle   uint8 // Cycle count when CB2 will be switched to the value to shift in
+	manualShiftStart uint8 // Cycle when CB1 will be manually drop to start shifting in (automatic must be false)
+	manualShiftStop  uint8 // Cycle when CB1 will be manually raised to stop shifting in (automatic must be false)
+}
 
-	for i := range size - 1 {
-		if i == changeStep {
-			// Change CB2 in the middle of the period to shift.
-			circuit.cb2.Set(bit)
+func executeShiftingCycle(t *testing.T, config *shiftingTestConfiguration, step *uint64) {
+	for i := range config.numberOfCycles {
+		if !config.automatic {
+			if i == config.manualShiftStart {
+				config.circuit.cb1.Set(false)
+			}
+
+			if i == config.manualShiftStop {
+				config.circuit.cb1.Set(true)
+			}
 		}
 
-		disableChipAndStepTime(via, circuit, step)
-		assert.Equal(t, true, circuit.irq.Status())
-		assert.Equal(t, false, circuit.cb1.Status())
+		if i == config.dataChangeCyle {
+			config.circuit.cb2.Set(config.bitValue)
+		}
+
+		disableChipAndStepTime(config.via, config.circuit, step)
+		assert.Equal(t, true, config.circuit.irq.Status())
+
+		if config.automatic {
+			assert.Equal(t, false, config.circuit.cb1.Status())
+		}
 	}
 }
 
-func executeNonShiftingCycle(t *testing.T, via *Via65C22S, circuit *testCircuit, size uint8, step *uint64) {
-	for range size {
-		disableChipAndStepTime(via, circuit, step)
-		assert.Equal(t, true, circuit.irq.Status())
-		assert.Equal(t, true, circuit.cb1.Status())
+func executeNonShiftingCycle(t *testing.T, config *shiftingTestConfiguration, step *uint64) {
+	if !config.automatic {
+		config.circuit.cb1.Set(true)
+	}
+
+	for range config.numberOfCycles {
+		disableChipAndStepTime(config.via, config.circuit, step)
+		assert.Equal(t, true, config.circuit.irq.Status())
+
+		if config.automatic {
+			assert.Equal(t, true, config.circuit.cb1.Status())
+		}
 	}
 }
 
@@ -1076,44 +1101,230 @@ func TestShiftInAtT2Rate(t *testing.T) {
 	assert.Equal(t, true, circuit.irq.Status())
 	assert.Equal(t, true, circuit.cb1.Status())
 
+	config := shiftingTestConfiguration{
+		via:            via,
+		circuit:        circuit,
+		automatic:      true,
+		numberOfCycles: 7,
+		bitValue:       true,
+		dataChangeCyle: 3,
+	}
+
 	// Execute shifting cycle, a total of N+2 cycles will be needed
 	// to complete the shifting. CB1 will be down until cycle completion
-	executeShiftingCycle(t, via, circuit, 7, true, 3, &step)
+	executeShiftingCycle(t, &config, &step)
 	assert.Equal(t, uint8(0x01), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, via, circuit, 7, &step)
+	executeNonShiftingCycle(t, &config, &step)
 
 	// Shift a 0 on second cycle
-	executeShiftingCycle(t, via, circuit, 7, false, 1, &step)
+	config.dataChangeCyle = 1
+	config.bitValue = false
+	executeShiftingCycle(t, &config, &step)
 	assert.Equal(t, uint8(0x02), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, via, circuit, 7, &step)
+	executeNonShiftingCycle(t, &config, &step)
 
 	// Shift a 1 on last cycle
-	executeShiftingCycle(t, via, circuit, 7, true, 5, &step)
+	config.dataChangeCyle = 6
+	config.bitValue = true
+	executeShiftingCycle(t, &config, &step)
 	assert.Equal(t, uint8(0x05), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, via, circuit, 7, &step)
+	executeNonShiftingCycle(t, &config, &step)
 
-	// Shift a 1 on second cycle
-	executeShiftingCycle(t, via, circuit, 7, false, 0, &step)
+	// Shift a 0 on first cycle
+	config.dataChangeCyle = 0
+	config.bitValue = false
+	executeShiftingCycle(t, &config, &step)
 	assert.Equal(t, uint8(0x0a), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, via, circuit, 7, &step)
+	executeNonShiftingCycle(t, &config, &step)
 
 	// Shift 3 bits in one in a row
+	config.dataChangeCyle = 0
+	config.bitValue = true
 	for range 3 {
-		// Shift a 1 on second cycle
-		executeShiftingCycle(t, via, circuit, 7, true, 0, &step)
-		executeNonShiftingCycle(t, via, circuit, 7, &step)
+		executeShiftingCycle(t, &config, &step)
+		executeNonShiftingCycle(t, &config, &step)
 	}
 
 	assert.Equal(t, uint8(0x57), via.registers.shiftRegister)
 
 	// Shift 1 more bit but stop 1 cycle short of shift completion
-	executeShiftingCycle(t, via, circuit, 6, true, 0, &step)
+	config.dataChangeCyle = 0
+	config.bitValue = true
+	config.numberOfCycles = 6
+	executeShiftingCycle(t, &config, &step)
 
+	// Execute last shift for a full byte shifted
 	disableChipAndStepTime(via, circuit, &step)
 
 	// 8 bits were shifted, IRQ is triggered shifting stops.
 	assert.Equal(t, uint8(0xaf), via.registers.shiftRegister)
 	assert.Equal(t, false, circuit.irq.Status())
 	assert.Equal(t, true, circuit.cb1.Status())
+}
 
+func TestShiftInAtClockRate(t *testing.T) {
+	var step uint64
+
+	via := CreateVia65C22()
+	circuit := createTestCircuit()
+
+	circuit.wire(via)
+
+	// Set ACR to 0x04, for this test is important bit 4, 3 and 2 = 010 (Shift under clock control)
+	writeToVia(via, circuit, regACR, 0x08, &step)
+
+	// Enable interrupts for SR completion (Bit 2)
+	writeToVia(via, circuit, regIER, 0x84, &step)
+
+	// Trigger shifting by writing 0 to SR
+	writeToVia(via, circuit, regSR, 0x00, &step)
+
+	// IRQ is not triggered and CB1 is raised high for 1.5 cycles (see WDC data sheet for 65C22S page 22)
+	// SR is 0
+
+	assert.Equal(t, true, circuit.irq.Status())
+	assert.Equal(t, true, circuit.cb1.Status())
+	assert.Equal(t, uint8(0x00), via.registers.shiftRegister)
+
+	config := shiftingTestConfiguration{
+		via:            via,
+		circuit:        circuit,
+		automatic:      true,
+		numberOfCycles: 1,
+		bitValue:       true,
+		dataChangeCyle: 0,
+	}
+
+	// Shift a 1
+	executeShiftingCycle(t, &config, &step)
+	assert.Equal(t, uint8(0x01), via.registers.shiftRegister)
+	executeNonShiftingCycle(t, &config, &step)
+
+	// Shift a 0
+	config.bitValue = false
+	executeShiftingCycle(t, &config, &step)
+	assert.Equal(t, uint8(0x02), via.registers.shiftRegister)
+	executeNonShiftingCycle(t, &config, &step)
+
+	// Shift a 1
+	config.bitValue = true
+	executeShiftingCycle(t, &config, &step)
+	assert.Equal(t, uint8(0x05), via.registers.shiftRegister)
+	executeNonShiftingCycle(t, &config, &step)
+
+	// Shift a 0
+	config.bitValue = false
+	executeShiftingCycle(t, &config, &step)
+	assert.Equal(t, uint8(0x0a), via.registers.shiftRegister)
+	executeNonShiftingCycle(t, &config, &step)
+
+	// Shift 3 bits in one in a row
+	config.bitValue = true
+	for range 3 {
+		executeShiftingCycle(t, &config, &step)
+		executeNonShiftingCycle(t, &config, &step)
+	}
+
+	assert.Equal(t, uint8(0x57), via.registers.shiftRegister)
+
+	// Last shifting cycle
+	disableChipAndStepTime(via, circuit, &step)
+
+	// 8 bits were shifted, IRQ is triggered shifting stops.
+	assert.Equal(t, uint8(0xaf), via.registers.shiftRegister)
+	assert.Equal(t, false, circuit.irq.Status())
+	assert.Equal(t, true, circuit.cb1.Status())
+}
+
+func TestShiftInAtExternalRate(t *testing.T) {
+	var step uint64
+
+	via := CreateVia65C22()
+	circuit := createTestCircuit()
+
+	circuit.wire(via)
+
+	// Set ACR to 0x0C, for this test is important bit 4, 3 and 2 = 011 (Shift under clock control)
+	writeToVia(via, circuit, regACR, 0x0C, &step)
+
+	// Shifting is controlled externally when CB1 is dropped
+	// Let's make it high for now
+	circuit.cb1.Set(true)
+
+	// Enable interrupts for SR completion (Bit 2)
+	writeToVia(via, circuit, regIER, 0x84, &step)
+
+	// Trigger shifting by writing 0 to SR
+	writeToVia(via, circuit, regSR, 0x00, &step)
+
+	// IRQ is not triggered, SR is 0
+	assert.Equal(t, true, circuit.irq.Status())
+	assert.Equal(t, uint8(0x00), via.registers.shiftRegister)
+
+	config := shiftingTestConfiguration{
+		via:              via,
+		circuit:          circuit,
+		automatic:        false,
+		numberOfCycles:   10,
+		bitValue:         true,
+		dataChangeCyle:   6,
+		manualShiftStart: 5,
+		manualShiftStop:  7,
+	}
+
+	// Shift a 1
+	executeShiftingCycle(t, &config, &step)
+	assert.Equal(t, uint8(0x01), via.registers.shiftRegister)
+	executeNonShiftingCycle(t, &config, &step)
+
+	// Shift a 0, but because data in CB2 changes too late
+	circuit.cb2.Set(false)
+	config.bitValue = true
+	config.dataChangeCyle = 9
+	executeShiftingCycle(t, &config, &step)
+	assert.Equal(t, uint8(0x02), via.registers.shiftRegister)
+	executeNonShiftingCycle(t, &config, &step)
+
+	// Shift a 1
+	config.bitValue = true
+	config.dataChangeCyle = 7
+	executeShiftingCycle(t, &config, &step)
+	assert.Equal(t, uint8(0x05), via.registers.shiftRegister)
+	executeNonShiftingCycle(t, &config, &step)
+
+	// Shift a 0, data changing early
+	config.bitValue = false
+	config.dataChangeCyle = 1
+	executeShiftingCycle(t, &config, &step)
+	assert.Equal(t, uint8(0x0a), via.registers.shiftRegister)
+	executeNonShiftingCycle(t, &config, &step)
+
+	// Shift 3 bits in one in a row
+	// Shift a 1
+	config.bitValue = true
+	config.dataChangeCyle = 6
+	for range 3 {
+		executeShiftingCycle(t, &config, &step)
+		executeNonShiftingCycle(t, &config, &step)
+	}
+
+	assert.Equal(t, uint8(0x57), via.registers.shiftRegister)
+
+	// Shift 1 more bit but stop 1 cycle short of shift completion
+	config.dataChangeCyle = 0
+	config.bitValue = true
+	config.numberOfCycles = 6
+	config.manualShiftStart = 0
+	config.manualShiftStop = 10
+	executeShiftingCycle(t, &config, &step)
+
+	// Raise CB1 and execute 1 step to complete shifting last bit
+	// of a full byte
+	circuit.cb1.Set(true)
+	disableChipAndStepTime(via, circuit, &step)
+
+	// 8 bits were shifted, IRQ is triggered shifting stops.
+	assert.Equal(t, uint8(0xaf), via.registers.shiftRegister)
+	assert.Equal(t, false, circuit.irq.Status())
+	assert.Equal(t, true, circuit.cb1.Status())
 }

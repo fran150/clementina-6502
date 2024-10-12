@@ -65,6 +65,11 @@ func (s *viaShifter) isUnderClockControl() bool {
 	return (mode == viaShiftInClock || mode == viaShiftOutClock)
 }
 
+func (s *viaShifter) isUnderExternalControl() bool {
+	mode := s.getMode()
+	return (mode == viaShiftInExternal || mode == viaShiftOutExternal)
+}
+
 func (s *viaShifter) tick() {
 	if s.shiftingIn {
 		if !s.bitShifted {
@@ -84,7 +89,7 @@ func (s *viaShifter) tick() {
 func (s *viaShifter) writeShifterOutput() {
 	mode := s.getMode()
 
-	if s.shifterEnabled {
+	if s.shifterEnabled && !s.isUnderExternalControl() {
 		if s.shiftingIn {
 			s.configuration.controlLines.lines[0].SetEnable(false)
 		} else {
@@ -109,7 +114,32 @@ func (s *viaShifter) writeShifterOutput() {
 				}
 			}
 		case s.isUnderClockControl():
+			s.bitShifted = false
 			s.shiftingIn = !s.shiftingIn
+
+			if s.bitCount == 8 {
+				s.shifterEnabled = false
+				s.interrupts.setInterruptFlagBit(irqSR)
+				s.configuration.controlLines.lines[0].SetEnable(true)
+			}
+
+		case s.isUnderExternalControl():
+			// If we were not shifting and the line drops it means that
+			// it transitioned to shifting
+			if !s.shiftingIn && !s.configuration.controlLines.lines[0].Enabled() {
+				s.bitShifted = false
+				s.shiftingIn = true
+			}
+
+			// If we were shifting and control line is not enable we should stop
+			if s.shiftingIn && s.configuration.controlLines.lines[0].Enabled() {
+				s.shiftingIn = false
+
+				if s.bitCount == 8 {
+					s.shifterEnabled = false
+					s.interrupts.setInterruptFlagBit(irqSR)
+				}
+			}
 		}
 	}
 }
