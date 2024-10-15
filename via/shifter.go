@@ -1,5 +1,12 @@
 package via
 
+type viaShiftDirection uint8
+
+const (
+	viaShiftIn  viaShiftDirection = 0x00
+	viaShiftOut viaShiftDirection = 0x10
+)
+
 type viaShiftRegisterModes uint8
 
 const (
@@ -22,7 +29,8 @@ type viaShifter struct {
 	shifterEnabled bool
 	bitCount       uint8
 	bitShifted     bool
-	shiftingIn     bool
+	shiftingPhase  bool
+	outputBit      bool
 
 	configuration *viaShifterConfiguration
 
@@ -36,7 +44,7 @@ func createViaShifter(via *Via65C22S, configuration *viaShifterConfiguration) *v
 		shifterEnabled: false,
 		bitCount:       0,
 		bitShifted:     false,
-		shiftingIn:     false,
+		shiftingPhase:  false,
 
 		configuration: configuration,
 
@@ -46,10 +54,9 @@ func createViaShifter(via *Via65C22S, configuration *viaShifterConfiguration) *v
 	}
 }
 
-/*
-func (s *viaShifter) isInputMode() bool {
-	return (*s.auxiliaryControlRegister & 0x10) == 0x10
-}*/
+func (s *viaShifter) getDirection() viaShiftDirection {
+	return viaShiftDirection(*s.auxiliaryControlRegister & 0x10)
+}
 
 func (s *viaShifter) getMode() viaShiftRegisterModes {
 	return viaShiftRegisterModes(*s.auxiliaryControlRegister & 0x1C)
@@ -71,17 +78,34 @@ func (s *viaShifter) isUnderExternalControl() bool {
 }
 
 func (s *viaShifter) tick() {
-	if s.shiftingIn {
-		if !s.bitShifted {
-			*s.shiftRegister = *s.shiftRegister << 1
-			s.bitShifted = true
-			s.bitCount++
-		}
+	if s.shiftingPhase {
+		if s.getDirection() == viaShiftIn {
+			if !s.bitShifted {
+				*s.shiftRegister = *s.shiftRegister << 1
+				s.bitShifted = true
+				s.bitCount++
+			}
 
-		if s.configuration.controlLines.lines[1].Enabled() {
-			*s.shiftRegister |= 0x01
+			if s.configuration.controlLines.lines[1].Enabled() {
+				*s.shiftRegister |= 0x01
+			} else {
+				*s.shiftRegister &= 0xFE
+			}
 		} else {
-			*s.shiftRegister &= 0xFE
+			if !s.bitShifted {
+				s.outputBit = (*s.shiftRegister & 0x80) == 0x80
+				*s.shiftRegister = *s.shiftRegister << 1
+
+				// Bit 7 is rotated back to bit 0
+				if s.outputBit {
+					*s.shiftRegister |= 0x01
+				} else {
+					*s.shiftRegister &= 0xFE
+				}
+
+				s.bitShifted = true
+				s.bitCount++
+			}
 		}
 	}
 }
@@ -90,10 +114,18 @@ func (s *viaShifter) writeShifterOutput() {
 	mode := s.getMode()
 
 	if s.shifterEnabled && !s.isUnderExternalControl() {
-		if s.shiftingIn {
+		if s.shiftingPhase {
 			s.configuration.controlLines.lines[0].SetEnable(false)
 		} else {
 			s.configuration.controlLines.lines[0].SetEnable(true)
+		}
+	}
+
+	if s.shifterEnabled && s.getDirection() == viaShiftOut {
+		if s.shiftingPhase {
+			s.configuration.controlLines.lines[1].SetEnable(!s.outputBit)
+		} else {
+			s.configuration.controlLines.lines[1].SetEnable(true)
 		}
 	}
 
@@ -105,7 +137,7 @@ func (s *viaShifter) writeShifterOutput() {
 			if s.configuration.timer.hasCountedToZeroLow {
 				s.resetTimer()
 				s.bitShifted = false
-				s.shiftingIn = !s.shiftingIn
+				s.shiftingPhase = !s.shiftingPhase
 
 				if s.bitCount == 8 {
 					s.shifterEnabled = false
@@ -115,7 +147,7 @@ func (s *viaShifter) writeShifterOutput() {
 			}
 		case s.isUnderClockControl():
 			s.bitShifted = false
-			s.shiftingIn = !s.shiftingIn
+			s.shiftingPhase = !s.shiftingPhase
 
 			if s.bitCount == 8 {
 				s.shifterEnabled = false
@@ -126,14 +158,14 @@ func (s *viaShifter) writeShifterOutput() {
 		case s.isUnderExternalControl():
 			// If we were not shifting and the line drops it means that
 			// it transitioned to shifting
-			if !s.shiftingIn && !s.configuration.controlLines.lines[0].Enabled() {
+			if !s.shiftingPhase && !s.configuration.controlLines.lines[0].Enabled() {
 				s.bitShifted = false
-				s.shiftingIn = true
+				s.shiftingPhase = true
 			}
 
 			// If we were shifting and control line is not enable we should stop
-			if s.shiftingIn && s.configuration.controlLines.lines[0].Enabled() {
-				s.shiftingIn = false
+			if s.shiftingPhase && s.configuration.controlLines.lines[0].Enabled() {
+				s.shiftingPhase = false
 
 				if s.bitCount == 8 {
 					s.shifterEnabled = false
@@ -149,7 +181,7 @@ func (s *viaShifter) initCounter() {
 	// See comments on Tick method of timer struct for clarification.
 	// TODO: Might need to test in real hardware.
 	*s.configuration.timer.configuration.counter = 0x0001
-	s.shiftingIn = false
+	s.shiftingPhase = false
 }
 
 func (s *viaShifter) resetTimer() {
