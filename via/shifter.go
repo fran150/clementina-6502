@@ -77,34 +77,52 @@ func (s *viaShifter) isUnderExternalControl() bool {
 	return (mode == viaShiftInExternal || mode == viaShiftOutExternal)
 }
 
+func (s *viaShifter) writeShiftRegisterBitZero(bitEnabled bool) {
+	if bitEnabled {
+		*s.shiftRegister |= 0x01
+	} else {
+		*s.shiftRegister &= 0xFE
+	}
+}
+
+func (s *viaShifter) rotateLeftShiftRegister() {
+	*s.shiftRegister = *s.shiftRegister << 1
+	s.bitShifted = true
+	s.bitCount++
+}
+
+func (s *viaShifter) setShiftingPhase(isShiftingPhase bool) {
+	s.bitShifted = false
+	s.shiftingPhase = isShiftingPhase
+}
+
+func (s *viaShifter) checkBitCounter(driveCB1 bool) {
+	if s.bitCount == 8 {
+		s.shifterEnabled = false
+		s.interrupts.setInterruptFlagBit(irqSR)
+
+		if driveCB1 {
+			s.configuration.controlLines.lines[0].SetEnable(true)
+		}
+	}
+}
+
 func (s *viaShifter) tick() {
 	if s.shiftingPhase {
 		if s.getDirection() == viaShiftIn {
+			// Rotate the shift register once
 			if !s.bitShifted {
-				*s.shiftRegister = *s.shiftRegister << 1
-				s.bitShifted = true
-				s.bitCount++
+				s.rotateLeftShiftRegister()
 			}
 
-			if s.configuration.controlLines.lines[1].Enabled() {
-				*s.shiftRegister |= 0x01
-			} else {
-				*s.shiftRegister &= 0xFE
-			}
+			// While on shifting phase keep updating the bit zero from CB2
+			s.writeShiftRegisterBitZero(s.configuration.controlLines.lines[1].Enabled())
 		} else {
 			if !s.bitShifted {
+				// Read bit 8, rotate shift register and set bit 8 on bit 0
 				s.outputBit = (*s.shiftRegister & 0x80) == 0x80
-				*s.shiftRegister = *s.shiftRegister << 1
-
-				// Bit 7 is rotated back to bit 0
-				if s.outputBit {
-					*s.shiftRegister |= 0x01
-				} else {
-					*s.shiftRegister &= 0xFE
-				}
-
-				s.bitShifted = true
-				s.bitCount++
+				s.rotateLeftShiftRegister()
+				s.writeShiftRegisterBitZero(s.outputBit)
 			}
 		}
 	}
@@ -113,68 +131,51 @@ func (s *viaShifter) tick() {
 func (s *viaShifter) writeShifterOutput() {
 	mode := s.getMode()
 
-	if s.shifterEnabled && !s.isUnderExternalControl() {
-		if s.shiftingPhase {
-			s.configuration.controlLines.lines[0].SetEnable(false)
-		} else {
-			s.configuration.controlLines.lines[0].SetEnable(true)
-		}
+	// If free mode, disable the bit counter
+	if mode == viaShiftOutFree {
+		s.bitCount = 0
 	}
 
-	if s.shifterEnabled && s.getDirection() == viaShiftOut {
-		if s.shiftingPhase {
-			s.configuration.controlLines.lines[1].SetEnable(!s.outputBit)
-		} else {
-			s.configuration.controlLines.lines[1].SetEnable(true)
-		}
+	// If mode has shifter disabled, disable the flat
+	if mode == viaShiftDisabled {
+		s.shifterEnabled = false
 	}
 
 	if s.shifterEnabled {
+		// When not under external control CB1 is set low on the shifting phase
+		if !s.isUnderExternalControl() {
+			s.configuration.controlLines.lines[0].SetEnable(!s.shiftingPhase)
+		}
+
+		// When shifting out, the output in CB2 is driven to the opposite of ouptut bit or
+		// high if outside the shifting phase
+		if s.getDirection() == viaShiftOut {
+			s.configuration.controlLines.lines[1].SetEnable(!s.outputBit || !s.shiftingPhase)
+		}
+
 		switch {
-		case mode == viaShiftDisabled:
-			s.shifterEnabled = false
 		case s.isUnderTimerControl():
 			if s.configuration.timer.hasCountedToZeroLow {
 				s.resetTimer()
-				s.bitShifted = false
-				s.shiftingPhase = !s.shiftingPhase
 
-				if s.bitCount == 8 {
-					if mode != viaShiftOutFree {
-						s.shifterEnabled = false
-						s.interrupts.setInterruptFlagBit(irqSR)
-						s.configuration.controlLines.lines[0].SetEnable(true)
-					} else {
-						s.bitCount = 0
-					}
-				}
+				s.setShiftingPhase(!s.shiftingPhase)
+				s.checkBitCounter(true)
 			}
 		case s.isUnderClockControl():
-			s.bitShifted = false
-			s.shiftingPhase = !s.shiftingPhase
-
-			if s.bitCount == 8 {
-				s.shifterEnabled = false
-				s.interrupts.setInterruptFlagBit(irqSR)
-				s.configuration.controlLines.lines[0].SetEnable(true)
-			}
+			s.setShiftingPhase(!s.shiftingPhase)
+			s.checkBitCounter(true)
 
 		case s.isUnderExternalControl():
 			// If we were not shifting and the line drops it means that
 			// it transitioned to shifting
 			if !s.shiftingPhase && !s.configuration.controlLines.lines[0].Enabled() {
-				s.bitShifted = false
-				s.shiftingPhase = true
+				s.setShiftingPhase(true)
 			}
 
 			// If we were shifting and control line is not enable we should stop
 			if s.shiftingPhase && s.configuration.controlLines.lines[0].Enabled() {
-				s.shiftingPhase = false
-
-				if s.bitCount == 8 {
-					s.shifterEnabled = false
-					s.interrupts.setInterruptFlagBit(irqSR)
-				}
+				s.setShiftingPhase(false)
+				s.checkBitCounter(false)
 			}
 		}
 	}
@@ -189,8 +190,6 @@ func (s *viaShifter) initCounter() {
 }
 
 func (s *viaShifter) resetTimer() {
-	if s.isUnderTimerControl() {
-		*s.configuration.timer.configuration.counter &= 0xFF00
-		*s.configuration.timer.configuration.counter |= uint16(*s.configuration.timer.configuration.lowLatches)
-	}
+	*s.configuration.timer.configuration.counter &= 0xFF00
+	*s.configuration.timer.configuration.counter |= uint16(*s.configuration.timer.configuration.lowLatches)
 }

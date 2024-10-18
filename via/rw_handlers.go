@@ -99,8 +99,12 @@ func readnterruptFlagHandler(via *Via65C22S) {
 	via.dataBus.Write(via.registers.interrupts.getInterruptFlagValue())
 }
 
+// From W65C22S manual, page 25:
+// The IFR may be read directly by the microprocessor, and individual flag bits may be
+// cleared by writing a Logic 1 into the appropriate bit of the IFR
 func writeInterruptFlagHandler(via *Via65C22S) {
-	via.registers.interrupts.setInterruptFlagValue(via.dataBus.Read())
+	value := via.registers.interrupts.value & ^via.dataBus.Read()
+	via.registers.interrupts.setInterruptFlagValue(value)
 }
 
 /************************************************************************************
