@@ -1581,3 +1581,70 @@ func TestShiftOutAtExternalRate(t *testing.T) {
 	assert.Equal(t, true, circuit.cb1.Status())
 	assert.Equal(t, true, circuit.cb2.Status())
 }
+
+func TestShiftOutAtFreeRate(t *testing.T) {
+	var step uint64
+
+	via := CreateVia65C22()
+	circuit := createTestCircuit()
+
+	circuit.wire(via)
+
+	// Set ACR to 0x10, for this test is important bit 4, 3 and 2 = 100 (Shift free under T2 control)
+	writeToVia(via, circuit, regACR, 0x10, &step)
+
+	// Enable interrupts for SR completion (Bit 2)
+	writeToVia(via, circuit, regIER, 0x84, &step)
+
+	// Trigger shifting by writing 0 to SR
+	writeToVia(via, circuit, regSR, 0xAA, &step)
+
+	// Write T2 low latch to set shifting every 5 cycles
+	writeToVia(via, circuit, regT2CL, 0x05, &step)
+
+	// IRQ is not triggered and CB1 is raised high for 1.5 cycles (see WDC data sheet for 65C22S page 22)
+	assert.Equal(t, true, circuit.irq.Status())
+	assert.Equal(t, true, circuit.cb1.Status())
+	assert.Equal(t, true, circuit.cb2.Status())
+	assert.Equal(t, uint8(0xAA), via.registers.shiftRegister)
+
+	// Step will just decrement timer, no expected change
+	disableChipAndStepTime(via, circuit, &step)
+	assert.Equal(t, true, circuit.irq.Status())
+	assert.Equal(t, true, circuit.cb1.Status())
+	assert.Equal(t, true, circuit.cb2.Status())
+
+	// Step will just decrement timer, no expected change
+	disableChipAndStepTime(via, circuit, &step)
+	assert.Equal(t, true, circuit.irq.Status())
+	assert.Equal(t, true, circuit.cb1.Status())
+	assert.Equal(t, true, circuit.cb2.Status())
+
+	config := shiftingTestConfiguration{
+		via:            via,
+		circuit:        circuit,
+		automatic:      true,
+		numberOfCycles: 7,
+		bitValue:       true,
+		outputMode:     true,
+	}
+
+	// Shift 2 full sequences of bytes, AA on the SR will produce alternating 1 and 0 as CB2 output.
+	// SR is shifter right and bit is pulled from bit 7 and reintroduced to bit 0.
+	// This means that value will alternate between 0xAA and 0x55.
+	// Since the Shift Register bit 7 (SR7) is recirculated back into bit 0, the 8 bits loaded into the
+	// shift register will be clocked onto CB2 repetitively. In this mode the shift register counter is disabled.
+	for range 16 {
+		executeShiftingCycle(t, &config, &step)
+
+		if config.bitValue {
+			assert.Equal(t, uint8(0x55), via.registers.shiftRegister)
+		} else {
+			assert.Equal(t, uint8(0xaa), via.registers.shiftRegister)
+		}
+
+		executeNonShiftingCycle(t, &config, &step)
+
+		config.bitValue = !config.bitValue
+	}
+}

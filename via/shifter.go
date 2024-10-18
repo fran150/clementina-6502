@@ -64,7 +64,7 @@ func (s *viaShifter) getMode() viaShiftRegisterModes {
 
 func (s *viaShifter) isUnderTimerControl() bool {
 	mode := s.getMode()
-	return (mode == viaShiftInT2 || mode == viaShiftOutT2)
+	return (mode == viaShiftInT2 || mode == viaShiftOutT2 || mode == viaShiftOutFree)
 }
 
 func (s *viaShifter) isUnderClockControl() bool {
@@ -140,9 +140,13 @@ func (s *viaShifter) writeShifterOutput() {
 				s.shiftingPhase = !s.shiftingPhase
 
 				if s.bitCount == 8 {
-					s.shifterEnabled = false
-					s.interrupts.setInterruptFlagBit(irqSR)
-					s.configuration.controlLines.lines[0].SetEnable(true)
+					if mode != viaShiftOutFree {
+						s.shifterEnabled = false
+						s.interrupts.setInterruptFlagBit(irqSR)
+						s.configuration.controlLines.lines[0].SetEnable(true)
+					} else {
+						s.bitCount = 0
+					}
 				}
 			}
 		case s.isUnderClockControl():
