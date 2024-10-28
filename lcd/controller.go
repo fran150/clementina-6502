@@ -12,48 +12,87 @@ type LcdHD44780U struct {
 	enable               *buses.ConnectorEnabledHigh
 	dataBus              *buses.BusConnector[uint8]
 
-	shiftValue     uint8
-	addressCounter uint8
+	addressCounter *lcdAddressCounter
 
 	instructionRegister uint8
 	dataRegister        uint8
+	shift               uint8
 
-	entryModeCursorDirectionR bool // D/R: Increments DDRAM or CGRAM when R or W.
-	entryModeShiftDisplay     bool // S: Shifts the entire display
-	displayOn                 bool // D: Display is on / off
-	displayCursor             bool // C: Shows cursor (line under current DDRAM address)
-	characterBlink            bool // B: Character blink (all dots alternates with character)
-	dataLength8Bits           bool // DL: If false, data length is 4 bits so a full byte must be sent in 2 messages
-	is2LineDisplay            bool // N: Number of lines
-	is5x10Font                bool // F: Font size
-	isBusy                    bool // BF: Busy Flag
+	is4BitMode            bool
+	entryModeShiftDisplay bool // S: Shifts the entire display
+	displayOn             bool // D: Display is on / off
+	displayCursor         bool // C: Shows cursor (line under current DDRAM address)
+	characterBlink        bool // B: Character blink (all dots alternates with character)
+	is5x10Font            bool // F: Font size
+	isBusy                bool // BF: Busy Flag
 
-	ram [CGRAM_SIZE + DDRAM_SIZE]uint8 // 0x00..0x3F CGRAM / 0x40..0x8F DDRAM
+	ddram [DDRAM_SIZE]uint8
+	cgram [CGRAM_SIZE]uint8
+
+	instructions [8]func()
 }
 
-func (l *LcdHD44780U) tick(pbLine6Status bool) {
-	if l.enable.Enabled() {
-		if l.dataRegisterSelected.Enabled() {
-			if l.write.Enabled() {
-				l.dataRegister = l.dataBus.Read()
-				l.ram[l.addressCounter] = l.dataRegister
+func CreateLCD() *LcdHD44780U {
+	lcd := LcdHD44780U{
+		dataRegisterSelected: buses.CreateConnectorEnabledHigh(),
+		write:                buses.CreateConnectorEnabledLow(),
+		enable:               buses.CreateConnectorEnabledHigh(),
+		dataBus:              buses.CreateBusConnector[uint8](),
+
+		is4BitMode: false,
+	}
+
+	lcd.addressCounter = createLCDAdressCounter(&lcd)
+
+	lcd.instructions = [8]func(){
+		lcd.clearDisplay,
+		lcd.returnHome,
+		lcd.entryModeSet,
+		lcd.displayOnOff,
+		lcd.cursorDisplayShift,
+		lcd.functionSet,
+		lcd.setCGRAMAddress,
+		lcd.setDDRAMAddress,
+	}
+
+	return &lcd
+}
+
+func (ctrl *LcdHD44780U) tick() {
+	if ctrl.enable.Enabled() {
+		if ctrl.dataRegisterSelected.Enabled() {
+			if ctrl.write.Enabled() {
+				ctrl.dataRegister = ctrl.dataBus.Read()
+				ctrl.addressCounter.writeToRam()
 			} else {
-				l.dataRegister = l.ram[l.addressCounter]
-				l.dataBus.Write(l.dataRegister)
+				ctrl.addressCounter.readFromRam()
+				ctrl.dataBus.Write(ctrl.dataRegister)
 			}
 		} else {
-			if l.write.Enabled() {
-				l.instructionRegister = l.dataBus.Read()
+			if ctrl.write.Enabled() {
+				ctrl.instructionRegister = ctrl.dataBus.Read()
+				ctrl.processInstruction()
 			} else {
-				l.instructionRegister = l.addressCounter & 0x7F
-
-				if l.isBusy {
-					l.instructionRegister |= 0x80
-				}
-
-				l.dataBus.Write(l.instructionRegister)
+				ctrl.addressCounter.read()
+				ctrl.dataBus.Write(ctrl.dataRegister)
 			}
 		}
+	}
+}
+
+func (ctrl *LcdHD44780U) processInstruction() {
+	var mask uint8 = 0x80
+	i := 7
+
+	for mask > 0 {
+		if checkBit(ctrl.instructionRegister, mask) {
+			instruction := ctrl.instructions[i]
+			instruction()
+			break
+		}
+
+		i = i - 1
+		mask = mask >> 1
 	}
 }
 
@@ -61,72 +100,61 @@ func checkBit(value uint8, mask uint8) bool {
 	return value&mask == mask
 }
 
-func clearDisplay(l *LcdHD44780U, params uint8) {
-	for i := range DDRAM_SIZE {
-		l.ram[i] = SPACE_CHAR
+/*
+Clear display writes space code 20H (character pattern for character code 20H must be a blank pattern) into
+all DDRAM addresses. It then sets DDRAM address 0 into the address counter, and returns the display to
+its original status if it was shifted. In other words, the display disappears and the cursor or blinking goes to
+the left edge of the display (in the first line if 2 lines are displayed). It also sets I/D to 1 (increment mode)
+in entry mode. S of entry mode does not change.
+*/
+func (ctrl *LcdHD44780U) clearDisplay() {
+	for i := range 80 {
+		ctrl.ddram[i] = SPACE_CHAR
 	}
 
-	returnHome(l, params)
+	ctrl.addressCounter.mustMoveRight = true
+
+	ctrl.returnHome()
 }
 
-func returnHome(l *LcdHD44780U, params uint8) {
-	l.shiftValue = 0x00
-	l.addressCounter = 0x00
+func (ctrl *LcdHD44780U) returnHome() {
+	ctrl.instructionRegister = 0x00
+	ctrl.shift = 0x00
 }
 
-func entryModeSet(l *LcdHD44780U, params uint8) {
-	l.entryModeCursorDirectionR = checkBit(params, 0x02)
-	l.entryModeShiftDisplay = checkBit(params, 0x01)
+func (ctrl *LcdHD44780U) entryModeSet() {
+	ctrl.addressCounter.mustMoveRight = checkBit(ctrl.instructionRegister, 0x02)
+	ctrl.entryModeShiftDisplay = checkBit(ctrl.instructionRegister, 0x01)
 }
 
-func displayOnOff(l *LcdHD44780U, params uint8) {
-	l.displayOn = checkBit(params, 0x04)
-	l.displayCursor = checkBit(params, 0x02)
-	l.characterBlink = checkBit(params, 0x01)
+func (ctrl *LcdHD44780U) displayOnOff() {
+	ctrl.displayOn = checkBit(ctrl.instructionRegister, 0x04)
+	ctrl.displayCursor = checkBit(ctrl.instructionRegister, 0x02)
+	ctrl.characterBlink = checkBit(ctrl.instructionRegister, 0x01)
+
 }
 
-func (l *LcdHD44780U) setDDRAMAddressOnAC(address uint8) {
-	l.addressCounter = address & DDRAM_SIZE
-}
+func (ctrl *LcdHD44780U) cursorDisplayShift() {
+	//displayShift := checkBit(ctrl.instructionRegister, 0x08)
+	directionRight := checkBit(ctrl.instructionRegister, 0x04)
 
-func (l *LcdHD44780U) setCGRAMAddressOnAC(address uint8) {
-	l.addressCounter = address & CGRAM_SIZE
-}
-
-func cursorDisplayShift(l *LcdHD44780U, params uint8) {
-	var target *uint8
-	displayShift := checkBit(params, 0x08)
-
-	if displayShift {
-		target = &l.shiftValue
+	if directionRight {
+		ctrl.addressCounter.moveRight()
 	} else {
-		target = &l.addressCounter
-	}
-
-	moveRight := checkBit(params, 0x04)
-	if moveRight {
-		*target++
-	} else {
-		*target--
+		ctrl.addressCounter.moveLeft()
 	}
 }
 
-func functionSet(l *LcdHD44780U, params uint8) {
-	l.dataLength8Bits = checkBit(params, 0x10)
-	l.is2LineDisplay = checkBit(params, 0x08)
-	l.is5x10Font = checkBit(params, 0x04)
+func (ctrl *LcdHD44780U) functionSet() {
+	ctrl.is4BitMode = !checkBit(ctrl.instructionRegister, 0x10)
+	ctrl.addressCounter.is2LineDisplay = checkBit(ctrl.instructionRegister, 0x80)
+	ctrl.is5x10Font = checkBit(ctrl.instructionRegister, 0x04)
 }
 
-func setAddressCounter(l *LcdHD44780U, params uint8) {
-	l.addressCounter = params & 0x7F
+func (ctrl *LcdHD44780U) setCGRAMAddress() {
+	ctrl.addressCounter.setCGRAMAddress()
 }
 
-// 0000 0000 = 0x00 = 00
-// 0010 0111 = 0x27 = 20
-// 0100 0000 = 0x40 = 64
-// 0110 0111 = 0x67 = 103
-
-// 0000 0000 = 0x00 = 00
-// 0100 0000 = 0x40 = 64
-// 0011 1111 = 0x3F = 63
-// 0111 1111 = 0x7F = 127
+func (ctrl *LcdHD44780U) setDDRAMAddress() {
+	ctrl.addressCounter.setDDRAMAddress()
+}
