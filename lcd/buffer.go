@@ -1,24 +1,71 @@
 package lcd
 
 type LcdBuffer struct {
-	value [2]uint8
-	index uint8
+	is4BitMode bool
+	value      uint8
+	index      uint8
+}
+
+func createLcdBuffer() *LcdBuffer {
+	return &LcdBuffer{
+		is4BitMode: false,
+		value:      0,
+		index:      0,
+	}
 }
 
 func (buf *LcdBuffer) push(value uint8) {
 	if !buf.isFull() {
-		buf.index++
-	}
+		if buf.is4BitMode {
+			if buf.index == 0 {
+				value &= 0xF0
+				value = value >> 4
 
-	buf.value[buf.index-1] = value
+				buf.value &= 0xF0
+				buf.value |= value
+			} else {
+				value &= 0xF0
+
+				buf.value &= 0x0F
+				buf.value |= value
+			}
+
+			buf.index++
+		} else {
+			buf.index = 2
+			buf.value = value
+		}
+	}
 }
 
 func (buf *LcdBuffer) pull() uint8 {
 	if !buf.isEmpty() {
-		buf.index--
+		if buf.is4BitMode {
+			buf.index--
+
+			if buf.index == 0 {
+				value := buf.value & 0x0F
+				return value << 4
+			} else {
+				return buf.value & 0xF0
+			}
+		} else {
+			buf.index = 0
+			return buf.value
+		}
 	}
 
-	return buf.value[buf.index-1]
+	return 0
+}
+
+func (buf *LcdBuffer) load(value uint8) {
+	buf.value = value
+	buf.index = 2
+}
+
+func (buf *LcdBuffer) flush() {
+	buf.value = 0
+	buf.index = 0
 }
 
 func (buf *LcdBuffer) isFull() bool {

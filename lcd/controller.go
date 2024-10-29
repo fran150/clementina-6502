@@ -13,18 +13,16 @@ type LcdHD44780U struct {
 	dataBus              *buses.BusConnector[uint8]
 
 	addressCounter *lcdAddressCounter
+	buffer         *LcdBuffer
 
 	instructionRegister uint8
 	dataRegister        uint8
 	shift               uint8
 
-	is4BitMode            bool
-	entryModeShiftDisplay bool // S: Shifts the entire display
-	displayOn             bool // D: Display is on / off
-	displayCursor         bool // C: Shows cursor (line under current DDRAM address)
-	characterBlink        bool // B: Character blink (all dots alternates with character)
-	is5x10Font            bool // F: Font size
-	isBusy                bool // BF: Busy Flag
+	displayOn      bool // D: Display is on / off
+	displayCursor  bool // C: Shows cursor (line under current DDRAM address)
+	characterBlink bool // B: Character blink (all dots alternates with character)
+	is5x10Font     bool // F: Font size
 
 	ddram [DDRAM_SIZE]uint8
 	cgram [CGRAM_SIZE]uint8
@@ -38,8 +36,12 @@ func CreateLCD() *LcdHD44780U {
 		write:                buses.CreateConnectorEnabledLow(),
 		enable:               buses.CreateConnectorEnabledHigh(),
 		dataBus:              buses.CreateBusConnector[uint8](),
+		buffer:               createLcdBuffer(),
 
-		is4BitMode: false,
+		displayOn:      false,
+		displayCursor:  false,
+		characterBlink: false,
+		is5x10Font:     false,
 	}
 
 	lcd.addressCounter = createLCDAdressCounter(&lcd)
@@ -60,21 +62,33 @@ func CreateLCD() *LcdHD44780U {
 
 func (ctrl *LcdHD44780U) tick() {
 	if ctrl.enable.Enabled() {
-		if ctrl.dataRegisterSelected.Enabled() {
-			if ctrl.write.Enabled() {
-				ctrl.dataRegister = ctrl.dataBus.Read()
-				ctrl.addressCounter.writeToRam()
-			} else {
-				ctrl.addressCounter.readFromRam()
-				ctrl.dataBus.Write(ctrl.dataRegister)
+		if ctrl.write.Enabled() {
+			ctrl.buffer.push(ctrl.dataBus.Read())
+
+			if ctrl.buffer.isFull() {
+				if ctrl.dataRegisterSelected.Enabled() {
+					ctrl.dataRegister = ctrl.buffer.value
+					ctrl.addressCounter.writeToRam()
+				} else {
+					ctrl.instructionRegister = ctrl.buffer.value
+					ctrl.processInstruction()
+				}
+
+				ctrl.buffer.flush()
 			}
 		} else {
-			if ctrl.write.Enabled() {
-				ctrl.instructionRegister = ctrl.dataBus.Read()
-				ctrl.processInstruction()
-			} else {
-				ctrl.addressCounter.read()
-				ctrl.dataBus.Write(ctrl.dataRegister)
+			if ctrl.buffer.isEmpty() {
+				if ctrl.dataRegisterSelected.Enabled() {
+					ctrl.addressCounter.readFromRam()
+				} else {
+					ctrl.addressCounter.read()
+				}
+
+				ctrl.buffer.load(ctrl.dataRegister)
+			}
+
+			if !ctrl.buffer.isEmpty() {
+				ctrl.dataBus.Write(ctrl.buffer.pull())
 			}
 		}
 	}
@@ -123,30 +137,43 @@ func (ctrl *LcdHD44780U) returnHome() {
 }
 
 func (ctrl *LcdHD44780U) entryModeSet() {
+	// I/D = 1: Increment, 0: Decrement
 	ctrl.addressCounter.mustMoveRight = checkBit(ctrl.instructionRegister, 0x02)
-	ctrl.entryModeShiftDisplay = checkBit(ctrl.instructionRegister, 0x01)
+	// S = 1: Display Shift, 0: Do Not Shift
+	ctrl.addressCounter.displayShift = checkBit(ctrl.instructionRegister, 0x01)
 }
 
 func (ctrl *LcdHD44780U) displayOnOff() {
+	// D = 1: Display On, 0: Display off
 	ctrl.displayOn = checkBit(ctrl.instructionRegister, 0x04)
+	// C = 1: Show Cursor, 0: Do not show cursor
 	ctrl.displayCursor = checkBit(ctrl.instructionRegister, 0x02)
+	// B = 1: Character Blink, 0: Do not blink
 	ctrl.characterBlink = checkBit(ctrl.instructionRegister, 0x01)
 
 }
 
 func (ctrl *LcdHD44780U) cursorDisplayShift() {
-	//displayShift := checkBit(ctrl.instructionRegister, 0x08)
+	displayShift := checkBit(ctrl.instructionRegister, 0x08)
 	directionRight := checkBit(ctrl.instructionRegister, 0x04)
 
-	if directionRight {
-		ctrl.addressCounter.moveRight()
+	if displayShift {
+		if directionRight {
+			ctrl.addressCounter.shiftRight()
+		} else {
+			ctrl.addressCounter.shiftLeft()
+		}
 	} else {
-		ctrl.addressCounter.moveLeft()
+		if directionRight {
+			ctrl.addressCounter.moveRight()
+		} else {
+			ctrl.addressCounter.moveLeft()
+		}
 	}
 }
 
 func (ctrl *LcdHD44780U) functionSet() {
-	ctrl.is4BitMode = !checkBit(ctrl.instructionRegister, 0x10)
+	ctrl.buffer.is4BitMode = !checkBit(ctrl.instructionRegister, 0x10)
 	ctrl.addressCounter.is2LineDisplay = checkBit(ctrl.instructionRegister, 0x80)
 	ctrl.is5x10Font = checkBit(ctrl.instructionRegister, 0x04)
 }

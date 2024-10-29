@@ -4,8 +4,12 @@ type lcdAddressCounter struct {
 	toCGRAM        bool
 	mustMoveRight  bool
 	is2LineDisplay bool // N: Number of lines
+	displayShift   bool // S: Shifts the entire display
 	busy           bool
-	value          uint8
+
+	value      uint8
+	line1Shift uint8
+	line2Shift uint8
 
 	instructionRegister *uint8
 	dataRegister        *uint8
@@ -26,24 +30,30 @@ func createLCDAdressCounter(lcd *LcdHD44780U) *lcdAddressCounter {
 		instructionRegister: &lcd.instructionRegister,
 		dataRegister:        &lcd.dataRegister,
 
-		toCGRAM:       false,
-		mustMoveRight: true,
-		busy:          false,
+		toCGRAM:        false,
+		mustMoveRight:  true,
+		is2LineDisplay: false,
+		displayShift:   false,
+		busy:           false,
+
+		value:      0x00,
+		line1Shift: 0x00,
+		line2Shift: 0x40,
 
 		ddram: &lcd.ddram,
 		cgram: &lcd.cgram,
 	}
 }
 
-func (ac *lcdAddressCounter) valueToCGRAMIndex() uint8 {
-	return ac.value & 0x3F
+func (ac *lcdAddressCounter) valueToCGRAMIndex(value uint8) uint8 {
+	return value & 0x3F
 }
 
-func (ac *lcdAddressCounter) valueToDDRMIndex() uint8 {
+func (ac *lcdAddressCounter) valueToDDRAMIndex(value uint8) uint8 {
 	if ac.value&0x40 == 0x40 {
-		return (ac.value & 0x3F) + 40
+		return (value & 0x3F) + 40
 	} else {
-		return ac.value & 0x7F
+		return value & 0x7F
 	}
 }
 
@@ -53,6 +63,38 @@ func (ac *lcdAddressCounter) moveRight() {
 
 func (ac *lcdAddressCounter) moveLeft() {
 	ac.write(ac.value - 1)
+}
+
+func (ac *lcdAddressCounter) shiftRight() {
+	var max uint8 = 0x3F
+
+	if ac.is2LineDisplay {
+		max = 0x27
+	}
+
+	if ac.line1Shift < max {
+		ac.line1Shift++
+		ac.line2Shift++
+	} else {
+		ac.line1Shift = 0x00
+		ac.line2Shift = 0x40
+	}
+}
+
+func (ac *lcdAddressCounter) shiftLeft() {
+	var max uint8 = 0x3F
+
+	if ac.is2LineDisplay {
+		max = 0x27
+	}
+
+	if ac.line1Shift > 0x00 {
+		ac.line1Shift--
+		ac.line2Shift--
+	} else {
+		ac.line1Shift = max
+		ac.line2Shift = 0x67
+	}
 }
 
 func (ac *lcdAddressCounter) setCGRAMAddress() {
@@ -67,33 +109,41 @@ func (ac *lcdAddressCounter) setDDRAMAddress() {
 
 func (ac *lcdAddressCounter) writeToRam() {
 	if ac.toCGRAM {
-		address := ac.valueToCGRAMIndex()
+		address := ac.valueToCGRAMIndex(ac.value)
 		ac.cgram[address] = *ac.dataRegister
 	} else {
-		address := ac.valueToDDRMIndex()
+		address := ac.valueToDDRAMIndex(ac.value)
 		ac.ddram[address] = *ac.dataRegister
 	}
 
-	if ac.mustMoveRight {
-		ac.moveRight()
-	} else {
-		ac.moveLeft()
-	}
+	ac.moveCursorAndDisplay()
 }
 
 func (ac *lcdAddressCounter) readFromRam() {
 	if ac.toCGRAM {
-		address := ac.valueToCGRAMIndex()
+		address := ac.valueToCGRAMIndex(ac.value)
 		*ac.dataRegister = ac.cgram[address]
 	} else {
-		address := ac.valueToDDRMIndex()
+		address := ac.valueToDDRAMIndex(ac.value)
 		*ac.dataRegister = ac.ddram[address]
 	}
 
+	ac.moveCursorAndDisplay()
+}
+
+func (ac *lcdAddressCounter) moveCursorAndDisplay() {
 	if ac.mustMoveRight {
 		ac.moveRight()
+
+		if ac.displayShift {
+			ac.shiftRight()
+		}
 	} else {
 		ac.moveLeft()
+
+		if ac.displayShift {
+			ac.shiftLeft()
+		}
 	}
 }
 
