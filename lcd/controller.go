@@ -17,7 +17,6 @@ type LcdHD44780U struct {
 
 	instructionRegister uint8
 	dataRegister        uint8
-	shift               uint8
 
 	displayOn      bool // D: Display is on / off
 	displayCursor  bool // C: Shows cursor (line under current DDRAM address)
@@ -132,8 +131,9 @@ func (ctrl *LcdHD44780U) clearDisplay() {
 }
 
 func (ctrl *LcdHD44780U) returnHome() {
-	ctrl.instructionRegister = 0x00
-	ctrl.shift = 0x00
+	ctrl.addressCounter.value = 0x00
+	ctrl.addressCounter.line1Shift = 0x00
+	ctrl.addressCounter.line2Shift = 0x40
 }
 
 func (ctrl *LcdHD44780U) entryModeSet() {
