@@ -32,6 +32,16 @@ func createTestCircuit() (*LcdHD44780U, *testCircuit) {
 	return lcd, &circuit
 }
 
+func readInstruction(lcd *LcdHD44780U, circuit *testCircuit) uint8 {
+	circuit.registerSelect.Set(false)
+	circuit.enable.Set(true)
+	circuit.readWrite.Set(true)
+
+	lcd.tick()
+
+	return circuit.bus.Read()
+}
+
 func sendInstruction(lcd *LcdHD44780U, circuit *testCircuit, instruction uint8) {
 	circuit.registerSelect.Set(false)
 	circuit.enable.Set(true)
@@ -58,6 +68,32 @@ func readValue(lcd *LcdHD44780U, circuit *testCircuit) uint8 {
 	lcd.tick()
 
 	return circuit.bus.Read()
+}
+
+type instructionValidator[T bool | uint8] struct {
+	t       *testing.T
+	lcd     *LcdHD44780U
+	circuit *testCircuit
+	fields  []*T
+}
+
+func createInstructionValidator[T bool | uint8](t *testing.T, lcd *LcdHD44780U, circuit *testCircuit, fields ...*T) *instructionValidator[T] {
+	return &instructionValidator[T]{
+		t,
+		lcd,
+		circuit,
+		fields,
+	}
+}
+
+func (val *instructionValidator[T]) send(instruction uint8) {
+	sendInstruction(val.lcd, val.circuit, instruction)
+}
+
+func (val *instructionValidator[T]) validate(values ...T) {
+	for i := range values {
+		assert.Equal(val.t, values[i], *val.fields[i])
+	}
 }
 
 func TestClearDisplayInstruction(t *testing.T) {
@@ -146,7 +182,7 @@ func TestEntryModeSetInstruction(t *testing.T) {
 	value = readValue(lcd, circuit)
 	assert.Equal(t, uint8(0x01), value)
 
-	// Send instruction to move cursor left
+	// Send instruction to write left to right
 	sendInstruction(lcd, circuit, 0x04)
 
 	// Writing and reading values should bring the cursor back to 0
@@ -157,11 +193,313 @@ func TestEntryModeSetInstruction(t *testing.T) {
 	assert.Equal(t, uint8(0x00), lcd.addressCounter.value)
 }
 
-func TestBasicWriteToLimitOfLine(t *testing.T) {
+func TestDisplayControl(t *testing.T) {
 	lcd, circuit := createTestCircuit()
 
-	sendInstruction(lcd, circuit, 0xA7)
-	sendInstruction(lcd, circuit, 0xFF)
+	// Check default values for D, C and B flags
+	assert.Equal(t, false, lcd.displayOn)
+	assert.Equal(t, false, lcd.displayCursor)
+	assert.Equal(t, false, lcd.characterBlink)
 
-	assert.Equal(t, true, true)
+	validator := createInstructionValidator[bool](t, lcd, circuit,
+		&lcd.displayOn,
+		&lcd.displayCursor,
+		&lcd.characterBlink,
+	)
+
+	// Set display on
+	validator.send(0x0C)
+	validator.validate(true, false, false)
+
+	// Add cursor display
+	validator.send(0x0E)
+	validator.validate(true, true, false)
+
+	// Add character blink
+	validator.send(0x0F)
+	validator.validate(true, true, true)
+
+	// Turn off display and cursor
+	validator.send(0x09)
+	validator.validate(false, false, true)
+}
+
+func TestFunctionSet(t *testing.T) {
+	lcd, circuit := createTestCircuit()
+
+	// Check default values for DL, N and F flags
+	assert.Equal(t, true, lcd.buffer.is8BitMode)
+	assert.Equal(t, false, lcd.addressCounter.is2LineDisplay)
+	assert.Equal(t, false, lcd.is5x10Font)
+
+	validator := createInstructionValidator[bool](t, lcd, circuit,
+		&lcd.buffer.is8BitMode,
+		&lcd.addressCounter.is2LineDisplay,
+		&lcd.is5x10Font,
+	)
+
+	// Keep only 8 bit mode on
+	validator.send(0x30)
+	validator.validate(true, false, false)
+
+	// Make it 2 line display
+	validator.send(0x38)
+	validator.validate(true, true, false)
+
+	// Add 5x10 fonts
+	validator.send(0x3F)
+	validator.validate(true, true, true)
+
+	// Disable all
+	validator.send(0x20)
+	validator.validate(false, false, false)
+
+	// Send 0x33 in 4 bit mode, returning to 8 bit mode
+	// only high nibble is used
+	validator.send(0x30)
+	validator.send(0x30)
+	validator.validate(true, false, false)
+}
+
+func TestCursorShift1Line(t *testing.T) {
+	lcd, circuit := createTestCircuit()
+
+	lcd.addressCounter.is2LineDisplay = false
+
+	assert.Equal(t, uint8(0x00), lcd.addressCounter.value)
+	assert.Equal(t, uint8(0x00), lcd.addressCounter.line1Shift)
+	assert.Equal(t, uint8(0x40), lcd.addressCounter.line2Shift)
+
+	validator := createInstructionValidator[uint8](t, lcd, circuit,
+		&lcd.addressCounter.value,
+		&lcd.addressCounter.line1Shift,
+		&lcd.addressCounter.line2Shift,
+	)
+
+	// Move cursor right all the way to 0x4F
+	for pos := range uint8(79) {
+		validator.send(0x14)
+		validator.validate((pos + 1), 0x00, 0x40)
+	}
+
+	// From 0x4F moving to the right goes to 0x00 on 1 line display
+	validator.send(0x14)
+	validator.validate(0x00, 0x00, 0x40)
+
+	// From 0x00 moving to the left goes to 0x4F on 1 line display
+	validator.send(0x10)
+	validator.validate(0x4F, 0x00, 0x40)
+
+	// Move cursor left all the way to 0x00
+	for pos := range uint8(79) {
+		validator.send(0x10)
+		validator.validate((0x4E - pos), 0x00, 0x40)
+	}
+}
+
+func TestCursorShift2Line(t *testing.T) {
+	lcd, circuit := createTestCircuit()
+
+	lcd.addressCounter.is2LineDisplay = true
+
+	assert.Equal(t, uint8(0x00), lcd.addressCounter.value)
+	assert.Equal(t, uint8(0x00), lcd.addressCounter.line1Shift)
+	assert.Equal(t, uint8(0x40), lcd.addressCounter.line2Shift)
+
+	validator := createInstructionValidator[uint8](t, lcd, circuit,
+		&lcd.addressCounter.value,
+		&lcd.addressCounter.line1Shift,
+		&lcd.addressCounter.line2Shift,
+	)
+
+	// Move cursor right all the way to 0x27
+	for pos := range uint8(39) {
+		validator.send(0x14)
+		validator.validate((pos + 1), 0x00, 0x40)
+	}
+
+	// From 0x27 moving to the right goes to 0x40 on 2 line display
+	validator.send(0x14)
+	validator.validate(0x40, 0x00, 0x40)
+
+	// Move cursor right all the way to 0x67
+	for pos := range uint8(39) {
+		validator.send(0x14)
+		validator.validate((pos + 0x41), 0x00, 0x40)
+	}
+
+	// From 0x67 moving to the right goes to 0x00 on 2 line display
+	validator.send(0x14)
+	validator.validate(0x00, 0x00, 0x40)
+
+	// From 0x00 moving to the left goes to 0x67 on 2 line display
+	validator.send(0x10)
+	validator.validate(0x67, 0x00, 0x40)
+
+	// Move cursor left all the way to 0x40
+	for pos := range uint8(39) {
+		validator.send(0x10)
+		validator.validate((0x66 - pos), 0x00, 0x40)
+	}
+
+	// From 0x40 moving to the left goes to 0x27 on 2 line display
+	validator.send(0x10)
+	validator.validate(0x27, 0x00, 0x40)
+
+	// Move cursor left all the way to 0x00
+	for pos := range uint8(39) {
+		validator.send(0x10)
+		validator.validate((0x26 - pos), 0x00, 0x40)
+	}
+}
+
+func TestDisplayShift1Line(t *testing.T) {
+	lcd, circuit := createTestCircuit()
+
+	lcd.addressCounter.is2LineDisplay = false
+
+	assert.Equal(t, uint8(0x00), lcd.addressCounter.value)
+	assert.Equal(t, uint8(0x00), lcd.addressCounter.line1Shift)
+	assert.Equal(t, uint8(0x40), lcd.addressCounter.line2Shift)
+
+	validator := createInstructionValidator[uint8](t, lcd, circuit,
+		&lcd.addressCounter.value,
+		&lcd.addressCounter.line1Shift,
+	)
+
+	// Move display right all the way to 0x4F
+	for pos := range uint8(79) {
+		validator.send(0x1C)
+		validator.validate(0x00, (pos + 1))
+	}
+
+	// From 0x4F moving to the right goes to 0x00 on 1 line display
+	validator.send(0x1C)
+	validator.validate(0x00, 0x00)
+
+	// From 0x00 moving to the left goes to 0x4F on 1 line display
+	validator.send(0x18)
+	validator.validate(0x00, 0x4F)
+
+	// Move display left all the way to 0x00
+	for pos := range uint8(79) {
+		validator.send(0x18)
+		validator.validate(0x00, (0x4E - pos))
+	}
+}
+
+func TestDisplayShift2Line(t *testing.T) {
+	lcd, circuit := createTestCircuit()
+
+	lcd.addressCounter.is2LineDisplay = true
+
+	assert.Equal(t, uint8(0x00), lcd.addressCounter.value)
+	assert.Equal(t, uint8(0x00), lcd.addressCounter.line1Shift)
+	assert.Equal(t, uint8(0x40), lcd.addressCounter.line2Shift)
+
+	validator := createInstructionValidator[uint8](t, lcd, circuit,
+		&lcd.addressCounter.value,
+		&lcd.addressCounter.line1Shift,
+		&lcd.addressCounter.line2Shift,
+	)
+
+	// Move display right all the way to 0x27 and 0x67
+	for pos := range uint8(39) {
+		validator.send(0x1C)
+		validator.validate(0x00, (pos + 1), (pos + 0x41))
+	}
+
+	// From 0x27 and 0x67 moving to the right goes to 0x00 and 0x40 on 2 line display
+	validator.send(0x1C)
+	validator.validate(0x00, 0x00, 0x40)
+
+	// From 0x00 and 0x40 moving to the left goes to 0x27 and 0x67 on 2 line display
+	validator.send(0x18)
+	validator.validate(0x00, 0x27, 0x67)
+
+	// Move cursor left all the way to 0x40
+	for pos := range uint8(39) {
+		validator.send(0x18)
+		validator.validate(0x00, (0x26 - pos), (0x66 - pos))
+	}
+}
+
+func TestSetCGRAMAddress(t *testing.T) {
+	lcd, circuit := createTestCircuit()
+
+	// Set CGRAM instruction bit
+	const SET_CGRAM uint8 = 0x40
+
+	for address := range CGRAM_SIZE - 1 {
+		sendInstruction(lcd, circuit, SET_CGRAM|address)
+
+		assert.Equal(t, 0x40+address, lcd.addressCounter.value)
+		assert.Equal(t, true, lcd.addressCounter.toCGRAM)
+	}
+
+	// One more sends it back to 0x40
+	sendInstruction(lcd, circuit, SET_CGRAM|0x80)
+	assert.Equal(t, uint8(0x40), lcd.addressCounter.value)
+}
+
+func TestSetDDRAMAddress1Line(t *testing.T) {
+	lcd, circuit := createTestCircuit()
+
+	// Set DDRAM instruction bit
+	const SET_DDRAM uint8 = 0x80
+
+	for address := range DDRAM_SIZE - 1 {
+		sendInstruction(lcd, circuit, SET_DDRAM|address)
+
+		assert.Equal(t, address, lcd.addressCounter.value)
+		assert.Equal(t, false, lcd.addressCounter.toCGRAM)
+	}
+
+	// One more sends it back to 0x00
+	sendInstruction(lcd, circuit, SET_DDRAM|0x50)
+	assert.Equal(t, uint8(0x00), lcd.addressCounter.value)
+}
+
+func TestSetDDRAMAddress2Line(t *testing.T) {
+	lcd, circuit := createTestCircuit()
+
+	lcd.addressCounter.is2LineDisplay = true
+
+	// Set DDRAM instruction bit
+	const SET_DDRAM uint8 = 0x80
+
+	for address := range (DDRAM_SIZE / 2) - 1 {
+		sendInstruction(lcd, circuit, SET_DDRAM|address)
+
+		assert.Equal(t, address, lcd.addressCounter.value)
+		assert.Equal(t, false, lcd.addressCounter.toCGRAM)
+	}
+
+	// One more sends it back to second line at 0x40
+	sendInstruction(lcd, circuit, SET_DDRAM|0x28)
+	assert.Equal(t, uint8(0x40), lcd.addressCounter.value)
+
+	for address := range (DDRAM_SIZE / 2) - 1 {
+		sendInstruction(lcd, circuit, SET_DDRAM|(address+0x40))
+
+		assert.Equal(t, (address + 0x40), lcd.addressCounter.value)
+		assert.Equal(t, false, lcd.addressCounter.toCGRAM)
+	}
+
+	// One more sends it back to 0x00
+	sendInstruction(lcd, circuit, SET_DDRAM|0x68)
+	assert.Equal(t, uint8(0x00), lcd.addressCounter.value)
+}
+
+func TestReadAddressCounter(t *testing.T) {
+	lcd, circuit := createTestCircuit()
+
+	// Set DDRAM instruction bit
+	const SET_DDRAM uint8 = 0x80
+
+	sendInstruction(lcd, circuit, SET_DDRAM|0x4F)
+
+	value := readInstruction(lcd, circuit)
+
+	assert.Equal(t, uint8(0x4F), value)
 }

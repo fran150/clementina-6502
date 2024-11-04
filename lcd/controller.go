@@ -79,11 +79,11 @@ func (ctrl *LcdHD44780U) tick() {
 			if ctrl.buffer.isEmpty() {
 				if ctrl.dataRegisterSelected.Enabled() {
 					ctrl.addressCounter.readFromRam()
+					ctrl.buffer.load(ctrl.dataRegister)
 				} else {
-					ctrl.addressCounter.read()
+					counter := ctrl.addressCounter.read()
+					ctrl.buffer.load(counter)
 				}
-
-				ctrl.buffer.load(ctrl.dataRegister)
 			}
 
 			if !ctrl.buffer.isEmpty() {
@@ -173,8 +173,8 @@ func (ctrl *LcdHD44780U) cursorDisplayShift() {
 }
 
 func (ctrl *LcdHD44780U) functionSet() {
-	ctrl.buffer.is4BitMode = !checkBit(ctrl.instructionRegister, 0x10)
-	ctrl.addressCounter.is2LineDisplay = checkBit(ctrl.instructionRegister, 0x80)
+	ctrl.buffer.is8BitMode = checkBit(ctrl.instructionRegister, 0x10)
+	ctrl.addressCounter.is2LineDisplay = checkBit(ctrl.instructionRegister, 0x08)
 	ctrl.is5x10Font = checkBit(ctrl.instructionRegister, 0x04)
 }
 

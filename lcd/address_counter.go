@@ -62,39 +62,54 @@ func (ac *lcdAddressCounter) moveRight() {
 }
 
 func (ac *lcdAddressCounter) moveLeft() {
+	// TODO: There is probably a better way of doing this.
+	if ac.is2LineDisplay {
+		if ac.value == 0 {
+			ac.value = 0x68
+		}
+
+		if ac.value == 0x40 {
+			ac.value = 0x28
+		}
+	} else {
+		if ac.value == 0 {
+			ac.value = 0x50
+		}
+	}
+
 	ac.write(ac.value - 1)
 }
 
 func (ac *lcdAddressCounter) shiftRight() {
-	var max uint8 = 0x3F
+	var max uint8 = 0x50
 
 	if ac.is2LineDisplay {
-		max = 0x27
+		max = 0x28
 	}
 
-	if ac.line1Shift < max {
-		ac.line1Shift++
-		ac.line2Shift++
-	} else {
+	ac.line1Shift++
+
+	if ac.line1Shift >= max {
 		ac.line1Shift = 0x00
-		ac.line2Shift = 0x40
 	}
+
+	ac.line2Shift = ((ac.line1Shift & 0x7F) | 0x40)
 }
 
 func (ac *lcdAddressCounter) shiftLeft() {
-	var max uint8 = 0x3F
+	var max uint8 = 0x50
 
 	if ac.is2LineDisplay {
-		max = 0x27
+		max = 0x28
 	}
 
 	if ac.line1Shift > 0x00 {
 		ac.line1Shift--
-		ac.line2Shift--
 	} else {
-		ac.line1Shift = max
-		ac.line2Shift = 0x67
+		ac.line1Shift = max - 1
 	}
+
+	ac.line2Shift = ((ac.line1Shift & 0x7F) | 0x40)
 }
 
 func (ac *lcdAddressCounter) setCGRAMAddress() {
