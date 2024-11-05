@@ -45,15 +45,19 @@ func createLCDAdressCounter(lcd *LcdHD44780U) *lcdAddressCounter {
 	}
 }
 
-func (ac *lcdAddressCounter) valueToCGRAMIndex(value uint8) uint8 {
-	return value & 0x3F
+func (ac *lcdAddressCounter) getCGRAMIndex() uint8 {
+	return ac.value & 0x3F
 }
 
-func (ac *lcdAddressCounter) valueToDDRAMIndex(value uint8) uint8 {
-	if ac.value&0x40 == 0x40 {
-		return (value & 0x3F) + 40
+func (ac *lcdAddressCounter) getDDRAMIndex() uint8 {
+	if ac.is2LineDisplay {
+		if ac.value&0x40 == 0x40 {
+			return (ac.value & 0x3F) + 40
+		} else {
+			return ac.value & 0x7F
+		}
 	} else {
-		return value & 0x7F
+		return ac.value
 	}
 }
 
@@ -124,10 +128,10 @@ func (ac *lcdAddressCounter) setDDRAMAddress() {
 
 func (ac *lcdAddressCounter) writeToRam() {
 	if ac.toCGRAM {
-		address := ac.valueToCGRAMIndex(ac.value)
+		address := ac.getCGRAMIndex()
 		ac.cgram[address] = *ac.dataRegister
 	} else {
-		address := ac.valueToDDRAMIndex(ac.value)
+		address := ac.getDDRAMIndex()
 		ac.ddram[address] = *ac.dataRegister
 	}
 
@@ -136,10 +140,10 @@ func (ac *lcdAddressCounter) writeToRam() {
 
 func (ac *lcdAddressCounter) readFromRam() {
 	if ac.toCGRAM {
-		address := ac.valueToCGRAMIndex(ac.value)
+		address := ac.getCGRAMIndex()
 		*ac.dataRegister = ac.cgram[address]
 	} else {
-		address := ac.valueToDDRAMIndex(ac.value)
+		address := ac.getDDRAMIndex()
 		*ac.dataRegister = ac.ddram[address]
 	}
 
@@ -170,7 +174,7 @@ func (ac *lcdAddressCounter) write(value uint8) {
 	value &= 0x7F
 
 	if ac.toCGRAM {
-		value = value % 0x7F
+		value = value % 0x80
 	} else {
 		if ac.is2LineDisplay {
 			if value >= 0x28 && value < 0x40 {

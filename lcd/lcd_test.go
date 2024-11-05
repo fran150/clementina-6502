@@ -430,7 +430,7 @@ func TestSetCGRAMAddress(t *testing.T) {
 	// Set CGRAM instruction bit
 	const SET_CGRAM uint8 = 0x40
 
-	for address := range CGRAM_SIZE - 1 {
+	for address := range CGRAM_SIZE {
 		sendInstruction(lcd, circuit, SET_CGRAM|address)
 
 		assert.Equal(t, 0x40+address, lcd.addressCounter.value)
@@ -438,7 +438,7 @@ func TestSetCGRAMAddress(t *testing.T) {
 	}
 
 	// One more sends it back to 0x40
-	sendInstruction(lcd, circuit, SET_CGRAM|0x80)
+	sendInstruction(lcd, circuit, SET_CGRAM|CGRAM_SIZE)
 	assert.Equal(t, uint8(0x40), lcd.addressCounter.value)
 }
 
@@ -448,7 +448,7 @@ func TestSetDDRAMAddress1Line(t *testing.T) {
 	// Set DDRAM instruction bit
 	const SET_DDRAM uint8 = 0x80
 
-	for address := range DDRAM_SIZE - 1 {
+	for address := range DDRAM_SIZE {
 		sendInstruction(lcd, circuit, SET_DDRAM|address)
 
 		assert.Equal(t, address, lcd.addressCounter.value)
@@ -456,7 +456,7 @@ func TestSetDDRAMAddress1Line(t *testing.T) {
 	}
 
 	// One more sends it back to 0x00
-	sendInstruction(lcd, circuit, SET_DDRAM|0x50)
+	sendInstruction(lcd, circuit, SET_DDRAM|DDRAM_SIZE)
 	assert.Equal(t, uint8(0x00), lcd.addressCounter.value)
 }
 
@@ -502,4 +502,80 @@ func TestReadAddressCounter(t *testing.T) {
 	value := readInstruction(lcd, circuit)
 
 	assert.Equal(t, uint8(0x4F), value)
+}
+
+func TestWriteAndReadCGRAM(t *testing.T) {
+	lcd, circuit := createTestCircuit()
+
+	// Set AC to write to CGRAM address 0x00
+	sendInstruction(lcd, circuit, 0x40)
+
+	for value := range uint8(CGRAM_SIZE) {
+		writeValue(lcd, circuit, value)
+	}
+
+	for value := range uint8(CGRAM_SIZE) {
+		assert.Equal(t, value, lcd.cgram[value])
+	}
+
+	// Set AC to set cursor to CGRAM address 0x00
+	sendInstruction(lcd, circuit, 0x40)
+
+	for expected := range uint8(CGRAM_SIZE) {
+		value := readValue(lcd, circuit)
+		assert.Equal(t, expected, value)
+	}
+}
+
+func TestWriteAndReadDDRAM1Line(t *testing.T) {
+	lcd, circuit := createTestCircuit()
+
+	// Set AC to write to DDRAM address 0x00
+	sendInstruction(lcd, circuit, 0x80)
+
+	for value := range uint8(DDRAM_SIZE) {
+		writeValue(lcd, circuit, value)
+	}
+
+	for value := range uint8(DDRAM_SIZE) {
+		assert.Equal(t, value, lcd.ddram[value])
+	}
+
+	// Set AC to set cursor to DDRAM address 0x00
+	sendInstruction(lcd, circuit, 0x80)
+
+	for expected := range uint8(DDRAM_SIZE) {
+		value := readValue(lcd, circuit)
+		assert.Equal(t, expected, value)
+	}
+}
+
+func TestWriteAndReadDDRAM2Lines(t *testing.T) {
+	lcd, circuit := createTestCircuit()
+
+	lcd.addressCounter.is2LineDisplay = true
+
+	// Set AC to write to DDRAM address 0x00
+	sendInstruction(lcd, circuit, 0x80)
+
+	for value := range uint8(DDRAM_SIZE) {
+		writeValue(lcd, circuit, value)
+	}
+
+	for value := range uint8(DDRAM_SIZE) {
+		assert.Equal(t, value, lcd.ddram[value])
+	}
+
+	// Set AC to set cursor to DDRAM address 0x00
+	sendInstruction(lcd, circuit, 0x80)
+
+	for expected := range uint8(DDRAM_SIZE) {
+		value := readValue(lcd, circuit)
+		assert.Equal(t, expected, value)
+	}
+
+	// In a 2 line display, 0x40 should contain the 40th value
+	sendInstruction(lcd, circuit, 0xC0)
+	value := readValue(lcd, circuit)
+	assert.Equal(t, uint8(0x28), value)
 }
