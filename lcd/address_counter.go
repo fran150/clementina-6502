@@ -5,7 +5,6 @@ type lcdAddressCounter struct {
 	mustMoveRight  bool
 	is2LineDisplay bool // N: Number of lines
 	displayShift   bool // S: Shifts the entire display
-	busy           bool
 
 	value      uint8
 	line1Shift uint8
@@ -13,6 +12,7 @@ type lcdAddressCounter struct {
 
 	instructionRegister *uint8
 	dataRegister        *uint8
+	busy                *bool
 
 	ddram *[DDRAM_SIZE]uint8
 	cgram *[CGRAM_SIZE]uint8
@@ -34,7 +34,6 @@ func createLCDAdressCounter(lcd *LcdHD44780U) *lcdAddressCounter {
 		mustMoveRight:  true,
 		is2LineDisplay: false,
 		displayShift:   false,
-		busy:           false,
 
 		value:      0x00,
 		line1Shift: 0x00,
@@ -42,6 +41,7 @@ func createLCDAdressCounter(lcd *LcdHD44780U) *lcdAddressCounter {
 
 		ddram: &lcd.ddram,
 		cgram: &lcd.cgram,
+		busy:  &lcd.isBusy,
 	}
 }
 
@@ -195,7 +195,7 @@ func (ac *lcdAddressCounter) write(value uint8) {
 func (ac *lcdAddressCounter) read() uint8 {
 	value := ac.value & 0x7F
 
-	if ac.busy {
+	if *ac.busy {
 		value |= 0x80
 	}
 

@@ -2,6 +2,7 @@ package lcd
 
 import (
 	"testing"
+	"time"
 
 	"github.com/fran150/clementina6502/buses"
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,7 @@ type testCircuit struct {
 	readWrite      *buses.StandaloneLine
 }
 
-func createTestCircuit() (*LcdHD44780U, *testCircuit) {
+func createTestCircuitCorrectTiming() (*LcdHD44780U, *testCircuit) {
 	lcd := CreateLCD()
 
 	circuit := testCircuit{
@@ -32,12 +33,23 @@ func createTestCircuit() (*LcdHD44780U, *testCircuit) {
 	return lcd, &circuit
 }
 
+func createTestCircuit() (*LcdHD44780U, *testCircuit) {
+	lcd, circuit := createTestCircuitCorrectTiming()
+
+	lcd.timingConfig.clearDisplayMicro = 0
+	lcd.timingConfig.returnHomeMicro = 0
+	lcd.timingConfig.instructionMicro = 0
+
+	return lcd, circuit
+}
+
 func readInstruction(lcd *LcdHD44780U, circuit *testCircuit) uint8 {
 	circuit.registerSelect.Set(false)
 	circuit.enable.Set(true)
 	circuit.readWrite.Set(true)
 
-	lcd.tick()
+	t := time.Now()
+	lcd.Tick(0, t, 0)
 
 	return circuit.bus.Read()
 }
@@ -48,7 +60,8 @@ func sendInstruction(lcd *LcdHD44780U, circuit *testCircuit, instruction uint8) 
 	circuit.bus.Write(instruction)
 	circuit.readWrite.Set(false)
 
-	lcd.tick()
+	t := time.Now()
+	lcd.Tick(0, t, 0)
 }
 
 func writeValue(lcd *LcdHD44780U, circuit *testCircuit, value uint8) {
@@ -57,7 +70,8 @@ func writeValue(lcd *LcdHD44780U, circuit *testCircuit, value uint8) {
 	circuit.bus.Write(value)
 	circuit.readWrite.Set(false)
 
-	lcd.tick()
+	t := time.Now()
+	lcd.Tick(0, t, 0)
 }
 
 func readValue(lcd *LcdHD44780U, circuit *testCircuit) uint8 {
@@ -65,7 +79,8 @@ func readValue(lcd *LcdHD44780U, circuit *testCircuit) uint8 {
 	circuit.enable.Set(true)
 	circuit.readWrite.Set(true)
 
-	lcd.tick()
+	t := time.Now()
+	lcd.Tick(0, t, 0)
 
 	return circuit.bus.Read()
 }
@@ -578,4 +593,67 @@ func TestWriteAndReadDDRAM2Lines(t *testing.T) {
 	sendInstruction(lcd, circuit, 0xC0)
 	value := readValue(lcd, circuit)
 	assert.Equal(t, uint8(0x28), value)
+}
+
+func TestBusyFlag(t *testing.T) {
+	lcd, circuit := createTestCircuitCorrectTiming()
+
+	// Send clear display instruction
+	ti := time.Now()
+	sendInstruction(lcd, circuit, 0x01)
+
+	isBusy := true
+
+	for isBusy {
+		value := readInstruction(lcd, circuit)
+		isBusy = (value & 0x80) == 0x80
+	}
+
+	elapsed := time.Since(ti).Microseconds()
+	assert.GreaterOrEqual(t, elapsed, lcd.timingConfig.clearDisplayMicro)
+
+	// Send return home instruction
+	ti = time.Now()
+	sendInstruction(lcd, circuit, 0x02)
+
+	isBusy = true
+
+	for isBusy {
+		value := readInstruction(lcd, circuit)
+		isBusy = (value & 0x80) == 0x80
+	}
+
+	elapsed = time.Since(ti).Microseconds()
+	assert.GreaterOrEqual(t, elapsed, lcd.timingConfig.clearDisplayMicro)
+
+	// Regular instruction timing test
+	ti = time.Now()
+	sendInstruction(lcd, circuit, 0x02)
+
+	isBusy = true
+
+	for isBusy {
+		value := readInstruction(lcd, circuit)
+		isBusy = (value & 0x80) == 0x80
+	}
+
+	elapsed = time.Since(ti).Microseconds()
+	assert.GreaterOrEqual(t, elapsed, lcd.timingConfig.clearDisplayMicro)
+}
+
+func TestCursorBlinking(t *testing.T) {
+	lcd, _ := createTestCircuitCorrectTiming()
+
+	ti := time.Now()
+
+	for !lcd.blinkingVisible {
+		lcd.Tick(0, time.Now(), time.Since(ti))
+	}
+
+	for lcd.blinkingVisible {
+		lcd.Tick(0, time.Now(), time.Since(ti))
+	}
+
+	elapsed := time.Since(ti).Microseconds()
+	assert.GreaterOrEqual(t, elapsed, lcd.timingConfig.blinkingMicro*2)
 }

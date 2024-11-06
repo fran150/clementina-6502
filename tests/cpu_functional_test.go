@@ -3,6 +3,7 @@ package tests
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/fran150/clementina6502/buses"
 	"github.com/fran150/clementina6502/cpu"
@@ -92,20 +93,24 @@ func verifyAndCountRepeats(processor *cpu.Cpu65C02S) bool {
 }
 
 // Validates the status of the processor when the test finish and fails the test if required.
-func showFinishCondition(processor *cpu.Cpu65C02S, cycles uint64, t *testing.T) {
+func showFinishCondition(processor *cpu.Cpu65C02S, cycles uint64, b *testing.B, elapsed time.Duration) {
 	// If processor is trapped in SUCCESS_PC_VALUE, this means that the tests were completed successfullly
 	// Otherwise this is an error condition and must fail the tests
 	if processor.GetProgramCounter() != successPcValue {
-		t.Errorf("Possible ERROR trap found with PC in %04X", processor.GetProgramCounter())
+		b.Errorf("Possible ERROR trap found with PC in %04X", processor.GetProgramCounter())
 	}
 
 	// If the execution was cancelled due to exceeding the number of allowed cycles then fail the tests
 	if cycles >= maxAllowedCycles {
-		t.Errorf("Maximum limit of %v cycles was reached, typical execution is 96,241,272", cycles)
+		b.Errorf("Maximum limit of %v cycles was reached, typical execution is 96,241,272", cycles)
 	}
 
 	// Show number of elapsed cycles
 	fmt.Printf("Functional Tests execution completed in %v cycles\n", cycles)
+
+	total := (float64(cycles) / elapsed.Seconds()) / 1_000_000
+
+	fmt.Printf("Processor ran at %v MHZ\n", total)
 }
 
 /******************************************************************************************************
@@ -115,7 +120,7 @@ func showFinishCondition(processor *cpu.Cpu65C02S, cycles uint64, t *testing.T) 
 // This function runs the 6502/65C02 functional tests created by Klaus2m5.
 // See https://github.com/Klaus2m5/6502_65C02_functional_tests
 // In particular we use the compiled functional test provided in the "bin_files" folder as is.
-func TestProcessorFunctional(t *testing.T) {
+func BenchmarkProcessor(b *testing.B) {
 	processor, ram := CreateComputer()
 
 	// Loads Klaus2m5 functional tests. See repository mentioned above for reference
@@ -130,6 +135,7 @@ func TestProcessorFunctional(t *testing.T) {
 
 	// Will count the cycles required to complete execution
 	var cycles uint64 = 0
+	var start = time.Now()
 
 	for cycles < maxAllowedCycles {
 
@@ -148,6 +154,9 @@ func TestProcessorFunctional(t *testing.T) {
 		cycles++
 	}
 
+	// Measure the elapsed time
+	elapsed := time.Since(start)
+
 	// Mark the test as failed or success depending on the exit conditions
-	showFinishCondition(processor, cycles, t)
+	showFinishCondition(processor, cycles, b, elapsed)
 }
