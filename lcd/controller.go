@@ -66,7 +66,7 @@ func CreateLCD() *LcdHD44780U {
 		blinkingVisible: false,
 	}
 
-	lcd.addressCounter = createLCDAdressCounter(&lcd)
+	lcd.addressCounter = createLCDAddressCounter(&lcd)
 
 	lcd.instructions = [8]func(time.Time){
 		lcd.clearDisplay,
@@ -185,7 +185,7 @@ in entry mode. S of entry mode does not change.
 func (ctrl *LcdHD44780U) clearDisplay(t time.Time) {
 	ctrl.setBusy(ctrl.timingConfig.clearDisplayMicro, t)
 
-	for i := range 80 {
+	for i := range DDRAM_SIZE {
 		ctrl.ddram[i] = SPACE_CHAR
 	}
 
@@ -220,7 +220,6 @@ func (ctrl *LcdHD44780U) displayOnOff(t time.Time) {
 	ctrl.displayCursor = checkBit(ctrl.instructionRegister, 0x02)
 	// B = 1: Character Blink, 0: Do not blink
 	ctrl.characterBlink = checkBit(ctrl.instructionRegister, 0x01)
-
 }
 
 func (ctrl *LcdHD44780U) cursorDisplayShift(t time.Time) {

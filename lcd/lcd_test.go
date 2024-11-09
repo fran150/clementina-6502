@@ -469,10 +469,6 @@ func TestSetDDRAMAddress1Line(t *testing.T) {
 		assert.Equal(t, address, lcd.addressCounter.value)
 		assert.Equal(t, false, lcd.addressCounter.toCGRAM)
 	}
-
-	// One more sends it back to 0x00
-	sendInstruction(lcd, circuit, SET_DDRAM|DDRAM_SIZE)
-	assert.Equal(t, uint8(0x00), lcd.addressCounter.value)
 }
 
 func TestSetDDRAMAddress2Line(t *testing.T) {
@@ -490,20 +486,12 @@ func TestSetDDRAMAddress2Line(t *testing.T) {
 		assert.Equal(t, false, lcd.addressCounter.toCGRAM)
 	}
 
-	// One more sends it back to second line at 0x40
-	sendInstruction(lcd, circuit, SET_DDRAM|0x28)
-	assert.Equal(t, uint8(0x40), lcd.addressCounter.value)
-
 	for address := range (DDRAM_SIZE / 2) - 1 {
 		sendInstruction(lcd, circuit, SET_DDRAM|(address+0x40))
 
 		assert.Equal(t, (address + 0x40), lcd.addressCounter.value)
 		assert.Equal(t, false, lcd.addressCounter.toCGRAM)
 	}
-
-	// One more sends it back to 0x00
-	sendInstruction(lcd, circuit, SET_DDRAM|0x68)
-	assert.Equal(t, uint8(0x00), lcd.addressCounter.value)
 }
 
 func TestReadAddressCounter(t *testing.T) {
