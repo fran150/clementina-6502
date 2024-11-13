@@ -43,8 +43,32 @@ type Acia65C51N struct {
 	port serial.Port
 }
 
-func createAcia65C51N(portName string) *Acia65C51N {
-	acia := Acia65C51N{
+func CreateAcia65C51N(portName string) *Acia65C51N {
+	acia := createAcia65C51N()
+
+	acia.openPort(portName)
+
+	go acia.writeBytes()
+	go acia.readBytes()
+
+	return acia
+}
+
+func InitializeAcia65C51NWithPort(port serial.Port) *Acia65C51N {
+	acia := createAcia65C51N()
+
+	mode := acia.getMode()
+	port.SetMode(mode)
+	acia.port = port
+
+	go acia.writeBytes()
+	go acia.readBytes()
+
+	return acia
+}
+
+func createAcia65C51N() *Acia65C51N {
+	return &Acia65C51N{
 		dataBus:     buses.CreateBusConnector[uint8](),
 		irqRequest:  buses.CreateConnectorEnabledLow(),
 		readWrite:   buses.CreateConnectorEnabledLow(),
@@ -65,13 +89,6 @@ func createAcia65C51N(portName string) *Acia65C51N {
 		txRegister:      0x00,
 		rxRegister:      0x00,
 	}
-
-	acia.openPort(portName)
-
-	go acia.writeBytes()
-	go acia.readBytes()
-
-	return &acia
 }
 
 var registerWriteHandlers = []func(*Acia65C51N){
@@ -134,7 +151,7 @@ func (acia *Acia65C51N) getRegisterSelectValue() uint8 {
 	return value
 }
 
-func (acia *Acia65C51N) Tick(cycles uint64, t time.Time, dt time.Duration) {
+func (acia *Acia65C51N) Tick(cycles uint64, t time.Time) {
 	if acia.chipSelect1.Enabled() && acia.chipSelect2.Enabled() {
 		selectedRegisterValue := acia.getRegisterSelectValue()
 

@@ -82,7 +82,7 @@ func CreateLCD() *LcdHD44780U {
 	return &lcd
 }
 
-func (ctrl *LcdHD44780U) Tick(cycles uint64, t time.Time, dt time.Duration) {
+func (ctrl *LcdHD44780U) Tick(cycles uint64, t time.Time) {
 	ctrl.checkBusy(t)
 	ctrl.cursorBlink(t)
 

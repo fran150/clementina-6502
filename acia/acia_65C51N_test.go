@@ -21,14 +21,14 @@ type testCircuit struct {
 	reset   buses.Line
 }
 
-func createTestCircuit() *testCircuit {
+func createTestCircuit() (*Acia65C51N, *testCircuit, *PortMock) {
 	var rsLines [NUM_OF_RS_LINES]buses.Line
 
 	for i := range NUM_OF_RS_LINES {
 		rsLines[i] = buses.CreateStandaloneLine(false)
 	}
 
-	return &testCircuit{
+	circuit := testCircuit{
 		dataBus: buses.CreateBus[uint8](),
 		irq:     buses.CreateStandaloneLine(true),
 		rw:      buses.CreateStandaloneLine(true),
@@ -37,6 +37,16 @@ func createTestCircuit() *testCircuit {
 		rs:      rsLines,
 		reset:   buses.CreateStandaloneLine(true),
 	}
+
+	mock := &PortMock{}
+
+	acia := InitializeAcia65C51NWithPort(mock)
+
+	circuit.wire(acia)
+
+	go mock.Tick()
+
+	return acia, &circuit, mock
 }
 
 func (circuit *testCircuit) wire(acia *Acia65C51N) {
@@ -71,7 +81,7 @@ func writeToAcia(acia *Acia65C51N, circuit *testCircuit, register uint8, value u
 	circuit.rw.Set(false)
 	circuit.dataBus.Write(value)
 
-	acia.Tick(*t, time.Now(), 0)
+	acia.Tick(*t, time.Now())
 
 	*t = *t + 1
 }
@@ -80,7 +90,7 @@ func readFromAcia(acia *Acia65C51N, circuit *testCircuit, register uint8, t *uin
 	circuit.setRegisterSelectValue(register)
 	circuit.rw.Set(true)
 
-	acia.Tick(*t, time.Now(), 0)
+	acia.Tick(*t, time.Now())
 
 	*t = *t + 1
 
@@ -91,7 +101,7 @@ func disableChipAndStepTime(acia *Acia65C51N, circuit *testCircuit, t *uint64) {
 	circuit.cs0.Set(false)
 	circuit.cs1.Set(true)
 
-	acia.Tick(*t, time.Now(), 0)
+	acia.Tick(*t, time.Now())
 
 	*t = *t + 1
 }
@@ -104,8 +114,7 @@ func enableChip(circuit *testCircuit) {
 func TestWriteToControlRegister(t *testing.T) {
 	var step uint64
 
-	acia := createAcia65C51N(TEST_PORT_NAME)
-	circuit := createTestCircuit()
+	acia, circuit, _ := createTestCircuit()
 
 	circuit.wire(acia)
 
@@ -117,8 +126,7 @@ func TestWriteToControlRegister(t *testing.T) {
 func TestWriteToTX(t *testing.T) {
 	var step uint64
 
-	acia := createAcia65C51N(TEST_PORT_NAME)
-	circuit := createTestCircuit()
+	acia, circuit, mock := createTestCircuit()
 
 	circuit.wire(acia)
 
@@ -126,6 +134,8 @@ func TestWriteToTX(t *testing.T) {
 
 	for _, char := range data {
 		writeToAcia(acia, circuit, 0x00, uint8(char), &step)
-		time.Sleep(time.Duration(100 * time.Millisecond))
+		time.Sleep(time.Duration(10 * time.Millisecond))
 	}
+
+	assert.Equal(t, data, string(mock.received))
 }

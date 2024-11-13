@@ -49,7 +49,7 @@ func readInstruction(lcd *LcdHD44780U, circuit *testCircuit) uint8 {
 	circuit.readWrite.Set(true)
 
 	t := time.Now()
-	lcd.Tick(0, t, 0)
+	lcd.Tick(0, t)
 
 	return circuit.bus.Read()
 }
@@ -61,7 +61,7 @@ func sendInstruction(lcd *LcdHD44780U, circuit *testCircuit, instruction uint8) 
 	circuit.readWrite.Set(false)
 
 	t := time.Now()
-	lcd.Tick(0, t, 0)
+	lcd.Tick(0, t)
 }
 
 func writeValue(lcd *LcdHD44780U, circuit *testCircuit, value uint8) {
@@ -71,7 +71,7 @@ func writeValue(lcd *LcdHD44780U, circuit *testCircuit, value uint8) {
 	circuit.readWrite.Set(false)
 
 	t := time.Now()
-	lcd.Tick(0, t, 0)
+	lcd.Tick(0, t)
 }
 
 func readValue(lcd *LcdHD44780U, circuit *testCircuit) uint8 {
@@ -80,7 +80,7 @@ func readValue(lcd *LcdHD44780U, circuit *testCircuit) uint8 {
 	circuit.readWrite.Set(true)
 
 	t := time.Now()
-	lcd.Tick(0, t, 0)
+	lcd.Tick(0, t)
 
 	return circuit.bus.Read()
 }
@@ -635,11 +635,11 @@ func TestCursorBlinking(t *testing.T) {
 	ti := time.Now()
 
 	for !lcd.blinkingVisible {
-		lcd.Tick(0, time.Now(), time.Since(ti))
+		lcd.Tick(0, time.Now())
 	}
 
 	for lcd.blinkingVisible {
-		lcd.Tick(0, time.Now(), time.Since(ti))
+		lcd.Tick(0, time.Now())
 	}
 
 	elapsed := time.Since(ti).Microseconds()
