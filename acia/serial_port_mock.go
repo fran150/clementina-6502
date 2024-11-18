@@ -1,31 +1,49 @@
 package acia
 
 import (
-	"math"
+	"fmt"
 	"time"
 
 	"go.bug.st/serial"
 )
 
-type PortMock struct {
+type portMock struct {
 	mode   *serial.Mode
 	status serial.ModemStatusBits
 	dtr    bool
 	rts    bool
 
-	rxPointer int
-	rxBuffer  [1000]byte
-	txPointer int
-	txBuffer  [1000]byte
+	portTxBuffer *simpleQueue
+	portRxBuffer *simpleQueue
 
-	sent     []byte
-	received []byte
+	terminalTxBuffer *simpleQueue
+	terminalRxBuffer *simpleQueue
 
 	previousTick time.Time
+
+	stop bool
+}
+
+func createPortMock(mode *serial.Mode) *portMock {
+	return &portMock{
+		mode: mode,
+		status: serial.ModemStatusBits{
+			CTS: false,
+			DSR: false,
+			RI:  false,
+			DCD: false,
+		},
+		dtr:              false,
+		rts:              false,
+		portTxBuffer:     createQueue(),
+		terminalTxBuffer: createQueue(),
+		portRxBuffer:     createQueue(),
+		terminalRxBuffer: createQueue(),
+	}
 }
 
 // SetMode sets all parameters of the serial port
-func (port *PortMock) SetMode(mode *serial.Mode) error {
+func (port *portMock) SetMode(mode *serial.Mode) error {
 	port.mode = mode
 
 	return nil
@@ -36,94 +54,118 @@ func (port *PortMock) SetMode(mode *serial.Mode) error {
 //
 // The Read function blocks until (at least) one byte is received from
 // the serial port or an error occurs.
-func (port *PortMock) Read(p []byte) (n int, err error) {
-	return 0, nil
-}
+func (port *portMock) Read(p []byte) (n int, err error) {
+	for port.portRxBuffer.isEmpty() {
+	}
 
-// Send the content of the data byte array to the serial port.
-// Returns the number of bytes written.
-func (port *PortMock) Write(p []byte) (n int, err error) {
-	for _, value := range p {
-		port.rxBuffer[port.rxPointer] = value
-		port.rxPointer = (port.rxPointer + 1) % 1000
+	i := 0
+	for !port.portRxBuffer.isEmpty() && i < len(p) {
+		p[i] = port.portRxBuffer.dequeue()
+		fmt.Printf("Read From Port Buffer: %v\n", string(p[i]))
+		i++
 	}
 
 	return len(p), nil
 }
 
+// Send the content of the data byte array to the serial port.
+// Returns the number of bytes written.
+func (port *portMock) Write(p []byte) (n int, err error) {
+	for _, v := range p {
+		port.portTxBuffer.queue(v)
+	}
+
+	return port.portTxBuffer.size(), nil
+}
+
 // Wait until all data in the buffer are sent
-func (port *PortMock) Drain() error {
+func (port *portMock) Drain() error {
 	return nil
 }
 
 // ResetInputBuffer Purges port read buffer
-func (port *PortMock) ResetInputBuffer() error {
+func (port *portMock) ResetInputBuffer() error {
 	return nil
 }
 
 // ResetOutputBuffer Purges port write buffer
-func (port *PortMock) ResetOutputBuffer() error {
+func (port *portMock) ResetOutputBuffer() error {
 	return nil
 }
 
 // SetDTR sets the modem status bit DataTerminalReady
-func (port *PortMock) SetDTR(dtr bool) error {
+func (port *portMock) SetDTR(dtr bool) error {
 	port.dtr = dtr
 	return nil
 }
 
 // SetRTS sets the modem status bit RequestToSend
-func (port *PortMock) SetRTS(rts bool) error {
+func (port *portMock) SetRTS(rts bool) error {
 	port.rts = rts
 	return nil
 }
 
 // GetModemStatusBits returns a ModemStatusBits structure containing the
 // modem status bits for the serial port (CTS, DSR, etc...)
-func (port *PortMock) GetModemStatusBits() (*serial.ModemStatusBits, error) {
+func (port *portMock) GetModemStatusBits() (*serial.ModemStatusBits, error) {
 	return &port.status, nil
 }
 
 // SetReadTimeout sets the timeout for the Read operation or use serial.NoTimeout
 // to disable read timeout.
-func (port *PortMock) SetReadTimeout(t time.Duration) error {
+func (port *portMock) SetReadTimeout(t time.Duration) error {
 	return nil
 }
 
 // Close the serial port
-func (port *PortMock) Close() error {
+func (port *portMock) Close() error {
+	port.stop = true
 	return nil
 }
 
 // Break sends a break for a determined time
-func (port *PortMock) Break(time.Duration) error {
+func (port *portMock) Break(time.Duration) error {
 	return nil
 }
 
-func (port *PortMock) Tick() {
-	for {
-		if port.previousTick.IsZero() {
-			port.previousTick = time.Now()
-		} else {
-			t := time.Now()
-			dt := t.Sub(port.previousTick)
-			seconds := dt.Seconds()
+func (port *portMock) Tick() {
+	bytesPerSecond := float64(port.mode.BaudRate) / 8.0
+	period := 1.0 / bytesPerSecond
+	duration := time.Duration(period * float64(time.Second))
 
-			bytesPerSecond := float64(port.mode.BaudRate) / 8.0
-			bytesToProcess := math.Floor(bytesPerSecond * seconds)
+	for !port.stop {
+		seconds := time.Since(port.previousTick).Seconds()
 
-			for bytesToProcess > 0 {
-				// Receive
-				if port.rxPointer > 0 {
-					port.rxPointer--
-					port.received = append(port.received, port.rxBuffer[port.rxPointer])
-				} else {
-					break
-				}
+		if port.previousTick.IsZero() || seconds >= period {
+			if port.previousTick.IsZero() {
+				port.previousTick = time.Now()
+			} else {
+				port.previousTick = port.previousTick.Add(duration)
+			}
 
-				bytesToProcess--
-				port.previousTick = t
+			if !port.portTxBuffer.isEmpty() {
+				port.terminalRxBuffer.queue(port.portTxBuffer.dequeue())
+			}
+
+			if !port.terminalTxBuffer.isEmpty() {
+				port.portRxBuffer.queue(port.terminalTxBuffer.dequeue())
 			}
 		}
+	}
+}
+
+func (port *portMock) terminalReceive() []byte {
+	var received []byte
+
+	for !port.terminalRxBuffer.isEmpty() {
+		received = append(received, port.terminalRxBuffer.dequeue())
+	}
+
+	return received
+}
+
+func (port *portMock) terminalSend(values []byte) {
+	for _, value := range values {
+		port.terminalTxBuffer.queue(value)
 	}
 }

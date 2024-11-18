@@ -1,12 +1,14 @@
 package acia
 
 import (
+	"fmt"
 	"math"
 	"testing"
 	"time"
 
 	"github.com/fran150/clementina6502/buses"
 	"github.com/stretchr/testify/assert"
+	"go.bug.st/serial"
 )
 
 const TEST_PORT_NAME string = "/dev/ttys009"
@@ -21,7 +23,7 @@ type testCircuit struct {
 	reset   buses.Line
 }
 
-func createTestCircuit() (*Acia65C51N, *testCircuit, *PortMock) {
+func createTestCircuit() (*Acia65C51N, *testCircuit, *portMock) {
 	var rsLines [NUM_OF_RS_LINES]buses.Line
 
 	for i := range NUM_OF_RS_LINES {
@@ -38,7 +40,7 @@ func createTestCircuit() (*Acia65C51N, *testCircuit, *PortMock) {
 		reset:   buses.CreateStandaloneLine(true),
 	}
 
-	mock := &PortMock{}
+	mock := createPortMock(&serial.Mode{})
 
 	acia := InitializeAcia65C51NWithPort(mock)
 
@@ -97,24 +99,77 @@ func readFromAcia(acia *Acia65C51N, circuit *testCircuit, register uint8, t *uin
 	return circuit.dataBus.Read()
 }
 
-func disableChipAndStepTime(acia *Acia65C51N, circuit *testCircuit, t *uint64) {
-	circuit.cs0.Set(false)
-	circuit.cs1.Set(true)
+func TestWriteToTX(t *testing.T) {
+	var step uint64
 
-	acia.Tick(*t, time.Now())
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
 
-	*t = *t + 1
+	circuit.wire(acia)
+
+	var data string = "Hello World!!!"
+
+	start := time.Now()
+
+	processAtBaudRates(1000, func(i int) bool {
+		if i < len(data) {
+			writeToAcia(acia, circuit, 0x00, uint8(data[i]), &step)
+		}
+		return i <= len(data)
+	})
+
+	baud := float64(len(data)*8) / time.Since(start).Seconds()
+
+	t.Logf("BAUD: %v", baud)
+
+	assert.Equal(t, data, string(mock.terminalReceive()))
 }
 
-func enableChip(circuit *testCircuit) {
-	circuit.cs0.Set(true)
-	circuit.cs1.Set(false)
+func TestProgrammedReset(t *testing.T) {
+	var step uint64
+
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia)
+
+	writeToAcia(acia, circuit, 0x02, 0xFF, &step)
+	writeToAcia(acia, circuit, 0x03, 0xFF, &step)
+
+	assert.Equal(t, uint8(0x10), acia.statusRegister)
+	assert.Equal(t, uint8(0xFF), acia.commandRegister)
+	assert.Equal(t, uint8(0xFF), acia.controlRegister)
+
+	// Write to status register causes a programmed reset
+	writeToAcia(acia, circuit, 0x01, 0xFF, &step)
+
+	assert.Equal(t, uint8(0x10), acia.statusRegister)
+	assert.Equal(t, uint8(0xFF), acia.controlRegister)
+	assert.Equal(t, uint8(0xE0), acia.commandRegister)
+}
+
+func TestWriteToCommandRegister(t *testing.T) {
+	var step uint64
+
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia)
+
+	writeToAcia(acia, circuit, 0x02, 0xFF, &step)
+
+	assert.Equal(t, uint8(0xFF), acia.commandRegister)
 }
 
 func TestWriteToControlRegister(t *testing.T) {
 	var step uint64
 
-	acia, circuit, _ := createTestCircuit()
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
 
 	circuit.wire(acia)
 
@@ -123,19 +178,143 @@ func TestWriteToControlRegister(t *testing.T) {
 	assert.Equal(t, uint8(0xFF), acia.controlRegister)
 }
 
-func TestWriteToTX(t *testing.T) {
+func TestReadFromRxOverrunning(t *testing.T) {
 	var step uint64
 
 	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
 
 	circuit.wire(acia)
 
 	var data string = "Hello World!!!"
+	var read []uint8
 
-	for _, char := range data {
-		writeToAcia(acia, circuit, 0x00, uint8(char), &step)
-		time.Sleep(time.Duration(10 * time.Millisecond))
+	mock.terminalSend([]byte(data))
+
+	processAtBaudRates(10, func(i int) bool {
+		if i > 0 {
+			assert.Equal(t, StatusOverrun, acia.statusRegister&StatusOverrun)
+		}
+
+		read = append(read, readFromAcia(acia, circuit, 0x00, &step))
+
+		return !mock.terminalTxBuffer.isEmpty()
+	})
+}
+
+func TestReadFromStatusRegister(t *testing.T) {
+	var step uint64
+
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia)
+
+	acia.statusRegister = 0xFF
+	status := readFromAcia(acia, circuit, 0x01, &step)
+
+	assert.Equal(t, uint8(0xFF), status)
+}
+
+func TestReadFromCommandRegister(t *testing.T) {
+	var step uint64
+
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia)
+
+	acia.commandRegister = 0xFF
+	command := readFromAcia(acia, circuit, 0x02, &step)
+
+	assert.Equal(t, uint8(0xFF), command)
+}
+
+func TestReadFromControlRegister(t *testing.T) {
+	var step uint64
+
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia)
+
+	acia.controlRegister = 0xFF
+	control := readFromAcia(acia, circuit, 0x03, &step)
+
+	assert.Equal(t, uint8(0xFF), control)
+}
+
+func TestReadFromRx(t *testing.T) {
+	var step uint64
+
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia)
+
+	var data string = "Hello World!!!"
+	var read []uint8
+
+	sent := false
+
+	for {
+		start := time.Now()
+
+		status := readFromAcia(acia, circuit, 0x01, &step)
+
+		if acia.statusRegister&StatusOverrun == StatusOverrun {
+			t.Errorf("Overrun occurred")
+			t.Fail()
+		}
+
+		if status&0x08 == 0x08 {
+			read = append(read, readFromAcia(acia, circuit, 0x00, &step))
+		}
+
+		if len(read) == len(data) {
+			break
+		}
+
+		if !sent {
+			go mock.terminalSend([]byte(data))
+			sent = true
+		}
+
+		d := time.Since(start).Microseconds()
+		if d > 10 {
+			fmt.Printf("\n\n Time: %v\n\n", d)
+		}
+
 	}
 
-	assert.Equal(t, data, string(mock.received))
+	assert.Equal(t, data, string(read))
+}
+
+func processAtBaudRates(baudRate int, executor func(int) bool) {
+	bytesPerSecond := float64(baudRate) / 8.0
+	interval := 1.0 / bytesPerSecond
+	duration := time.Duration(interval * float64(time.Second))
+
+	i := 0
+	var t time.Time
+	for {
+		passed := time.Since(t).Seconds()
+		if t.IsZero() || passed >= interval {
+			if t.IsZero() {
+				t = time.Now()
+			} else {
+				t = t.Add(duration)
+			}
+
+			if !executor(i) {
+				break
+			}
+			i++
+		}
+	}
 }

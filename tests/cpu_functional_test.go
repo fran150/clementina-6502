@@ -137,21 +137,22 @@ func BenchmarkProcessor(b *testing.B) {
 	var cycles uint64 = 0
 	var start = time.Now()
 
-	for cycles < maxAllowedCycles {
+	for i := 0; i < b.N; i++ {
+		for cycles < maxAllowedCycles {
+			// Exeutes the CPU cycles
+			processor.Tick(cycles)
+			ram.Tick(cycles)
+			processor.PostTick(cycles)
 
-		// Exeutes the CPU cycles
-		processor.Tick(cycles)
-		ram.Tick(cycles)
-		processor.PostTick(cycles)
+			// Verfies and count repeated "trap" opcodes. If this functions returns true
+			// it means that the code is trapped and the tests are either in error or finished
+			if verifyAndCountRepeats(processor) {
+				break
+			}
 
-		// Verfies and count repeated "trap" opcodes. If this functions returns true
-		// it means that the code is trapped and the tests are either in error or finished
-		if verifyAndCountRepeats(processor) {
-			break
+			// Count number of cycles
+			cycles++
 		}
-
-		// Count number of cycles
-		cycles++
 	}
 
 	// Measure the elapsed time

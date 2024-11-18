@@ -2,6 +2,7 @@ package acia
 
 import (
 	"math"
+	"sync"
 	"time"
 
 	"github.com/fran150/clementina6502/buses"
@@ -41,6 +42,10 @@ type Acia65C51N struct {
 	rxRegister uint8
 
 	port serial.Port
+
+	mu *sync.Mutex
+
+	stop bool
 }
 
 func CreateAcia65C51N(portName string) *Acia65C51N {
@@ -82,12 +87,14 @@ func createAcia65C51N() *Acia65C51N {
 
 		commandRegister: 0x00,
 		controlRegister: 0x00,
-		statusRegister:  0x00,
+		statusRegister:  0x10,
 
 		txRegisterEmpty: true,
 		rxRegisterEmpty: true,
 		txRegister:      0x00,
 		rxRegister:      0x00,
+
+		mu: &sync.Mutex{},
 	}
 }
 
@@ -103,6 +110,10 @@ var registerReadHandlers = []func(*Acia65C51N){
 	readStatus,
 	readCommand,
 	readControl,
+}
+
+func (acia *Acia65C51N) Close() {
+	acia.stop = true
 }
 
 func (via *Acia65C51N) DataBus() *buses.BusConnector[uint8] {
@@ -163,6 +174,10 @@ func (acia *Acia65C51N) Tick(cycles uint64, t time.Time) {
 	}
 
 	acia.setStatusRegister()
+
+	if acia.reset.Enabled() {
+		acia.hardwareReset()
+	}
 }
 
 func (acia *Acia65C51N) setStatusRegister() {
@@ -175,7 +190,7 @@ func (acia *Acia65C51N) setStatusRegister() {
 				acia.statusRegister |= (StatusDSR | StatusIRQ)
 			}
 		} else {
-			if acia.statusRegister&StatusDSR == 0x00 {
+			if acia.statusRegister&StatusDSR == StatusDSR {
 				acia.statusRegister &= ^StatusDSR
 				acia.statusRegister |= StatusIRQ
 			}
@@ -186,7 +201,7 @@ func (acia *Acia65C51N) setStatusRegister() {
 				acia.statusRegister |= (StatusDCD | StatusIRQ)
 			}
 		} else {
-			if acia.statusRegister&StatusDCD == 0x00 {
+			if acia.statusRegister&StatusDCD == StatusDCD {
 				acia.statusRegister &= ^StatusDCD
 				acia.statusRegister |= StatusIRQ
 			}
@@ -256,7 +271,7 @@ func (acia *Acia65C51N) getMode() *serial.Mode {
 
 	switch acia.controlRegister & 0x0F {
 	case 0x00:
-		mode.BaudRate = 115200
+		mode.BaudRate = 9600
 	case 0x01:
 		mode.BaudRate = 50
 	case 0x02:
@@ -290,4 +305,11 @@ func (acia *Acia65C51N) getMode() *serial.Mode {
 	}
 
 	return mode
+}
+
+func (acia *Acia65C51N) hardwareReset() {
+	acia.statusRegister &= 0x70
+	acia.statusRegister |= 0x10
+	acia.controlRegister &= 0x00
+	acia.commandRegister &= 0x00
 }
