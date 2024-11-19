@@ -3,24 +3,55 @@ package acia
 import (
 	"math"
 	"sync"
-	"time"
 
 	"github.com/fran150/clementina6502/buses"
+	"github.com/fran150/clementina6502/common"
 	"go.bug.st/serial"
 )
 
 const NUM_OF_RS_LINES uint8 = 2
 
 const (
-	StatusIRQ          uint8 = 0x80
-	StatusDSR          uint8 = 0x40
-	StatusDCD          uint8 = 0x20
-	StatusTDRE         uint8 = 0x10
-	StatusRDRF         uint8 = 0x08
-	StatusOverrun      uint8 = 0x04
-	StatusFramingError uint8 = 0x02
-	StatusParityError  uint8 = 0x01
+	statusIRQ          uint8 = 0x80
+	statusDSR          uint8 = 0x40
+	statusDCD          uint8 = 0x20
+	statusTDRE         uint8 = 0x10
+	statusRDRF         uint8 = 0x08
+	statusOverrun      uint8 = 0x04
+	statusFramingError uint8 = 0x02
+	statusParityError  uint8 = 0x01
 )
+
+const (
+	controlStopBitNumberMask uint8 = 0x80
+	controlWordLengthMask    uint8 = 0x60
+	controlBaudMask          uint8 = 0x0F
+)
+
+const (
+	commandDTRMask = 0x01
+	commandRIDMask = 0x02
+	commandTICMask = 0x0C
+)
+
+var baudRate = [...]int{
+	115200, // 0x00
+	50,     // 0x01
+	75,     // 0x02
+	110,    // 0x03
+	135,    // 0x04
+	150,    // 0x05
+	300,    // 0x06
+	600,    // 0x07
+	1200,   // 0x08
+	1800,   // 0x09
+	2400,   // 0x0A
+	3600,   // 0x0B
+	4800,   // 0x0C
+	7200,   // 0x0D
+	9600,   // 0x0E
+	19200,  // 0x0F
+}
 
 type Acia65C51N struct {
 	dataBus        *buses.BusConnector[uint8]
@@ -43,37 +74,14 @@ type Acia65C51N struct {
 
 	port serial.Port
 
-	mu *sync.Mutex
+	rxMutex *sync.Mutex
+	txMutex *sync.Mutex
 
-	stop bool
+	running bool
 }
 
-func CreateAcia65C51N(portName string) *Acia65C51N {
-	acia := createAcia65C51N()
-
-	acia.openPort(portName)
-
-	go acia.writeBytes()
-	go acia.readBytes()
-
-	return acia
-}
-
-func InitializeAcia65C51NWithPort(port serial.Port) *Acia65C51N {
-	acia := createAcia65C51N()
-
-	mode := acia.getMode()
-	port.SetMode(mode)
-	acia.port = port
-
-	go acia.writeBytes()
-	go acia.readBytes()
-
-	return acia
-}
-
-func createAcia65C51N() *Acia65C51N {
-	return &Acia65C51N{
+func CreateAcia65C51N() *Acia65C51N {
+	acia := &Acia65C51N{
 		dataBus:     buses.CreateBusConnector[uint8](),
 		irqRequest:  buses.CreateConnectorEnabledLow(),
 		readWrite:   buses.CreateConnectorEnabledLow(),
@@ -94,8 +102,16 @@ func createAcia65C51N() *Acia65C51N {
 		txRegister:      0x00,
 		rxRegister:      0x00,
 
-		mu: &sync.Mutex{},
+		rxMutex: &sync.Mutex{},
+		txMutex: &sync.Mutex{},
+
+		running: true,
 	}
+
+	go acia.writeBytes()
+	go acia.readBytes()
+
+	return acia
 }
 
 var registerWriteHandlers = []func(*Acia65C51N){
@@ -112,8 +128,20 @@ var registerReadHandlers = []func(*Acia65C51N){
 	readControl,
 }
 
+func (acia *Acia65C51N) ConnectToPort(port serial.Port) {
+	acia.port = port
+
+	mode := acia.getMode()
+	err := acia.port.SetMode(mode)
+	if err != nil {
+		panic(err)
+	}
+
+	acia.setModemLines()
+}
+
 func (acia *Acia65C51N) Close() {
-	acia.stop = true
+	acia.running = false
 }
 
 func (via *Acia65C51N) DataBus() *buses.BusConnector[uint8] {
@@ -162,7 +190,7 @@ func (acia *Acia65C51N) getRegisterSelectValue() uint8 {
 	return value
 }
 
-func (acia *Acia65C51N) Tick(cycles uint64, t time.Time) {
+func (acia *Acia65C51N) Tick(stepContext common.StepContext) {
 	if acia.chipSelect1.Enabled() && acia.chipSelect2.Enabled() {
 		selectedRegisterValue := acia.getRegisterSelectValue()
 
@@ -180,70 +208,67 @@ func (acia *Acia65C51N) Tick(cycles uint64, t time.Time) {
 	}
 }
 
-func (acia *Acia65C51N) setStatusRegister() {
+func (acia *Acia65C51N) setModemLines() {
+	if acia.commandRegister&commandDTRMask == 0x00 {
+		acia.port.SetDTR(false)
+	} else {
+		acia.port.SetDTR(true)
+	}
 
-	status, err := acia.port.GetModemStatusBits()
+	if acia.commandRegister&commandTICMask == 0x00 {
+		acia.port.SetRTS(false)
+	} else {
+		acia.port.SetRTS(true)
+	}
+}
 
-	if err == nil {
-		if status.DSR {
-			if acia.statusRegister&StatusDSR == 0x00 {
-				acia.statusRegister |= (StatusDSR | StatusIRQ)
-			}
-		} else {
-			if acia.statusRegister&StatusDSR == StatusDSR {
-				acia.statusRegister &= ^StatusDSR
-				acia.statusRegister |= StatusIRQ
-			}
+func (acia *Acia65C51N) setModemStatusBit(value bool, statusBit uint8) {
+	if value {
+		if acia.statusRegister&statusBit == 0x00 {
+			acia.statusRegister |= (statusBit | statusIRQ)
 		}
+	} else {
+		if acia.statusRegister&statusBit == statusBit {
+			acia.statusRegister &= ^statusBit
+			acia.statusRegister |= statusIRQ
+		}
+	}
+}
 
-		if status.DCD {
-			if acia.statusRegister&StatusDCD == 0x00 {
-				acia.statusRegister |= (StatusDCD | StatusIRQ)
-			}
-		} else {
-			if acia.statusRegister&StatusDCD == StatusDCD {
-				acia.statusRegister &= ^StatusDCD
-				acia.statusRegister |= StatusIRQ
-			}
+func (acia *Acia65C51N) setStatusRegister() {
+	if acia.port != nil {
+		status, err := acia.port.GetModemStatusBits()
+
+		if err == nil {
+			acia.setModemStatusBit(status.DSR, statusDSR)
+			acia.setModemStatusBit(status.DCD, statusDSR)
 		}
 	}
 
 	if !acia.rxRegisterEmpty {
-		if acia.statusRegister&StatusRDRF == 0x00 {
-			acia.statusRegister |= StatusRDRF
+		if acia.statusRegister&statusRDRF == 0x00 {
+			acia.statusRegister |= statusRDRF
 
-			// Receiver Interrupt Control (Bit 1)
+			// Receiver Interrupt Disabled (Bit 1)
 			// This bit disables the Receiver from generating an interrupt when set to a 1. The Receiver interrupt is
 			// enabled when this bit is set to a 0 and Bit 0 is set to a 1.
-			if acia.commandRegister&0x02 == 0x00 && acia.commandRegister&0x01 == 0x01 {
-				acia.statusRegister |= StatusIRQ
+			if acia.commandRegister&(commandRIDMask|commandDTRMask) == commandRIDMask {
+				acia.statusRegister |= statusIRQ
 			}
 		}
 	}
 
-	if acia.statusRegister&StatusIRQ == StatusIRQ {
+	if acia.statusRegister&statusIRQ == statusIRQ {
 		acia.irqRequest.SetEnable(true)
 	} else {
 		acia.irqRequest.SetEnable(false)
 	}
 }
 
-func (acia *Acia65C51N) openPort(portName string) {
-	var err error
-
-	mode := acia.getMode()
-
-	acia.port, err = serial.Open(portName, mode)
-
-	if err != nil {
-		panic(err)
-	}
-}
-
 func (acia *Acia65C51N) getMode() *serial.Mode {
 	mode := &serial.Mode{
-		BaudRate: 115200,
-		DataBits: 8,
+		BaudRate: baudRate[(acia.controlRegister & controlBaudMask)],
+		DataBits: int(8 - ((acia.controlRegister & controlStopBitNumberMask) >> 5)),
 		Parity:   serial.NoParity,
 		StopBits: serial.OneStopBit,
 	}
@@ -256,52 +281,6 @@ func (acia *Acia65C51N) getMode() *serial.Mode {
 		}
 	} else {
 		mode.StopBits = serial.OneStopBit
-	}
-
-	switch acia.controlRegister & 0x60 {
-	case 0x00:
-		mode.DataBits = 8
-	case 0x20:
-		mode.DataBits = 7
-	case 0x40:
-		mode.DataBits = 6
-	case 0x60:
-		mode.DataBits = 5
-	}
-
-	switch acia.controlRegister & 0x0F {
-	case 0x00:
-		mode.BaudRate = 9600
-	case 0x01:
-		mode.BaudRate = 50
-	case 0x02:
-		mode.BaudRate = 75
-	case 0x03:
-		mode.BaudRate = 109920
-	case 0x04:
-		mode.BaudRate = 134580
-	case 0x05:
-		mode.BaudRate = 150
-	case 0x06:
-		mode.BaudRate = 300
-	case 0x07:
-		mode.BaudRate = 600
-	case 0x08:
-		mode.BaudRate = 1200
-	case 0x09:
-		mode.BaudRate = 1800
-	case 0x0A:
-		mode.BaudRate = 2400
-	case 0x0B:
-		mode.BaudRate = 3600
-	case 0x0C:
-		mode.BaudRate = 4800
-	case 0x0D:
-		mode.BaudRate = 7200
-	case 0x0E:
-		mode.BaudRate = 9600
-	case 0x0F:
-		mode.BaudRate = 19200
 	}
 
 	return mode

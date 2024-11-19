@@ -1,7 +1,6 @@
 package acia
 
 import (
-	"fmt"
 	"time"
 
 	"go.bug.st/serial"
@@ -61,7 +60,6 @@ func (port *portMock) Read(p []byte) (n int, err error) {
 	i := 0
 	for !port.portRxBuffer.isEmpty() && i < len(p) {
 		p[i] = port.portRxBuffer.dequeue()
-		fmt.Printf("Read From Port Buffer: %v\n", string(p[i]))
 		i++
 	}
 

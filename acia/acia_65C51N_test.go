@@ -1,12 +1,12 @@
 package acia
 
 import (
-	"fmt"
 	"math"
 	"testing"
 	"time"
 
 	"github.com/fran150/clementina6502/buses"
+	"github.com/fran150/clementina6502/common"
 	"github.com/stretchr/testify/assert"
 	"go.bug.st/serial"
 )
@@ -30,6 +30,8 @@ func createTestCircuit() (*Acia65C51N, *testCircuit, *portMock) {
 		rsLines[i] = buses.CreateStandaloneLine(false)
 	}
 
+	acia := CreateAcia65C51N()
+
 	circuit := testCircuit{
 		dataBus: buses.CreateBus[uint8](),
 		irq:     buses.CreateStandaloneLine(true),
@@ -42,8 +44,7 @@ func createTestCircuit() (*Acia65C51N, *testCircuit, *portMock) {
 
 	mock := createPortMock(&serial.Mode{})
 
-	acia := InitializeAcia65C51NWithPort(mock)
-
+	acia.ConnectToPort(mock)
 	circuit.wire(acia)
 
 	go mock.Tick()
@@ -78,29 +79,31 @@ func (circuit *testCircuit) setRegisterSelectValue(value uint8) {
 	}
 }
 
-func writeToAcia(acia *Acia65C51N, circuit *testCircuit, register uint8, value uint8, t *uint64) {
+func writeToAcia(acia *Acia65C51N, circuit *testCircuit, register uint8, value uint8, step *common.StepContext) {
 	circuit.setRegisterSelectValue(register)
 	circuit.rw.Set(false)
 	circuit.dataBus.Write(value)
 
-	acia.Tick(*t, time.Now())
+	step.Cycle++
+	step.T = time.Now()
 
-	*t = *t + 1
+	acia.Tick(*step)
 }
 
-func readFromAcia(acia *Acia65C51N, circuit *testCircuit, register uint8, t *uint64) uint8 {
+func readFromAcia(acia *Acia65C51N, circuit *testCircuit, register uint8, step *common.StepContext) uint8 {
 	circuit.setRegisterSelectValue(register)
 	circuit.rw.Set(true)
 
-	acia.Tick(*t, time.Now())
+	step.Cycle++
+	step.T = time.Now()
 
-	*t = *t + 1
+	acia.Tick(*step)
 
 	return circuit.dataBus.Read()
 }
 
 func TestWriteToTX(t *testing.T) {
-	var step uint64
+	var step common.StepContext
 
 	acia, circuit, mock := createTestCircuit()
 	defer acia.Close()
@@ -127,7 +130,7 @@ func TestWriteToTX(t *testing.T) {
 }
 
 func TestProgrammedReset(t *testing.T) {
-	var step uint64
+	var step common.StepContext
 
 	acia, circuit, mock := createTestCircuit()
 	defer acia.Close()
@@ -151,7 +154,7 @@ func TestProgrammedReset(t *testing.T) {
 }
 
 func TestWriteToCommandRegister(t *testing.T) {
-	var step uint64
+	var step common.StepContext
 
 	acia, circuit, mock := createTestCircuit()
 	defer acia.Close()
@@ -165,7 +168,7 @@ func TestWriteToCommandRegister(t *testing.T) {
 }
 
 func TestWriteToControlRegister(t *testing.T) {
-	var step uint64
+	var step common.StepContext
 
 	acia, circuit, mock := createTestCircuit()
 	defer acia.Close()
@@ -179,7 +182,7 @@ func TestWriteToControlRegister(t *testing.T) {
 }
 
 func TestReadFromRxOverrunning(t *testing.T) {
-	var step uint64
+	var step common.StepContext
 
 	acia, circuit, mock := createTestCircuit()
 	defer acia.Close()
@@ -194,7 +197,7 @@ func TestReadFromRxOverrunning(t *testing.T) {
 
 	processAtBaudRates(10, func(i int) bool {
 		if i > 0 {
-			assert.Equal(t, StatusOverrun, acia.statusRegister&StatusOverrun)
+			assert.Equal(t, statusOverrun, acia.statusRegister&statusOverrun)
 		}
 
 		read = append(read, readFromAcia(acia, circuit, 0x00, &step))
@@ -204,7 +207,7 @@ func TestReadFromRxOverrunning(t *testing.T) {
 }
 
 func TestReadFromStatusRegister(t *testing.T) {
-	var step uint64
+	var step common.StepContext
 
 	acia, circuit, mock := createTestCircuit()
 	defer acia.Close()
@@ -219,7 +222,7 @@ func TestReadFromStatusRegister(t *testing.T) {
 }
 
 func TestReadFromCommandRegister(t *testing.T) {
-	var step uint64
+	var step common.StepContext
 
 	acia, circuit, mock := createTestCircuit()
 	defer acia.Close()
@@ -234,7 +237,7 @@ func TestReadFromCommandRegister(t *testing.T) {
 }
 
 func TestReadFromControlRegister(t *testing.T) {
-	var step uint64
+	var step common.StepContext
 
 	acia, circuit, mock := createTestCircuit()
 	defer acia.Close()
@@ -249,7 +252,7 @@ func TestReadFromControlRegister(t *testing.T) {
 }
 
 func TestReadFromRx(t *testing.T) {
-	var step uint64
+	var step common.StepContext
 
 	acia, circuit, mock := createTestCircuit()
 	defer acia.Close()
@@ -263,11 +266,9 @@ func TestReadFromRx(t *testing.T) {
 	sent := false
 
 	for {
-		start := time.Now()
-
 		status := readFromAcia(acia, circuit, 0x01, &step)
 
-		if acia.statusRegister&StatusOverrun == StatusOverrun {
+		if acia.statusRegister&statusOverrun == statusOverrun {
 			t.Errorf("Overrun occurred")
 			t.Fail()
 		}
@@ -284,12 +285,6 @@ func TestReadFromRx(t *testing.T) {
 			go mock.terminalSend([]byte(data))
 			sent = true
 		}
-
-		d := time.Since(start).Microseconds()
-		if d > 10 {
-			fmt.Printf("\n\n Time: %v\n\n", d)
-		}
-
 	}
 
 	assert.Equal(t, data, string(read))
