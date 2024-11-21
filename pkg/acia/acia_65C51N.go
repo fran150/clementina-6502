@@ -9,7 +9,7 @@ import (
 	"go.bug.st/serial"
 )
 
-const NUM_OF_RS_LINES uint8 = 2
+const numOfRSLines uint8 = 2
 
 const (
 	statusIRQ          uint8 = 0x80
@@ -87,7 +87,7 @@ func CreateAcia65C51N() *Acia65C51N {
 		readWrite:   buses.CreateConnectorEnabledLow(),
 		chipSelect1: buses.CreateConnectorEnabledHigh(),
 		chipSelect2: buses.CreateConnectorEnabledLow(),
-		registerSelect: [NUM_OF_RS_LINES]*buses.ConnectorEnabledHigh{
+		registerSelect: [numOfRSLines]*buses.ConnectorEnabledHigh{
 			buses.CreateConnectorEnabledHigh(),
 			buses.CreateConnectorEnabledHigh(),
 		},
@@ -172,8 +172,8 @@ func (via *Acia65C51N) Reset() *buses.ConnectorEnabledLow {
 	return via.reset
 }
 
-func (via *Acia65C51N) ConnectRegisterSelectLines(lines [NUM_OF_RS_LINES]buses.Line) {
-	for i := range NUM_OF_RS_LINES {
+func (via *Acia65C51N) ConnectRegisterSelectLines(lines [numOfRSLines]buses.Line) {
+	for i := range numOfRSLines {
 		via.registerSelect[i].Connect(lines[i])
 	}
 }
@@ -181,7 +181,7 @@ func (via *Acia65C51N) ConnectRegisterSelectLines(lines [NUM_OF_RS_LINES]buses.L
 func (acia *Acia65C51N) getRegisterSelectValue() uint8 {
 	var value uint8
 
-	for i := range NUM_OF_RS_LINES {
+	for i := range numOfRSLines {
 		if acia.registerSelect[i].Enabled() {
 			value += uint8(math.Pow(2, float64(i)))
 		}

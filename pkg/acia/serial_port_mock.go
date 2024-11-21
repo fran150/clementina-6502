@@ -127,11 +127,12 @@ func (port *portMock) Break(time.Duration) error {
 }
 
 func (port *portMock) Tick() {
-	bytesPerSecond := float64(port.mode.BaudRate) / 8.0
-	period := 1.0 / bytesPerSecond
-	duration := time.Duration(period * float64(time.Second))
-
 	for !port.stop {
+		// Must be read every cycle to update in case of changes
+		bytesPerSecond := float64(port.mode.BaudRate) / 8.0
+		period := 1.0 / bytesPerSecond
+		duration := time.Duration(period * float64(time.Second))
+
 		seconds := time.Since(port.previousTick).Seconds()
 
 		if port.previousTick.IsZero() || seconds >= period {
