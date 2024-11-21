@@ -3,7 +3,7 @@ package lcd
 import (
 	"time"
 
-	"github.com/fran150/clementina6502/buses"
+	"github.com/fran150/clementina6502/pkg/buses"
 )
 
 const DDRAM_SIZE uint8 = 80

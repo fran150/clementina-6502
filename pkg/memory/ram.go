@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/fran150/clementina6502/buses"
+	"github.com/fran150/clementina6502/pkg/buses"
 )
 
 type Ram struct {

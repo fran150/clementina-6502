@@ -4,8 +4,8 @@ import (
 	"math"
 	"sync"
 
-	"github.com/fran150/clementina6502/buses"
-	"github.com/fran150/clementina6502/common"
+	"github.com/fran150/clementina6502/pkg/buses"
+	"github.com/fran150/clementina6502/pkg/common"
 	"go.bug.st/serial"
 )
 

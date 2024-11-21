@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fran150/clementina6502/buses"
-	"github.com/fran150/clementina6502/cpu"
-	"github.com/fran150/clementina6502/memory"
+	"github.com/fran150/clementina6502/pkg/buses"
+	"github.com/fran150/clementina6502/pkg/cpu"
+	"github.com/fran150/clementina6502/pkg/memory"
 )
 
 /******************************************************************************************************

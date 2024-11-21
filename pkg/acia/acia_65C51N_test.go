@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fran150/clementina6502/buses"
-	"github.com/fran150/clementina6502/common"
+	"github.com/fran150/clementina6502/pkg/buses"
+	"github.com/fran150/clementina6502/pkg/common"
 	"github.com/stretchr/testify/assert"
 	"go.bug.st/serial"
 )

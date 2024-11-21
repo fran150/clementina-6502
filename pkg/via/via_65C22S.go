@@ -3,7 +3,7 @@ package via
 import (
 	"math"
 
-	"github.com/fran150/clementina6502/buses"
+	"github.com/fran150/clementina6502/pkg/buses"
 )
 
 type Via65C22SRegisters struct {

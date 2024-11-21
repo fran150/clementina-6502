@@ -1,5 +1,10 @@
 package acia
 
+const (
+	softResetStatusRegValue  uint8 = 0xFB
+	softResetCommandRegValue uint8 = 0xE0
+)
+
 func writeTransmitData(acia *Acia65C51N) {
 	acia.txMutex.Lock()
 	defer acia.txMutex.Unlock()
@@ -9,8 +14,8 @@ func writeTransmitData(acia *Acia65C51N) {
 }
 
 func programmedReset(acia *Acia65C51N) {
-	acia.statusRegister &= 0xFB
-	acia.commandRegister &= 0xE0
+	acia.statusRegister &= softResetStatusRegValue
+	acia.commandRegister &= softResetCommandRegValue
 }
 
 func writeCommand(acia *Acia65C51N) {

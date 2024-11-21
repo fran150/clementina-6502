@@ -1,6 +1,6 @@
 package via
 
-import "github.com/fran150/clementina6502/buses"
+import "github.com/fran150/clementina6502/pkg/buses"
 
 type viaControlLineConfiguration struct {
 	transitionConfigurationMasks [2]viaPCRTranstitionMasks

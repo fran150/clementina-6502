@@ -5,8 +5,8 @@ import (
 	"testing"
 	"unicode"
 
-	"github.com/fran150/clementina6502/buses"
-	"github.com/fran150/clementina6502/memory"
+	"github.com/fran150/clementina6502/pkg/buses"
+	"github.com/fran150/clementina6502/pkg/memory"
 )
 
 // These are the values to validate after each cycle. The tests will check if

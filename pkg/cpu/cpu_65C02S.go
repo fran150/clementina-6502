@@ -3,7 +3,7 @@ package cpu
 import (
 	"slices"
 
-	"github.com/fran150/clementina6502/buses"
+	"github.com/fran150/clementina6502/pkg/buses"
 )
 
 // Represents the WDC 65C02S processor. See https://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf

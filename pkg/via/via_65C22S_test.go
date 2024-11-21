@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/fran150/clementina6502/buses"
+	"github.com/fran150/clementina6502/pkg/buses"
 	"github.com/stretchr/testify/assert"
 )
 

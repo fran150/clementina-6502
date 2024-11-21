@@ -3,7 +3,7 @@ package memory
 import (
 	"testing"
 
-	"github.com/fran150/clementina6502/buses"
+	"github.com/fran150/clementina6502/pkg/buses"
 )
 
 func TestRamReadWrite(t *testing.T) {
