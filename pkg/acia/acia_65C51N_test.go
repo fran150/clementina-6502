@@ -334,7 +334,7 @@ func TestReadFromRxOverrunning(t *testing.T) {
 		read = append(read, readFromAcia(acia, circuit, 0x00, &step))
 
 		// Stop when all bytes are sent
-		return !mock.terminalTxBuffer.isEmpty()
+		return !mock.terminalTxBuffer.IsEmpty()
 	})
 }
 

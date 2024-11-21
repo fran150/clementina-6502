@@ -3,6 +3,7 @@ package acia
 import (
 	"time"
 
+	"github.com/fran150/clementina6502/internal/queue"
 	"go.bug.st/serial"
 )
 
@@ -12,11 +13,11 @@ type portMock struct {
 	dtr    bool
 	rts    bool
 
-	portTxBuffer *simpleQueue
-	portRxBuffer *simpleQueue
+	portTxBuffer *queue.SimpleQueue
+	portRxBuffer *queue.SimpleQueue
 
-	terminalTxBuffer *simpleQueue
-	terminalRxBuffer *simpleQueue
+	terminalTxBuffer *queue.SimpleQueue
+	terminalRxBuffer *queue.SimpleQueue
 
 	previousTick time.Time
 
@@ -34,10 +35,10 @@ func createPortMock(mode *serial.Mode) *portMock {
 		},
 		dtr:              false,
 		rts:              false,
-		portTxBuffer:     createQueue(),
-		terminalTxBuffer: createQueue(),
-		portRxBuffer:     createQueue(),
-		terminalRxBuffer: createQueue(),
+		portTxBuffer:     queue.CreateQueue(),
+		terminalTxBuffer: queue.CreateQueue(),
+		portRxBuffer:     queue.CreateQueue(),
+		terminalRxBuffer: queue.CreateQueue(),
 	}
 }
 
@@ -54,12 +55,12 @@ func (port *portMock) SetMode(mode *serial.Mode) error {
 // The Read function blocks until (at least) one byte is received from
 // the serial port or an error occurs.
 func (port *portMock) Read(p []byte) (n int, err error) {
-	for port.portRxBuffer.isEmpty() {
+	for port.portRxBuffer.IsEmpty() {
 	}
 
 	i := 0
-	for !port.portRxBuffer.isEmpty() && i < len(p) {
-		p[i] = port.portRxBuffer.dequeue()
+	for !port.portRxBuffer.IsEmpty() && i < len(p) {
+		p[i] = port.portRxBuffer.DeQueue()
 		i++
 	}
 
@@ -70,10 +71,10 @@ func (port *portMock) Read(p []byte) (n int, err error) {
 // Returns the number of bytes written.
 func (port *portMock) Write(p []byte) (n int, err error) {
 	for _, v := range p {
-		port.portTxBuffer.queue(v)
+		port.portTxBuffer.Queue(v)
 	}
 
-	return port.portTxBuffer.size(), nil
+	return port.portTxBuffer.Size(), nil
 }
 
 // Wait until all data in the buffer are sent
@@ -142,12 +143,12 @@ func (port *portMock) Tick() {
 				port.previousTick = port.previousTick.Add(duration)
 			}
 
-			if !port.portTxBuffer.isEmpty() {
-				port.terminalRxBuffer.queue(port.portTxBuffer.dequeue())
+			if !port.portTxBuffer.IsEmpty() {
+				port.terminalRxBuffer.Queue(port.portTxBuffer.DeQueue())
 			}
 
-			if !port.terminalTxBuffer.isEmpty() {
-				port.portRxBuffer.queue(port.terminalTxBuffer.dequeue())
+			if !port.terminalTxBuffer.IsEmpty() {
+				port.portRxBuffer.Queue(port.terminalTxBuffer.DeQueue())
 			}
 		}
 	}
@@ -156,8 +157,8 @@ func (port *portMock) Tick() {
 func (port *portMock) terminalReceive() []byte {
 	var received []byte
 
-	for !port.terminalRxBuffer.isEmpty() {
-		received = append(received, port.terminalRxBuffer.dequeue())
+	for !port.terminalRxBuffer.IsEmpty() {
+		received = append(received, port.terminalRxBuffer.DeQueue())
 	}
 
 	return received
@@ -165,6 +166,6 @@ func (port *portMock) terminalReceive() []byte {
 
 func (port *portMock) terminalSend(values []byte) {
 	for _, value := range values {
-		port.terminalTxBuffer.queue(value)
+		port.terminalTxBuffer.Queue(value)
 	}
 }

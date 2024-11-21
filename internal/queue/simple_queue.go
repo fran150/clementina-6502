@@ -1,32 +1,32 @@
-package acia
+package queue
 
 import "sync"
 
-type simpleQueue struct {
+type SimpleQueue struct {
 	mu     *sync.Mutex
 	values []byte
 }
 
-func createQueue() *simpleQueue {
-	return &simpleQueue{
+func CreateQueue() *SimpleQueue {
+	return &SimpleQueue{
 		mu:     &sync.Mutex{},
 		values: make([]byte, 0),
 	}
 }
 
-func (queue *simpleQueue) size() int {
+func (queue *SimpleQueue) Size() int {
 	queue.mu.Lock()
 	defer queue.mu.Unlock()
 	return len(queue.values)
 }
 
-func (queue *simpleQueue) queue(value byte) {
+func (queue *SimpleQueue) Queue(value byte) {
 	queue.mu.Lock()
 	defer queue.mu.Unlock()
 	queue.values = append(queue.values, value)
 }
 
-func (queue *simpleQueue) dequeue() byte {
+func (queue *SimpleQueue) DeQueue() byte {
 	queue.mu.Lock()
 	defer queue.mu.Unlock()
 
@@ -35,7 +35,7 @@ func (queue *simpleQueue) dequeue() byte {
 	return value
 }
 
-func (queue *simpleQueue) isEmpty() bool {
+func (queue *SimpleQueue) IsEmpty() bool {
 	queue.mu.Lock()
 	defer queue.mu.Unlock()
 
