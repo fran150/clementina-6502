@@ -26,17 +26,30 @@ const (
 
 // Control register bit masks (Bit 4 Receiver Clock Source not emulated)
 const (
-	controlStopBitNumberMask uint8 = 0x80 // Bit 7 is the number of stop bits
-	controlWordLengthMask    uint8 = 0x60 // Bit 6 - 5 is the word length
-	controlBaudMask          uint8 = 0x0F // Bit 3 - 0 is the selected baud rate
+	controlStopBitNumberBit uint8 = 0x80 // Bit 7 is the number of stop bits
+	controlWordLengthMask   uint8 = 0x60 // Bit 6 - 5 is the word length
+	controlBaudMask         uint8 = 0x0F // Bit 3 - 0 is the selected baud rate
 )
 
 // Command register bit masks. Bits 7 to 5 control parity and are not emulated
 const (
-	commandDTRMask = 0x01 // Bit 0 is Data terminal ready
-	commandRIDMask = 0x02 // Bit 1 is Receiver interrupt disabled
-	commandTICMask = 0x0C // Bit 2 - 3 is Transmitter interrupt control
-	commandREMMask = 0x10 // Bit 4 is Receiver echo mode
+	commandPMCMask   uint8 = 0xC0 // Bit 7 - 6 is parity control
+	commandPMEBit    uint8 = 0x20 // Bit 5 is Parity Mode Enabled (must be always disabled)
+	commandREMBit    uint8 = 0x10 // Bit 4 is Receiver Echo Mode
+	commandTICRTSBit uint8 = 0x08 // Bit 3 controls if RTS enabled or not
+	commandTICTXBit  uint8 = 0x04 // Bit 2 controls if TX IRQ is enabled
+	commandRIDBit    uint8 = 0x02 // Bit 1 is Receiver interrupt disabled
+	commandDTRBit    uint8 = 0x01 // Bit 0 is Data terminal ready
+
+)
+
+const (
+	softResetStatusRegMask  uint8 = 0xFB
+	softResetCommandRegMask uint8 = 0xE0
+
+	hardResetStatusRegMask   uint8 = 0x60
+	hardResetControlRegValue uint8 = 0x00
+	hardResetCommandRegValue uint8 = 0x00
 )
 
 // Map of the baud rate the value of the last 4 bits in the control register
@@ -156,6 +169,7 @@ func (acia *Acia65C51N) ConnectToPort(port serial.Port) {
 		panic(err)
 	}
 
+	// Sets the values of the modem lines in the port according to the ACIA registers
 	acia.setModemLines()
 }
 
@@ -182,28 +196,43 @@ func (via *Acia65C51N) ReadWrite() *buses.ConnectorEnabledLow {
 	return via.readWrite
 }
 
+// Chip select line (CS0). The ACIA is selected when CS0 is high and CS1B is low. When the ACIA is selected, the
+// internal registers are addressed in accordance with the register select lines (RS0, RS1).
 func (via *Acia65C51N) ChipSelect0() *buses.ConnectorEnabledHigh {
 	return via.chipSelect1
 }
 
+// Chip select line (CS1B). The ACIA is selected when CS0 is high and CS1B is low. When the ACIA is selected, the
+// internal registers are addressed in accordance with the register select lines (RS0, RS1).
 func (via *Acia65C51N) ChipSelect1() *buses.ConnectorEnabledLow {
 	return via.chipSelect2
 }
 
+// The two register select lines are normally connected to the processor address lines to allow the processor
+// to select the various ACIA internal registers.
+// Considering the values of RS0 as bit 0 and RS1 as bit 1 and the R/W line status:
+// 0x00 - W: Transmit Data/Shift Register / R: Read Receiver Data Register
+// 0x01 - W: Programmed Reset (Data is “Don’t Care”) / R: Read Status Register
+// 0x02 - W: Write Command Register / R: Read Command Register
+// 0x03 - W:  Write Control Register / R: Read Control Register
 func (via *Acia65C51N) RegisterSelect(num uint8) *buses.ConnectorEnabledHigh {
 	return via.registerSelect[num]
 }
 
+// Resets the ACIA chip when low.
 func (via *Acia65C51N) Reset() *buses.ConnectorEnabledLow {
 	return via.reset
 }
 
+// Connects the specified lines to the register select (RS) lines
 func (via *Acia65C51N) ConnectRegisterSelectLines(lines [numOfRSLines]buses.Line) {
 	for i := range numOfRSLines {
 		via.registerSelect[i].Connect(lines[i])
 	}
 }
 
+// Returns a byte that respresents the status of the RS lines in where
+// RS0 is bit 0 and RS1 is bit 1
 func (acia *Acia65C51N) getRegisterSelectValue() uint8 {
 	var value uint8
 
@@ -216,8 +245,16 @@ func (acia *Acia65C51N) getRegisterSelectValue() uint8 {
 	return value
 }
 
+// Executes one emulation step
 func (acia *Acia65C51N) Tick(stepContext common.StepContext) {
+	// Sets the status flag based on modem lines (these are controlled by the modem)
+	acia.evaluateModemStatus()
+	// Evaluates if the rx record is full and sets the status register accordingly
+	acia.evaluateRxRegisterStatus()
+
 	if acia.chipSelect1.Enabled() && acia.chipSelect2.Enabled() {
+		// If the chip is enabled trigger the handler function for the
+		// seleted register and R/W values
 		selectedRegisterValue := acia.getRegisterSelectValue()
 
 		if !acia.readWrite.Enabled() {
@@ -227,94 +264,145 @@ func (acia *Acia65C51N) Tick(stepContext common.StepContext) {
 		}
 	}
 
-	acia.setStatusRegister()
+	// Sets the DTR and RTS modem lines (these are controlled by the ACIA)
+	acia.setModemLines()
 
+	// Drives the IRQ line based on the status register
+	acia.setIRQLine()
+
+	// If the reset line is enabled do a hardware reset
 	if acia.reset.Enabled() {
 		acia.hardwareReset()
 	}
 }
 
+// Sets the Data Terminal Ready (DTR) and Ready to Receive (RTS)
+// pins in the serial port according to the command register values
 func (acia *Acia65C51N) setModemLines() {
-	if acia.commandRegister&commandDTRMask == 0x00 {
-		acia.port.SetDTR(false)
-	} else {
-		acia.port.SetDTR(true)
-	}
-
-	if acia.commandRegister&commandTICMask == 0x00 {
-		acia.port.SetRTS(false)
-	} else {
-		acia.port.SetRTS(true)
-	}
-}
-
-func (acia *Acia65C51N) setModemStatusBit(value bool, statusBit uint8) {
-	if value {
-		if acia.statusRegister&statusBit == 0x00 {
-			acia.statusRegister |= (statusBit | statusIRQ)
-		}
-	} else {
-		if acia.statusRegister&statusBit == statusBit {
-			acia.statusRegister &= ^statusBit
-			acia.statusRegister |= statusIRQ
-		}
-	}
-}
-
-func (acia *Acia65C51N) setStatusRegister() {
 	if acia.port != nil {
+		dtr := isBitSet(acia.commandRegister, commandDTRBit)
+		rts := isBitSet(acia.commandRegister, commandTICRTSBit)
+		acia.port.SetDTR(dtr)
+		acia.port.SetRTS(rts)
+	}
+}
+
+// If the modem changes the values of the DSR and DCD values this function updates
+// the status accordingly and attempts to triggering an interrupt by setting the IRQ flag
+func (acia *Acia65C51N) evaluateModemStatus() {
+	isIRQTriggered := isBitSet(acia.statusRegister, statusIRQ)
+
+	if acia.port != nil && !isIRQTriggered {
 		status, err := acia.port.GetModemStatusBits()
+		if err != nil {
+			panic(err)
+		}
 
-		if err == nil {
-			acia.setModemStatusBit(status.DSR, statusDSR)
-			acia.setModemStatusBit(status.DCD, statusDSR)
+		dsr := isBitSet(acia.statusRegister, statusDSR)
+		dcd := isBitSet(acia.statusRegister, statusDCD)
+
+		// If DSR status has changed, update the status register and set interrupt
+		if dsr != status.DSR {
+			setRegisterBit(&acia.statusRegister, statusDSR, status.DSR)
+			setRegisterBit(&acia.statusRegister, statusIRQ, true)
+		}
+
+		// If DCD status has changed, update the status register and set interrupt
+		if dcd != status.DCD {
+			setRegisterBit(&acia.statusRegister, statusDCD, status.DCD)
+			setRegisterBit(&acia.statusRegister, statusIRQ, true)
 		}
 	}
+}
 
+// Sets the RDRF status accordingly, if is set to true, it attempts to trigger an
+// interrupt by setting the IRQ flag
+func (acia *Acia65C51N) evaluateRxRegisterStatus() {
 	if !acia.rxRegisterEmpty {
-		if acia.statusRegister&statusRDRF == 0x00 {
-			acia.statusRegister |= statusRDRF
-
-			// Receiver Interrupt Disabled (Bit 1)
-			// This bit disables the Receiver from generating an interrupt when set to a 1. The Receiver interrupt is
-			// enabled when this bit is set to a 0 and Bit 0 is set to a 1.
-			if acia.commandRegister&(commandRIDMask|commandDTRMask) == commandRIDMask {
-				acia.statusRegister |= statusIRQ
-			}
+		if !isBitSet(acia.statusRegister, statusRDRF) {
+			setRegisterBit(&acia.statusRegister, (statusRDRF | statusIRQ), true)
 		}
 	}
+}
 
-	if acia.statusRegister&statusIRQ == statusIRQ {
+// Drives the IRQ line, if the IRQ status flag is set, the DTR is enabled and
+// the IRD is not set, then it enables the exception generating line
+func (acia *Acia65C51N) setIRQLine() {
+	isIRQDisabled := isBitSet(acia.commandRegister, commandRIDBit)
+	isDTREnabled := isBitSet(acia.commandRegister, commandDTRBit)
+	isIRQTriggered := isBitSet(acia.statusRegister, statusIRQ)
+
+	if isDTREnabled && !isIRQDisabled && isIRQTriggered {
 		acia.irqRequest.SetEnable(true)
 	} else {
 		acia.irqRequest.SetEnable(false)
 	}
 }
 
-func (acia *Acia65C51N) getMode() *serial.Mode {
-	mode := &serial.Mode{
-		BaudRate: baudRate[(acia.controlRegister & controlBaudMask)],
-		DataBits: int(8 - ((acia.controlRegister & controlStopBitNumberMask) >> 5)),
-		Parity:   serial.NoParity,
-		StopBits: serial.OneStopBit,
-	}
+// Return the current baud rate based on the chip configuration
+func (acia *Acia65C51N) getBaudRate() int {
+	return baudRate[(acia.controlRegister & controlBaudMask)]
+}
 
-	if acia.controlRegister&0x80 == 0x80 {
-		if acia.controlRegister&0x60 == 0x60 {
-			mode.StopBits = serial.OnePointFiveStopBits
+// Returns the the word lenght (or number of data bits) based on the chip configuration
+func (acia *Acia65C51N) getWordLength() int {
+	return int(8 - ((acia.controlRegister & controlWordLengthMask) >> 5))
+}
+
+// Returns the number of stop bits
+func (acia *Acia65C51N) getStopBits() serial.StopBits {
+	// If stop bit is set then it can be 2 or 1.5 depending on the word length
+	// if it's unset then its 1
+	if isBitSet(acia.controlRegister, controlStopBitNumberBit) {
+		dataBits := acia.getWordLength()
+
+		if dataBits == 5 {
+			return serial.OnePointFiveStopBits
 		} else {
-			mode.StopBits = serial.TwoStopBits
+			return serial.TwoStopBits
 		}
 	} else {
-		mode.StopBits = serial.OneStopBit
+		return serial.OneStopBit
+	}
+}
+
+// Gets the serial port mode based on the ACIA chip configuration.
+// This sets the baud rate, number of data bits, parity and stop bits configuration
+func (acia *Acia65C51N) getMode() *serial.Mode {
+	mode := &serial.Mode{
+		BaudRate: acia.getBaudRate(),
+		DataBits: acia.getWordLength(),
+		Parity:   serial.NoParity,
+		StopBits: acia.getStopBits(),
 	}
 
 	return mode
 }
 
+// Returns the CTS line status. If serial port is not connected it will return false
+// If an error occurs reading the line it will assume that the value is true. This is to
+// allow the emulation to work when this line is not supported (for example when using SOCAT command)
+func (acia *Acia65C51N) getCTSStatus() bool {
+	var cts bool
+
+	if acia.port != nil {
+		status, err := acia.port.GetModemStatusBits()
+		if err == nil {
+			cts = status.CTS
+		} else {
+			cts = true
+		}
+	} else {
+		cts = false
+	}
+
+	return cts
+}
+
+// Performs a hardware reset
 func (acia *Acia65C51N) hardwareReset() {
-	acia.statusRegister &= 0x70
-	acia.statusRegister |= 0x10
-	acia.controlRegister &= 0x00
-	acia.commandRegister &= 0x00
+	acia.statusRegister &= hardResetStatusRegMask
+	acia.statusRegister |= statusTDRE
+	acia.controlRegister &= hardResetControlRegValue
+	acia.commandRegister &= hardResetCommandRegValue
 }

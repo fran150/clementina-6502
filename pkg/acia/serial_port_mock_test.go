@@ -7,6 +7,7 @@ import (
 	"go.bug.st/serial"
 )
 
+// Struct that mocks the serial port interface for testing
 type portMock struct {
 	mode   *serial.Mode
 	status serial.ModemStatusBits
@@ -22,13 +23,16 @@ type portMock struct {
 	previousTick time.Time
 
 	stop bool
+
+	makeCallsFail bool
 }
 
+// Creates a new mock of the serial port
 func createPortMock(mode *serial.Mode) *portMock {
 	return &portMock{
 		mode: mode,
 		status: serial.ModemStatusBits{
-			CTS: false,
+			CTS: true,
 			DSR: false,
 			RI:  false,
 			DCD: false,
@@ -39,6 +43,16 @@ func createPortMock(mode *serial.Mode) *portMock {
 		terminalTxBuffer: queue.CreateQueue(),
 		portRxBuffer:     queue.CreateQueue(),
 		terminalRxBuffer: queue.CreateQueue(),
+		makeCallsFail:    false,
+	}
+}
+
+// Returns error if the mock is configured to fail
+func (port *portMock) checkError() error {
+	if port.makeCallsFail {
+		return serial.PortError{}
+	} else {
+		return nil
 	}
 }
 
@@ -46,7 +60,7 @@ func createPortMock(mode *serial.Mode) *portMock {
 func (port *portMock) SetMode(mode *serial.Mode) error {
 	port.mode = mode
 
-	return nil
+	return port.checkError()
 }
 
 // Stores data received from the serial port into the provided byte array
@@ -64,7 +78,7 @@ func (port *portMock) Read(p []byte) (n int, err error) {
 		i++
 	}
 
-	return len(p), nil
+	return len(p), port.checkError()
 }
 
 // Send the content of the data byte array to the serial port.
@@ -74,22 +88,22 @@ func (port *portMock) Write(p []byte) (n int, err error) {
 		port.portTxBuffer.Queue(v)
 	}
 
-	return port.portTxBuffer.Size(), nil
+	return port.portTxBuffer.Size(), port.checkError()
 }
 
 // Wait until all data in the buffer are sent
 func (port *portMock) Drain() error {
-	return nil
+	return port.checkError()
 }
 
 // ResetInputBuffer Purges port read buffer
 func (port *portMock) ResetInputBuffer() error {
-	return nil
+	return port.checkError()
 }
 
 // ResetOutputBuffer Purges port write buffer
 func (port *portMock) ResetOutputBuffer() error {
-	return nil
+	return port.checkError()
 }
 
 // SetDTR sets the modem status bit DataTerminalReady
@@ -101,30 +115,30 @@ func (port *portMock) SetDTR(dtr bool) error {
 // SetRTS sets the modem status bit RequestToSend
 func (port *portMock) SetRTS(rts bool) error {
 	port.rts = rts
-	return nil
+	return port.checkError()
 }
 
 // GetModemStatusBits returns a ModemStatusBits structure containing the
 // modem status bits for the serial port (CTS, DSR, etc...)
 func (port *portMock) GetModemStatusBits() (*serial.ModemStatusBits, error) {
-	return &port.status, nil
+	return &port.status, port.checkError()
 }
 
 // SetReadTimeout sets the timeout for the Read operation or use serial.NoTimeout
 // to disable read timeout.
 func (port *portMock) SetReadTimeout(t time.Duration) error {
-	return nil
+	return port.checkError()
 }
 
 // Close the serial port
 func (port *portMock) Close() error {
 	port.stop = true
-	return nil
+	return port.checkError()
 }
 
 // Break sends a break for a determined time
 func (port *portMock) Break(time.Duration) error {
-	return nil
+	return port.checkError()
 }
 
 func (port *portMock) Tick() {

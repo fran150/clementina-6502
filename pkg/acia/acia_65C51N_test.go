@@ -166,6 +166,76 @@ func readFromAcia(acia *Acia65C51N, circuit *testCircuit, register uint8, step *
 	return circuit.dataBus.Read()
 }
 
+// Disables chip and steps time
+func disableChipAndStepTime(acia *Acia65C51N, circuit *testCircuit, step *common.StepContext) {
+	circuit.cs0.Set(false)
+	circuit.cs1.Set(true)
+
+	step.Cycle++
+	step.T = time.Now()
+
+	acia.Tick(*step)
+}
+
+// Re-enables chip
+func enableChip(circuit *testCircuit) {
+	circuit.cs0.Set(true)
+	circuit.cs1.Set(false)
+}
+
+// Tests that the modem lines updates the status registers accordingly and the
+// IRQ behaviour of these lines. This function is used to perform the same batch of tests on the DCD and DSR lines
+func testModemStatusLine(t *testing.T, acia *Acia65C51N, circuit *testCircuit, modemLine *bool, flag uint8, step *common.StepContext) {
+	// Modem enables line, this should trigger an interrupt
+	*modemLine = true
+	disableChipAndStepTime(acia, circuit, step)
+	assert.Equal(t, false, circuit.irq.Status())
+
+	// Reading from the status register should get the updated values, and clear the interrupt
+	enableChip(circuit)
+	status := readFromAcia(acia, circuit, 0x01, step)
+	assert.Equal(t, uint8(statusIRQ|flag), (status & (statusIRQ | statusDCD | statusDSR)))
+	assert.Equal(t, true, circuit.irq.Status())
+
+	// Modem disables line, this should trigger an interrupt
+	*modemLine = false
+	disableChipAndStepTime(acia, circuit, step)
+	assert.Equal(t, false, circuit.irq.Status())
+
+	// Reading from the status register should get the updated values, and clear the interrupt
+	enableChip(circuit)
+	status = readFromAcia(acia, circuit, 0x01, step)
+	assert.Equal(t, uint8(statusIRQ), (status & (statusIRQ | statusDCD | statusDSR)))
+	assert.Equal(t, true, circuit.irq.Status())
+
+	// From manual: Subsequent level changes will not affect the status bits until the Status
+	// Register is interrogated by the processor.
+
+	// Modem re-enables line again, this should trigger an interrupt
+	*modemLine = true
+	disableChipAndStepTime(acia, circuit, step)
+	assert.Equal(t, false, circuit.irq.Status())
+
+	// Modem disables line, interrupt was not yet handled, this should not change the status register
+	*modemLine = false
+	enableChip(circuit)
+	status = readFromAcia(acia, circuit, 0x01, step)
+	// Status register reads DCD flag high and interrupt flag, IRQ line is cleared after reading
+	assert.Equal(t, uint8(statusIRQ|flag), (status & (statusIRQ | statusDCD | statusDSR)))
+	assert.Equal(t, true, circuit.irq.Status())
+
+	// From manual: At that time, another interrupt will immediately occur and the
+	// status bits reflect the new input levels.
+	disableChipAndStepTime(acia, circuit, step)
+	assert.Equal(t, false, circuit.irq.Status())
+
+	// Read new levels clearing IRQ
+	enableChip(circuit)
+	status = readFromAcia(acia, circuit, 0x01, step)
+	assert.Equal(t, uint8(statusIRQ), (status & (statusIRQ | statusDCD | statusDSR)))
+	assert.Equal(t, true, circuit.irq.Status())
+}
+
 /****************************************************************************************************************
 * Write to registers
 ****************************************************************************************************************/
@@ -192,6 +262,35 @@ func TestWriteToTX(t *testing.T) {
 	assert.Equal(t, data, string(mock.terminalReceive()))
 }
 
+// Writes data to the TX register with CTS disabled. This means that the other side (modem or computer)
+// is not ready. According to documentation: "The CTSB input pin controls the transmitter operation. The
+// enable state is with CTSB low. The transmitter is automatically disabled if CTSB is high."
+func TestWriteToTXWithCTSDisabled(t *testing.T) {
+	var step common.StepContext
+
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia)
+
+	const data string = "Hello World!!!"
+
+	// Disables CTS from the serial port, this means that the other side is not ready to receive and the
+	// transmitter is automatically disabled.
+	mock.status.CTS = false
+
+	// Writes to acia at 1000 bauds, default speed for acia is 115200, so this will be well within
+	// this speed to avoid overruns. Run 2 extra cycles to allow last written byte to be transmitted
+	processAtBaudRates(1000, 2, func(i int) bool {
+		writeToAcia(acia, circuit, 0x00, uint8(data[i]), &step)
+		return i < len(data)-1
+	})
+
+	// No data will be sent with CTS disabled (high)
+	assert.Equal(t, "", string(mock.terminalReceive()))
+}
+
 // Test that the records are changed back to the expected value during a programmed reset.
 // A programmed reset is caused by writing any value to status register RS = 0x01 (RS1 = L, RS0 = H)
 func TestProgrammedReset(t *testing.T) {
@@ -203,14 +302,14 @@ func TestProgrammedReset(t *testing.T) {
 
 	circuit.wire(acia)
 
-	// Write 0xFF in both registers
-	writeToAcia(acia, circuit, 0x02, 0xFF, &step)
+	// Set all 1s (where possible) in the control and command registers
+	writeToAcia(acia, circuit, 0x02, 0xDF, &step)
 	writeToAcia(acia, circuit, 0x03, 0xFF, &step)
 
 	// Assert the new status (status register cannot be written and has default value)
 	assert.Equal(t, uint8(0x10), acia.statusRegister)
-	assert.Equal(t, uint8(0xFF), acia.commandRegister)
 	assert.Equal(t, uint8(0xFF), acia.controlRegister)
+	assert.Equal(t, uint8(0xDF), acia.commandRegister)
 
 	// Write to status register causes a programmed reset
 	writeToAcia(acia, circuit, 0x01, 0xFF, &step)
@@ -218,7 +317,7 @@ func TestProgrammedReset(t *testing.T) {
 	// Check values are reset (control register remains untouched by programmed reset)
 	assert.Equal(t, uint8(0x10), acia.statusRegister)
 	assert.Equal(t, uint8(0xFF), acia.controlRegister)
-	assert.Equal(t, uint8(0xE0), acia.commandRegister)
+	assert.Equal(t, uint8(0xC0), acia.commandRegister)
 }
 
 // Test writing a value to the command register RS = 0x02 (RS1 = H, RS0 = L)
@@ -231,9 +330,9 @@ func TestWriteToCommandRegister(t *testing.T) {
 
 	circuit.wire(acia)
 
-	writeToAcia(acia, circuit, 0x02, 0xFF, &step)
+	writeToAcia(acia, circuit, 0x02, 0xDF, &step)
 
-	assert.Equal(t, uint8(0xFF), acia.commandRegister)
+	assert.Equal(t, uint8(0xDF), acia.commandRegister)
 }
 
 // Test writing a value to the control register RS = 0x03 (RS1 = H, RS0 = H)
@@ -251,13 +350,71 @@ func TestWriteToControlRegister(t *testing.T) {
 	assert.Equal(t, uint8(0xFF), acia.controlRegister)
 }
 
+// Selected stop bits depends on configuraiton of the stop bits and word length
+func TestWriteToControlConfiguresCorrectStopBit(t *testing.T) {
+	var step common.StepContext
+
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia)
+
+	type testConfig struct {
+		value            uint8
+		expectedDataBits int
+		expectedStopBits serial.StopBits
+	}
+
+	tests := []testConfig{
+		{0x00, 8, serial.OneStopBit},
+		{0x20, 7, serial.OneStopBit},
+		{0x40, 6, serial.OneStopBit},
+		{0x60, 5, serial.OneStopBit},
+
+		{0x80, 8, serial.TwoStopBits},
+		{0xA0, 7, serial.TwoStopBits},
+		{0xC0, 6, serial.TwoStopBits},
+		{0xE0, 5, serial.OnePointFiveStopBits},
+	}
+
+	for _, test := range tests {
+		writeToAcia(acia, circuit, 0x03, test.value, &step)
+		assert.Equal(t, test.expectedDataBits, mock.mode.DataBits)
+		assert.Equal(t, test.expectedStopBits, mock.mode.StopBits)
+	}
+}
+
+// The 65C51N model of the acia chip does not support bit parity nor
+// TX interrupt handling. Enabling TRDE will be ignore or cause constant
+// IRQs as the flag in the status register is always 1.
+func TestPanicForInvalidModesFor65C51N(t *testing.T) {
+	var step common.StepContext
+
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia)
+
+	// Enabling TRDE will result in panic
+	assert.Panics(t, func() {
+		writeToAcia(acia, circuit, 0x02, 0x04, &step)
+	})
+
+	// Enabling bit parity will result in panic
+	assert.Panics(t, func() {
+		writeToAcia(acia, circuit, 0x02, 0x20, &step)
+	})
+}
+
 /****************************************************************************************************************
 * Read from registers
 ****************************************************************************************************************/
 
 // Simulates a terminal sending a string through serial port and receiving the values through
 // the ACIA chip.
-func TestReadFromRx(t *testing.T) {
+func TestReadFromRxPollingStatusRegister(t *testing.T) {
 	var step common.StepContext
 
 	acia, circuit, mock := createTestCircuit()
@@ -271,6 +428,14 @@ func TestReadFromRx(t *testing.T) {
 
 	// Used to indicate if the fake terminal has started sending the bytes
 	startedSending := false
+
+	// Enable DTR and interrupts
+	writeToAcia(acia, circuit, 0x02, 0x01, &step)
+	assert.Equal(t, true, mock.dtr)
+	assert.Equal(t, true, circuit.irq.Status())
+
+	// Set the bauds to 4800
+	writeToAcia(acia, circuit, 0x03, 0x0C, &step)
 
 	for {
 		// Reads the status record
@@ -295,7 +460,72 @@ func TestReadFromRx(t *testing.T) {
 
 		// Once we started polling start sending in the background.
 		// The terminal will start putting bytes in the serial port at the configured byte rate
-		// in this case 115200
+		// in this case 4800
+		if !startedSending {
+			go mock.terminalSend([]byte(data))
+			startedSending = true
+		}
+	}
+
+	assert.Equal(t, data, string(read))
+}
+
+// Simulates a terminal sending a string through serial port and receiving the values through
+// the ACIA chip.
+func TestReadFromRxUsingIRQ(t *testing.T) {
+	var step common.StepContext
+
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia)
+
+	const data string = "Hello World!!!"
+	var read []uint8
+
+	// Used to indicate if the fake terminal has started sending the bytes
+	startedSending := false
+
+	// Enable DTR and interrupts
+	writeToAcia(acia, circuit, 0x02, 0x01, &step)
+	assert.Equal(t, true, mock.dtr)
+	assert.Equal(t, true, circuit.irq.Status())
+
+	// Set the bauds to 4800
+	writeToAcia(acia, circuit, 0x03, 0x0C, &step)
+
+	for {
+		// If IRQ is triggered
+		if !circuit.irq.Status() {
+			enableChip(circuit)
+
+			// Reads the status record
+			status := readFromAcia(acia, circuit, 0x01, &step)
+
+			// Verifies that the cause is RDRF and handles IRQ
+			if status&statusRDRF == statusRDRF {
+				read = append(read, readFromAcia(acia, circuit, 0x00, &step))
+			}
+
+			// Checks if an overrun happened, this can only happen if a new value arrives before
+			// we read the previous one.
+			if status&statusOverrun == statusOverrun {
+				t.Fatalf("Overrun occurred")
+			}
+		} else {
+			// Wait for IRQ to happen
+			disableChipAndStepTime(acia, circuit, &step)
+		}
+
+		// Stop when we read the entire message.
+		if len(read) == len(data) {
+			break
+		}
+
+		// Once we started polling start sending in the background.
+		// The terminal will start putting bytes in the serial port at the configured byte rate
+		// in this case 4800
 		if !startedSending {
 			go mock.terminalSend([]byte(data))
 			startedSending = true
@@ -365,11 +595,11 @@ func TestReadFromCommandRegister(t *testing.T) {
 
 	circuit.wire(acia)
 
-	// Internally force the register to 0xFF and read
-	acia.commandRegister = 0xFF
+	// Internally force the register to 0xDF and read
+	acia.commandRegister = 0xDF
 	command := readFromAcia(acia, circuit, 0x02, &step)
 
-	assert.Equal(t, uint8(0xFF), command)
+	assert.Equal(t, uint8(0xDF), command)
 }
 
 // Test reading from control register RS = 0x03 (RS1 = H, RS1 = H)
@@ -387,4 +617,112 @@ func TestReadFromControlRegister(t *testing.T) {
 	control := readFromAcia(acia, circuit, 0x03, &step)
 
 	assert.Equal(t, uint8(0xFF), control)
+}
+
+/****************************************************************************************************************
+* Hardware Reset
+****************************************************************************************************************/
+
+// Test hardware reset moves flags to expected values
+func TestHardwareReset(t *testing.T) {
+	var step common.StepContext
+
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia)
+
+	writeToAcia(acia, circuit, 0x02, 0xDF, &step)
+	writeToAcia(acia, circuit, 0x03, 0xFF, &step)
+
+	// Assert the new status (status register cannot be written and has default value)
+	assert.Equal(t, uint8(0x10), acia.statusRegister)
+	assert.Equal(t, uint8(0xFF), acia.controlRegister)
+	assert.Equal(t, uint8(0xDF), acia.commandRegister)
+
+	// Lower reset line causing a reset
+	circuit.reset.Set(false)
+
+	// Write to status register causes a programmed reset
+	disableChipAndStepTime(acia, circuit, &step)
+
+	// Check values are reset (control register remains untouched by programmed reset)
+	assert.Equal(t, uint8(0x10), acia.statusRegister)
+	assert.Equal(t, uint8(0x00), acia.controlRegister)
+	assert.Equal(t, uint8(0x00), acia.commandRegister)
+}
+
+/****************************************************************************************************************
+* Interrupt and flags
+****************************************************************************************************************/
+
+func TestInterruptFromModemLines(t *testing.T) {
+	var step common.StepContext
+
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia)
+
+	// Check that DSR and DCD status registers are 0 after initialization
+	status := readFromAcia(acia, circuit, 0x01, &step)
+	assert.Equal(t, uint8(0x00), (status & (statusDCD | statusDSR)))
+	assert.Equal(t, true, circuit.irq.Status())
+
+	// Enable DTR and interrupts
+	writeToAcia(acia, circuit, 0x02, 0x01, &step)
+	assert.Equal(t, true, mock.dtr)
+	assert.Equal(t, true, circuit.irq.Status())
+
+	// From manual: Whenever either of these inputs change state [DCD, DSR], an
+	// immediate processor interrupt (IRQ) occurs, unless bit 1 of the Command Register (IRD) is set to a 1 to
+	// disable IRQB. When the interrupt occurs, the status bits indicate the levels of the inputs immediately after
+	// the change of state occurred. Subsequent level changes will not affect the status bits until the Status
+	// Register is interrogated by the processor. At that time, another interrupt will immediately occur and the
+	// status bits reflect the new input levels.
+
+	testModemStatusLine(t, acia, circuit, &mock.status.DCD, statusDCD, &step)
+	testModemStatusLine(t, acia, circuit, &mock.status.DSR, statusDSR, &step)
+}
+
+/****************************************************************************************************************
+* External lines control
+****************************************************************************************************************/
+func TestCPUControlledLinesToModem(t *testing.T) {
+	var step common.StepContext
+
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia)
+
+	assert.Equal(t, false, mock.rts)
+	assert.Equal(t, false, mock.dtr)
+
+	// Enable RTS (0x08) and DTR (0x01)
+	writeToAcia(acia, circuit, 0x02, 0x09, &step)
+
+	assert.Equal(t, true, mock.rts)
+	assert.Equal(t, true, mock.dtr)
+}
+
+func TestCTSStatusWhenNotConnected(t *testing.T) {
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia)
+
+	// CTS is considered ready when there is an error reading the status. This if to support tesing using SOCAT
+	// or tool that don't handle the lines.
+	mock.makeCallsFail = true
+	assert.Equal(t, true, acia.getCTSStatus())
+
+	// CTS is considered not ready when serial port is not connected, this will disable
+	// transmitter
+	acia.port = nil
+	assert.Equal(t, false, acia.getCTSStatus())
 }
