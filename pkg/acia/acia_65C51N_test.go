@@ -502,11 +502,7 @@ func TestReadFromRxUsingIRQ(t *testing.T) {
 
 			// Reads the status record
 			status := readFromAcia(acia, circuit, 0x01, &step)
-
-			// Verifies that the cause is RDRF and handles IRQ
-			if status&statusRDRF == statusRDRF {
-				read = append(read, readFromAcia(acia, circuit, 0x00, &step))
-			}
+			read = append(read, readFromAcia(acia, circuit, 0x00, &step))
 
 			// Checks if an overrun happened, this can only happen if a new value arrives before
 			// we read the previous one.
@@ -535,6 +531,69 @@ func TestReadFromRxUsingIRQ(t *testing.T) {
 	assert.Equal(t, data, string(read))
 }
 
+// Simulates a terminal sending a string through serial port and receiving the values through
+// the ACIA chip.
+
+func TestReadFromRxUsingIRQAndReceiverEchoModeEnabled(t *testing.T) {
+	var step common.StepContext
+
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia)
+
+	const data string = "Hello World!!!"
+	var read []uint8
+
+	// Used to indicate if the fake terminal has started sending the bytes
+	startedSending := false
+
+	// Enable DTR (0x01), interrupts and Receiver Echo Mode (0x10)
+	writeToAcia(acia, circuit, 0x02, 0x11, &step)
+	assert.Equal(t, true, mock.dtr)
+	assert.Equal(t, true, circuit.irq.Status())
+
+	// Set the bauds to 4800
+	writeToAcia(acia, circuit, 0x03, 0x0C, &step)
+
+	for {
+		// If IRQ is triggered
+		if !circuit.irq.Status() {
+			enableChip(circuit)
+
+			// Reads the status record
+			status := readFromAcia(acia, circuit, 0x01, &step)
+			read = append(read, readFromAcia(acia, circuit, 0x00, &step))
+
+			// Checks if an overrun happened, this can only happen if a new value arrives before
+			// we read the previous one.
+			if status&statusOverrun == statusOverrun {
+				t.Fatalf("Overrun occurred")
+			}
+		} else {
+			// Wait for IRQ to happen
+			disableChipAndStepTime(acia, circuit, &step)
+		}
+
+		// Stop when we write the entire message.
+		if mock.terminalRxBuffer.Size() == len(data) {
+			break
+		}
+
+		// Once we started polling start sending in the background.
+		// The terminal will start putting bytes in the serial port at the configured byte rate
+		// in this case 4800
+		if !startedSending {
+			go mock.terminalSend([]byte(data))
+			startedSending = true
+		}
+	}
+
+	assert.Equal(t, data, string(read))
+	assert.Equal(t, data, string(mock.terminalReceive()))
+}
+
 // Simulates a terminal sending a string through serial port too fast and causing
 // a buffer overrun in the ACIA chip
 func TestReadFromRxOverrunning(t *testing.T) {
@@ -553,7 +612,7 @@ func TestReadFromRxOverrunning(t *testing.T) {
 	mock.terminalSend([]byte(data))
 
 	// Read bytes a 10 bauds
-	processAtBaudRates(10, 2, func(i int) bool {
+	processAtBaudRates(100, 2, func(i int) bool {
 		// First execution happens immediately so it will not overrun.
 		if i > 0 {
 			// Validates that the overrun flag is high
@@ -719,10 +778,10 @@ func TestCTSStatusWhenNotConnected(t *testing.T) {
 	// CTS is considered ready when there is an error reading the status. This if to support tesing using SOCAT
 	// or tool that don't handle the lines.
 	mock.makeCallsFail = true
-	assert.Equal(t, true, acia.getCTSStatus())
+	assert.Equal(t, true, acia.isCTSEnabled())
 
 	// CTS is considered not ready when serial port is not connected, this will disable
 	// transmitter
 	acia.port = nil
-	assert.Equal(t, false, acia.getCTSStatus())
+	assert.Equal(t, false, acia.isCTSEnabled())
 }

@@ -98,6 +98,7 @@ type Acia65C51N struct {
 
 	rxMutex *sync.Mutex
 	txMutex *sync.Mutex
+	wg      *sync.WaitGroup
 
 	running bool
 }
@@ -127,13 +128,16 @@ func CreateAcia65C51N() *Acia65C51N {
 
 		rxMutex: &sync.Mutex{},
 		txMutex: &sync.Mutex{},
+		wg:      &sync.WaitGroup{},
 
 		running: true,
 	}
 
 	// Start background pollers to read and write from the serial
 	// port in a non blocking way
+	acia.wg.Add(1)
 	go acia.writeBytes()
+	acia.wg.Add(1)
 	go acia.readBytes()
 
 	return acia
@@ -176,6 +180,7 @@ func (acia *Acia65C51N) ConnectToPort(port serial.Port) {
 // Free resources used by the emulation. In particular it will stop the R/W pollers
 func (acia *Acia65C51N) Close() {
 	acia.running = false
+	acia.wg.Wait()
 }
 
 // The eight data line (D0-D7) pins transfer data between the processor and the ACIA. These lines are bi-
@@ -379,10 +384,10 @@ func (acia *Acia65C51N) getMode() *serial.Mode {
 	return mode
 }
 
-// Returns the CTS line status. If serial port is not connected it will return false
+// Returns if the CTS line is enabled. If serial port is not connected it will return false
 // If an error occurs reading the line it will assume that the value is true. This is to
 // allow the emulation to work when this line is not supported (for example when using SOCAT command)
-func (acia *Acia65C51N) getCTSStatus() bool {
+func (acia *Acia65C51N) isCTSEnabled() bool {
 	var cts bool
 
 	if acia.port != nil {
@@ -397,6 +402,10 @@ func (acia *Acia65C51N) getCTSStatus() bool {
 	}
 
 	return cts
+}
+
+func (acia *Acia65C51N) isReceiverEchoModeEnabled() bool {
+	return (acia.commandRegister & (commandREMBit | commandTICRTSBit | commandTICTXBit)) == commandREMBit
 }
 
 // Performs a hardware reset

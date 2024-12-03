@@ -15,14 +15,13 @@ func CreateQueue() *SimpleQueue {
 }
 
 func (queue *SimpleQueue) Size() int {
-	queue.mu.Lock()
-	defer queue.mu.Unlock()
 	return len(queue.values)
 }
 
 func (queue *SimpleQueue) Queue(value byte) {
 	queue.mu.Lock()
 	defer queue.mu.Unlock()
+
 	queue.values = append(queue.values, value)
 }
 
@@ -36,8 +35,5 @@ func (queue *SimpleQueue) DeQueue() byte {
 }
 
 func (queue *SimpleQueue) IsEmpty() bool {
-	queue.mu.Lock()
-	defer queue.mu.Unlock()
-
 	return len(queue.values) == 0
 }

@@ -69,7 +69,7 @@ func (port *portMock) SetMode(mode *serial.Mode) error {
 // The Read function blocks until (at least) one byte is received from
 // the serial port or an error occurs.
 func (port *portMock) Read(p []byte) (n int, err error) {
-	for port.portRxBuffer.IsEmpty() {
+	for port.portRxBuffer.IsEmpty() && !port.stop {
 	}
 
 	i := 0
@@ -133,7 +133,7 @@ func (port *portMock) SetReadTimeout(t time.Duration) error {
 // Close the serial port
 func (port *portMock) Close() error {
 	port.stop = true
-	return port.checkError()
+	return nil
 }
 
 // Break sends a break for a determined time

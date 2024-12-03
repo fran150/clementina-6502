@@ -1,9 +1,11 @@
 package acia
 
+var counter int
+
 func (acia *Acia65C51N) writeBytes() {
 	for acia.running {
 		if acia.port != nil && !acia.txRegisterEmpty {
-			if acia.getCTSStatus() {
+			if acia.isCTSEnabled() {
 				acia.txRegisterEmpty = true
 
 				_, err := acia.port.Write([]byte{acia.txRegister})
@@ -13,6 +15,8 @@ func (acia *Acia65C51N) writeBytes() {
 			}
 		}
 	}
+
+	acia.wg.Done()
 }
 
 func (acia *Acia65C51N) readBytes() {
@@ -35,6 +39,17 @@ func (acia *Acia65C51N) readBytes() {
 			acia.rxRegister = uint8(buff[0])
 
 			acia.rxMutex.Unlock()
+
+			if acia.isReceiverEchoModeEnabled() {
+				acia.txMutex.Lock()
+
+				acia.txRegister = acia.rxRegister
+				acia.txRegisterEmpty = false
+
+				acia.txMutex.Unlock()
+			}
 		}
 	}
+
+	acia.wg.Done()
 }
