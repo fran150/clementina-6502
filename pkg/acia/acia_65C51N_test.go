@@ -46,11 +46,6 @@ func createTestCircuit() (*Acia65C51N, *testCircuit, *portMock) {
 
 	mock := createPortMock(&serial.Mode{})
 
-	// Connects the acia chip to the serial port and wires
-	// the ACIA to the circuit
-	acia.ConnectToPort(mock)
-	circuit.wire(acia)
-
 	// Start a go soubrouting used to write or read bytes
 	// to and from the serial port.
 	go mock.Tick()
@@ -60,7 +55,9 @@ func createTestCircuit() (*Acia65C51N, *testCircuit, *portMock) {
 
 // Wire all components together in the circuit board. It allows to change
 // the input value and assert the output lines.
-func (circuit *testCircuit) wire(acia *Acia65C51N) {
+func (circuit *testCircuit) wire(acia *Acia65C51N, mock *portMock) {
+	acia.ConnectToPort(mock)
+
 	acia.DataBus().Connect(circuit.dataBus)
 
 	acia.IrqRequest().Connect(circuit.irq)
@@ -248,7 +245,7 @@ func TestWriteToTX(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	const data string = "Hello World!!!"
 
@@ -272,7 +269,7 @@ func TestWriteToTXWithCTSDisabled(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	const data string = "Hello World!!!"
 
@@ -300,7 +297,7 @@ func TestProgrammedReset(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	// Set all 1s (where possible) in the control and command registers
 	writeToAcia(acia, circuit, 0x02, 0xDF, &step)
@@ -328,7 +325,7 @@ func TestWriteToCommandRegister(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	writeToAcia(acia, circuit, 0x02, 0xDF, &step)
 
@@ -343,7 +340,7 @@ func TestWriteToControlRegister(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	writeToAcia(acia, circuit, 0x03, 0xFF, &step)
 
@@ -358,7 +355,7 @@ func TestWriteToControlConfiguresCorrectStopBit(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	type testConfig struct {
 		value            uint8
@@ -395,7 +392,7 @@ func TestPanicForInvalidModesFor65C51N(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	// Enabling TRDE will result in panic
 	assert.Panics(t, func() {
@@ -421,7 +418,7 @@ func TestReadFromRxPollingStatusRegister(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	const data string = "Hello World!!!"
 	var read []uint8
@@ -479,7 +476,7 @@ func TestReadFromRxUsingIRQ(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	const data string = "Hello World!!!"
 	var read []uint8
@@ -541,7 +538,7 @@ func TestReadFromRxUsingIRQAndReceiverEchoModeEnabled(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	const data string = "Hello World!!!"
 	var read []uint8
@@ -603,7 +600,7 @@ func TestReadFromRxOverrunning(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	const data string = "Hello World!!!"
 	var read []uint8
@@ -635,7 +632,7 @@ func TestReadFromStatusRegister(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	// Internally force the register to 0xFF and read
 	acia.statusRegister = 0xFF
@@ -652,7 +649,7 @@ func TestReadFromCommandRegister(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	// Internally force the register to 0xDF and read
 	acia.commandRegister = 0xDF
@@ -669,7 +666,7 @@ func TestReadFromControlRegister(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	// Internally force the register to 0xFF and read
 	acia.controlRegister = 0xFF
@@ -690,7 +687,7 @@ func TestHardwareReset(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	writeToAcia(acia, circuit, 0x02, 0xDF, &step)
 	writeToAcia(acia, circuit, 0x03, 0xFF, &step)
@@ -723,7 +720,7 @@ func TestInterruptFromModemLines(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	// Check that DSR and DCD status registers are 0 after initialization
 	status := readFromAcia(acia, circuit, 0x01, &step)
@@ -756,7 +753,7 @@ func TestCPUControlledLinesToModem(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	assert.Equal(t, false, mock.rts)
 	assert.Equal(t, false, mock.dtr)
@@ -773,15 +770,128 @@ func TestCTSStatusWhenNotConnected(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia)
+	circuit.wire(acia, mock)
 
 	// CTS is considered ready when there is an error reading the status. This if to support tesing using SOCAT
 	// or tool that don't handle the lines.
-	mock.makeCallsFail = true
+	mock.makeCallsFailFrom = failInGetModemStatusBits
 	assert.Equal(t, true, acia.isCTSEnabled())
 
 	// CTS is considered not ready when serial port is not connected, this will disable
 	// transmitter
 	acia.port = nil
 	assert.Equal(t, false, acia.isCTSEnabled())
+}
+
+/****************************************************************************************************************
+* Panics when using serial
+****************************************************************************************************************/
+
+func TestPanicsWhenFailsToSetModeWhenConnectingToSerial(t *testing.T) {
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	mock.makeCallsFailFrom = failInSetMode
+
+	assert.Panics(t, func() {
+		circuit.wire(acia, mock)
+	})
+}
+
+func TestPanicsWhenFailsToSetDTRandRTS(t *testing.T) {
+	var step common.StepContext
+
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia, mock)
+
+	mock.makeCallsFailFrom = failInSetDTR
+
+	assert.Panics(t, func() {
+		writeToAcia(acia, circuit, 0x03, 0x01, &step)
+	})
+
+	mock.makeCallsFailFrom = failInSetRTS
+
+	assert.Panics(t, func() {
+		writeToAcia(acia, circuit, 0x03, 0x08, &step)
+	})
+}
+
+func TestReturnsFalseWhenFailsToGetModemStatusLines(t *testing.T) {
+	var step common.StepContext
+
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia, mock)
+
+	// First set mock values to true
+	mock.status.DCD = true
+	mock.status.DSR = true
+
+	status := readFromAcia(acia, circuit, 0x01, &step)
+	assert.Equal(t, uint8(statusDSR|statusDCD), (status & (statusDSR | statusDCD)))
+
+	// Make calls fails
+	mock.makeCallsFailFrom = failInGetModemStatusBits
+
+	status = readFromAcia(acia, circuit, 0x01, &step)
+	assert.Equal(t, uint8(0x00), (status & (statusDSR | statusDCD)))
+}
+
+func TestPanicsWhenPollerFailsToRead(t *testing.T) {
+	acia, circuit, mock := createTestCircuit()
+	mock.Close()
+
+	circuit.wire(acia, mock)
+
+	// Calls close on the acia to make go functions
+	// stop
+	acia.Close()
+
+	acia.running = true
+	acia.rxRegisterEmpty = true
+	mock.makeCallsFailFrom = failInRead
+
+	// Manually call the poller to assert the panic
+	assert.Panics(t, acia.readBytes)
+}
+
+func TestPanicsWhenPollerFailsToWrite(t *testing.T) {
+	acia, circuit, mock := createTestCircuit()
+	mock.Close()
+
+	circuit.wire(acia, mock)
+
+	// Calls close on the acia to make go functions
+	// stop
+	acia.Close()
+
+	acia.running = true
+	acia.txRegisterEmpty = false
+	mock.makeCallsFailFrom = failInWrite
+
+	// Manually call the poller to assert the panic
+	assert.Panics(t, acia.writeBytes)
+}
+
+func TestPanicsWhenFailsToSetModeWhenChangingControlRegister(t *testing.T) {
+	var step common.StepContext
+
+	acia, circuit, mock := createTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	circuit.wire(acia, mock)
+
+	mock.makeCallsFailFrom = failInSetMode
+
+	assert.Panics(t, func() {
+		writeToAcia(acia, circuit, 0x03, 0xFF, &step)
+	})
 }

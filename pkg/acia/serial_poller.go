@@ -1,8 +1,8 @@
 package acia
 
-var counter int
-
 func (acia *Acia65C51N) writeBytes() {
+	defer acia.wg.Done()
+
 	for acia.running {
 		if acia.port != nil && !acia.txRegisterEmpty {
 			if acia.isCTSEnabled() {
@@ -15,11 +15,11 @@ func (acia *Acia65C51N) writeBytes() {
 			}
 		}
 	}
-
-	acia.wg.Done()
 }
 
 func (acia *Acia65C51N) readBytes() {
+	defer acia.wg.Done()
+
 	buff := make([]byte, 1)
 
 	for acia.running {
@@ -50,6 +50,4 @@ func (acia *Acia65C51N) readBytes() {
 			}
 		}
 	}
-
-	acia.wg.Done()
 }

@@ -287,8 +287,16 @@ func (acia *Acia65C51N) setModemLines() {
 	if acia.port != nil {
 		dtr := isBitSet(acia.commandRegister, commandDTRBit)
 		rts := isBitSet(acia.commandRegister, commandTICRTSBit)
-		acia.port.SetDTR(dtr)
-		acia.port.SetRTS(rts)
+
+		err := acia.port.SetDTR(dtr)
+		if err != nil {
+			panic(err)
+		}
+
+		err = acia.port.SetRTS(rts)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -300,7 +308,10 @@ func (acia *Acia65C51N) evaluateModemStatus() {
 	if acia.port != nil && !isIRQTriggered {
 		status, err := acia.port.GetModemStatusBits()
 		if err != nil {
-			panic(err)
+			status = &serial.ModemStatusBits{
+				DSR: false,
+				DCD: false,
+			}
 		}
 
 		dsr := isBitSet(acia.statusRegister, statusDSR)
