@@ -42,8 +42,8 @@ type addressModeTestDataWithControlLines struct {
 // It is only 64K of RAM memory connected to the bus, processor lines are wired
 // to always high or low lines.
 func createComputer() (*Cpu65C02S, *memory.Ram) {
-	addressBus := buses.CreateBus[uint16]()
-	dataBus := buses.CreateBus[uint8]()
+	addressBus := buses.Create16BitBus()
+	dataBus := buses.Create8BitBus()
 
 	alwaysHighLine := buses.CreateStandaloneLine(true)
 	alwaysLowLine := buses.CreateStandaloneLine(false)

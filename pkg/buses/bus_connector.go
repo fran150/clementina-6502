@@ -45,3 +45,8 @@ func (connector *BusConnector[T]) GetLine(lineNumber uint8) Line {
 
 	return nil
 }
+
+// Returns if the connector is actually connected to a bus
+func (connector *BusConnector[T]) isConnected() bool {
+	return connector.bus != nil
+}

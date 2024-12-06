@@ -19,7 +19,7 @@ func createTestCircuitCorrectTiming() (*LcdHD44780U, *testCircuit) {
 	lcd := CreateLCD()
 
 	circuit := testCircuit{
-		bus:            buses.CreateBus[uint8](),
+		bus:            buses.Create8BitBus(),
 		registerSelect: buses.CreateStandaloneLine(false),
 		enable:         buses.CreateStandaloneLine(false),
 		readWrite:      buses.CreateStandaloneLine(false),

@@ -4,17 +4,30 @@ package buses
 // used to represent uint8 or uint16 addresses.
 type Bus[T uint16 | uint8] struct {
 	value    T
-	busLines [16]*BusLine[T]
+	busLines []*BusLine[T]
 }
 
-func CreateBus[T uint16 | uint8]() *Bus[T] {
-	bus := Bus[T]{
+func Create8BitBus() *Bus[uint8] {
+	bus := Bus[uint8]{
 		value:    0x00,
-		busLines: [16]*BusLine[T]{},
+		busLines: make([]*BusLine[uint8], 8),
 	}
 
-	for i := range uint8(16) {
-		bus.busLines[i] = createBusLine(&bus, i)
+	for i := range len(bus.busLines) {
+		bus.busLines[i] = createBusLine(&bus, uint8(i))
+	}
+
+	return &bus
+}
+
+func Create16BitBus() *Bus[uint16] {
+	bus := Bus[uint16]{
+		value:    0x00,
+		busLines: make([]*BusLine[uint16], 16),
+	}
+
+	for i := range len(bus.busLines) {
+		bus.busLines[i] = createBusLine(&bus, uint8(i))
 	}
 
 	return &bus
@@ -22,7 +35,11 @@ func CreateBus[T uint16 | uint8]() *Bus[T] {
 
 // Returns a line for each bus line
 func (bus *Bus[T]) GetBusLine(number uint8) *BusLine[T] {
-	return bus.busLines[number]
+	if number < uint8(len(bus.busLines)) {
+		return bus.busLines[number]
+	} else {
+		return nil
+	}
 }
 
 // Writes a number to the bus.

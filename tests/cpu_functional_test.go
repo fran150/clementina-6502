@@ -30,8 +30,8 @@ const maxAllowedCycles uint64 = 100_000_000
 
 // Creates a CPU connected to a RAM memory
 func CreateComputer() (*cpu.Cpu65C02S, *memory.Ram) {
-	addressBus := buses.CreateBus[uint16]()
-	dataBus := buses.CreateBus[uint8]()
+	addressBus := buses.Create16BitBus()
+	dataBus := buses.Create8BitBus()
 
 	alwaysHighLine := buses.CreateStandaloneLine(true)
 	alwaysLowLine := buses.CreateStandaloneLine(false)

@@ -35,7 +35,7 @@ func createTestCircuit() (*Acia65C51N, *testCircuit, *portMock) {
 	acia := CreateAcia65C51N()
 
 	circuit := testCircuit{
-		dataBus: buses.CreateBus[uint8](),
+		dataBus: buses.Create8BitBus(),
 		irq:     buses.CreateStandaloneLine(true),
 		rw:      buses.CreateStandaloneLine(true),
 		cs0:     buses.CreateStandaloneLine(true),

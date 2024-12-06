@@ -7,8 +7,8 @@ import (
 )
 
 func TestRamReadWrite(t *testing.T) {
-	addressBus := buses.CreateBus[uint16]()
-	dataBus := buses.CreateBus[uint8]()
+	addressBus := buses.Create16BitBus()
+	dataBus := buses.Create8BitBus()
 
 	ramWriteEnableLine := buses.CreateStandaloneLine(true)
 	alwaysLowLine := buses.CreateStandaloneLine(false)
@@ -46,8 +46,8 @@ func TestRamReadWrite(t *testing.T) {
 }
 
 func TestReadBinFile(t *testing.T) {
-	addressBus := buses.CreateBus[uint16]()
-	dataBus := buses.CreateBus[uint8]()
+	addressBus := buses.Create16BitBus()
+	dataBus := buses.Create8BitBus()
 
 	ramWriteEnableLine := buses.CreateStandaloneLine(true)
 	alwaysLowLine := buses.CreateStandaloneLine(false)
