@@ -5,19 +5,20 @@ const LOWER_NIBBLE_MASK uint8 = 0x0F // Mask to get the lower four bits of a byt
 const BUFFER_FULL_INDEX uint8 = 2    // Index when buffer is full
 const BUFFER_EMPTY_INDEX uint8 = 0   // Index when buffer is empty
 
-/*For 4-bit interface data, only four bus lines (DB4 to DB7) are used for transfer. Bus lines DB0 to DB3
-are disabled. The data transfer between the HD44780U and the MPU is completed after the 4-bit data
-has been transferred twice. As for the order of data transfer, the four high order bits (for 8-bit operation,
-DB4 to DB7) are transferred before the four low order bits (for 8-bit operation, DB0 to DB3).
-The busy flag must be checked (one instruction) after the 4-bit data has been transferred twice. Two
-more 4-bit operations then transfer the busy flag and address counter data.*/
-
+// For 4-bit interface data, only four bus lines (DB4 to DB7) are used for transfer. Bus lines DB0 to DB3
+// are disabled. The data transfer between the HD44780U and the MPU is completed after the 4-bit data
+// has been transferred twice. As for the order of data transfer, the four high order bits (for 8-bit operation,
+// DB4 to DB7) are transferred before the four low order bits (for 8-bit operation, DB0 to DB3).
+// The busy flag must be checked (one instruction) after the 4-bit data has been transferred twice. Two
+// more 4-bit operations then transfer the busy flag and address counter data.
+// This buffer is to handle 4 bit operations, when the chip is in 8 bits mode
 type LcdBuffer struct {
-	is8BitMode bool
-	value      uint8
-	index      uint8
+	is8BitMode bool  // Indicates if the chip is operating in 4 or 8 bit mode
+	value      uint8 // Current value stored in the buffer (this an 8 bit value which means it can store 2x 4bit numbers)
+	index      uint8 // Index pointing to the next nibble
 }
 
+// Creates a new LCD buffer
 func createLcdBuffer() *LcdBuffer {
 	return &LcdBuffer{
 		is8BitMode: true,

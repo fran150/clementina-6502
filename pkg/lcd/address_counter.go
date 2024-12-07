@@ -11,24 +11,29 @@ const DDRAM_MAX_ADDR = 0x4F               // Max DDRAM address in 1 line mode
 const DDRAM_2LINE_MIN_ADDR = 0x00         // Min DDRAM address (of 1st line) when configured in 2 line mode
 const DDRAM_2LINE_MAX_ADDR = 0x27         // Max DDRAM address (of 1st line) when configured in 2 line mode
 
+// The address counter points to the next instruction that will be written in DDRAM or CGRAM.
+// For every read or write it increments on decrements depending on the register configuration.
+// It also handles the shifting of the pointers of the first character visible for each line in the
+// LCD screen
 type lcdAddressCounter struct {
-	toCGRAM        bool
-	mustMoveRight  bool
+	toCGRAM        bool // Returns if the next opertaion will be executed against CGRAM (or DDRAM if false)
+	mustMoveRight  bool // Indicates if the pointer must be increased (move right) or decreased (move left)
 	is2LineDisplay bool // N: Number of lines
 	displayShift   bool // S: Shifts the entire display
 
-	value      uint8
-	line1Shift uint8
-	line2Shift uint8
+	value      uint8 // Current value of the address counter
+	line1Shift uint8 // Pointer to the first address visible on the LCD
+	line2Shift uint8 // Pinter to the second line (if available) on the LCD
 
-	instructionRegister *uint8
-	dataRegister        *uint8
-	busy                *bool
+	instructionRegister *uint8 // Instruction register on the main chip
+	dataRegister        *uint8 // Data register on the main chip
+	busy                *bool  // Busy flag (the chip is executing the desired instruction)
 
-	ddram *[DDRAM_SIZE]uint8
-	cgram *[CGRAM_SIZE]uint8
+	ddram *[DDRAM_SIZE]uint8 // Pointer to the DDRAM
+	cgram *[CGRAM_SIZE]uint8 // Pointer to the CGRAM
 }
 
+// Creates an address counter for the specified chip
 func createLCDAddressCounter(lcd *LcdHD44780U) *lcdAddressCounter {
 	return &lcdAddressCounter{
 		instructionRegister: &lcd.instructionRegister,
@@ -266,7 +271,7 @@ func (ac *lcdAddressCounter) write(value uint8) {
 	// TODO: Will need to validate this with real hardware.
 	min, max := ac.getMinAndMax(ac.toCGRAM, value)
 	if value < min || value > max {
-		value = DDRAM_MIN_ADDR
+		value = min
 	}
 
 	ac.value = value

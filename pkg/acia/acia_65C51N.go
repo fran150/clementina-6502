@@ -119,7 +119,7 @@ func CreateAcia65C51N() *Acia65C51N {
 
 		commandRegister: 0x00,
 		controlRegister: 0x00,
-		statusRegister:  0x10,
+		statusRegister:  statusTDRE,
 
 		txRegisterEmpty: true,
 		rxRegisterEmpty: true,
