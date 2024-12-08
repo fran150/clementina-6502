@@ -4,22 +4,53 @@ import (
 	"testing"
 
 	"github.com/fran150/clementina6502/pkg/buses"
+	"github.com/stretchr/testify/assert"
 )
 
+// Circuit to test the RAM
+type testCircuit struct {
+	addressBus   *buses.Bus[uint16]
+	dataBus      *buses.Bus[uint8]
+	writeEnable  *buses.StandaloneLine
+	outputEnable *buses.StandaloneLine
+}
+
+// Creates the test circuit and the ram
+func createTestCircuit(size int) (*Ram, *testCircuit) {
+	ram := CreateRam(size)
+	circuit := &testCircuit{
+		addressBus:   buses.Create16BitBus(),
+		dataBus:      buses.Create8BitBus(),
+		writeEnable:  buses.CreateStandaloneLine(false),
+		outputEnable: buses.CreateStandaloneLine(false),
+	}
+
+	return ram, circuit
+}
+
+// Connects the circuit to the RAM memory
+func (circuit *testCircuit) Wire(ram *Ram) {
+	ram.AddressBus().Connect(circuit.addressBus)
+	ram.DataBus().Connect(circuit.dataBus)
+	ram.WriteEnable().Connect(circuit.writeEnable)
+	ram.OutputEnable().Connect(circuit.outputEnable)
+
+	ram.ChipSelect().Connect(circuit.addressBus.GetBusLine(15))
+}
+
+/************************************************************************************
+* Test RAM R/W
+*************************************************************************************/
+
+// Writes and reads a value from the memory
 func TestRamReadWrite(t *testing.T) {
-	addressBus := buses.Create16BitBus()
-	dataBus := buses.Create8BitBus()
-
-	ramWriteEnableLine := buses.CreateStandaloneLine(true)
-	alwaysLowLine := buses.CreateStandaloneLine(false)
-
-	ram := CreateRam()
-	ram.Connect(addressBus, dataBus, ramWriteEnableLine, addressBus.GetBusLine(15), alwaysLowLine)
+	ram, circuit := createTestCircuit(RAM_SIZE_64K)
+	circuit.Wire(ram)
 
 	// Write Cycle
-	ramWriteEnableLine.Set(false)
-	addressBus.Write(0x7FFA)
-	dataBus.Write(0xFA)
+	circuit.writeEnable.Set(false)
+	circuit.addressBus.Write(0x7FFA)
+	circuit.dataBus.Write(0xFA)
 	ram.Tick(100)
 
 	peek := ram.Peek(0x7FFA)
@@ -29,31 +60,79 @@ func TestRamReadWrite(t *testing.T) {
 	}
 
 	// Clear databus
-	dataBus.Write(0x00)
+	circuit.dataBus.Write(0x00)
 
 	// Read Cycle
-	ramWriteEnableLine.Set(true)
-	addressBus.Write(0x7FFA)
+	circuit.writeEnable.Set(true)
+	circuit.addressBus.Write(0x7FFA)
 	ram.Tick(100)
-	value := dataBus.Read()
+
+	value := circuit.dataBus.Read()
 
 	if value != 0xFA {
 		t.Errorf("Error, expected to read 0xFA in databus after read cycle but got %x", value)
 	}
 
 	// Clear databus
-	dataBus.Write(0x00)
+	circuit.dataBus.Write(0x00)
 }
 
-func TestReadBinFile(t *testing.T) {
-	addressBus := buses.Create16BitBus()
-	dataBus := buses.Create8BitBus()
+/************************************************************************************
+* Test of method to read .bin files
+*************************************************************************************/
 
-	ramWriteEnableLine := buses.CreateStandaloneLine(true)
-	alwaysLowLine := buses.CreateStandaloneLine(false)
+// Loads a bin file into the memory
+func TestLoadBinFile(t *testing.T) {
+	ram, circuit := createTestCircuit(RAM_SIZE_64K)
+	circuit.Wire(ram)
 
-	ram := CreateRam()
-	ram.Connect(addressBus, dataBus, ramWriteEnableLine, addressBus.GetBusLine(15), alwaysLowLine)
+	err := ram.Load("../../tests/6502_functional_test.bin")
 
-	ram.Load("../tests/6502_functional_test.bin")
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+// Reading from non existing file fails with error
+func TestReadNonExistingFileFails(t *testing.T) {
+	ram, circuit := createTestCircuit(RAM_SIZE_1K)
+	circuit.Wire(ram)
+
+	err := ram.Load("../../tests/non_existing.bin")
+
+	if err == nil {
+		t.Error("Reading a non existing file should have failed")
+	}
+}
+
+// Reading a bin file too big for the memory throws error
+func TestReadingFileTooLargeForMemory(t *testing.T) {
+	ram, circuit := createTestCircuit(RAM_SIZE_1K)
+	circuit.Wire(ram)
+
+	err := ram.Load("../../tests/6502_functional_test.bin")
+
+	if err == nil {
+		t.Error("Reading an existing file should have failed")
+	}
+}
+
+/************************************************************************************
+* Test other public methods
+*************************************************************************************/
+
+// Tests peek and poke
+func TestPeekAndPokeReadsAndWritesValuesDirectly(t *testing.T) {
+	ram, circuit := createTestCircuit(RAM_SIZE_1K)
+	circuit.Wire(ram)
+
+	for i := range RAM_SIZE_1K {
+		ram.Poke(uint16(i), uint8(i))
+	}
+
+	for i := range RAM_SIZE_1K {
+		value := ram.Peek(uint16(i))
+
+		assert.Equal(t, uint8(i), value)
+	}
 }

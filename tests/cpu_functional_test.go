@@ -42,8 +42,12 @@ func CreateComputer() (*cpu.Cpu65C02S, *memory.Ram) {
 	syncLine := buses.CreateStandaloneLine(false)
 	vectorPullLine := buses.CreateStandaloneLine(false)
 
-	ram := memory.CreateRam()
-	ram.Connect(addressBus, dataBus, writeEnableLine, alwaysLowLine, alwaysLowLine)
+	ram := memory.CreateRam(memory.RAM_SIZE_64K)
+	ram.AddressBus().Connect(addressBus)
+	ram.DataBus().Connect(dataBus)
+	ram.WriteEnable().Connect(writeEnableLine)
+	ram.ChipSelect().Connect(alwaysLowLine)
+	ram.OutputEnable().Connect(alwaysLowLine)
 
 	processor := cpu.CreateCPU()
 	processor.AddressBus().Connect(addressBus)
