@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Creates a line and a connector for testing
 func createConnectorHighAndLine() (*ConnectorEnabledHigh, Line) {
 	connector := CreateConnectorEnabledHigh()
 	line := CreateStandaloneLine(false)
@@ -15,6 +16,7 @@ func createConnectorHighAndLine() (*ConnectorEnabledHigh, Line) {
 	return connector, line
 }
 
+// This type of connector is enabled when line is high.
 func TestConnectorIsEnabledWhenLineIsHigh(t *testing.T) {
 	connector, line := createConnectorHighAndLine()
 
@@ -25,6 +27,7 @@ func TestConnectorIsEnabledWhenLineIsHigh(t *testing.T) {
 	assert.Equal(t, true, connector.Enabled())
 }
 
+// Enabling this connector sets the line high in this type
 func TestLineIsSetHighWhenConnectorIsEnabled(t *testing.T) {
 	connector, line := createConnectorHighAndLine()
 
@@ -35,6 +38,7 @@ func TestLineIsSetHighWhenConnectorIsEnabled(t *testing.T) {
 	assert.Equal(t, false, line.Status())
 }
 
+// Regardless of line status connector shows as not enabled when disconnected
 func TestConnectorIsNotEnabledWhenDisconnected(t *testing.T) {
 	connector, line := createConnectorHighAndLine()
 
@@ -48,6 +52,7 @@ func TestConnectorIsNotEnabledWhenDisconnected(t *testing.T) {
 	assert.Equal(t, false, connector.Enabled())
 }
 
+// Changing the connector value does not affect the line when disconnected
 func TestLineIsNotAffectedWhenConnectorHighDisconnected(t *testing.T) {
 	connector, line := createConnectorHighAndLine()
 
@@ -61,6 +66,7 @@ func TestLineIsNotAffectedWhenConnectorHighDisconnected(t *testing.T) {
 	assert.Equal(t, false, line.Status())
 }
 
+// Tests the function that return the line to which the connector is attached
 func TestGetLineReturnsTheConnectedLineForConnectorHigh(t *testing.T) {
 	connector, line := createConnectorHighAndLine()
 

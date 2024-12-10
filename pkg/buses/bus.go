@@ -1,12 +1,13 @@
 package buses
 
-// Electrical buses. Buses typically have 8 or 16 lines. So they can be
+// Electrical buses. Buses typically have 8 or 16 lines or traces. They can be
 // used to represent uint8 or uint16 addresses.
 type Bus[T uint16 | uint8] struct {
-	value    T
-	busLines []*BusLine[T]
+	value    T             // Current value of the bus represented as a number
+	busLines []*BusLine[T] // References to all bus lines
 }
 
+// Creates a 8 bit bus
 func Create8BitBus() *Bus[uint8] {
 	bus := Bus[uint8]{
 		value:    0x00,
@@ -20,6 +21,7 @@ func Create8BitBus() *Bus[uint8] {
 	return &bus
 }
 
+// Creates a 16 bits bus
 func Create16BitBus() *Bus[uint16] {
 	bus := Bus[uint16]{
 		value:    0x00,

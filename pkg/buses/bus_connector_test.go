@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Creates a bus and a bus connector of 8 bits
 func createBusConnector() (*Bus[uint8], *BusConnector[uint8]) {
 	bus := Create8BitBus()
 	connector := CreateBusConnector[uint8]()
@@ -14,6 +15,7 @@ func createBusConnector() (*Bus[uint8], *BusConnector[uint8]) {
 	return bus, connector
 }
 
+// Tests reading the value of the bus from the connector
 func TestReadingFromConnectorReturnsTheBusValue(t *testing.T) {
 	bus, connector := createBusConnector()
 	bus.Write(0xFF)
@@ -22,6 +24,7 @@ func TestReadingFromConnectorReturnsTheBusValue(t *testing.T) {
 	assert.Equal(t, uint8(0xFF), connector.Read())
 }
 
+// Reading from a disconnected connector will return 0x00
 func TestReadingFromConnectorWhenDisconnectedReturnsZero(t *testing.T) {
 	bus, connector := createBusConnector()
 
@@ -34,6 +37,7 @@ func TestReadingFromConnectorWhenDisconnectedReturnsZero(t *testing.T) {
 	assert.Equal(t, uint8(0x00), connector.Read())
 }
 
+// Setting the value on the connector will drive the bus to that value also
 func TestWritingToConnectorSetsTheBusValue(t *testing.T) {
 	bus, connector := createBusConnector()
 	connector.Write(0xFF)
@@ -42,6 +46,7 @@ func TestWritingToConnectorSetsTheBusValue(t *testing.T) {
 	assert.Equal(t, uint8(0xFF), bus.Read())
 }
 
+// Writing to the bus when disconnected does nothing
 func TestWritingToConnectorWhenDisconnectedDoesNothing(t *testing.T) {
 	bus, connector := createBusConnector()
 
@@ -54,6 +59,9 @@ func TestWritingToConnectorWhenDisconnectedDoesNothing(t *testing.T) {
 	assert.Equal(t, uint8(0x00), bus.Read())
 }
 
+// GetLine returns a reference to a line of the bus.
+// Depending on the type of bus it can be from 0 to 8 or 0 to 15.
+// Also the bus line status must change with different values of the bus
 func TestGetLineReturnsReferenceToLine(t *testing.T) {
 	bus, connector := createBusConnector()
 
@@ -82,6 +90,7 @@ func TestGetLineReturnsReferenceToLine(t *testing.T) {
 	}
 }
 
+// Get line of a diconnected bus returns nil
 func TestGettingABusLineFromDisconnectedConnectorReturnsNil(t *testing.T) {
 	_, connector := createBusConnector()
 
@@ -94,6 +103,7 @@ func TestGettingABusLineFromDisconnectedConnectorReturnsNil(t *testing.T) {
 	assert.Nil(t, line)
 }
 
+// Trying to get an unexistent bus line returns nil
 func TestGetInvalidBusLineReturnsNil(t *testing.T) {
 	_, connector := createBusConnector()
 

@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Tests reading, writing and checking different lines from a 8 bit bus
 func Test8BitBus(t *testing.T) {
 	type lineTest struct {
 		value    uint8
@@ -44,6 +45,7 @@ func Test8BitBus(t *testing.T) {
 	}
 }
 
+// Tests reading, writing and checking different lines from a 16 bit bus
 func Test16BitBus(t *testing.T) {
 	type lineTest struct {
 		value    uint16

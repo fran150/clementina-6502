@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Tests basic functions of the standalone line
 func TestCreateSetAndToggleLine(t *testing.T) {
 	line := CreateStandaloneLine(false)
 

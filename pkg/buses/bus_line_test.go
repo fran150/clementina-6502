@@ -6,6 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// A bus line is a reference to 1 of the lines or traces that forms a bus.
+// The line will react to changes in bus values
 func TestChangingBusValueUpdatesLineStatus(t *testing.T) {
 	bus, connector := createBusConnector()
 
@@ -21,6 +23,8 @@ func TestChangingBusValueUpdatesLineStatus(t *testing.T) {
 	assert.Equal(t, false, line.Status())
 }
 
+// A bus line is a reference to 1 of the lines or traces that forms a bus.
+// The bus value will be changes when the status of the line is changed.
 func TestChangingLineStatusUpdatesBusValue(t *testing.T) {
 	bus, connector := createBusConnector()
 
@@ -41,6 +45,7 @@ func TestChangingLineStatusUpdatesBusValue(t *testing.T) {
 	assert.Equal(t, uint8(0x7F), bus.Read())
 }
 
+// Toggling the status of a bus line updates the bus value
 func TestTogglingLineStatusUpdatesBusValue(t *testing.T) {
 	bus, connector := createBusConnector()
 
