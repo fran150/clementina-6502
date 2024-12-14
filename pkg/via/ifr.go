@@ -1,14 +1,18 @@
 package via
 
+// The interrupt flags register (IFR) contains information that can be
+// used to determine the source of an interruption.
 type ViaIFR struct {
-	value           uint8
-	interruptEnable uint8
+	value           uint8 // Current value of the register
+	interruptEnable uint8 // Each bit of the Interrupt Enable Register controls if a flag of the IFR will cause an IRQ
 }
 
+// Returns the IFR value
 func (ifr *ViaIFR) getInterruptFlagValue() uint8 {
 	return ifr.value
 }
 
+// Sets the value of the IFR
 // If any of the bits 0 - 6 in the IFR is 1 then the bit 7 is 1
 // If not, then the bit 7 is 0.
 func (ifr *ViaIFR) setInterruptFlagValue(value uint8) {
@@ -21,10 +25,12 @@ func (ifr *ViaIFR) setInterruptFlagValue(value uint8) {
 	ifr.value = value
 }
 
+// Sets a specific bit of the IFR
 func (ifr *ViaIFR) setInterruptFlagBit(flag viaIRQFlags) {
 	ifr.setInterruptFlagValue(ifr.value | uint8(flag))
 }
 
+// Clears a specific bit of the IFR
 func (ifr *ViaIFR) clearInterruptFlagBit(flag viaIRQFlags) {
 	ifr.setInterruptFlagValue(ifr.value & ^uint8(flag))
 }
@@ -53,6 +59,7 @@ func (ifr *ViaIFR) setInterruptEnabledFlag(value uint8) {
 	}
 }
 
+// Returns true if bit 7 of the IFR is set meaning that an IRQ should be triggered
 func (ifr *ViaIFR) isInterruptTriggered() bool {
 	return ifr.value&0x80 > 0
 }

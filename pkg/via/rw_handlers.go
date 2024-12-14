@@ -4,6 +4,8 @@ package via
 * Input / Output Register B
 *************************************************************************************/
 
+// Reads IRB / ORB register. Depending on configuration it also latches the output
+// and clears the interrupt flags for the control lines
 func inputOutputRegisterBReadHandler(via *Via65C22S) {
 	// Get the data direction register
 	outputPins := via.registers.dataDirectionRegisterB
@@ -25,6 +27,8 @@ func inputOutputRegisterBReadHandler(via *Via65C22S) {
 	via.dataBus.Write(value)
 }
 
+// Writes the value to the IRB / ORB register. Depending on configuration this might
+// intiate handshake and clear interrupt flags for the control lines
 func inputOutputRegisterBWriteHandler(via *Via65C22S) {
 	mode := via.latchesB.getOutputMode()
 
@@ -42,6 +46,9 @@ func inputOutputRegisterBWriteHandler(via *Via65C22S) {
 * Input / Output Register A
 *************************************************************************************/
 
+// Reads IRA / ORA register. Depending on configuration it also latches the output
+// and clears the interrupt flags for the control lines
+// IRA also allows input handshake, reading the record will initate it.
 func inputOutputRegisterAReadHandler(via *Via65C22S) {
 	var value uint8
 
@@ -62,6 +69,8 @@ func inputOutputRegisterAReadHandler(via *Via65C22S) {
 	via.dataBus.Write(value)
 }
 
+// Writes the value to the IRA / ORA register. Depending on configuration this might
+// intiate handshake and clear interrupt flags for the control lines
 func inputOutputRegisterAWriteHandler(via *Via65C22S) {
 	mode := via.latchesA.getOutputMode()
 
@@ -79,12 +88,14 @@ func inputOutputRegisterAWriteHandler(via *Via65C22S) {
 * These handlers directly updates the value of the record
 *************************************************************************************/
 
+// Reads the value of the corresponding register
 func readFromRecord(register *uint8) func(via *Via65C22S) {
 	return func(via *Via65C22S) {
 		via.dataBus.Write(*register)
 	}
 }
 
+// Writes the value to the corresponding register
 func writeToRecord(register *uint8) func(via *Via65C22S) {
 	return func(via *Via65C22S) {
 		*register = via.dataBus.Read()
@@ -95,6 +106,7 @@ func writeToRecord(register *uint8) func(via *Via65C22S) {
 * Reads and writes the Interrupt Flag Register
 *************************************************************************************/
 
+// Reads IFR.
 func readnterruptFlagHandler(via *Via65C22S) {
 	via.dataBus.Write(via.registers.interrupts.getInterruptFlagValue())
 }
@@ -132,6 +144,9 @@ func writeInterruptEnableHandler(via *Via65C22S) {
 * Writes / Reads to T1 Low and High order counters and latches
 *************************************************************************************/
 
+// Writes the specified value to the high order latch / counter.
+// Value is repeated on the high order latch and then transfers the value of the
+// low order latch to the counter initiating countdown.
 func writeT1HighOrderCounter(via *Via65C22S) {
 	// MSB value for the current value in the bus
 	var high uint16 = uint16(via.dataBus.Read()) << 8
@@ -146,12 +161,13 @@ func writeT1HighOrderCounter(via *Via65C22S) {
 
 	// Enable the counter
 	via.timer1.timerEnabled = true
-	via.timer1.outputStatusWhenEnabled = false
+	via.timer1.line7OutputStatusWhenEnabled = false
 
 	// Clears interrupt flags
 	via.registers.interrupts.clearInterruptFlagBit(irqT1)
 }
 
+// Writes the high order latch clearing the flag if needed
 func writeT1HighOrderLatch(via *Via65C22S) {
 	// Write into high order latch
 	via.registers.highLatches1 = via.dataBus.Read()
@@ -180,6 +196,9 @@ func readT1HighOrderCounter(via *Via65C22S) {
 * Writes / Reads to T2 Low and High order counters and latches
 *************************************************************************************/
 
+// Writes the specified value to the high order latch / counter.
+// Value is repeated on the high order latch and then transfers the value of the
+// low order latch to the counter initiating countdown.
 func writeT2HighOrderCounter(via *Via65C22S) {
 	// MSB value for the current value in the bus
 	var high uint16 = uint16(via.dataBus.Read()) << 8
@@ -194,7 +213,7 @@ func writeT2HighOrderCounter(via *Via65C22S) {
 
 	// Enable the counter
 	via.timer2.timerEnabled = true
-	via.timer2.outputStatusWhenEnabled = false
+	via.timer2.line7OutputStatusWhenEnabled = false
 
 	// Clears interrupt flags
 	via.registers.interrupts.clearInterruptFlagBit(irqT2)

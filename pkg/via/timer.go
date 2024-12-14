@@ -1,49 +1,56 @@
 package via
 
+// Configuration of the timer. This allows to use the same code to
+// both timers T1 and T2
 type viaTimerConfiguration struct {
-	timerInterruptBit viaIRQFlags
-	timerRunModeMask  viaTimerControlMask
-	timerOutputMask   viaTimerControlMask
-	lowLatches        *uint8
-	highLatches       *uint8
-	counter           *uint16
-	port              *ViaPort
+	timerInterruptBit viaIRQFlags         // IFR Bit to set when the timer counted to zero
+	timerRunModeMask  viaTimerControlMask // Mask used to get the running mode
+	timerOutputMask   viaTimerControlMask // Mask used to get the output mode
+	lowLatches        *uint8              // Reference to low level latches
+	highLatches       *uint8              // Reference to high level latches
+	counter           *uint16             // Reference to 16-bit counter
+	port              *ViaPort            // Reference to chip's port associated with the timer
 }
 
-type ViaTimer struct {
-	timerEnabled            bool
-	outputStatusWhenEnabled bool
-	hasCountedToZero        bool
-	hasCountedToZeroLow     bool
-
-	configuration *viaTimerConfiguration
-
-	auxiliaryControlRegister *uint8
-	interrupts               *ViaIFR
-}
-
+// Mask used to get the control mode from the ACR
 type viaTimerControlMask uint8
 
 const (
-	t1ControlRunModeMask viaTimerControlMask = 0x40
-	t1ControlOutputMask  viaTimerControlMask = 0x80
-	t2ControlRunModeMask viaTimerControlMask = 0x20
+	t1ControlRunModeMask viaTimerControlMask = 0x40 // Mask used to get the run mode from the T1
+	t1ControlOutputMask  viaTimerControlMask = 0x80 // Mask used to get the output mode from T1
+	t2ControlRunModeMask viaTimerControlMask = 0x20 // Mask used to get the run mode from the T2
 )
 
 type viaTimerRunningMode uint8
 
 const (
-	txRunModeOneShot       viaTimerRunningMode = 0x00
-	t1RunModeFree          viaTimerRunningMode = 0x40
-	t2RunModePulseCounting viaTimerRunningMode = 0x20
+	txRunModeOneShot       viaTimerRunningMode = 0x00 // If run mode bits are zero for any mask (T1 or T2) then chip is in one-shot mode
+	t1RunModeFree          viaTimerRunningMode = 0x40 // Bits used to determine free run mode on T1
+	t2RunModePulseCounting viaTimerRunningMode = 0x20 // Bits used to determine pulse counting mode on T2
 )
 
-func createViaTimer(via *Via65C22S, configuration *viaTimerConfiguration) *ViaTimer {
-	return &ViaTimer{
-		timerEnabled:            false,
-		outputStatusWhenEnabled: false,
-		hasCountedToZero:        false,
-		hasCountedToZeroLow:     false,
+// Interval Timer (T1 and T2) consists of one 8-bit latch and a 16-bit counter. The latches serve to store data
+// which is to be loaded into the counter. Once the counter is loaded under program control, it decrements at
+// clock rate. Upon reaching zero, corresponding bit in IFR is set.
+type viaTimer struct {
+	timerEnabled                 bool // True if timer is enabled
+	line7OutputStatusWhenEnabled bool // Returns the status of port bit line 7 when chip is enabled
+	hasCountedToZero             bool // True if timer has counted to zero in the previous cycle
+	hasCountedToZeroLow          bool // True if timer LSB has counted to zero in the previous cycle
+
+	configuration *viaTimerConfiguration // Timer configuration
+
+	auxiliaryControlRegister *uint8  // Reference to chip's ACR
+	interrupts               *ViaIFR // Reference to chip's IFR
+}
+
+// Creates a timer and attaches it to the specified via chip
+func createViaTimer(via *Via65C22S, configuration *viaTimerConfiguration) *viaTimer {
+	return &viaTimer{
+		timerEnabled:                 false,
+		line7OutputStatusWhenEnabled: false,
+		hasCountedToZero:             false,
+		hasCountedToZeroLow:          false,
 
 		configuration: configuration,
 
@@ -52,7 +59,8 @@ func createViaTimer(via *Via65C22S, configuration *viaTimerConfiguration) *ViaTi
 	}
 }
 
-func (t *ViaTimer) tick(pbLine6Status bool) {
+// Executes one simulation step.
+func (t *viaTimer) tick(pbLine6Status bool) {
 	if t.getRunningMode() != t2RunModePulseCounting {
 		*t.configuration.counter -= 1
 	} else {
@@ -94,15 +102,18 @@ func (t *ViaTimer) tick(pbLine6Status bool) {
 	}
 }
 
-func (t *ViaTimer) isTimerOutputEnabled() bool {
+// Returns true if timer has output enabled
+func (t *viaTimer) isTimerOutputEnabled() bool {
 	return (*t.auxiliaryControlRegister & uint8(t.configuration.timerOutputMask)) > 0
 }
 
-func (t *ViaTimer) getRunningMode() viaTimerRunningMode {
+// Returns the configured running mode of the chip
+func (t *viaTimer) getRunningMode() viaTimerRunningMode {
 	return viaTimerRunningMode(*t.auxiliaryControlRegister & uint8(t.configuration.timerRunModeMask))
 }
 
-func (t *ViaTimer) writeTimerOutput() {
+// Sets the control lines if timer is in output mode
+func (t *viaTimer) setControlLinesBasedOnTimerStatus() {
 	// From the manual: With the output enabled (ACR7=1) a "write T1C-H operation will cause PB7 to go low.
 	// I'm assuming that setting ACR7=1 with timer not running will cause PB7 to go high
 	if t.isTimerOutputEnabled() {
@@ -114,11 +125,11 @@ func (t *ViaTimer) writeTimerOutput() {
 				case txRunModeOneShot:
 					t.configuration.port.connector.GetLine(7).Set(true)
 				case t1RunModeFree:
-					t.outputStatusWhenEnabled = !t.outputStatusWhenEnabled
-					t.configuration.port.connector.GetLine(7).Set(t.outputStatusWhenEnabled)
+					t.line7OutputStatusWhenEnabled = !t.line7OutputStatusWhenEnabled
+					t.configuration.port.connector.GetLine(7).Set(t.line7OutputStatusWhenEnabled)
 				}
 			} else {
-				t.configuration.port.connector.GetLine(7).Set(t.outputStatusWhenEnabled)
+				t.configuration.port.connector.GetLine(7).Set(t.line7OutputStatusWhenEnabled)
 			}
 		}
 	}
