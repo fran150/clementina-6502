@@ -12,23 +12,6 @@ type viaTimerConfiguration struct {
 	port              *ViaPort            // Reference to chip's port associated with the timer
 }
 
-// Mask used to get the control mode from the ACR
-type viaTimerControlMask uint8
-
-const (
-	t1ControlRunModeMask viaTimerControlMask = 0x40 // Mask used to get the run mode from the T1
-	t1ControlOutputMask  viaTimerControlMask = 0x80 // Mask used to get the output mode from T1
-	t2ControlRunModeMask viaTimerControlMask = 0x20 // Mask used to get the run mode from the T2
-)
-
-type viaTimerRunningMode uint8
-
-const (
-	txRunModeOneShot       viaTimerRunningMode = 0x00 // If run mode bits are zero for any mask (T1 or T2) then chip is in one-shot mode
-	t1RunModeFree          viaTimerRunningMode = 0x40 // Bits used to determine free run mode on T1
-	t2RunModePulseCounting viaTimerRunningMode = 0x20 // Bits used to determine pulse counting mode on T2
-)
-
 // Interval Timer (T1 and T2) consists of one 8-bit latch and a 16-bit counter. The latches serve to store data
 // which is to be loaded into the counter. Once the counter is loaded under program control, it decrements at
 // clock rate. Upon reaching zero, corresponding bit in IFR is set.
@@ -61,7 +44,7 @@ func createViaTimer(via *Via65C22S, configuration *viaTimerConfiguration) *viaTi
 
 // Executes one simulation step.
 func (t *viaTimer) tick(pbLine6Status bool) {
-	if t.getRunningMode() != t2RunModePulseCounting {
+	if t.getRunningMode() != acrT2RunModePulseCounting {
 		*t.configuration.counter -= 1
 	} else {
 		if !pbLine6Status {
@@ -89,11 +72,11 @@ func (t *viaTimer) tick(pbLine6Status bool) {
 			t.interrupts.setInterruptFlagBit(t.configuration.timerInterruptBit)
 		}
 
-		if t.getRunningMode() == txRunModeOneShot {
+		if t.getRunningMode() == acrTxRunModeOneShot {
 			t.timerEnabled = false
 		}
 
-		if t.getRunningMode() == t1RunModeFree {
+		if t.getRunningMode() == acrT1RunModeFree {
 			*t.configuration.counter = uint16(*t.configuration.lowLatches)
 			*t.configuration.counter |= (uint16(*t.configuration.highLatches) << 8)
 		}
@@ -121,10 +104,7 @@ func (t *viaTimer) setControlLinesBasedOnTimerStatus() {
 			t.configuration.port.connector.GetLine(7).Set(true)
 		} else {
 			if t.hasCountedToZero {
-				switch t.getRunningMode() {
-				case txRunModeOneShot:
-					t.configuration.port.connector.GetLine(7).Set(true)
-				case t1RunModeFree:
+				if t.getRunningMode() == acrT1RunModeFree {
 					t.line7OutputStatusWhenEnabled = !t.line7OutputStatusWhenEnabled
 					t.configuration.port.connector.GetLine(7).Set(t.line7OutputStatusWhenEnabled)
 				}

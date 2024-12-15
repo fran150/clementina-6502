@@ -168,7 +168,8 @@ func CreateVia65C22() *Via65C22S {
 		outputConfigurationMask: pcrMaskCAOutputMode,
 		handshakeMode:           pcrCA2OutputModeHandshake,
 		pulseMode:               pcrCA2OutputModePulse,
-		fixedMode:               pcrCA2OutputModeFix,
+		fixedModeLow:            pcrCA2OutputModeFixLow,
+		fixedModeHigh:           pcrCA2OutputModeFixHigh,
 		inputRegister:           &via.registers.inputRegisterA,
 		port:                    via.peripheralPortA,
 		controlLines:            via.controlLinesA,
@@ -179,7 +180,8 @@ func CreateVia65C22() *Via65C22S {
 		outputConfigurationMask: pcrMaskCBOutputMode,
 		handshakeMode:           pcrCB2OutputModeHandshake,
 		pulseMode:               pcrCB2OutputModePulse,
-		fixedMode:               pcrCB2OutputModeFix,
+		fixedModeLow:            pcrCB2OutputModeFixLow,
+		fixedModeHigh:           pcrCB2OutputModeFixHigh,
 		inputRegister:           &via.registers.inputRegisterB,
 		port:                    via.peripheralPortB,
 		controlLines:            via.controlLinesB,
@@ -187,8 +189,8 @@ func CreateVia65C22() *Via65C22S {
 
 	via.timer1 = createViaTimer(&via, &viaTimerConfiguration{
 		timerInterruptBit: irqT1,
-		timerRunModeMask:  t1ControlRunModeMask,
-		timerOutputMask:   t1ControlOutputMask,
+		timerRunModeMask:  acrT1ControlRunModeMask,
+		timerOutputMask:   acrT1ControlOutputMask,
 		lowLatches:        &via.registers.lowLatches1,
 		highLatches:       &via.registers.highLatches1,
 		counter:           &via.registers.counter1,
@@ -197,7 +199,7 @@ func CreateVia65C22() *Via65C22S {
 
 	via.timer2 = createViaTimer(&via, &viaTimerConfiguration{
 		timerInterruptBit: irqT2,
-		timerRunModeMask:  t2ControlRunModeMask,
+		timerRunModeMask:  acrT2ControlRunModeMask,
 		lowLatches:        &via.registers.lowLatches2,
 		highLatches:       &via.registers.highLatches2,
 		counter:           &via.registers.counter2,

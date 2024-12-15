@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Represents a circuit used for testing. It contains all the required
+// lines
 type testCircuit struct {
 	cs1     buses.Line
 	cs2     buses.Line
@@ -24,6 +26,7 @@ type testCircuit struct {
 	rw      buses.Line
 }
 
+// Creates and returns a reference to the test circuit
 func createTestCircuit() *testCircuit {
 	var rsLines [4]buses.Line
 
@@ -48,6 +51,7 @@ func createTestCircuit() *testCircuit {
 	}
 }
 
+// Connects the specified VIA chip to the test circuit
 func (circuit *testCircuit) wire(via *Via65C22S) {
 	via.ChipSelect1().Connect(circuit.cs1)
 	via.ChipSelect2().Connect(circuit.cs2)
@@ -76,6 +80,7 @@ func (circuit *testCircuit) wire(via *Via65C22S) {
 * Test utilities
 ****************************************************************************************************************/
 
+// Sets the status of the RS lines based on the specified value
 func (circuit *testCircuit) setRegisterSelectValue(value viaRegisterCode) {
 	value &= 0x0F
 
@@ -88,6 +93,7 @@ func (circuit *testCircuit) setRegisterSelectValue(value viaRegisterCode) {
 	}
 }
 
+// Writes to the specified values to a register in the VIA chip
 func writeToVia(via *Via65C22S, circuit *testCircuit, register viaRegisterCode, value uint8, t *uint64) {
 	circuit.setRegisterSelectValue(register)
 	circuit.rw.Set(false)
@@ -98,6 +104,7 @@ func writeToVia(via *Via65C22S, circuit *testCircuit, register viaRegisterCode, 
 	*t = *t + 1
 }
 
+// Reads the specified register from the VIA chip
 func readFromVia(via *Via65C22S, circuit *testCircuit, register viaRegisterCode, t *uint64) uint8 {
 	circuit.setRegisterSelectValue(register)
 	circuit.rw.Set(true)
@@ -109,6 +116,7 @@ func readFromVia(via *Via65C22S, circuit *testCircuit, register viaRegisterCode,
 	return circuit.dataBus.Read()
 }
 
+// Disables the chip and step time (used to wait for actions)
 func disableChipAndStepTime(via *Via65C22S, circuit *testCircuit, t *uint64) {
 	circuit.cs1.Set(false)
 	circuit.cs2.Set(true)
@@ -118,11 +126,13 @@ func disableChipAndStepTime(via *Via65C22S, circuit *testCircuit, t *uint64) {
 	*t = *t + 1
 }
 
+// Reneables the chip (does not time step)
 func enableChip(circuit *testCircuit) {
 	circuit.cs1.Set(true)
 	circuit.cs2.Set(false)
 }
 
+// Configuration used for timer tests
 type coutingTestConfiguration struct {
 	via               *Via65C22S
 	circuit           *testCircuit
@@ -136,6 +146,7 @@ type coutingTestConfiguration struct {
 	expectedIRQStatus bool
 }
 
+// Sets ups the VIA chip according to the test configuration and starts counting
 func setupAndCountFrom(t *testing.T, config *coutingTestConfiguration, step *uint64) {
 	// Will count down from 10 decimal
 	writeToVia(config.via, config.circuit, config.lcRegister, config.counterLSB, step)
@@ -149,6 +160,7 @@ func setupAndCountFrom(t *testing.T, config *coutingTestConfiguration, step *uin
 	countToTarget(t, config, step)
 }
 
+// Disables the chip and executes the number of time steps specified in the testing configuration.
 func countToTarget(t *testing.T, config *coutingTestConfiguration, step *uint64) {
 	for range config.cyclesToExecute {
 		disableChipAndStepTime(config.via, config.circuit, step)
@@ -746,6 +758,82 @@ func writeHandshakeOnPortB(t *testing.T, mode uint8) {
 	// IRQ must be reset and CB2 goes low again
 	assert.Equal(t, true, circuit.irq.Status())
 	assert.Equal(t, false, circuit.cb2.Status())
+}
+
+func TestFixedModeOnPortA(t *testing.T) {
+	var step uint64
+
+	via := CreateVia65C22()
+	circuit := createTestCircuit()
+
+	circuit.wire(via)
+
+	// Set CA2 in fixed mode low
+	writeToVia(via, circuit, regPCR, 0x0C, &step)
+
+	// CA2 is fixed low
+	assert.Equal(t, false, circuit.ca2.Status())
+
+	// Write to ORA
+	writeToVia(via, circuit, regORAIRA, 0xFF, &step)
+
+	// Make the time pass and check that CA2 is still high
+	disableChipAndStepTime(via, circuit, &step)
+	// CA2 is fixed low
+	assert.Equal(t, false, circuit.ca2.Status())
+
+	// Changing CA1 should not affect CA2
+	circuit.ca1.Set(true)
+
+	disableChipAndStepTime(via, circuit, &step)
+	// CA2 is fixed low
+	assert.Equal(t, false, circuit.ca2.Status())
+
+	// Set CA2 in fixed mode high
+	enableChip(circuit)
+	writeToVia(via, circuit, regPCR, 0x0E, &step)
+
+	disableChipAndStepTime(via, circuit, &step)
+	// CA2 is fixed high
+	assert.Equal(t, true, circuit.ca2.Status())
+}
+
+func TestFixedModeOnPortB(t *testing.T) {
+	var step uint64
+
+	via := CreateVia65C22()
+	circuit := createTestCircuit()
+
+	circuit.wire(via)
+
+	// Set CB2 in fixed mode low
+	writeToVia(via, circuit, regPCR, 0xC0, &step)
+
+	// CB2 is fixed low
+	assert.Equal(t, false, circuit.cb2.Status())
+
+	// Write to ORB
+	writeToVia(via, circuit, regORBIRB, 0xFF, &step)
+
+	// Make the time pass and check that CB2 is still high
+	disableChipAndStepTime(via, circuit, &step)
+	// CB2 is fixed low
+	assert.Equal(t, false, circuit.cb2.Status())
+
+	// Changing CB1 should not affect CB2
+	circuit.cb1.Set(true)
+
+	disableChipAndStepTime(via, circuit, &step)
+	// CB2 is fixed low
+	assert.Equal(t, false, circuit.cb2.Status())
+
+	// Set CB2 in fixed mode high
+	enableChip(circuit)
+	writeToVia(via, circuit, regPCR, 0xE0, &step)
+
+	disableChipAndStepTime(via, circuit, &step)
+	// CB2 is fixed high
+	assert.Equal(t, true, circuit.cb2.Status())
 }
 
 /****************************************************************************************************************

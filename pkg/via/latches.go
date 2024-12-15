@@ -7,7 +7,8 @@ type viaLatchesConfiguration struct {
 	outputConfigurationMask viaPCROutputMasks   // Mask used in PCR to check output configuration of control lines
 	handshakeMode           viaPCROutputModes   // Bit value of PCR when set to handshake mode
 	pulseMode               viaPCROutputModes   // Bit value of PCR when set to pulse mode
-	fixedMode               viaPCROutputModes   // Bit vavlue of PCR when set to fixed mode
+	fixedModeLow            viaPCROutputModes   // Bit vavlue of PCR when set to fixed mode low
+	fixedModeHigh           viaPCROutputModes   // Bit vavlue of PCR when set to fixed mode high
 
 	inputRegister *uint8           // Reference to chip's input register (IRA or IRB)
 	port          *ViaPort         // Reference to chip's port (Port A or B)
@@ -91,7 +92,10 @@ func (l *viaLatches) setOutput() {
 
 		l.configuration.controlLines.lines[1].SetEnable(!l.handshakeInProgress)
 
-	case l.configuration.fixedMode:
-		l.configuration.controlLines.lines[1].SetEnable(l.configuration.controlLines.configForTransitionOnPositiveEdge(1))
+	case l.configuration.fixedModeLow:
+		l.configuration.controlLines.lines[1].SetEnable(false)
+	case l.configuration.fixedModeHigh:
+		l.configuration.controlLines.lines[1].SetEnable(true)
+
 	}
 }
