@@ -916,6 +916,12 @@ func TestTimer1OneShotMode(t *testing.T) {
 	// At this point IRQ is set (low) and PB7 goes back to high
 	assert.Equal(t, false, circuit.irq.Status())
 	assert.Equal(t, true, circuit.portB.GetBusLine(7).Status())
+
+	// Counter kept decreasing and rolled over to 0xFFFE
+	assert.Equal(t, uint16(0xFFFE), via.registers.counter1)
+	enableChip(circuit)
+	t1HighCounter := readFromVia(via, circuit, regT1CH, &step)
+	assert.Equal(t, uint8(0xFF), t1HighCounter)
 }
 
 func TestTimer1FreeRunMode(t *testing.T) {
@@ -991,6 +997,12 @@ func TestTimer1FreeRunMode(t *testing.T) {
 	disableChipAndStepTime(via, circuit, &step)
 	assert.Equal(t, false, circuit.irq.Status())
 	assert.Equal(t, true, circuit.portB.GetBusLine(7).Status())
+
+	// Clear the interrupt flag by writing zero to the high latch
+	enableChip(circuit)
+	writeToVia(via, circuit, regT1HL, 0x01, &step)
+	assert.Equal(t, uint8(0x01), via.registers.highLatches1)
+	assert.Equal(t, true, circuit.irq.Status())
 }
 
 func TestTimer2OneShotMode(t *testing.T) {
@@ -1048,6 +1060,13 @@ func TestTimer2OneShotMode(t *testing.T) {
 	setupAndCountFrom(t, &config, &step)
 	disableChipAndStepTime(via, circuit, &step)
 	assert.Equal(t, false, circuit.irq.Status())
+
+	// Counter kept going down and rolled over to 0xFFFE
+	assert.Equal(t, uint16(0xFFFE), via.registers.counter2)
+	enableChip(circuit)
+	t2HighCounter := readFromVia(via, circuit, regT2CH, &step)
+	assert.Equal(t, uint8(0xFF), t2HighCounter)
+
 }
 
 func TestTimer2PulseCountingMode(t *testing.T) {
@@ -1504,6 +1523,11 @@ func TestShiftOutAtT2Rate(t *testing.T) {
 	assert.Equal(t, false, circuit.irq.Status())
 	assert.Equal(t, true, circuit.cb1.Status())
 	assert.Equal(t, true, circuit.cb2.Status())
+
+	// Reads the SR
+	enableChip(circuit)
+	value := readFromVia(via, circuit, regSR, &step)
+	assert.Equal(t, uint8(0xaa), value)
 }
 
 func TestShiftOutAtClockRate(t *testing.T) {
