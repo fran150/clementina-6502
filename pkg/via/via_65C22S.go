@@ -239,7 +239,7 @@ func (via *Via65C22S) populateRegisterReadHandlers() {
 		readFromRecord((*uint8)(&via.registers.peripheralControl)), // 0x0C
 		readnterruptFlagHandler,                                    // 0x0D
 		readInterruptEnableHandler,                                 // 0x0E
-		dummyHandler,                                               // 0x0F
+		inputOutputRegisterAReadHandlerNoHandshake,                 // 0x0F
 	}
 }
 
@@ -261,7 +261,7 @@ func (via *Via65C22S) populateRegisterWriteHandlers() {
 		writeToRecord((*uint8)(&via.registers.peripheralControl)), // 0x0C
 		writeInterruptFlagHandler,                                 // 0x0D
 		writeInterruptEnableHandler,                               // 0x0E
-		dummyHandler,                                              // 0x0F
+		inputOutputRegisterAWriteHandlerNoHandshake,               // 0x0F
 	}
 }
 

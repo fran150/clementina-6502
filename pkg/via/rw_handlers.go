@@ -254,8 +254,32 @@ func writeShiftRegister(via *Via65C22S) {
 }
 
 /************************************************************************************
-* Temporary
+* Input / Output Register A (No Handshake)
 *************************************************************************************/
 
-func dummyHandler(via *Via65C22S) {
+// Reads IRA / ORA register. Depending on configuration it also latches the output
+// and clears the interrupt flags for the control lines
+// Reading on register 0x0F does not trigger Handshake
+func inputOutputRegisterAReadHandlerNoHandshake(via *Via65C22S) {
+	var value uint8
+
+	if !via.latchesA.isLatchingEnabled() {
+		value = via.peripheralPortA.connector.Read()
+	} else {
+		value = via.registers.inputRegisterA
+	}
+
+	via.peripheralPortA.clearControlLinesInterruptFlagOnRW()
+
+	via.dataBus.Write(value)
+}
+
+// Writes the value to the IRA / ORA register. Depending on configuration this might
+// clear interrupt flags for the control lines
+// Writing on register 0x0F does not trigger Handshake
+func inputOutputRegisterAWriteHandlerNoHandshake(via *Via65C22S) {
+	via.peripheralPortA.clearControlLinesInterruptFlagOnRW()
+
+	// MPU writes to ORA
+	via.registers.outputRegisterA = via.dataBus.Read()
 }
