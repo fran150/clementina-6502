@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fran150/clementina6502/pkg/buses"
-	"github.com/fran150/clementina6502/pkg/cpu"
-	"github.com/fran150/clementina6502/pkg/memory"
+	"github.com/fran150/clementina6502/pkg/components/buses"
+	"github.com/fran150/clementina6502/pkg/components/common"
+	"github.com/fran150/clementina6502/pkg/components/cpu"
+	"github.com/fran150/clementina6502/pkg/components/memory"
 )
 
 /******************************************************************************************************
@@ -97,7 +98,7 @@ func verifyAndCountRepeats(processor *cpu.Cpu65C02S) bool {
 }
 
 // Validates the status of the processor when the test finish and fails the test if required.
-func showFinishCondition(processor *cpu.Cpu65C02S, cycles uint64, b *testing.B, elapsed time.Duration) {
+func showFinishCondition(processor *cpu.Cpu65C02S, context common.StepContext, b *testing.B, elapsed time.Duration) {
 	// If processor is trapped in SUCCESS_PC_VALUE, this means that the tests were completed successfullly
 	// Otherwise this is an error condition and must fail the tests
 	if processor.GetProgramCounter() != successPcValue {
@@ -105,14 +106,14 @@ func showFinishCondition(processor *cpu.Cpu65C02S, cycles uint64, b *testing.B, 
 	}
 
 	// If the execution was cancelled due to exceeding the number of allowed cycles then fail the tests
-	if cycles >= maxAllowedCycles {
-		b.Errorf("Maximum limit of %v cycles was reached, typical execution is 96,241,272", cycles)
+	if context.Cycle >= maxAllowedCycles {
+		b.Errorf("Maximum limit of %v cycles was reached, typical execution is 96,241,272", context.Cycle)
 	}
 
 	// Show number of elapsed cycles
-	fmt.Printf("Functional Tests execution completed in %v cycles\n", cycles)
+	fmt.Printf("Functional Tests execution completed in %v cycles\n", context.Cycle)
 
-	total := (float64(cycles) / elapsed.Seconds()) / 1_000_000
+	total := (float64(context.Cycle) / elapsed.Seconds()) / 1_000_000
 
 	fmt.Printf("Processor ran at %v MHZ\n", total)
 }
@@ -138,15 +139,15 @@ func BenchmarkProcessor(b *testing.B) {
 	repeats = 0
 
 	// Will count the cycles required to complete execution
-	var cycles uint64 = 0
+	context := common.CreateStepContext()
 	var start = time.Now()
 
 	for i := 0; i < b.N; i++ {
-		for cycles < maxAllowedCycles {
+		for context.Cycle < maxAllowedCycles {
 			// Exeutes the CPU cycles
-			processor.Tick(cycles)
-			ram.Tick(cycles)
-			processor.PostTick(cycles)
+			processor.Tick(context)
+			ram.Tick(context)
+			processor.PostTick(context)
 
 			// Verfies and count repeated "trap" opcodes. If this functions returns true
 			// it means that the code is trapped and the tests are either in error or finished
@@ -155,7 +156,7 @@ func BenchmarkProcessor(b *testing.B) {
 			}
 
 			// Count number of cycles
-			cycles++
+			context.Next()
 		}
 	}
 
@@ -163,5 +164,5 @@ func BenchmarkProcessor(b *testing.B) {
 	elapsed := time.Since(start)
 
 	// Mark the test as failed or success depending on the exit conditions
-	showFinishCondition(processor, cycles, b, elapsed)
+	showFinishCondition(processor, context, b, elapsed)
 }
