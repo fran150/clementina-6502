@@ -58,7 +58,7 @@ func CreateBenEaterComputer(portName string) *Computer {
 		rom:  memory.CreateRamWithLessPins(memory.RAM_SIZE_32K, 0x7FFF),
 		via:  via.CreateVia65C22(),
 		lcd:  lcd.CreateLCD(),
-		acia: acia.CreateAcia65C51N(),
+		acia: acia.CreateAcia65C51N(false),
 		nand: nand.Create74HC00(),
 	}
 

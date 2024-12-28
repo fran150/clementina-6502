@@ -7,6 +7,6 @@ import (
 func main() {
 	computer := beneater.CreateBenEaterComputer("/dev/ttys004")
 
-	computer.Load("./assets/computer/beneater/wozmon.bin")
+	computer.Load("./assets/computer/beneater/eater.bin")
 	computer.Run()
 }

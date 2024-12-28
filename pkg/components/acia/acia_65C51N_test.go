@@ -32,7 +32,7 @@ func createTestCircuit() (*Acia65C51N, *testCircuit, *portMock) {
 		rsLines[i] = buses.CreateStandaloneLine(false)
 	}
 
-	acia := CreateAcia65C51N()
+	acia := CreateAcia65C51N(true)
 
 	circuit := testCircuit{
 		dataBus: buses.Create8BitBus(),

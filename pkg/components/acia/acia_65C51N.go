@@ -101,10 +101,12 @@ type Acia65C51N struct {
 	wg      *sync.WaitGroup
 
 	running bool
+
+	emulateModemLines bool
 }
 
 // Creates an ACIA chip in default initialization state
-func CreateAcia65C51N() *Acia65C51N {
+func CreateAcia65C51N(emulateModemLines bool) *Acia65C51N {
 	acia := &Acia65C51N{
 		dataBus:     buses.CreateBusConnector[uint8](),
 		irqRequest:  buses.CreateConnectorEnabledLow(),
@@ -131,6 +133,8 @@ func CreateAcia65C51N() *Acia65C51N {
 		wg:      &sync.WaitGroup{},
 
 		running: true,
+
+		emulateModemLines: emulateModemLines,
 	}
 
 	// Start background pollers to read and write from the serial
@@ -252,8 +256,14 @@ func (acia *Acia65C51N) getRegisterSelectValue() uint8 {
 
 // Executes one emulation step
 func (acia *Acia65C51N) Tick(stepContext common.StepContext) {
-	// Sets the status flag based on modem lines (these are controlled by the modem)
-	acia.evaluateModemStatus()
+	// If the ACIA is configured to emulate modem lines
+	// it will evaluate the status of the DSR and DCD lines. This is slow (at least when used with SOCAT)
+	// so it can be disabled for faster emulation
+	if acia.emulateModemLines {
+		// Sets the status flag based on modem lines (these are controlled by the modem)
+		acia.evaluateModemStatus()
+	}
+
 	// Evaluates if the rx record is full and sets the status register accordingly
 	acia.evaluateRxRegisterStatus()
 
@@ -270,7 +280,10 @@ func (acia *Acia65C51N) Tick(stepContext common.StepContext) {
 	}
 
 	// Sets the DTR and RTS modem lines (these are controlled by the ACIA)
-	acia.setModemLines()
+	// This is slow (at least when used with SOCAT) so it can be disabled for faster emulation
+	if acia.emulateModemLines {
+		acia.setModemLines()
+	}
 
 	// Drives the IRQ line based on the status register
 	acia.setIRQLine()
