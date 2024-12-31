@@ -37,50 +37,50 @@ package cpu
 //     crossed. In the 65C02 these instructions take 1 less cycle if the target is on the same page.
 //   - When performing indexed addressing, if indexing crosses a page boundary original 6502 will read from an invalid address before accessing the
 //     correct address. For example,
-type AddressMode string
+type AddressMode int
 
 const (
-	AddressModeImplicit                  AddressMode = "IMP"
-	AddressModeAccumulator               AddressMode = "ACC"
-	AddressModeImmediate                 AddressMode = "IMM"
-	AddressModeZeroPage                  AddressMode = "ZPP"
-	AddressModeZeroPageRMW               AddressMode = "ZPPRMW"
-	AddressModeZeroPageW                 AddressMode = "ZPPW"
-	AddressModeZeroPageX                 AddressMode = "ZPX"
-	AddressModeZeroPageXRMW              AddressMode = "ZPXRMW"
-	AddressModeZeroPageXW                AddressMode = "ZPXW"
-	AddressModeZeroPageY                 AddressMode = "ZPY"
-	AddressModeZeroPageYW                AddressMode = "ZPYW"
-	AddressModeAbsolute                  AddressMode = "ABS"
-	AddressModeAbsoluteRMW               AddressMode = "ABSRMW"
-	AddressModeAbsoluteW                 AddressMode = "ABSW"
-	AddressModeAbsoluteX                 AddressMode = "ABX"
-	AddressModeAbsoluteXRMW              AddressMode = "ABXRMW"
-	AddressModeAbsoluteXW                AddressMode = "ABXW"
-	AddressModeAbsoluteY                 AddressMode = "ABY"
-	AddressModeAbsoluteYW                AddressMode = "ABYW"
-	AddressModeRelative                  AddressMode = "REL"
-	AddressModeIndirect                  AddressMode = "IND"
-	AddressModeIndirectZeroPage          AddressMode = "INZ"
-	AddressModeIndirectZeroPageW         AddressMode = "INZW"
-	AddressModeZeroPageIndexedIndirectX  AddressMode = "IXN"
-	AddressModeZeroPageIndexedIndirectXW AddressMode = "IXNW"
-	AddressModeZeroPageIndirectIndexedY  AddressMode = "INY"
-	AddressModeZeroPageIndirectIndexedYW AddressMode = "INYW"
-	AddressModeAbsoluteIndexedIndirect   AddressMode = "AXI"
-	AddressModePushStack                 AddressMode = "PHS"
-	AddressModePullStack                 AddressMode = "PLS"
-	AddressModeAbsoluteJump              AddressMode = "JMP"
-	AddressModeJumpToSubroutine          AddressMode = "JSR"
-	AddressModeReturnFromSubroutine      AddressMode = "RTS"
-	AddressModeBreak                     AddressMode = "BRK"
-	AddressModeReturnFromInterrupt       AddressMode = "RTI"
-	AddressModeRelativeExtended          AddressMode = "RELEX"
+	AddressModeImplicit AddressMode = iota
+	AddressModeAccumulator
+	AddressModeImmediate
+	AddressModeZeroPage
+	AddressModeZeroPageRMW
+	AddressModeZeroPageW
+	AddressModeZeroPageX
+	AddressModeZeroPageXRMW
+	AddressModeZeroPageXW
+	AddressModeZeroPageY
+	AddressModeZeroPageYW
+	AddressModeAbsolute
+	AddressModeAbsoluteRMW
+	AddressModeAbsoluteW
+	AddressModeAbsoluteX
+	AddressModeAbsoluteXRMW
+	AddressModeAbsoluteXW
+	AddressModeAbsoluteY
+	AddressModeAbsoluteYW
+	AddressModeRelative
+	AddressModeIndirect
+	AddressModeIndirectZeroPage
+	AddressModeIndirectZeroPageW
+	AddressModeZeroPageIndexedIndirectX
+	AddressModeZeroPageIndexedIndirectXW
+	AddressModeZeroPageIndirectIndexedY
+	AddressModeZeroPageIndirectIndexedYW
+	AddressModeAbsoluteIndexedIndirect
+	AddressModePushStack
+	AddressModePullStack
+	AddressModeAbsoluteJump
+	AddressModeJumpToSubroutine
+	AddressModeReturnFromSubroutine
+	AddressModeBreak
+	AddressModeReturnFromInterrupt
+	AddressModeRelativeExtended
 
 	// Non instructions address modes
-	AddressModeIRQ   AddressMode = "IRQ"
-	AddressModeNMI   AddressMode = "NMI"
-	AddressModeReset AddressMode = "RESET"
+	AddressModeIRQ
+	AddressModeNMI
+	AddressModeReset
 )
 
 // ----------------------------------------------------------------------
@@ -129,7 +129,7 @@ func (data *AddressModeData) MemSize() uint8 {
 
 // Set of address modes supported by the processor.
 type AddressModeSet struct {
-	nameIndex map[AddressMode]*AddressModeData
+	nameIndex [40]*AddressModeData
 }
 
 // Gets address mode data of an specific mode by it's name.
@@ -140,7 +140,7 @@ func (addressModeSet *AddressModeSet) GetByName(name AddressMode) *AddressModeDa
 // Creates and returns the list of address modes supported by this processor.
 func CreateAddressModesSet() *AddressModeSet {
 	addressModeSet := AddressModeSet{
-		nameIndex: map[AddressMode]*AddressModeData{},
+		nameIndex: [40]*AddressModeData{},
 	}
 
 	data := []AddressModeData{

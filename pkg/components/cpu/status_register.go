@@ -1,7 +1,5 @@
 package cpu
 
-import "math"
-
 // As instructions are executed a set of processor flags are set or clear to record the results of the operation. T
 // his flags and some additional control flags are held in a special status register. Each flag has a single bit within the register.
 // See https://www.6502.org/users/obelisk/6502/registers.html
@@ -28,14 +26,14 @@ func CreateStatusRegister(value uint8) StatusRegister {
 
 // Returns whether the specified bit of the status register is set
 func (status StatusRegister) Flag(bit StatusBit) bool {
-	mask := uint8(math.Pow(2, float64(bit)))
+	mask := uint8(1 << bit)
 
 	return (uint8(status) & mask) > 0
 }
 
 // Allows to set or unset an specific bit of the status register
 func (status *StatusRegister) SetFlag(bit StatusBit, set bool) {
-	mask := uint8(math.Pow(2, float64(bit)))
+	mask := uint8(1 << bit)
 
 	if set {
 		*status = StatusRegister(uint8(*status) | (0x00 + mask))

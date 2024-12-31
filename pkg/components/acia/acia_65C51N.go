@@ -301,8 +301,15 @@ func (acia *Acia65C51N) setModemLines() {
 		dtr := isBitSet(acia.commandRegister, commandDTRBit)
 		rts := isBitSet(acia.commandRegister, commandTICRTSBit)
 
-		acia.port.SetDTR(dtr)
-		acia.port.SetRTS(rts)
+		err := acia.port.SetDTR(dtr)
+		if err != nil {
+			panic(err)
+		}
+
+		err = acia.port.SetRTS(rts)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 

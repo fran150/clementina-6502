@@ -161,10 +161,14 @@ func (ram *Ram) write() {
 
 // Executes one emulation step
 func (ram *Ram) Tick(context common.StepContext) {
-	if ram.chipSelect.Enabled() {
-		if ram.writeEnable.Enabled() {
+	cs := ram.chipSelect.Enabled()
+	oe := ram.outputEnable.Enabled()
+	writeEnable := ram.writeEnable.Enabled()
+
+	if cs {
+		if writeEnable {
 			ram.write()
-		} else if ram.outputEnable.Enabled() && !ram.writeEnable.Enabled() {
+		} else if oe && !writeEnable {
 			ram.read()
 		}
 	}

@@ -1,6 +1,10 @@
 package common
 
-import "time"
+import (
+	"time"
+
+	"github.com/kpango/fastime"
+)
 
 // An object pass to all Tick functions that contains
 // one emulation step data
@@ -12,11 +16,11 @@ type StepContext struct {
 func CreateStepContext() StepContext {
 	return StepContext{
 		Cycle: 0,
-		T:     time.Now(),
+		T:     fastime.Now(),
 	}
 }
 
 func (context *StepContext) Next() {
 	context.Cycle++
-	context.T = time.Now()
+	context.T = fastime.Now()
 }

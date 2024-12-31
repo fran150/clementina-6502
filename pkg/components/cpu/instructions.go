@@ -37,7 +37,7 @@ func (data *CpuInstructionData) AddressMode() AddressMode {
 
 // Returns all the instructions available for the CPU
 type CpuInstructionSet struct {
-	opCodeIndex map[OpCode]*CpuInstructionData
+	opCodeIndex [0x100]*CpuInstructionData
 }
 
 // Gets data about the instruction and address mode represented by the specified Opcode.
@@ -278,7 +278,7 @@ func CreateInstructionSet() *CpuInstructionSet {
 	}
 
 	instructionSet := CpuInstructionSet{
-		opCodeIndex: map[OpCode]*CpuInstructionData{},
+		opCodeIndex: [0x100]*CpuInstructionData{},
 	}
 
 	for _, data := range data {

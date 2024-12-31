@@ -272,16 +272,18 @@ func (cpu *Cpu65C02S) checkOverflowSet() {
 // Check the interrupt lines and marks if an interrupt was requested. The interrupts are served once the current
 // instruction completes.
 func (cpu *Cpu65C02S) checkInterrupts() {
+	nmiEnabled := cpu.NonMaskableInterrupt().Enabled()
+
 	if !cpu.irqRequested && cpu.InterruptRequest().Enabled() && !cpu.processorStatusRegister.Flag(IrqDisableFlagBit) {
 		cpu.irqRequested = true
 	}
 
 	// NMI is edge enabled, only will trigger interrupt when it transitions from high to low.
 	// If it's held low no further interrupts will be triggered
-	if !cpu.previousNMIStatus && cpu.NonMaskableInterrupt().Enabled() {
+	if !cpu.previousNMIStatus && nmiEnabled {
 		cpu.nmiRequested = true
 	}
-	cpu.previousNMIStatus = cpu.NonMaskableInterrupt().Enabled()
+	cpu.previousNMIStatus = nmiEnabled
 }
 
 // Reset must be held low for 2 cycles for the processor to reset.
