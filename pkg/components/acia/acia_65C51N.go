@@ -178,7 +178,9 @@ func (acia *Acia65C51N) ConnectToPort(port serial.Port) {
 	}
 
 	// Sets the values of the modem lines in the port according to the ACIA registers
-	acia.setModemLines()
+	if acia.emulateModemLines {
+		acia.setModemLines()
+	}
 }
 
 // Free resources used by the emulation. In particular it will stop the R/W pollers

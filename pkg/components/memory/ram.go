@@ -105,6 +105,11 @@ func (ram *Ram) Peek(address uint16) uint8 {
 	return ram.values[address]
 }
 
+// Returns the values in the specified range
+func (ram *Ram) PeekRange(startAddress uint16, endAddress uint16) []uint8 {
+	return ram.values[startAddress:endAddress]
+}
+
 // Sets the value on the specified address
 func (ram *Ram) Poke(address uint16, value uint8) {
 	ram.values[address] = value

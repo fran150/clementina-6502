@@ -7,6 +7,9 @@ import (
 	"github.com/fran150/clementina6502/pkg/components/common"
 )
 
+var addressModeSet *AddressModeSet = CreateAddressModesSet()
+var instructionSet *CpuInstructionSet = CreateInstructionSet()
+
 // Represents the WDC 65C02S processor. See https://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf
 // for details.
 // There is another document for the rockwell processor that has better data about cycle timing here:
@@ -25,9 +28,6 @@ type Cpu65C02S struct {
 	sync                 *buses.ConnectorEnabledHigh
 	vectorPull           *buses.ConnectorEnabledLow
 
-	addressModeSet *AddressModeSet
-	instructionSet *CpuInstructionSet
-
 	accumulatorRegister     uint8
 	xRegister               uint8
 	yRegister               uint8
@@ -39,6 +39,11 @@ type Cpu65C02S struct {
 	currentAddressMode *AddressModeData
 	currentCycleIndex  int
 	currentCycle       cycleActions
+
+	nextInstruction *CpuInstructionData
+	nextAddressMode *AddressModeData
+	nextCycleIndex  int
+	nextCycle       cycleActions
 
 	instructionRegisterCarry bool
 	branchTaken              bool
@@ -72,15 +77,13 @@ func CreateCPU() *Cpu65C02S {
 		sync:                 buses.CreateConnectorEnabledHigh(),
 		vectorPull:           buses.CreateConnectorEnabledLow(),
 
-		instructionSet: CreateInstructionSet(),
-		addressModeSet: CreateAddressModesSet(),
-
 		accumulatorRegister: 0x00,
 		xRegister:           0x00,
 		yRegister:           0x00,
 		stackPointer:        0xFD,
 		programCounter:      0xFFFC,
 		currentCycle:        readOpCode,
+		nextCycle:           readOpCode,
 	}
 
 	cpu.setDefaultValues()
@@ -205,6 +208,11 @@ func (cpu *Cpu65C02S) VectorPull() *buses.ConnectorEnabledLow {
 // First Tick for all emulated components and then PostTick.
 // The parameter T represents the elapsed time between executions.
 func (cpu *Cpu65C02S) Tick(context common.StepContext) {
+	cpu.currentInstruction = cpu.nextInstruction
+	cpu.currentAddressMode = cpu.nextAddressMode
+	cpu.currentCycleIndex = cpu.nextCycleIndex
+	cpu.currentCycle = cpu.nextCycle
+
 	if cpu.processorPaused || cpu.processorStopped {
 		cpu.Ready().SetEnable(false)
 	}
@@ -232,7 +240,6 @@ func (cpu *Cpu65C02S) Tick(context common.StepContext) {
 
 // As part of the emulation for every cycle we will execute 2 functions:
 // First Tick for all emulated components and then PostTick.
-// The parameter T represents the elapsed time between executions
 func (cpu *Cpu65C02S) PostTick(context common.StepContext) {
 	// Execute post action if CPU is not paused or stopped
 	if cpu.Ready().Enabled() {
@@ -293,8 +300,8 @@ func (cpu *Cpu65C02S) checkReset() {
 		cpu.cyclesWithReset++
 
 		if cpu.cyclesWithReset >= 2 {
-			cpu.currentAddressMode = cpu.addressModeSet.GetByName(AddressModeReset)
-			cpu.currentCycle = interruptCycle
+			cpu.nextAddressMode = GetAddressMode(AddressModeReset)
+			cpu.nextCycle = interruptCycle
 
 			cpu.setDefaultValues()
 		}
@@ -311,6 +318,8 @@ func (cpu *Cpu65C02S) setDefaultValues() {
 	cpu.processorStatusRegister.SetValue(0b00110100)
 
 	cpu.currentCycleIndex = 0
+	cpu.nextCycleIndex = 0
+
 	cpu.instructionRegisterCarry = false
 	cpu.branchTaken = false
 	cpu.currentOpCode = 0x00
@@ -349,25 +358,27 @@ func (cpu *Cpu65C02S) executeCycleAction(context common.StepContext) {
 // At that point the current cycle is reset to reaOpCode and the instruction
 // and data registers are set to 0 in preparation for a new instruction.
 func (cpu *Cpu65C02S) moveToNextCycle() {
-	cpu.currentCycleIndex++
+	cpu.nextCycleIndex = cpu.currentCycleIndex + 1
 
-	if int(cpu.currentCycleIndex) >= cpu.currentAddressMode.Cycles() {
-		cpu.currentCycleIndex = 0
+	if int(cpu.nextCycleIndex) >= cpu.currentAddressMode.Cycles() {
+		cpu.nextCycleIndex = 0
 		cpu.instructionRegister = 0x0000
 		cpu.dataRegister = 0x00
 
 		switch {
 		case cpu.nmiRequested:
-			cpu.currentAddressMode = cpu.addressModeSet.GetByName(AddressModeNMI)
-			cpu.currentCycle = interruptCycle
+			cpu.nextAddressMode = GetAddressMode(AddressModeNMI)
+			cpu.nextCycle = interruptCycle
 		case cpu.irqRequested:
-			cpu.currentAddressMode = cpu.addressModeSet.GetByName(AddressModeIRQ)
-			cpu.currentCycle = interruptCycle
+			cpu.nextAddressMode = GetAddressMode(AddressModeIRQ)
+			cpu.nextCycle = interruptCycle
 		default:
-			cpu.currentCycle = readOpCode
+			cpu.nextCycle = readOpCode
 		}
 	} else {
-		cpu.currentCycle = cpu.currentAddressMode.cycle(cpu.currentCycleIndex - 1)
+		cpu.nextInstruction = cpu.currentInstruction
+		cpu.nextAddressMode = cpu.currentAddressMode
+		cpu.nextCycle = cpu.currentAddressMode.cycle(cpu.currentCycleIndex)
 	}
 }
 
@@ -472,8 +483,6 @@ func (cpu *Cpu65C02S) performAction() {
 
 // Configures the processor to read from the specified address
 func (cpu *Cpu65C02S) setReadBus(address uint16) {
-	// TODO: Handle disconnected lines, Handle bus conflict
-
 	if cpu.busEnable.Enabled() {
 		cpu.readWrite.SetEnable(false)
 		cpu.addressBus.Write(address)
@@ -495,6 +504,11 @@ func (cpu *Cpu65C02S) setWriteBus(address uint16, data uint8) {
  * Public Methods
  ****************************************************
  */
+
+// Returns if the processor is reading an opcode
+func (cpu *Cpu65C02S) IsReadingOpcode() bool {
+	return cpu.currentCycle.signaling.sync
+}
 
 // Returns data about the current instruction being executed by the processor
 func (cpu *Cpu65C02S) GetCurrentInstruction() *CpuInstructionData {

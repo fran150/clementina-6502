@@ -1,4 +1,4 @@
-package nand
+package gates
 
 import (
 	"testing"

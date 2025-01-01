@@ -1,4 +1,4 @@
-package nand
+package gates
 
 import (
 	"github.com/fran150/clementina6502/pkg/components/buses"

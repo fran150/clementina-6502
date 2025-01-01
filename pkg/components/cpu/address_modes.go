@@ -149,7 +149,7 @@ func CreateAddressModesSet() *AddressModeSet {
 
 		{AddressModeImplicit, "i", "", addressModeImplicitOrAccumulatorActions, 1},
 		{AddressModeAccumulator, "A", "a", addressModeImplicitOrAccumulatorActions, 1},
-		{AddressModeImmediate, "#", "#%02X", addressModeImmediateActions, 2},
+		{AddressModeImmediate, "#", "#$%02X", addressModeImmediateActions, 2},
 		{AddressModeAbsoluteJump, "a", "$%04X", addressModeAbsoluteJumpActions, 3},
 		{AddressModeAbsolute, "a", "$%04X", addressModeAbsoluteActions, 3},
 		{AddressModeAbsoluteRMW, "a", "$%04X", addressModeAbsoluteRMWActions, 3},
@@ -198,4 +198,9 @@ func CreateAddressModesSet() *AddressModeSet {
 	}
 
 	return &addressModeSet
+}
+
+// Returns details about the specified address mode
+func GetAddressMode(name AddressMode) *AddressModeData {
+	return addressModeSet.GetByName(name)
 }

@@ -298,10 +298,10 @@ func intoOpCode() cyclePostAction {
 	return func(cpu *Cpu65C02S) {
 		cpu.currentOpCode = OpCode(cpu.dataBus.Read())
 
-		cpu.currentInstruction = cpu.instructionSet.GetByOpCode(cpu.currentOpCode)
+		cpu.currentInstruction = instructionSet.GetByOpCode(cpu.currentOpCode)
 
 		addressModeName := cpu.currentInstruction.AddressMode()
-		cpu.currentAddressMode = cpu.addressModeSet.GetByName(addressModeName)
+		cpu.currentAddressMode = addressModeSet.GetByName(addressModeName)
 	}
 }
 

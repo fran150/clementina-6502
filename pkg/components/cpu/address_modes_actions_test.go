@@ -150,8 +150,8 @@ func evaluateSignalLines(t *testing.T, cpu *Cpu65C02S, signalString string) {
 	lineNames := []string{"Memory Lock", "Sync", "Vector Pull", "Ready"}
 
 	// Gets the current instruction and address mode
-	instruction := cpu.instructionSet.GetByOpCode(cpu.currentOpCode)
-	addressMode := cpu.addressModeSet.GetByName(instruction.addressMode)
+	instruction := instructionSet.GetByOpCode(cpu.currentOpCode)
+	addressMode := addressModeSet.GetByName(instruction.addressMode)
 
 	// For each line to be evaluated
 	for i, signal := range signals {

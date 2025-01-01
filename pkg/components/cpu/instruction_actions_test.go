@@ -26,8 +26,8 @@ func runInstructionTest(cpu *Cpu65C02S, ram *memory.Ram, cycles uint64) {
 
 func evaluateRegisterValue(t *testing.T, cpu *Cpu65C02S, name string, value uint8, expected uint8) {
 	if value != expected {
-		instruction := cpu.instructionSet.GetByOpCode(cpu.currentOpCode)
-		addressMode := cpu.addressModeSet.GetByName(instruction.addressMode)
+		instruction := instructionSet.GetByOpCode(cpu.currentOpCode)
+		addressMode := addressModeSet.GetByName(instruction.addressMode)
 
 		t.Errorf("%s - %s - Current value of %s (%02X) doesnt match the expected value of (%02X)", instruction.Mnemonic(), addressMode.Text(), name, value, expected)
 	}
@@ -37,8 +37,8 @@ func evaluateAddress(t *testing.T, cpu *Cpu65C02S, ram *memory.Ram, address uint
 	value := ram.Peek(address)
 
 	if value != expected {
-		instruction := cpu.instructionSet.GetByOpCode(cpu.currentOpCode)
-		addressMode := cpu.addressModeSet.GetByName(instruction.addressMode)
+		instruction := instructionSet.GetByOpCode(cpu.currentOpCode)
+		addressMode := addressModeSet.GetByName(instruction.addressMode)
 
 		t.Errorf("%s - %s - Current value (%02X) of addres %04X doesnt match the expected value of (%02X)", instruction.Mnemonic(), addressMode.Text(), value, address, expected)
 	}
@@ -47,8 +47,8 @@ func evaluateAddress(t *testing.T, cpu *Cpu65C02S, ram *memory.Ram, address uint
 func evaluateFlag(t *testing.T, cpu *Cpu65C02S, flagString string) {
 	const flags string = "czidb-vn"
 
-	instruction := cpu.instructionSet.GetByOpCode(cpu.currentOpCode)
-	addressMode := cpu.addressModeSet.GetByName(instruction.addressMode)
+	instruction := instructionSet.GetByOpCode(cpu.currentOpCode)
+	addressMode := addressModeSet.GetByName(instruction.addressMode)
 
 	for i, flag := range flags {
 		ucFlag := unicode.ToUpper(flag)
@@ -70,8 +70,8 @@ func evaluateFlag(t *testing.T, cpu *Cpu65C02S, flagString string) {
 
 func evaluateProgramCounter(t *testing.T, cpu *Cpu65C02S, expectedValue uint16) {
 	if cpu.programCounter != expectedValue {
-		instruction := cpu.instructionSet.GetByOpCode(cpu.currentOpCode)
-		addressMode := cpu.addressModeSet.GetByName(instruction.addressMode)
+		instruction := instructionSet.GetByOpCode(cpu.currentOpCode)
+		addressMode := addressModeSet.GetByName(instruction.addressMode)
 
 		t.Errorf("%s - %s - Current value (%04X) of PC doesnt match the expected value of (%04X)", instruction.Mnemonic(), addressMode.Text(), cpu.programCounter, expectedValue)
 	}

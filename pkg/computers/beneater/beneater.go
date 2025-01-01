@@ -1,14 +1,17 @@
 package beneater
 
 import (
+	"fmt"
+
 	"github.com/fran150/clementina6502/pkg/components/acia"
 	"github.com/fran150/clementina6502/pkg/components/buses"
 	"github.com/fran150/clementina6502/pkg/components/common"
 	"github.com/fran150/clementina6502/pkg/components/cpu"
 	"github.com/fran150/clementina6502/pkg/components/lcd"
 	"github.com/fran150/clementina6502/pkg/components/memory"
-	nand "github.com/fran150/clementina6502/pkg/components/other"
+	"github.com/fran150/clementina6502/pkg/components/other/gates"
 	"github.com/fran150/clementina6502/pkg/components/via"
+	"github.com/fran150/clementina6502/pkg/ui/terminal"
 	"go.bug.st/serial"
 )
 
@@ -19,7 +22,7 @@ type Chips struct {
 	via  *via.Via65C22S
 	lcd  *lcd.LcdHD44780U
 	acia *acia.Acia65C51N
-	nand *nand.Nand74HC00
+	nand *gates.Nand74HC00
 }
 
 type Circuit struct {
@@ -59,7 +62,7 @@ func CreateBenEaterComputer(portName string) *Computer {
 		via:  via.CreateVia65C22(),
 		lcd:  lcd.CreateLCD(),
 		acia: acia.CreateAcia65C51N(false),
-		nand: nand.Create74HC00(),
+		nand: gates.Create74HC00(),
 	}
 
 	circuit := &Circuit{
@@ -165,8 +168,15 @@ func (c *Computer) Load(romImagePath string) {
 
 func (c *Computer) Run() {
 	context := common.CreateStepContext()
+	var pc uint16
 
 	for {
+		if c.chips.cpu.GetProgramCounter() == 0xFE00 {
+			fmt.Println("Program Counter at 0xFE00")
+		}
+
+		pc = c.chips.cpu.GetProgramCounter()
+
 		c.chips.cpu.Tick(context)
 		c.chips.nand.Tick(context)
 		c.chips.ram.Tick(context)
@@ -177,6 +187,11 @@ func (c *Computer) Run() {
 
 		c.chips.cpu.PostTick(context)
 
+		if c.chips.cpu.IsReadingOpcode() && c.chips.cpu.GetCurrentInstruction() != nil {
+			fmt.Print(terminal.DrawInstruction(c.chips.cpu, c.chips.rom, pc, c.chips.cpu.GetCurrentInstruction()))
+		}
+
+		// Todo this is probably not needed
 		if context.Cycle > 7 && context.Cycle < 10 {
 			c.circuit.cpuReset.Set(false)
 		} else {

@@ -1103,7 +1103,7 @@ func TestTimer2PulseCountingMode(t *testing.T) {
 
 	// According to https://web.archive.org/web/20220708103848if_/http://archive.6502.org/datasheets/synertek_sy6522.pdf
 	// IRQ is set when counter rolls over to FFFF
-	// TODO: I cannot find documentation online about this behaviour and official manual states that this happens on
+	// TODO: I cannot find documentation online about this behaviour and official manual states that this happens in the
 	// beggining of cycle with 0 in the counter. Might need to test in real hardware
 	for n := 11; n > 0; n-- {
 		circuit.portB.GetBusLine(6).Set(false)

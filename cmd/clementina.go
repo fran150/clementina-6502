@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	computer := beneater.CreateBenEaterComputer("/dev/ttys004")
+	computer := beneater.CreateBenEaterComputer("/dev/ttys006")
 
 	computer.Load("./assets/computer/beneater/eater.bin")
 	computer.Run()

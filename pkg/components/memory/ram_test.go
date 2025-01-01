@@ -142,4 +142,12 @@ func TestPeekAndPokeReadsAndWritesValuesDirectly(t *testing.T) {
 
 		assert.Equal(t, uint8(i), value)
 	}
+
+	// Test PeekRange
+	const size = 100
+	values := ram.PeekRange(0, size)
+	for i := range size {
+		assert.Equal(t, uint8(i), values[i])
+	}
+
 }
