@@ -6,7 +6,7 @@ package buses
 // This can be used in chip emulations as the interface between the chip and the bus.
 // Typically in 6502 architecture address buses uses 16 lines and data buses uses 8 lines.
 type BusConnector[T uint8 | uint16] struct {
-	bus *Bus[T]
+	bus Bus[T]
 }
 
 // Creates and returns a connector of the specified type
@@ -15,7 +15,7 @@ func CreateBusConnector[T uint8 | uint16]() *BusConnector[T] {
 }
 
 // Connects to the specified bus
-func (connector *BusConnector[T]) Connect(bus *Bus[T]) {
+func (connector *BusConnector[T]) Connect(bus Bus[T]) {
 	connector.bus = bus
 }
 
@@ -47,6 +47,6 @@ func (connector *BusConnector[T]) GetLine(lineNumber uint8) Line {
 }
 
 // Returns if the connector is actually connected to a bus
-func (connector *BusConnector[T]) isConnected() bool {
+func (connector *BusConnector[T]) IsConnected() bool {
 	return connector.bus != nil
 }

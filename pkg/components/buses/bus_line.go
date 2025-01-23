@@ -5,12 +5,12 @@ package buses
 // data buses tipically have 8 lines and address bus have 16 lines.
 type BusLine[T uint8 | uint16] struct {
 	busLineNumber uint8
-	bus           *Bus[T]
+	bus           Bus[T]
 }
 
 // Creates a reference to the specified line of the bus. Any change in the
 // bus value will be reflected in the status high or low of the line
-func createBusLine[T uint8 | uint16](bus *Bus[T], busLineNumber uint8) *BusLine[T] {
+func createBusLine[T uint8 | uint16](bus Bus[T], busLineNumber uint8) *BusLine[T] {
 	return &BusLine[T]{
 		bus:           bus,
 		busLineNumber: busLineNumber,

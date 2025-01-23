@@ -24,7 +24,7 @@ func Test8BitBus(t *testing.T) {
 		{0x11, [8]bool{true, false, false, false, true, false, false, false}},
 	}
 
-	bus := Create8BitBus()
+	bus := Create8BitStandaloneBus()
 
 	for _, test := range tests {
 		// Tests writing to the bus
@@ -63,7 +63,7 @@ func Test16BitBus(t *testing.T) {
 		{0x1111, [16]bool{true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false}},
 	}
 
-	bus := Create16BitBus()
+	bus := Create16BitStandaloneBus()
 
 	for _, test := range tests {
 		// Tests writing to the bus

@@ -10,7 +10,7 @@ import (
 )
 
 type testCircuit struct {
-	bus            *buses.Bus[uint8]
+	bus            buses.Bus[uint8]
 	registerSelect *buses.StandaloneLine
 	enable         *buses.StandaloneLine
 	readWrite      *buses.StandaloneLine
@@ -20,7 +20,7 @@ func createTestCircuitCorrectTiming() (*LcdHD44780U, *testCircuit) {
 	lcd := CreateLCD()
 
 	circuit := testCircuit{
-		bus:            buses.Create8BitBus(),
+		bus:            buses.Create8BitStandaloneBus(),
 		registerSelect: buses.CreateStandaloneLine(false),
 		enable:         buses.CreateStandaloneLine(false),
 		readWrite:      buses.CreateStandaloneLine(false),

@@ -14,7 +14,7 @@ import (
 // Represents the circuit board, it is used to wire the
 // ACIA chip to all the required lines.
 type testCircuit struct {
-	dataBus *buses.Bus[uint8]
+	dataBus buses.Bus[uint8]
 	irq     buses.Line
 	rw      buses.Line
 	cs0     buses.Line
@@ -35,7 +35,7 @@ func createTestCircuit() (*Acia65C51N, *testCircuit, *portMock) {
 	acia := CreateAcia65C51N(true)
 
 	circuit := testCircuit{
-		dataBus: buses.Create8BitBus(),
+		dataBus: buses.Create8BitStandaloneBus(),
 		irq:     buses.CreateStandaloneLine(true),
 		rw:      buses.CreateStandaloneLine(true),
 		cs0:     buses.CreateStandaloneLine(true),

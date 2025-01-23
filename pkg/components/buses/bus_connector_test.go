@@ -7,8 +7,8 @@ import (
 )
 
 // Creates a bus and a bus connector of 8 bits
-func createBusConnector() (*Bus[uint8], *BusConnector[uint8]) {
-	bus := Create8BitBus()
+func createBusConnector() (Bus[uint8], *BusConnector[uint8]) {
+	bus := Create8BitStandaloneBus()
 	connector := CreateBusConnector[uint8]()
 	connector.Connect(bus)
 
@@ -20,7 +20,7 @@ func TestReadingFromConnectorReturnsTheBusValue(t *testing.T) {
 	bus, connector := createBusConnector()
 	bus.Write(0xFF)
 
-	assert.Equal(t, true, connector.isConnected())
+	assert.Equal(t, true, connector.IsConnected())
 	assert.Equal(t, uint8(0xFF), connector.Read())
 }
 
@@ -33,7 +33,7 @@ func TestReadingFromConnectorWhenDisconnectedReturnsZero(t *testing.T) {
 
 	bus.Write(0xFF)
 
-	assert.Equal(t, false, connector.isConnected())
+	assert.Equal(t, false, connector.IsConnected())
 	assert.Equal(t, uint8(0x00), connector.Read())
 }
 
@@ -42,7 +42,7 @@ func TestWritingToConnectorSetsTheBusValue(t *testing.T) {
 	bus, connector := createBusConnector()
 	connector.Write(0xFF)
 
-	assert.Equal(t, true, connector.isConnected())
+	assert.Equal(t, true, connector.IsConnected())
 	assert.Equal(t, uint8(0xFF), bus.Read())
 }
 
@@ -55,7 +55,7 @@ func TestWritingToConnectorWhenDisconnectedDoesNothing(t *testing.T) {
 
 	connector.Write(0xFF)
 
-	assert.Equal(t, false, connector.isConnected())
+	assert.Equal(t, false, connector.IsConnected())
 	assert.Equal(t, uint8(0x00), bus.Read())
 }
 
@@ -99,7 +99,7 @@ func TestGettingABusLineFromDisconnectedConnectorReturnsNil(t *testing.T) {
 
 	line := connector.GetLine(0)
 
-	assert.Equal(t, false, connector.isConnected())
+	assert.Equal(t, false, connector.IsConnected())
 	assert.Nil(t, line)
 }
 
@@ -109,6 +109,6 @@ func TestGetInvalidBusLineReturnsNil(t *testing.T) {
 
 	line := connector.GetLine(10)
 
-	assert.Equal(t, true, connector.isConnected())
+	assert.Equal(t, true, connector.IsConnected())
 	assert.Nil(t, line)
 }

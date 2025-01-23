@@ -18,10 +18,10 @@ type testCircuit struct {
 	ca2     buses.Line
 	cb1     buses.Line
 	cb2     buses.Line
-	dataBus *buses.Bus[uint8]
+	dataBus buses.Bus[uint8]
 	irq     buses.Line
-	portA   *buses.Bus[uint8]
-	portB   *buses.Bus[uint8]
+	portA   buses.Bus[uint8]
+	portB   buses.Bus[uint8]
 	reset   buses.Line
 	rs      [4]buses.Line
 	rw      buses.Line
@@ -42,10 +42,10 @@ func createTestCircuit() *testCircuit {
 		ca2:     buses.CreateStandaloneLine(false),
 		cb1:     buses.CreateStandaloneLine(false),
 		cb2:     buses.CreateStandaloneLine(false),
-		dataBus: buses.Create8BitBus(),
+		dataBus: buses.Create8BitStandaloneBus(),
 		irq:     buses.CreateStandaloneLine(true),
-		portA:   buses.Create8BitBus(),
-		portB:   buses.Create8BitBus(),
+		portA:   buses.Create8BitStandaloneBus(),
+		portB:   buses.Create8BitStandaloneBus(),
 		reset:   buses.CreateStandaloneLine(true),
 		rs:      rsLines,
 		rw:      buses.CreateStandaloneLine(true),

@@ -27,11 +27,11 @@ type portMock struct {
 	dtr    bool
 	rts    bool
 
-	portTxBuffer *queue.SimpleQueue
-	portRxBuffer *queue.SimpleQueue
+	portTxBuffer *queue.SimpleQueue[byte]
+	portRxBuffer *queue.SimpleQueue[byte]
 
-	terminalTxBuffer *queue.SimpleQueue
-	terminalRxBuffer *queue.SimpleQueue
+	terminalTxBuffer *queue.SimpleQueue[byte]
+	terminalRxBuffer *queue.SimpleQueue[byte]
 
 	previousTick time.Time
 
@@ -52,10 +52,10 @@ func createPortMock(mode *serial.Mode) *portMock {
 		},
 		dtr:              false,
 		rts:              false,
-		portTxBuffer:     queue.CreateQueue(),
-		terminalTxBuffer: queue.CreateQueue(),
-		portRxBuffer:     queue.CreateQueue(),
-		terminalRxBuffer: queue.CreateQueue(),
+		portTxBuffer:     queue.CreateQueue[byte](),
+		terminalTxBuffer: queue.CreateQueue[byte](),
+		portRxBuffer:     queue.CreateQueue[byte](),
+		terminalRxBuffer: queue.CreateQueue[byte](),
 
 		makeCallsFailFrom: failInNone,
 	}

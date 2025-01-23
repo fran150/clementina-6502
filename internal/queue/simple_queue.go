@@ -2,30 +2,30 @@ package queue
 
 import "sync"
 
-type SimpleQueue struct {
+type SimpleQueue[T any] struct {
 	mu     *sync.Mutex
-	values []byte
+	values []T
 }
 
-func CreateQueue() *SimpleQueue {
-	return &SimpleQueue{
+func CreateQueue[T any]() *SimpleQueue[T] {
+	return &SimpleQueue[T]{
 		mu:     &sync.Mutex{},
-		values: make([]byte, 0),
+		values: make([]T, 0),
 	}
 }
 
-func (queue *SimpleQueue) Size() int {
+func (queue *SimpleQueue[T]) Size() int {
 	return len(queue.values)
 }
 
-func (queue *SimpleQueue) Queue(value byte) {
+func (queue *SimpleQueue[T]) Queue(value T) {
 	queue.mu.Lock()
 	defer queue.mu.Unlock()
 
 	queue.values = append(queue.values, value)
 }
 
-func (queue *SimpleQueue) DeQueue() byte {
+func (queue *SimpleQueue[T]) DeQueue() T {
 	queue.mu.Lock()
 	defer queue.mu.Unlock()
 
@@ -34,6 +34,10 @@ func (queue *SimpleQueue) DeQueue() byte {
 	return value
 }
 
-func (queue *SimpleQueue) IsEmpty() bool {
+func (queue *SimpleQueue[T]) IsEmpty() bool {
 	return len(queue.values) == 0
+}
+
+func (queue *SimpleQueue[T]) GetValues() []T {
+	return queue.values
 }

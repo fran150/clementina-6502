@@ -505,6 +505,31 @@ func (cpu *Cpu65C02S) setWriteBus(address uint16, data uint8) {
  ****************************************************
  */
 
+// Returns the current value of the accumulator register
+func (cpu *Cpu65C02S) GetAccumulatorRegister() uint8 {
+	return cpu.accumulatorRegister
+}
+
+// Returns the current value of the X register
+func (cpu *Cpu65C02S) GetXRegister() uint8 {
+	return cpu.xRegister
+}
+
+// Returns the current value of the Y register
+func (cpu *Cpu65C02S) GetYRegister() uint8 {
+	return cpu.yRegister
+}
+
+// Returns the current value of the stack pointer
+func (cpu *Cpu65C02S) GetStackPointer() uint8 {
+	return cpu.stackPointer
+}
+
+// Returns the current value of the processor status register
+func (cpu *Cpu65C02S) GetProcessorStatusRegister() StatusRegister {
+	return cpu.processorStatusRegister
+}
+
 // Returns if the processor is reading an opcode
 func (cpu *Cpu65C02S) IsReadingOpcode() bool {
 	return cpu.currentCycle.signaling.sync

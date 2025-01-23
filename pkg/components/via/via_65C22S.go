@@ -83,7 +83,7 @@ type Via65C22S struct {
 	registerSelect [4]*buses.ConnectorEnabledHigh
 	readWrite      *buses.ConnectorEnabledLow
 
-	registers via65C22SRegisters
+	registers *via65C22SRegisters
 
 	peripheralPortA *viaPort
 	peripheralPortB *viaPort
@@ -115,7 +115,7 @@ func CreateVia65C22() *Via65C22S {
 		},
 		readWrite: buses.CreateConnectorEnabledLow(),
 
-		registers: via65C22SRegisters{},
+		registers: &via65C22SRegisters{},
 	}
 
 	via.controlLinesA = createViaControlLines(&via, &viaControlLineConfiguration{
@@ -421,4 +421,76 @@ func (via *Via65C22S) Tick(context common.StepContext) {
 	via.controlLinesB.storePreviousControlLinesValues()
 
 	via.handleIRQLine()
+}
+
+/************************************************************************************
+* Getters / Setters
+*************************************************************************************/
+
+func (via *Via65C22S) GetOutputRegisterA() uint8 {
+	return via.registers.outputRegisterA
+}
+
+func (via *Via65C22S) GetOutputRegisterB() uint8 {
+	return via.registers.outputRegisterB
+}
+
+func (via *Via65C22S) GetInputRegisterA() uint8 {
+	return via.registers.inputRegisterA
+}
+
+func (via *Via65C22S) GetInputRegisterB() uint8 {
+	return via.registers.inputRegisterB
+}
+
+func (via *Via65C22S) GetDataDirectionRegisterA() uint8 {
+	return via.registers.dataDirectionRegisterA
+}
+
+func (via *Via65C22S) GetDataDirectionRegisterB() uint8 {
+	return via.registers.dataDirectionRegisterB
+}
+
+func (via *Via65C22S) GetLowLatches2() uint8 {
+	return via.registers.lowLatches2
+}
+
+func (via *Via65C22S) GetLowLatches1() uint8 {
+	return via.registers.lowLatches1
+}
+
+func (via *Via65C22S) GetHighLatches2() uint8 {
+	return via.registers.highLatches2
+}
+
+func (via *Via65C22S) GetHighLatches1() uint8 {
+	return via.registers.highLatches1
+}
+
+func (via *Via65C22S) GetCounter2() uint16 {
+	return via.registers.counter2
+}
+
+func (via *Via65C22S) GetCounter1() uint16 {
+	return via.registers.counter1
+}
+
+func (via *Via65C22S) GetShiftRegister() uint8 {
+	return via.registers.shiftRegister
+}
+
+func (via *Via65C22S) GetAuxiliaryControl() uint8 {
+	return via.registers.auxiliaryControl
+}
+
+func (via *Via65C22S) GetPeripheralControl() uint8 {
+	return via.registers.peripheralControl
+}
+
+func (via *Via65C22S) GetInterruptFlagValue() uint8 {
+	return via.registers.interrupts.getInterruptFlagValue()
+}
+
+func (via *Via65C22S) GetInterruptEnabledFlag() uint8 {
+	return via.registers.interrupts.getInterruptEnabledFlag()
 }

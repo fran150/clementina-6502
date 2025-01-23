@@ -67,7 +67,11 @@ func (port *viaPort) writePortOutputRegister() {
 	// TODO: Would it be easier to write the whole number instead of line by line?
 	for i := range uint8(8) {
 		if isBitSet(*port.configuration.dataDirectionRegister, i) {
-			port.connector.GetLine(i).Set(isBitSet(*port.configuration.outputRegister, i))
+			line := port.connector.GetLine(i)
+
+			if line != nil {
+				line.Set(isBitSet(*port.configuration.outputRegister, i))
+			}
 		}
 	}
 }

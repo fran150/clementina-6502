@@ -12,8 +12,8 @@ const test_directory string = "../../../tests/"
 
 // Circuit to test the RAM
 type testCircuit struct {
-	addressBus   *buses.Bus[uint16]
-	dataBus      *buses.Bus[uint8]
+	addressBus   buses.Bus[uint16]
+	dataBus      buses.Bus[uint8]
 	writeEnable  *buses.StandaloneLine
 	outputEnable *buses.StandaloneLine
 }
@@ -22,8 +22,8 @@ type testCircuit struct {
 func createTestCircuit(size int) (*Ram, *testCircuit) {
 	ram := CreateRam(size)
 	circuit := &testCircuit{
-		addressBus:   buses.Create16BitBus(),
-		dataBus:      buses.Create8BitBus(),
+		addressBus:   buses.Create16BitStandaloneBus(),
+		dataBus:      buses.Create8BitStandaloneBus(),
 		writeEnable:  buses.CreateStandaloneLine(false),
 		outputEnable: buses.CreateStandaloneLine(false),
 	}
