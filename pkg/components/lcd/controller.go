@@ -36,6 +36,8 @@ type LcdHD44780U struct {
 	enable               *buses.ConnectorEnabledHigh // Chip enable
 	dataBus              *buses.BusConnector[uint8]  // 8 Bit data bus
 
+	previousEnable bool
+
 	addressCounter *lcdAddressCounter // Pointer to the internal address counter
 	buffer         *lcdBuffer         // Pointer to the internal buffer
 
@@ -103,6 +105,10 @@ func CreateLCD() *LcdHD44780U {
 	return &lcd
 }
 
+/************************************************************************************
+* Public Methods
+*************************************************************************************/
+
 func (ctrl *LcdHD44780U) Enable() *buses.ConnectorEnabledHigh {
 	return ctrl.enable
 }
@@ -125,7 +131,7 @@ func (ctrl *LcdHD44780U) Tick(context common.StepContext) {
 	ctrl.checkBusy(context)
 	ctrl.cursorBlink(context)
 
-	if ctrl.enable.Enabled() {
+	if ctrl.enable.Enabled() && !ctrl.previousEnable {
 		if ctrl.write.Enabled() {
 			// Push the value on the bus to the buffer
 			ctrl.buffer.push(ctrl.dataBus.Read())
@@ -168,7 +174,52 @@ func (ctrl *LcdHD44780U) Tick(context common.StepContext) {
 			}
 		}
 	}
+
+	ctrl.previousEnable = ctrl.enable.Enabled()
 }
+
+// Returns the data needed to display the cursor on the LCD
+type CursorStatus struct {
+	CursorPosition     uint8 // Position of the cursor in the DDRAM
+	CharacterBlink     bool  // True if the entire character must blink
+	BlinkStatusShowing bool
+}
+
+func (ctrl *LcdHD44780U) GetCursorStatus() CursorStatus {
+	return CursorStatus{
+		CursorPosition:     ctrl.addressCounter.getDDRAMIndex(ctrl.addressCounter.value),
+		CharacterBlink:     ctrl.characterBlink,
+		BlinkStatusShowing: ctrl.blinkingVisible,
+	}
+}
+
+type DisplayStatus struct {
+	DisplayOn      bool
+	Is2LineDisplay bool
+	Is5x10Font     bool
+	Line1Start     uint8
+	Line2Start     uint8
+	Is8BitMode     bool
+	CGRAM          []uint8
+	DDRAM          []uint8
+}
+
+func (ctrl *LcdHD44780U) GetDisplayStatus() DisplayStatus {
+	return DisplayStatus{
+		DisplayOn:      ctrl.displayOn,
+		Is2LineDisplay: ctrl.addressCounter.is2LineDisplay,
+		Is5x10Font:     ctrl.is5x10Font,
+		Line1Start:     ctrl.addressCounter.getDDRAMIndex(ctrl.addressCounter.line1Shift),
+		Line2Start:     ctrl.addressCounter.getDDRAMIndex(ctrl.addressCounter.line2Shift),
+		Is8BitMode:     ctrl.buffer.is8BitMode,
+		CGRAM:          ctrl.cgram[:],
+		DDRAM:          ctrl.ddram[:],
+	}
+}
+
+/************************************************************************************
+* Internal functions
+*************************************************************************************/
 
 // Puts the chip in "busy" state for the specified duration. While in busy state the chip will not
 // respond to instructions or read / write requests

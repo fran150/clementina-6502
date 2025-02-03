@@ -45,8 +45,9 @@ type circuit struct {
 	u4bOut     *buses.StandaloneLine
 	fiveVolts  *buses.StandaloneLine
 	ground     *buses.StandaloneLine
-	portA      buses.Bus[uint8]
-	portB      buses.Bus[uint8]
+	portABus   buses.Bus[uint8]
+	portBBus   buses.Bus[uint8]
+	lcdBus     buses.Bus[uint8]
 	serial     serial.Port
 }
 
@@ -76,6 +77,17 @@ func CreateBenEaterComputer(portName string) *Computer {
 		nand: gates.Create74HC00(),
 	}
 
+	portABus := buses.Create8BitStandaloneBus()
+	portBBus := buses.Create8BitStandaloneBus()
+	mapPortBBusToLcdBus := func(value uint8) uint8 {
+		value &= 0x0F
+		return value << 4
+	}
+	mapLcdBusToPortBBus := func(value uint8) uint8 {
+		value &= 0xF0
+		return value >> 4
+	}
+
 	circuit := &circuit{
 		addressBus: buses.Create16BitStandaloneBus(),
 		dataBus:    buses.Create8BitStandaloneBus(),
@@ -87,8 +99,9 @@ func CreateBenEaterComputer(portName string) *Computer {
 		u4bOut:     buses.CreateStandaloneLine(false),
 		fiveVolts:  buses.CreateStandaloneLine(true),
 		ground:     buses.CreateStandaloneLine(false),
-		portA:      buses.Create8BitStandaloneBus(),
-		portB:      buses.Create8BitStandaloneBus(),
+		portABus:   portABus,
+		portBBus:   portBBus,
+		lcdBus:     buses.Create8BitMappedBus(portBBus, mapLcdBusToPortBBus, mapPortBBusToLcdBus),
 		serial:     port,
 	}
 
@@ -132,19 +145,16 @@ func CreateBenEaterComputer(portName string) *Computer {
 	chips.via.RegisterSelect(2).Connect(addressBus2)
 	chips.via.RegisterSelect(1).Connect(addressBus1)
 	chips.via.RegisterSelect(0).Connect(addressBus0)
-	chips.via.PeripheralPortA().Connect(circuit.portA)
-	chips.via.PeripheralPortB().Connect(circuit.portB)
+	chips.via.PeripheralPortB().Connect(circuit.portBBus)
 
-	/*
-		viaPBAddress6 := circuit.portB.GetBusLine(6)
-		viaPBAddress5 := circuit.portB.GetBusLine(5)
-		viaPBAddress4 := circuit.portB.GetBusLine(4)
+	viaPBAddress6 := circuit.portBBus.GetBusLine(6)
+	viaPBAddress5 := circuit.portBBus.GetBusLine(5)
+	viaPBAddress4 := circuit.portBBus.GetBusLine(4)
 
-		chips.lcd.Enable().Connect(viaPBAddress6)
-		chips.lcd.ReadWrite().Connect(viaPBAddress5)
-		chips.lcd.RegisterSelect().Connect(viaPBAddress4)
-	*/
-	// Missing connection with LCD databus
+	chips.lcd.Enable().Connect(viaPBAddress6)
+	chips.lcd.ReadWrite().Connect(viaPBAddress5)
+	chips.lcd.RegisterSelect().Connect(viaPBAddress4)
+	chips.lcd.DataBus().Connect(circuit.lcdBus)
 
 	chips.acia.DataBus().Connect(circuit.dataBus)
 	chips.acia.IrqRequest().Connect(circuit.cpuIRQ)
@@ -190,49 +200,51 @@ func (c *Computer) Reset() {
 	c.circuit.cpuReset.Set(false)
 }
 
-func (c *Computer) Run() {
-	context := common.CreateStepContext()
+func (c *Computer) Run(context *common.StepContext) {
 	//var pc uint16
 
-	ticker := time.NewTicker(time.Microsecond)
+	var nano int64
 
 	for {
-		<-ticker.C
+		if nano > 900 {
+			context.Next()
 
-		//pc = c.chips.cpu.GetProgramCounter()
+			//pc = c.chips.cpu.GetProgramCounter()
 
-		c.chips.cpu.Tick(context)
-		c.chips.nand.Tick(context)
-		c.chips.ram.Tick(context)
-		c.chips.rom.Tick(context)
-		c.chips.via.Tick(context)
-		c.chips.lcd.Tick(context)
-		c.chips.acia.Tick(context)
+			c.chips.cpu.Tick(*context)
+			c.chips.nand.Tick(*context)
+			c.chips.ram.Tick(*context)
+			c.chips.rom.Tick(*context)
+			c.chips.via.Tick(*context)
+			c.chips.lcd.Tick(*context)
+			c.chips.acia.Tick(*context)
 
-		c.chips.cpu.PostTick(context)
+			c.chips.cpu.PostTick(*context)
 
-		if c.chips.cpu.IsReadingOpcode() && c.chips.cpu.GetCurrentInstruction() != nil {
-			//line := DrawInstruction(c.chips.cpu, c.chips.rom, pc, c.chips.cpu.GetCurrentInstruction())
-			//fmt.Fprint(code, line)
+			if c.chips.cpu.IsReadingOpcode() && c.chips.cpu.GetCurrentInstruction() != nil {
 
-			other.Clear()
+				//line := DrawInstruction(c.chips.cpu, c.chips.rom, pc, c.chips.cpu.GetCurrentInstruction())
+				//fmt.Fprint(code, line)
 
-			//c.DrawCPUState()
-			c.DrawViaRegisters()
+				other.Clear()
 
-			app.Draw()
+				//c.DrawCPUState()
+				//c.DrawViaRegisters()
+				c.DrawLcd()
+
+				app.Draw()
+			}
+
+			// Todo this is probably not needed
+			if context.Cycle > 7 && context.Cycle < 10 {
+				c.circuit.cpuReset.Set(false)
+			} else {
+				c.circuit.cpuReset.Set(true)
+			}
 		}
 
-		// Todo this is probably not needed
-		if context.Cycle > 7 && context.Cycle < 10 {
-			c.circuit.cpuReset.Set(false)
-		} else {
-			c.circuit.cpuReset.Set(true)
-		}
-
-		context.Next()
+		nano = time.Since(context.T).Nanoseconds()
 	}
-
 }
 
 func (c *Computer) DrawCPUState() {
@@ -314,8 +326,59 @@ func (c *Computer) DrawViaRegisters() {
 	fmt.Fprintf(other, "[yellow] IFR:  [white]$%02X\n", c.chips.via.GetInterruptFlagValue())
 	fmt.Fprintf(other, "[yellow] IER:  [white]$%02X\n", c.chips.via.GetInterruptEnabledFlag())
 
-	fmt.Fprintf(other, "[yellow] PortA: [white]%04X\n", c.circuit.portA.Read())
-	fmt.Fprintf(other, "[yellow] PortB: [white]%04X\n", c.circuit.portB.Read())
+	fmt.Fprintf(other, "[yellow] PortA: [white]$%04X\n", c.circuit.portABus.Read())
+	fmt.Fprintf(other, "[yellow] PortB: [white]$%04X\n", c.circuit.portBBus.Read())
+}
+
+func (c *Computer) DrawLcd() {
+	cursorStatus := c.chips.lcd.GetCursorStatus()
+	displayStatus := c.chips.lcd.GetDisplayStatus()
+
+	fmt.Fprintf(other, "LCD Memory:\n")
+
+	for i, data := range displayStatus.DDRAM {
+		fmt.Fprintf(other, "%02v: %s ", i, string(data))
+
+		if i%10 == 9 {
+			fmt.Fprintf(other, "\n")
+		}
+	}
+
+	fmt.Fprintf(other, "LCD Screen: \n")
+
+	count := 0
+	index := displayStatus.Line1Start
+
+	for count < 16 {
+		index %= 40
+		fmt.Fprint(other, string(displayStatus.DDRAM[index]))
+		index++
+		count++
+	}
+
+	fmt.Fprint(other, "\n")
+
+	count = 0
+	index = displayStatus.Line2Start
+	for count < 16 {
+		index %= 40
+		fmt.Fprint(other, string(displayStatus.DDRAM[index+40]))
+		index++
+		count++
+	}
+
+	fmt.Fprint(other, "\n\n")
+
+	fmt.Fprintf(other, "Display ON: %v\n", displayStatus.DisplayOn)
+	fmt.Fprintf(other, "8 Bit Mode: %v\n", displayStatus.Is8BitMode)
+	fmt.Fprintf(other, "Line 2 display: %v\n", displayStatus.Is2LineDisplay)
+	fmt.Fprintf(other, "Cursor Position: %v\n", cursorStatus.CursorPosition)
+	fmt.Fprintf(other, "Bus: %v\n", c.circuit.lcdBus.Read())
+	fmt.Fprintf(other, "E: %v\n", c.chips.lcd.Enable().Enabled())
+	fmt.Fprintf(other, "RW: %v\n", c.chips.lcd.ReadWrite().Enabled())
+	fmt.Fprintf(other, "RS: %v\n", c.chips.lcd.RegisterSelect().Enabled())
+	fmt.Fprintf(other, "PB: %08b\n", c.circuit.portBBus.Read())
+
 }
 
 func DrawInstruction(processor *cpu.Cpu65C02S, ram *memory.Ram, address uint16, instruction *cpu.CpuInstructionData) string {
@@ -371,17 +434,18 @@ func (c *Computer) RunUI() {
 	grid.AddItem(code, 0, 0, 1, 1, 0, 0, false).
 		AddItem(other, 0, 1, 1, 1, 0, 0, false)
 
-	go func() {
-		defer func() {
-			fmt.Fprintln(code, "EXITING FUNC")
+	context := common.CreateStepContext()
+	t := time.Now()
 
-			if r := recover(); r != nil {
-				app.Stop()
-			}
-		}()
+	defer func() {
+		elapsed := time.Since(t)
+		total := (float64(context.Cycle) / elapsed.Seconds()) / 1_000_000
 
-		c.Run()
+		fmt.Printf("Executed %v cycles in %v seconds\n", context.Cycle, elapsed)
+		fmt.Printf("Computer ran at %v mhz\n", total)
 	}()
+
+	go c.Run(&context)
 
 	if err := app.SetRoot(grid, true).Run(); err != nil {
 		panic(err)

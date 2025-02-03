@@ -23,7 +23,7 @@ type lcdAddressCounter struct {
 
 	value      uint8 // Current value of the address counter
 	line1Shift uint8 // Pointer to the first address visible on the LCD
-	line2Shift uint8 // Pinter to the second line (if available) on the LCD
+	line2Shift uint8 // Pointer to the second line (if available) on the LCD
 
 	instructionRegister *uint8 // Instruction register on the main chip
 	dataRegister        *uint8 // Data register on the main chip
@@ -75,22 +75,22 @@ func toggleLine(value uint8) uint8 {
 }
 
 // Returns the index of the current address counter value in CGRAM memory array
-func (ac *lcdAddressCounter) getCGRAMIndex() uint8 {
-	return get6BitAddress(ac.value)
+func (ac *lcdAddressCounter) getCGRAMIndex(value uint8) uint8 {
+	return get6BitAddress(value)
 }
 
 // Returns the index of the current address counter value in DDRAM memory array
-func (ac *lcdAddressCounter) getDDRAMIndex() uint8 {
+func (ac *lcdAddressCounter) getDDRAMIndex(value uint8) uint8 {
 	if ac.is2LineDisplay {
 		// Getting a 6 bit address in 2 line mode will always give a line 1 address
-		value := get6BitAddress(ac.value)
+		index := get6BitAddress(value)
 
 		// If original value is in second line index is in the second half
-		if isAddressInSecondLine(ac.value) {
-			value += (DDRAM_SIZE / 2)
+		if isAddressInSecondLine(value) {
+			index += (DDRAM_SIZE / 2)
 		}
 
-		return value
+		return index
 	} else {
 		return ac.value
 	}
@@ -222,10 +222,10 @@ func (ac *lcdAddressCounter) setDDRAMAddress() {
 // the value from the data register to CGRAM or DDRAM.
 func (ac *lcdAddressCounter) writeToRam() {
 	if ac.toCGRAM {
-		index := ac.getCGRAMIndex()
+		index := ac.getCGRAMIndex(ac.value)
 		ac.cgram[index] = *ac.dataRegister
 	} else {
-		index := ac.getDDRAMIndex()
+		index := ac.getDDRAMIndex(ac.value)
 		ac.ddram[index] = *ac.dataRegister
 	}
 
@@ -236,10 +236,10 @@ func (ac *lcdAddressCounter) writeToRam() {
 // CGRAM or DDRAM to the data register.
 func (ac *lcdAddressCounter) readFromRam() {
 	if ac.toCGRAM {
-		index := ac.getCGRAMIndex()
+		index := ac.getCGRAMIndex(ac.value)
 		*ac.dataRegister = ac.cgram[index]
 	} else {
-		index := ac.getDDRAMIndex()
+		index := ac.getDDRAMIndex(ac.value)
 		*ac.dataRegister = ac.ddram[index]
 	}
 

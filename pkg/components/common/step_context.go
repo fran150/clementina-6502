@@ -2,8 +2,6 @@ package common
 
 import (
 	"time"
-
-	"github.com/kpango/fastime"
 )
 
 // An object pass to all Tick functions that contains
@@ -16,11 +14,11 @@ type StepContext struct {
 func CreateStepContext() StepContext {
 	return StepContext{
 		Cycle: 0,
-		T:     fastime.Now(),
+		T:     time.Now(),
 	}
 }
 
 func (context *StepContext) Next() {
 	context.Cycle++
-	context.T = fastime.Now()
+	context.T = time.Now()
 }
