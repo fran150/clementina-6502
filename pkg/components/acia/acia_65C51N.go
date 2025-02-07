@@ -98,7 +98,6 @@ type Acia65C51N struct {
 
 	rxMutex *sync.Mutex
 	txMutex *sync.Mutex
-	wg      *sync.WaitGroup
 
 	running bool
 
@@ -130,7 +129,6 @@ func CreateAcia65C51N(emulateModemLines bool) *Acia65C51N {
 
 		rxMutex: &sync.Mutex{},
 		txMutex: &sync.Mutex{},
-		wg:      &sync.WaitGroup{},
 
 		running: true,
 
@@ -139,9 +137,7 @@ func CreateAcia65C51N(emulateModemLines bool) *Acia65C51N {
 
 	// Start background pollers to read and write from the serial
 	// port in a non blocking way
-	acia.wg.Add(1)
 	go acia.writeBytes()
-	acia.wg.Add(1)
 	go acia.readBytes()
 
 	return acia
@@ -186,7 +182,6 @@ func (acia *Acia65C51N) ConnectToPort(port serial.Port) {
 // Free resources used by the emulation. In particular it will stop the R/W pollers
 func (acia *Acia65C51N) Close() {
 	acia.running = false
-	acia.wg.Wait()
 }
 
 // The eight data line (D0-D7) pins transfer data between the processor and the ACIA. These lines are bi-
@@ -293,6 +288,10 @@ func (acia *Acia65C51N) Tick(stepContext common.StepContext) {
 	// If the reset line is enabled do a hardware reset
 	if acia.reset.Enabled() {
 		acia.hardwareReset()
+	}
+
+	if stepContext.Stop {
+		acia.Close()
 	}
 }
 

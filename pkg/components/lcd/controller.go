@@ -79,9 +79,9 @@ func CreateLCD() *LcdHD44780U {
 		is5x10Font:     false,
 
 		timingConfig: lcdTimingConfig{
-			clearDisplayMicro: 1520,   // 1.52 ms
-			returnHomeMicro:   1520,   // 1.52 ms
-			instructionMicro:  37,     // 37 us
+			clearDisplayMicro: 5,      // 1.52 ms
+			returnHomeMicro:   5,      // 1.52 ms
+			instructionMicro:  5,      // 37 us
 			blinkingMicro:     400000, // 400 ms
 		},
 
