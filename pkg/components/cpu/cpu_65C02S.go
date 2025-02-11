@@ -82,8 +82,9 @@ func CreateCPU() *Cpu65C02S {
 		yRegister:           0x00,
 		stackPointer:        0xFD,
 		programCounter:      0xFFFC,
-		currentCycle:        readOpCode,
-		nextCycle:           readOpCode,
+
+		nextAddressMode: GetAddressMode(AddressModeReset),
+		nextCycle:       interruptCycle,
 	}
 
 	cpu.setDefaultValues()

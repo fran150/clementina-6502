@@ -180,15 +180,15 @@ func (ctrl *LcdHD44780U) Tick(context common.StepContext) {
 
 // Returns the data needed to display the cursor on the LCD
 type CursorStatus struct {
+	CursorVisible      bool
 	CursorPosition     uint8 // Position of the cursor in the DDRAM
-	CharacterBlink     bool  // True if the entire character must blink
 	BlinkStatusShowing bool
 }
 
 func (ctrl *LcdHD44780U) GetCursorStatus() CursorStatus {
 	return CursorStatus{
+		CursorVisible:      ctrl.displayCursor,
 		CursorPosition:     ctrl.addressCounter.getDDRAMIndex(ctrl.addressCounter.value),
-		CharacterBlink:     ctrl.characterBlink,
 		BlinkStatusShowing: ctrl.blinkingVisible,
 	}
 }
@@ -243,17 +243,21 @@ func (ctrl *LcdHD44780U) checkBusy(context common.StepContext) {
 // Used to make the cursor blink, it changes the "blinkingVisible" value based on the
 // configured blinking period
 func (ctrl *LcdHD44780U) cursorBlink(context common.StepContext) {
-	if ctrl.blinkingStart.IsZero() {
-		ctrl.blinkingStart = context.T
-	}
+	if ctrl.characterBlink {
+		if ctrl.blinkingStart.IsZero() {
+			ctrl.blinkingStart = context.T
+		}
 
-	elapsed := context.T.Sub(ctrl.blinkingStart).Microseconds()
+		elapsed := context.T.Sub(ctrl.blinkingStart).Microseconds()
 
-	if elapsed >= ctrl.timingConfig.blinkingMicro {
-		expectedDuration := time.Microsecond * time.Duration(ctrl.timingConfig.blinkingMicro)
-		ctrl.blinkingStart = ctrl.blinkingStart.Add(expectedDuration)
+		if elapsed >= ctrl.timingConfig.blinkingMicro {
+			expectedDuration := time.Microsecond * time.Duration(ctrl.timingConfig.blinkingMicro)
+			ctrl.blinkingStart = ctrl.blinkingStart.Add(expectedDuration)
 
-		ctrl.blinkingVisible = !ctrl.blinkingVisible
+			ctrl.blinkingVisible = !ctrl.blinkingVisible
+		}
+	} else {
+		ctrl.blinkingVisible = false
 	}
 }
 

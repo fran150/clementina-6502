@@ -110,6 +110,10 @@ func showFinishCondition(processor *cpu.Cpu65C02S, context common.StepContext, b
 		b.Errorf("Maximum limit of %v cycles was reached, typical execution is 96,241,272", context.Cycle)
 	}
 
+	showExecutionSpeed(context, elapsed)
+}
+
+func showExecutionSpeed(context common.StepContext, elapsed time.Duration) {
 	// Show number of elapsed cycles
 	fmt.Printf("Functional Tests execution completed in %v cycles\n", context.Cycle)
 

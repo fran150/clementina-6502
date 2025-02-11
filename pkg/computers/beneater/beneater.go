@@ -1,8 +1,6 @@
 package beneater
 
 import (
-	"bytes"
-
 	"github.com/fran150/clementina6502/pkg/components/acia"
 	"github.com/fran150/clementina6502/pkg/components/buses"
 	"github.com/fran150/clementina6502/pkg/components/common"
@@ -12,6 +10,7 @@ import (
 	"github.com/fran150/clementina6502/pkg/components/other/gates"
 	"github.com/fran150/clementina6502/pkg/components/via"
 	"github.com/fran150/clementina6502/pkg/ui"
+	"github.com/gdamore/tcell/v2"
 	"go.bug.st/serial"
 )
 
@@ -43,9 +42,11 @@ type circuit struct {
 }
 
 type BenEaterComputer struct {
-	chips   *chips
-	circuit *circuit
-	display *display
+	chips       *chips
+	circuit     *circuit
+	console     *mainConsole
+	mustReset   bool
+	resetCycles uint8
 }
 
 func CreateBenEaterComputer(portName string) *BenEaterComputer {
@@ -171,12 +172,14 @@ func CreateBenEaterComputer(portName string) *BenEaterComputer {
 
 	chips.acia.ConnectToPort(circuit.serial)
 
-	display := CreateDisplay()
+	console := createMainConsole()
 
 	return &BenEaterComputer{
-		chips:   chips,
-		circuit: circuit,
-		display: display,
+		chips:       chips,
+		circuit:     circuit,
+		console:     console,
+		mustReset:   false,
+		resetCycles: 0,
 	}
 }
 
@@ -188,14 +191,16 @@ func (c *BenEaterComputer) Load(romImagePath string) {
 }
 
 func (c *BenEaterComputer) UpdateDisplay(context *common.StepContext) {
-	c.display.ShowInstructions()
+	c.console.lcdDisplay.text.Clear()
+	c.console.lcdDisplay.showLCD(c.chips.lcd)
 
-	c.display.other.Clear()
-	ui.ShowLCDState(c.display.other, c.chips.lcd)
-	ui.ShowLCD(c.display.other, c.chips.lcd)
+	c.console.codeWindow.code.Clear()
+	c.console.codeWindow.ShowCode()
 
-	c.display.app.Draw()
-	c.display.code.Clear()
+	c.console.other.Clear()
+	ui.ShowLCDState(c.console.other, c.chips.lcd)
+
+	c.console.app.Draw()
 }
 
 func (c *BenEaterComputer) Close() {
@@ -204,7 +209,10 @@ func (c *BenEaterComputer) Close() {
 
 func (c *BenEaterComputer) getPotentialOperands(programCounter uint16) [2]uint8 {
 	programCounter &= 0x7FFF
-	return [2]uint8{c.chips.rom.Peek(programCounter + 1), c.chips.rom.Peek(programCounter + 2)}
+	operand1Address := (programCounter + 1) & 0x7FFF
+	operand2Address := (programCounter + 2) & 0x7FFF
+
+	return [2]uint8{c.chips.rom.Peek(operand1Address), c.chips.rom.Peek(operand2Address)}
 }
 
 func (c *BenEaterComputer) Step(context *common.StepContext) {
@@ -220,23 +228,37 @@ func (c *BenEaterComputer) Step(context *common.StepContext) {
 	instruction := c.chips.cpu.GetCurrentInstruction()
 
 	if c.chips.cpu.IsReadingOpcode() && instruction != nil {
-		value := bytes.NewBuffer(make([]byte, 20))
-		ui.ShowCurrentInstruction(value, pc, instruction, c.getPotentialOperands(pc))
-		c.display.AddInstruction(value.String())
+		c.console.codeWindow.AddLineOfCode(pc, instruction, c.getPotentialOperands(pc))
 	}
 
 	c.chips.cpu.PostTick(*context)
 
-	// Todo this is probably not needed
-	if context.Cycle > 7 && context.Cycle < 10 {
+	c.checkReset()
+}
+
+func (c *BenEaterComputer) checkReset() {
+	if c.mustReset {
 		c.circuit.cpuReset.Set(false)
+		c.resetCycles++
+		if c.resetCycles > 5 {
+			c.mustReset = false
+			c.resetCycles = 0
+		}
 	} else {
 		c.circuit.cpuReset.Set(true)
 	}
 }
 
 func (c *BenEaterComputer) RunEventLoop() {
-	if err := c.display.app.SetRoot(c.display.grid, true).Run(); err != nil {
-		panic(err)
-	}
+	c.console.Run(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEsc {
+			c.console.app.Stop()
+		}
+
+		if event.Rune() == 'r' {
+			c.mustReset = true
+		}
+
+		return event
+	})
 }

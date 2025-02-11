@@ -9,11 +9,11 @@ import (
 )
 
 func main() {
-	computer := beneater.CreateBenEaterComputer("/dev/ttys006")
+	computer := beneater.CreateBenEaterComputer("/dev/ttys004")
 	computer.Load("./assets/computer/beneater/eater.bin")
 
 	executor := computers.CreateExecutor(computer, &computers.ExecutorConfig{
-		TargetSpeedMhz: 2.0,
+		TargetSpeedMhz: 20.0,
 		DisplayFps:     10,
 	})
 

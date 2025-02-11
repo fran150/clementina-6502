@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/fran150/clementina6502/pkg/components/cpu"
 	"github.com/fran150/clementina6502/pkg/components/lcd"
@@ -72,40 +73,6 @@ func drawLcdDDRAM(writer io.Writer, displayStatus lcd.DisplayStatus) {
 	}
 }
 
-func drawLcdLine(writer io.Writer, lineStart uint8, displayStatus lcd.DisplayStatus, cursorStatus lcd.CursorStatus, min uint8, max uint8) {
-	var count uint8 = 0
-	var index uint8 = lineStart
-
-	for count < (max - min) {
-		if index >= max {
-			index = min
-		}
-
-		if index == cursorStatus.CursorPosition && cursorStatus.BlinkStatusShowing {
-			fmt.Fprintf(writer, "*")
-		} else {
-			fmt.Fprint(writer, string(displayStatus.DDRAM[index]))
-		}
-
-		index++
-		count++
-	}
-}
-
-func ShowLCD(sb io.Writer, lcd *lcd.LcdHD44780U) {
-	const line1MinIndex, line1MaxIndex = 0, 40
-	const line2MinIndex, line2MaxIndex = 40, 80
-
-	displayStatus := lcd.GetDisplayStatus()
-	cursorStatus := lcd.GetCursorStatus()
-
-	fmt.Fprintf(sb, "LCD Screen: \n")
-	drawLcdLine(sb, lcd.GetDisplayStatus().Line1Start, displayStatus, cursorStatus, line1MinIndex, line1MaxIndex)
-	fmt.Fprint(sb, "\n")
-	drawLcdLine(sb, lcd.GetDisplayStatus().Line2Start, displayStatus, cursorStatus, line2MinIndex, line2MaxIndex)
-	fmt.Fprint(sb, "\n\n")
-}
-
 func ShowLCDState(sb io.Writer, lcd *lcd.LcdHD44780U) {
 	cursorStatus := lcd.GetCursorStatus()
 	displayStatus := lcd.GetDisplayStatus()
@@ -123,26 +90,30 @@ func ShowLCDState(sb io.Writer, lcd *lcd.LcdHD44780U) {
 	fmt.Fprintf(sb, "RS: %v\n", lcd.RegisterSelect().Enabled())
 }
 
-func ShowCurrentInstruction(sb io.Writer, programCounter uint16, instruction *cpu.CpuInstructionData, potentialOperands [2]uint8) {
+func ShowCurrentInstruction(programCounter uint16, instruction *cpu.CpuInstructionData, potentialOperands [2]uint8) string {
+	var sb strings.Builder = strings.Builder{}
+
 	addressModeDetails := cpu.GetAddressMode(instruction.AddressMode())
 
 	size := addressModeDetails.MemSize() - 1
 
 	// Write current address
-	fmt.Fprintf(sb, "[blue]$%04X: [red]%s [white]", programCounter, instruction.Mnemonic())
+	fmt.Fprintf(&sb, "[blue]$%04X: [red]%s [white]", programCounter, instruction.Mnemonic())
 
 	// Write operands
 	switch size {
 	case 0:
 	case 1:
-		fmt.Fprintf(sb, addressModeDetails.Format(), potentialOperands[0])
+		fmt.Fprintf(&sb, addressModeDetails.Format(), potentialOperands[0])
 	case 2:
 		msb := uint16(potentialOperands[1]) << 8
 		lsb := uint16(potentialOperands[0])
-		fmt.Fprintf(sb, addressModeDetails.Format(), msb|lsb)
+		fmt.Fprintf(&sb, addressModeDetails.Format(), msb|lsb)
 	default:
-		fmt.Fprintf(sb, "Unrecognized Instruction or Address Mode")
+		fmt.Fprintf(&sb, "Unrecognized Instruction or Address Mode")
 	}
 
-	fmt.Fprint(sb, "\r\n")
+	fmt.Fprint(&sb, "\r\n")
+
+	return sb.String()
 }
