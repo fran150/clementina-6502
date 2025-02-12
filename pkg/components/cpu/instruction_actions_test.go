@@ -3,7 +3,6 @@ package cpu
 import (
 	"strings"
 	"testing"
-	"time"
 	"unicode"
 
 	"github.com/fran150/clementina6502/pkg/components/common"
@@ -19,8 +18,8 @@ func runInstructionTest(cpu *Cpu65C02S, ram *memory.Ram, cycles uint64) {
 
 		cpu.PostTick(context)
 
+		context.Next()
 		context.Cycle = i
-		context.T = time.Now()
 	}
 }
 

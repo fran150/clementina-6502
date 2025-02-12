@@ -7,20 +7,22 @@ import (
 // An object pass to all Tick functions that contains
 // one emulation step data
 type StepContext struct {
-	Cycle uint64    // Current cycle number
-	T     time.Time // Time of this execution
-	Stop  bool      // Return true to stop the execution
+	Cycle uint64 // Current cycle number
+	T     int64  // Time of this execution in nanoseconds
+	Stop  bool   // Return true to stop the execution
 }
+
+var beginning = time.Now()
 
 func CreateStepContext() StepContext {
 	return StepContext{
 		Cycle: 0,
-		T:     time.Now(),
+		T:     int64(time.Since(beginning)),
 		Stop:  false,
 	}
 }
 
 func (context *StepContext) Next() {
 	context.Cycle++
-	context.T = time.Now()
+	context.T = int64(time.Since(beginning))
 }

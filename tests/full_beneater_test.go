@@ -20,7 +20,6 @@ func BenchmarkComputer(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		context.Next()
 		computer.Step(&context)
-		//computer.UpdateDisplay(&context)
 	}
 
 	context.Stop = true

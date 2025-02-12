@@ -2,7 +2,6 @@ package lcd
 
 import (
 	"testing"
-	"time"
 
 	"github.com/fran150/clementina6502/pkg/components/buses"
 	"github.com/fran150/clementina6502/pkg/components/common"
@@ -758,7 +757,7 @@ func TestBusyFlag(t *testing.T) {
 		isBusy = (value & 0x80) == 0x80
 	}
 
-	elapsed := time.Since(ti).Microseconds()
+	elapsed := context.T - ti
 	assert.GreaterOrEqual(t, elapsed, lcd.timingConfig.clearDisplayMicro)
 
 	// Send return home instruction
@@ -774,7 +773,7 @@ func TestBusyFlag(t *testing.T) {
 		isBusy = (value & 0x80) == 0x80
 	}
 
-	elapsed = time.Since(ti).Microseconds()
+	elapsed = context.T - ti
 	assert.GreaterOrEqual(t, elapsed, lcd.timingConfig.clearDisplayMicro)
 
 	// Regular instruction timing test
@@ -790,7 +789,7 @@ func TestBusyFlag(t *testing.T) {
 		isBusy = (value & 0x80) == 0x80
 	}
 
-	elapsed = time.Since(ti).Microseconds()
+	elapsed = context.T - ti
 	assert.GreaterOrEqual(t, elapsed, lcd.timingConfig.clearDisplayMicro)
 }
 
@@ -798,6 +797,8 @@ func TestCursorBlinking(t *testing.T) {
 	context := common.CreateStepContext()
 
 	lcd, _ := createTestCircuitCorrectTiming()
+
+	lcd.characterBlink = true
 
 	ti := context.T
 
@@ -811,7 +812,7 @@ func TestCursorBlinking(t *testing.T) {
 		context.Next()
 	}
 
-	elapsed := time.Since(ti).Microseconds()
+	elapsed := context.T - ti
 	assert.GreaterOrEqual(t, elapsed, lcd.timingConfig.blinkingMicro*2)
 }
 

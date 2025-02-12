@@ -41,8 +41,16 @@ type CpuInstructionSet struct {
 }
 
 // Gets data about the instruction and address mode represented by the specified Opcode.
+// This emulation does not implement invalid op codes, they will be treated as NOP
 func (instruction *CpuInstructionSet) GetByOpCode(opCode OpCode) *CpuInstructionData {
-	return instruction.opCodeIndex[opCode]
+	value := instruction.opCodeIndex[opCode]
+	if value != nil {
+		return value
+	} else {
+		// In case of invalid instruction return NOP
+		return instruction.opCodeIndex[OpCode(0xEA)]
+	}
+
 }
 
 // Creates the instruction set supported by this CPU
