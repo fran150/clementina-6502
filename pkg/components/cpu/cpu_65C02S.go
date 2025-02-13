@@ -208,7 +208,7 @@ func (cpu *Cpu65C02S) VectorPull() *buses.ConnectorEnabledLow {
 // As part of the emulation for every cycle we will execute 2 functions:
 // First Tick for all emulated components and then PostTick.
 // The parameter T represents the elapsed time between executions.
-func (cpu *Cpu65C02S) Tick(context common.StepContext) {
+func (cpu *Cpu65C02S) Tick(context *common.StepContext) {
 	cpu.currentInstruction = cpu.nextInstruction
 	cpu.currentAddressMode = cpu.nextAddressMode
 	cpu.currentCycleIndex = cpu.nextCycleIndex
@@ -241,7 +241,7 @@ func (cpu *Cpu65C02S) Tick(context common.StepContext) {
 
 // As part of the emulation for every cycle we will execute 2 functions:
 // First Tick for all emulated components and then PostTick.
-func (cpu *Cpu65C02S) PostTick(context common.StepContext) {
+func (cpu *Cpu65C02S) PostTick(context *common.StepContext) {
 	// Execute post action if CPU is not paused or stopped
 	if cpu.Ready().Enabled() {
 		cpu.currentCycle.postCycle(cpu)
@@ -342,7 +342,7 @@ func (cpu *Cpu65C02S) setDefaultValues() {
 // and cycle number. If cycle action returns false, it means that this cycle must
 // be skipped so this function immediately and (recursively) moves to next cycle
 // so all the micro-instructions are executed on the same cycle.
-func (cpu *Cpu65C02S) executeCycleAction(context common.StepContext) {
+func (cpu *Cpu65C02S) executeCycleAction(context *common.StepContext) {
 	continueCycle := cpu.currentCycle.cycle(cpu)
 
 	if !continueCycle {

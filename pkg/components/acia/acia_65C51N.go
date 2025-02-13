@@ -3,6 +3,7 @@ package acia
 import (
 	"math"
 	"sync"
+	"time"
 
 	"github.com/fran150/clementina6502/pkg/components/buses"
 	"github.com/fran150/clementina6502/pkg/components/common"
@@ -98,6 +99,7 @@ type Acia65C51N struct {
 
 	rxMutex *sync.Mutex
 	txMutex *sync.Mutex
+	wg      *sync.WaitGroup
 
 	running bool
 
@@ -129,6 +131,7 @@ func CreateAcia65C51N(emulateModemLines bool) *Acia65C51N {
 
 		rxMutex: &sync.Mutex{},
 		txMutex: &sync.Mutex{},
+		wg:      &sync.WaitGroup{},
 
 		running: true,
 
@@ -137,7 +140,9 @@ func CreateAcia65C51N(emulateModemLines bool) *Acia65C51N {
 
 	// Start background pollers to read and write from the serial
 	// port in a non blocking way
+	acia.wg.Add(1)
 	go acia.writeBytes()
+	acia.wg.Add(1)
 	go acia.readBytes()
 
 	return acia
@@ -167,6 +172,9 @@ var registerReadHandlers = []func(*Acia65C51N){
 func (acia *Acia65C51N) ConnectToPort(port serial.Port) {
 	acia.port = port
 
+	// Set read time out to 1 second
+	port.SetReadTimeout(1 * time.Second)
+
 	mode := acia.getMode()
 	err := acia.port.SetMode(mode)
 	if err != nil {
@@ -182,6 +190,7 @@ func (acia *Acia65C51N) ConnectToPort(port serial.Port) {
 // Free resources used by the emulation. In particular it will stop the R/W pollers
 func (acia *Acia65C51N) Close() {
 	acia.running = false
+	acia.wg.Wait()
 }
 
 // The eight data line (D0-D7) pins transfer data between the processor and the ACIA. These lines are bi-
@@ -252,7 +261,7 @@ func (acia *Acia65C51N) getRegisterSelectValue() uint8 {
 }
 
 // Executes one emulation step
-func (acia *Acia65C51N) Tick(stepContext common.StepContext) {
+func (acia *Acia65C51N) Tick(stepContext *common.StepContext) {
 	// If the ACIA is configured to emulate modem lines
 	// it will evaluate the status of the DSR and DCD lines. This is slow (at least when used with SOCAT)
 	// so it can be disabled for faster emulation

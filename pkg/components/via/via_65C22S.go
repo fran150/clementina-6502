@@ -368,7 +368,7 @@ func (via *Via65C22S) handleIRQLine() {
 *************************************************************************************/
 
 // Executes one emulation step
-func (via *Via65C22S) Tick(context common.StepContext) {
+func (via *Via65C22S) Tick(context *common.StepContext) {
 	// From https://lateblt.tripod.com/bit67.txt:
 	// The ORs are also never transparent Whereas an input bus which has input latching turned off can change with its
 	// input without the Enable pin even being cycled, outputting to an OR will not take effect until the Enable pin has made

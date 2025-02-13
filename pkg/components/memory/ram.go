@@ -165,7 +165,7 @@ func (ram *Ram) write() {
 *************************************************************************************/
 
 // Executes one emulation step
-func (ram *Ram) Tick(context common.StepContext) {
+func (ram *Ram) Tick(context *common.StepContext) {
 	cs := ram.chipSelect.Enabled()
 	oe := ram.outputEnable.Enabled()
 	writeEnable := ram.writeEnable.Enabled()

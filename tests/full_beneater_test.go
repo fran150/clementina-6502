@@ -28,5 +28,5 @@ func BenchmarkComputer(b *testing.B) {
 	// Measure the elapsed time
 	elapsed := time.Since(start)
 
-	showExecutionSpeed(context, elapsed)
+	showExecutionSpeed(&context, elapsed)
 }

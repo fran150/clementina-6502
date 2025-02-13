@@ -47,7 +47,7 @@ func (testCase *testCases) test(t *testing.T, circuit *testCircuit, chip *Nand74
 	circuit.a[index].Set(testCase.a)
 	circuit.b[index].Set(testCase.b)
 
-	chip.Tick(*step)
+	chip.Tick(step)
 
 	assert.Equal(t, testCase.y, circuit.y[index].Status())
 }

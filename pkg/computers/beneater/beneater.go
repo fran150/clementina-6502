@@ -205,6 +205,7 @@ func (c *BenEaterComputer) UpdateDisplay(context *common.StepContext) {
 
 func (c *BenEaterComputer) Close() {
 	c.chips.acia.Close()
+	c.circuit.serial.Close()
 }
 
 func (c *BenEaterComputer) getPotentialOperands(programCounter uint16) [2]uint8 {
@@ -216,13 +217,13 @@ func (c *BenEaterComputer) getPotentialOperands(programCounter uint16) [2]uint8 
 }
 
 func (c *BenEaterComputer) Step(context *common.StepContext) {
-	c.chips.cpu.Tick(*context)
-	c.chips.nand.Tick(*context)
-	c.chips.ram.Tick(*context)
-	c.chips.rom.Tick(*context)
-	c.chips.via.Tick(*context)
-	c.chips.lcd.Tick(*context)
-	c.chips.acia.Tick(*context)
+	c.chips.cpu.Tick(context)
+	c.chips.nand.Tick(context)
+	c.chips.ram.Tick(context)
+	c.chips.rom.Tick(context)
+	c.chips.via.Tick(context)
+	c.chips.lcd.Tick(context)
+	c.chips.acia.Tick(context)
 
 	pc := c.chips.cpu.GetProgramCounter()
 	instruction := c.chips.cpu.GetCurrentInstruction()
@@ -231,7 +232,7 @@ func (c *BenEaterComputer) Step(context *common.StepContext) {
 		c.console.codeWindow.AddLineOfCode(pc, instruction, c.getPotentialOperands(pc))
 	}
 
-	c.chips.cpu.PostTick(*context)
+	c.chips.cpu.PostTick(context)
 
 	c.checkReset()
 }

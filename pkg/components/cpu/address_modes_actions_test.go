@@ -207,13 +207,13 @@ func runTest(cpu *Cpu65C02S, ram *memory.Ram, steps []addressModeTestData, t *te
 	context := common.CreateStepContext()
 
 	for cycle, step := range steps {
-		cpu.Tick(context)
-		ram.Tick(context)
+		cpu.Tick(&context)
+		ram.Tick(&context)
 
 		evaluateRegister(cycle, cpu.addressBus.Read(), step.addressBus, t, "address bus")
 		evaluateRegister(cycle, cpu.dataBus.Read(), step.dataBus, t, "data bus")
 
-		cpu.PostTick(context)
+		cpu.PostTick(&context)
 
 		t.Logf("%v \t %04X \t %02X \t %v \t %04X \t %02X \t %02X \t %02X \t %02X \t %08b \n", cycle, cpu.addressBus.Read(), cpu.dataBus.Read(), cpu.readWrite.GetLine().Status(), cpu.programCounter, cpu.accumulatorRegister, cpu.xRegister, cpu.yRegister, cpu.stackPointer, cpu.processorStatusRegister.ReadValue())
 
@@ -245,13 +245,13 @@ func runTestWithInterrupts(cpu *Cpu65C02S, ram *memory.Ram, irqLine *buses.Stand
 			}
 		}
 
-		cpu.Tick(context)
-		ram.Tick(context)
+		cpu.Tick(&context)
+		ram.Tick(&context)
 
 		evaluateRegister(cycle, cpu.addressBus.Read(), step.addressBus, t, "address bus")
 		evaluateRegister(cycle, cpu.dataBus.Read(), step.dataBus, t, "data bus")
 
-		cpu.PostTick(context)
+		cpu.PostTick(&context)
 
 		t.Logf("%v \t %04X \t %02X \t %v \t %04X \t %02X \t %02X \t %02X \t %02X \t %08b \n", cycle, cpu.addressBus.Read(), cpu.dataBus.Read(), cpu.readWrite.GetLine().Status(), cpu.programCounter, cpu.accumulatorRegister, cpu.xRegister, cpu.yRegister, cpu.stackPointer, cpu.processorStatusRegister.ReadValue())
 

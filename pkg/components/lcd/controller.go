@@ -126,7 +126,7 @@ func (ctrl *LcdHD44780U) DataBus() *buses.BusConnector[uint8] {
 }
 
 // Executes one emulation step
-func (ctrl *LcdHD44780U) Tick(context common.StepContext) {
+func (ctrl *LcdHD44780U) Tick(context *common.StepContext) {
 	// Checks the status of the busy flag and the status of the blinking cursor
 	ctrl.checkBusy(context)
 	ctrl.cursorBlink(context)
@@ -230,7 +230,7 @@ func (ctrl *LcdHD44780U) setBusy(duration int64, busyStart int64) {
 }
 
 // Checks if the busy period completed and if so, lowers the "busy" flag
-func (ctrl *LcdHD44780U) checkBusy(context common.StepContext) {
+func (ctrl *LcdHD44780U) checkBusy(context *common.StepContext) {
 	if ctrl.isBusy {
 		elapsed := (context.T - ctrl.blinkingStart) / int64(time.Microsecond)
 
@@ -242,7 +242,7 @@ func (ctrl *LcdHD44780U) checkBusy(context common.StepContext) {
 
 // Used to make the cursor blink, it changes the "blinkingVisible" value based on the
 // configured blinking period
-func (ctrl *LcdHD44780U) cursorBlink(context common.StepContext) {
+func (ctrl *LcdHD44780U) cursorBlink(context *common.StepContext) {
 	if ctrl.characterBlink {
 		if ctrl.blinkingStart == 0 {
 			ctrl.blinkingStart = context.T
@@ -261,7 +261,7 @@ func (ctrl *LcdHD44780U) cursorBlink(context common.StepContext) {
 }
 
 // Processes the specified instruction
-func (ctrl *LcdHD44780U) processInstruction(context common.StepContext) {
+func (ctrl *LcdHD44780U) processInstruction(context *common.StepContext) {
 	var mask uint8 = addressForInstructionMask
 	i := 7
 

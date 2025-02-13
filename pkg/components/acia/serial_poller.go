@@ -1,6 +1,8 @@
 package acia
 
 func (acia *Acia65C51N) writeBytes() {
+	defer acia.wg.Done()
+
 	for acia.running {
 		if acia.port != nil && !acia.txRegisterEmpty {
 			if acia.isCTSEnabled() {
@@ -16,33 +18,37 @@ func (acia *Acia65C51N) writeBytes() {
 }
 
 func (acia *Acia65C51N) readBytes() {
+	defer acia.wg.Done()
+
 	buff := make([]byte, 1)
 
 	for acia.running {
 		if acia.port != nil {
-			_, err := acia.port.Read(buff)
+			n, err := acia.port.Read(buff)
 			if err != nil {
 				panic(err)
 			}
 
-			acia.rxMutex.Lock()
+			if n > 0 {
+				acia.rxMutex.Lock()
 
-			if !acia.rxRegisterEmpty {
-				acia.statusRegister |= statusOverrun
-			}
+				if !acia.rxRegisterEmpty {
+					acia.statusRegister |= statusOverrun
+				}
 
-			acia.rxRegisterEmpty = false
-			acia.rxRegister = uint8(buff[0])
+				acia.rxRegisterEmpty = false
+				acia.rxRegister = uint8(buff[0])
 
-			acia.rxMutex.Unlock()
+				acia.rxMutex.Unlock()
 
-			if acia.isReceiverEchoModeEnabled() {
-				acia.txMutex.Lock()
+				if acia.isReceiverEchoModeEnabled() {
+					acia.txMutex.Lock()
 
-				acia.txRegister = acia.rxRegister
-				acia.txRegisterEmpty = false
+					acia.txRegister = acia.rxRegister
+					acia.txRegisterEmpty = false
 
-				acia.txMutex.Unlock()
+					acia.txMutex.Unlock()
+				}
 			}
 		}
 	}

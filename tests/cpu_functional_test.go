@@ -98,7 +98,7 @@ func verifyAndCountRepeats(processor *cpu.Cpu65C02S) bool {
 }
 
 // Validates the status of the processor when the test finish and fails the test if required.
-func showFinishCondition(processor *cpu.Cpu65C02S, context common.StepContext, b *testing.B, elapsed time.Duration) {
+func showFinishCondition(processor *cpu.Cpu65C02S, context *common.StepContext, b *testing.B, elapsed time.Duration) {
 	// If processor is trapped in SUCCESS_PC_VALUE, this means that the tests were completed successfullly
 	// Otherwise this is an error condition and must fail the tests
 	if processor.GetProgramCounter() != successPcValue {
@@ -113,7 +113,7 @@ func showFinishCondition(processor *cpu.Cpu65C02S, context common.StepContext, b
 	showExecutionSpeed(context, elapsed)
 }
 
-func showExecutionSpeed(context common.StepContext, elapsed time.Duration) {
+func showExecutionSpeed(context *common.StepContext, elapsed time.Duration) {
 	// Show number of elapsed cycles
 	fmt.Printf("Functional Tests execution completed in %v cycles\n", context.Cycle)
 
@@ -149,9 +149,9 @@ func BenchmarkProcessor(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for context.Cycle < maxAllowedCycles {
 			// Exeutes the CPU cycles
-			processor.Tick(context)
-			ram.Tick(context)
-			processor.PostTick(context)
+			processor.Tick(&context)
+			ram.Tick(&context)
+			processor.PostTick(&context)
 
 			// Verfies and count repeated "trap" opcodes. If this functions returns true
 			// it means that the code is trapped and the tests are either in error or finished
@@ -168,5 +168,5 @@ func BenchmarkProcessor(b *testing.B) {
 	elapsed := time.Since(start)
 
 	// Mark the test as failed or success depending on the exit conditions
-	showFinishCondition(processor, context, b, elapsed)
+	showFinishCondition(processor, &context, b, elapsed)
 }

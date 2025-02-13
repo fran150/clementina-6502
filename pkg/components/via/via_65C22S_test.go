@@ -95,7 +95,7 @@ func (circuit *testCircuit) setRegisterSelectValue(value viaRegisterCode) {
 }
 
 // Writes to the specified values to a register in the VIA chip
-func writeToVia(via *Via65C22S, circuit *testCircuit, register viaRegisterCode, value uint8, context common.StepContext) {
+func writeToVia(via *Via65C22S, circuit *testCircuit, register viaRegisterCode, value uint8, context *common.StepContext) {
 	circuit.setRegisterSelectValue(register)
 	circuit.rw.Set(false)
 	circuit.dataBus.Write(value)
@@ -106,7 +106,7 @@ func writeToVia(via *Via65C22S, circuit *testCircuit, register viaRegisterCode, 
 }
 
 // Reads the specified register from the VIA chip
-func readFromVia(via *Via65C22S, circuit *testCircuit, register viaRegisterCode, context common.StepContext) uint8 {
+func readFromVia(via *Via65C22S, circuit *testCircuit, register viaRegisterCode, context *common.StepContext) uint8 {
 	circuit.setRegisterSelectValue(register)
 	circuit.rw.Set(true)
 
@@ -118,7 +118,7 @@ func readFromVia(via *Via65C22S, circuit *testCircuit, register viaRegisterCode,
 }
 
 // Disables the chip and step time (used to wait for actions)
-func disableChipAndStepTime(via *Via65C22S, circuit *testCircuit, context common.StepContext) {
+func disableChipAndStepTime(via *Via65C22S, circuit *testCircuit, context *common.StepContext) {
 	circuit.cs1.Set(false)
 	circuit.cs2.Set(true)
 
@@ -149,7 +149,7 @@ type coutingTestConfiguration struct {
 }
 
 // Sets ups the VIA chip according to the test configuration and starts counting
-func setupAndCountFrom(t *testing.T, config *coutingTestConfiguration, context common.StepContext) {
+func setupAndCountFrom(t *testing.T, config *coutingTestConfiguration, context *common.StepContext) {
 	// Will count down from 10 decimal
 	writeToVia(config.via, config.circuit, config.lcRegister, config.counterLSB, context)
 
@@ -163,7 +163,7 @@ func setupAndCountFrom(t *testing.T, config *coutingTestConfiguration, context c
 }
 
 // Disables the chip and executes the number of time steps specified in the testing configuration.
-func countToTarget(t *testing.T, config *coutingTestConfiguration, context common.StepContext) {
+func countToTarget(t *testing.T, config *coutingTestConfiguration, context *common.StepContext) {
 	for range config.cyclesToExecute {
 		disableChipAndStepTime(config.via, config.circuit, context)
 
@@ -189,16 +189,16 @@ func TestOutputToPortAChangingTheDirectionAndDeselectingChip(t *testing.T) {
 	circuit.wire(via)
 
 	// Set all pins on Port A to output
-	writeToVia(via, circuit, regDDRA, 0xFF, context)
+	writeToVia(via, circuit, regDDRA, 0xFF, &context)
 
 	// Set output on port A to 0x55
-	writeToVia(via, circuit, regORAIRA, 0x55, context)
+	writeToVia(via, circuit, regORAIRA, 0x55, &context)
 
 	// Validate Port A output
 	assert.Equal(t, uint8(0x55), circuit.portA.Read())
 
 	// Do something else not related to check that Port A output stays the same (Read ACR)
-	readFromVia(via, circuit, regACR, context)
+	readFromVia(via, circuit, regACR, &context)
 
 	// Validate that data is still 55
 	assert.Equal(t, uint8(0x55), circuit.portA.Read())
@@ -207,14 +207,14 @@ func TestOutputToPortAChangingTheDirectionAndDeselectingChip(t *testing.T) {
 	circuit.portA.Write(0x00)
 
 	// Set data direction register to have upper 4 bits as input
-	writeToVia(via, circuit, regDDRA, 0x0F, context)
+	writeToVia(via, circuit, regDDRA, 0x0F, &context)
 
 	// After clearing the Port B and setting the first 4 bits as input,
 	// A 5 should be still be set in the first 4 bits.
 	assert.Equal(t, uint8(0x05), circuit.portA.Read())
 
 	// Writing to pins configured for input does not affect their values
-	writeToVia(via, circuit, regORAIRA, 0xF5, context)
+	writeToVia(via, circuit, regORAIRA, 0xF5, &context)
 
 	// Port A remains unchanged
 	assert.Equal(t, uint8(0x05), circuit.portA.Read())
@@ -224,7 +224,7 @@ func TestOutputToPortAChangingTheDirectionAndDeselectingChip(t *testing.T) {
 	circuit.cs2.Toggle()
 
 	// Do something else not related to check that Port A output stays the same (Read ACR)
-	readFromVia(via, circuit, regACR, context)
+	readFromVia(via, circuit, regACR, &context)
 
 	// Port A remains unchanged
 	assert.Equal(t, uint8(0x05), circuit.portA.Read())
@@ -239,16 +239,16 @@ func TestOutputToPortBChangingTheDirectionAndDeselectingChip(t *testing.T) {
 	circuit.wire(via)
 
 	// Set all pins on Port B to output
-	writeToVia(via, circuit, regDDRB, 0xFF, context)
+	writeToVia(via, circuit, regDDRB, 0xFF, &context)
 
 	// Set output on port B to 0xAA
-	writeToVia(via, circuit, regORBIRB, 0xAA, context)
+	writeToVia(via, circuit, regORBIRB, 0xAA, &context)
 
 	// Validate Port B output
 	assert.Equal(t, uint8(0xAA), circuit.portB.Read())
 
 	// Do something else not related to check that Port B output stays the same (Read ACR)
-	readFromVia(via, circuit, regACR, context)
+	readFromVia(via, circuit, regACR, &context)
 
 	// Validate that data is still AA
 	assert.Equal(t, uint8(0xAA), circuit.portB.Read())
@@ -257,13 +257,13 @@ func TestOutputToPortBChangingTheDirectionAndDeselectingChip(t *testing.T) {
 	circuit.portB.Write(0x00)
 
 	// Set data direction register to have upper 4 bits as input
-	writeToVia(via, circuit, regDDRB, 0x0F, context)
+	writeToVia(via, circuit, regDDRB, 0x0F, &context)
 
 	// Now port B reflects but still works even with chip not being selected
 	assert.Equal(t, uint8(0x0A), circuit.portB.Read())
 
 	// Writing to pins configured for input does not affect their values
-	writeToVia(via, circuit, regORBIRB, 0xFA, context)
+	writeToVia(via, circuit, regORBIRB, 0xFA, &context)
 
 	// Port B remains unchanged
 	assert.Equal(t, uint8(0x0A), circuit.portB.Read())
@@ -273,7 +273,7 @@ func TestOutputToPortBChangingTheDirectionAndDeselectingChip(t *testing.T) {
 	circuit.cs2.Toggle()
 
 	// Do something else not related to check that Port B output stays the same (Read ACR)
-	readFromVia(via, circuit, regACR, context)
+	readFromVia(via, circuit, regACR, &context)
 
 	// Port B remains unchanged
 	assert.Equal(t, uint8(0x0A), circuit.portB.Read())
@@ -288,32 +288,32 @@ func TestInputFromPortANoLatching(t *testing.T) {
 	circuit.wire(via)
 
 	// Set all pins on Port A to input
-	writeToVia(via, circuit, regDDRA, 0x00, context)
+	writeToVia(via, circuit, regDDRA, 0x00, &context)
 
 	// Set 0xAA on Port A
 	circuit.portA.Write(0xAA)
 
 	// Read IRA
-	value := readFromVia(via, circuit, regORAIRA, context)
+	value := readFromVia(via, circuit, regORAIRA, &context)
 
 	// Value must reflect the current status of the pins
 	assert.Equal(t, uint8(0xAA), value)
 
 	// Write 0xFF to ORA
-	writeToVia(via, circuit, regORAIRA, 0xFF, context)
+	writeToVia(via, circuit, regORAIRA, 0xFF, &context)
 
 	// Port A must remain unchanged until DDR is changed
 	assert.Equal(t, uint8(0xAA), circuit.portA.Read())
 
 	// Read IRA
-	value = readFromVia(via, circuit, regORAIRA, context)
+	value = readFromVia(via, circuit, regORAIRA, &context)
 
 	// Value must remain unaffected by the write to ORA
 	assert.Equal(t, uint8(0xAA), value)
 
 	// Change first 4 bits to output, this will make the value in ORA's first 4 bits be
 	// put in Port A
-	writeToVia(via, circuit, regDDRA, 0xF0, context)
+	writeToVia(via, circuit, regDDRA, 0xF0, &context)
 
 	// Value is expected to be FA (F from the previous write of FF to ORA) and A that remains up in the
 	// input bus
@@ -329,22 +329,22 @@ func TestInputFromPortALatching(t *testing.T) {
 	circuit.wire(via)
 
 	// Set latching enabled on Port A
-	writeToVia(via, circuit, regACR, 0x01, context)
+	writeToVia(via, circuit, regACR, 0x01, &context)
 
 	// Set all pins on Port A to input
-	writeToVia(via, circuit, regDDRA, 0x00, context)
+	writeToVia(via, circuit, regDDRA, 0x00, &context)
 
 	// Set interrupt on CA1 transition enabled
-	writeToVia(via, circuit, regIER, 0x82, context)
+	writeToVia(via, circuit, regIER, 0x82, &context)
 
 	// Set interrupt on positive edge of CA1
-	writeToVia(via, circuit, regPCR, 0x01, context)
+	writeToVia(via, circuit, regPCR, 0x01, &context)
 
 	// Set 0xAA on Port A
 	circuit.portA.Write(0xAA)
 
 	// Read IRA
-	value := readFromVia(via, circuit, regORAIRA, context)
+	value := readFromVia(via, circuit, regORAIRA, &context)
 
 	// Value is unaffected by the pin status
 	assert.Equal(t, uint8(0x00), value)
@@ -355,7 +355,7 @@ func TestInputFromPortALatching(t *testing.T) {
 	circuit.ca1.Set(true)
 
 	// Read IRA
-	value = readFromVia(via, circuit, regORAIRA, context)
+	value = readFromVia(via, circuit, regORAIRA, &context)
 
 	// IRA must hold the latched value
 	assert.Equal(t, uint8(0xAA), value)
@@ -366,21 +366,21 @@ func TestInputFromPortALatching(t *testing.T) {
 	circuit.portA.Write(0xFF)
 
 	// Read IRA
-	value = readFromVia(via, circuit, regORAIRA, context)
+	value = readFromVia(via, circuit, regORAIRA, &context)
 
 	// IRA must still hold the latched value
 	assert.Equal(t, uint8(0xAA), value)
 
 	// Change first 4 bits to output, this will make the value in ORA's first 4 bits be
 	// put in Port A
-	writeToVia(via, circuit, regDDRA, 0xF0, context)
+	writeToVia(via, circuit, regDDRA, 0xF0, &context)
 
 	// As we never wrote to ORA value should be 0 on all 4 pins. So output should be 0x0? with ? being F
 	// set in the previous steps as input
 	assert.Equal(t, uint8(0x0F), via.peripheralPortA.getConnector().Read())
 
 	// Read IRA
-	value = readFromVia(via, circuit, regORAIRA, context)
+	value = readFromVia(via, circuit, regORAIRA, &context)
 
 	// If latching is enabled it always reads the latched value on IRA
 	assert.Equal(t, uint8(0xAA), value)
@@ -395,32 +395,32 @@ func TestInputFromPortBNoLatching(t *testing.T) {
 	circuit.wire(via)
 
 	// Set all pins on Port B to input
-	writeToVia(via, circuit, regDDRB, 0x00, context)
+	writeToVia(via, circuit, regDDRB, 0x00, &context)
 
 	// Set 0xAA on Port B
 	circuit.portB.Write(0xAA)
 
 	// Read IRB
-	value := readFromVia(via, circuit, regORBIRB, context)
+	value := readFromVia(via, circuit, regORBIRB, &context)
 
 	// Value must reflect the current status of the pins
 	assert.Equal(t, uint8(0xAA), value)
 
 	// Write 0xFF to ORB
-	writeToVia(via, circuit, regORBIRB, 0xFF, context)
+	writeToVia(via, circuit, regORBIRB, 0xFF, &context)
 
 	// Port B must remain unchanged until DDR is changed
 	assert.Equal(t, uint8(0xAA), circuit.portB.Read())
 
 	// Read IRB
-	value = readFromVia(via, circuit, regORBIRB, context)
+	value = readFromVia(via, circuit, regORBIRB, &context)
 
 	// Value must remain unaffected by the write to ORB
 	assert.Equal(t, uint8(0xAA), value)
 
 	// Change first 4 bits to output, this will make the value in ORB's first 4 bits be
 	// put in Port B
-	writeToVia(via, circuit, regDDRB, 0xF0, context)
+	writeToVia(via, circuit, regDDRB, 0xF0, &context)
 
 	// Value is expected to be FA (F from the previous write of FF to ORA) and A that remains up in the
 	// input bus
@@ -436,22 +436,22 @@ func TestInputFromPortBLatching(t *testing.T) {
 	circuit.wire(via)
 
 	// Set latching enabled on Port B
-	writeToVia(via, circuit, regACR, 0x02, context)
+	writeToVia(via, circuit, regACR, 0x02, &context)
 
 	// Set all pins on Port B to input
-	writeToVia(via, circuit, regDDRB, 0x00, context)
+	writeToVia(via, circuit, regDDRB, 0x00, &context)
 
 	// Set interrupt on CB1 transition enabled
-	writeToVia(via, circuit, regIER, 0x90, context)
+	writeToVia(via, circuit, regIER, 0x90, &context)
 
 	// Set interrupt on positive edge of CB1
-	writeToVia(via, circuit, regPCR, 0x10, context)
+	writeToVia(via, circuit, regPCR, 0x10, &context)
 
 	// Set 0xAA on Port B
 	circuit.portB.Write(0xAA)
 
 	// Read IRA
-	value := readFromVia(via, circuit, regORBIRB, context)
+	value := readFromVia(via, circuit, regORBIRB, &context)
 
 	// Value is unaffected by the pin status
 	assert.Equal(t, uint8(0x00), value)
@@ -462,7 +462,7 @@ func TestInputFromPortBLatching(t *testing.T) {
 	circuit.cb1.Set(true)
 
 	// Read IRB
-	value = readFromVia(via, circuit, regORBIRB, context)
+	value = readFromVia(via, circuit, regORBIRB, &context)
 
 	// IRA must hold the latched value
 	assert.Equal(t, uint8(0xAA), value)
@@ -473,7 +473,7 @@ func TestInputFromPortBLatching(t *testing.T) {
 	circuit.portB.Write(0xFF)
 
 	// Read IRB
-	value = readFromVia(via, circuit, regORBIRB, context)
+	value = readFromVia(via, circuit, regORBIRB, &context)
 
 	// IRA must still hold the latched value
 	assert.Equal(t, uint8(0xAA), value)
@@ -482,20 +482,20 @@ func TestInputFromPortBLatching(t *testing.T) {
 
 	// Change first 4 bits to output, this will make the value in ORB's first 4 bits be
 	// put in Port B
-	writeToVia(via, circuit, regDDRB, 0xF0, context)
+	writeToVia(via, circuit, regDDRB, 0xF0, &context)
 
 	// As we never wrote to ORB value should be 0 on all 4 pins. So output should be 0x0? with ? being F
 	// set in the previous steps as input
 	assert.Equal(t, uint8(0x0F), via.peripheralPortB.getConnector().Read())
 
 	// Write 0x5A on the output register
-	writeToVia(via, circuit, regORBIRB, 0x5A, context)
+	writeToVia(via, circuit, regORBIRB, 0x5A, &context)
 
 	// Force port B output to 0xFF again
 	circuit.portB.Write(0xFF)
 
 	// Read IRA
-	value = readFromVia(via, circuit, regORBIRB, context)
+	value = readFromVia(via, circuit, regORBIRB, &context)
 
 	// First 4 bits are the ORB value = 5 as MPU reads from ORB, pin level has no effect.
 	// Last 4 bits are from IRA at the last CB1 transition = A
@@ -544,13 +544,13 @@ func readHandshakeOnPortA(t *testing.T, mode uint8) {
 	circuit.wire(via)
 
 	// Set all pins on Port A to input
-	writeToVia(via, circuit, regDDRA, 0x00, context)
+	writeToVia(via, circuit, regDDRA, 0x00, &context)
 
 	// Set interrupt on CA1 transition enabled
-	writeToVia(via, circuit, regIER, 0x82, context)
+	writeToVia(via, circuit, regIER, 0x82, &context)
 
 	// Set interrupt on positive edge of CA1 (0x01) and CA2 in handshake desired handshake mode
-	writeToVia(via, circuit, regPCR, mode|0x01, context)
+	writeToVia(via, circuit, regPCR, mode|0x01, &context)
 
 	// In handshake mode CA2 is default high
 	assert.Equal(t, true, circuit.ca2.Status())
@@ -561,25 +561,25 @@ func readHandshakeOnPortA(t *testing.T, mode uint8) {
 	circuit.ca1.Set(true)
 
 	// Step time and check that IRQ is now active (low)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 
 	// Simulate some more steps and check
-	disableChipAndStepTime(via, circuit, context)
-	disableChipAndStepTime(via, circuit, context)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
+	disableChipAndStepTime(via, circuit, &context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 
 	// Clear the data ready signal in CA 1
 	circuit.ca1.Set(false)
-	disableChipAndStepTime(via, circuit, context)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
+	disableChipAndStepTime(via, circuit, &context)
 	// IRQ stays triggered
 	assert.Equal(t, false, circuit.irq.Status())
 
 	// Re-enable the chip and read IRA
 	enableChip(circuit)
-	readFromVia(via, circuit, regORAIRA, context)
+	readFromVia(via, circuit, regORAIRA, &context)
 
 	// CA2 should have dropped to signal "data taken"
 	assert.Equal(t, false, circuit.ca2.Status())
@@ -589,29 +589,29 @@ func readHandshakeOnPortA(t *testing.T, mode uint8) {
 	if mode == 0x08 {
 		// Simulate some more steps and check, in this mode CA2 will stay
 		// low until transition of CB1 happens
-		disableChipAndStepTime(via, circuit, context)
-		disableChipAndStepTime(via, circuit, context)
-		disableChipAndStepTime(via, circuit, context)
+		disableChipAndStepTime(via, circuit, &context)
+		disableChipAndStepTime(via, circuit, &context)
+		disableChipAndStepTime(via, circuit, &context)
 		assert.Equal(t, false, circuit.ca2.Status())
 		assert.Equal(t, true, circuit.irq.Status())
 	} else {
 		// In this mode CA2 will stay low for only 1 cycle after read IRA
 		// and return to high
-		disableChipAndStepTime(via, circuit, context)
+		disableChipAndStepTime(via, circuit, &context)
 		assert.Equal(t, false, circuit.ca2.Status())
 		assert.Equal(t, true, circuit.irq.Status())
 
-		disableChipAndStepTime(via, circuit, context)
+		disableChipAndStepTime(via, circuit, &context)
 		assert.Equal(t, true, circuit.ca2.Status())
 		assert.Equal(t, true, circuit.irq.Status())
-		disableChipAndStepTime(via, circuit, context)
+		disableChipAndStepTime(via, circuit, &context)
 		assert.Equal(t, true, circuit.ca2.Status())
 		assert.Equal(t, true, circuit.irq.Status())
 	}
 
 	// Signaling data ready on CA1 should make CA2 reset to high
 	circuit.ca1.Set(true)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, true, circuit.ca2.Status())
 	assert.Equal(t, false, circuit.irq.Status())
 }
@@ -625,13 +625,13 @@ func writeHandshakeOnPortA(t *testing.T, mode uint8) {
 	circuit.wire(via)
 
 	// Set all pins on Port A to output
-	writeToVia(via, circuit, regDDRA, 0xFF, context)
+	writeToVia(via, circuit, regDDRA, 0xFF, &context)
 
 	// Set interrupt on CA1 transition enabled
-	writeToVia(via, circuit, regIER, 0x82, context)
+	writeToVia(via, circuit, regIER, 0x82, &context)
 
 	// Set interrupt on positive edge of CA1 (0x01) and CA2 in handshake desired handshake mode
-	writeToVia(via, circuit, regPCR, mode|0x01, context)
+	writeToVia(via, circuit, regPCR, mode|0x01, &context)
 
 	// Data taken is low
 	assert.Equal(t, false, circuit.ca1.Status())
@@ -641,25 +641,25 @@ func writeHandshakeOnPortA(t *testing.T, mode uint8) {
 	assert.Equal(t, true, circuit.irq.Status())
 
 	// Write to ORA
-	writeToVia(via, circuit, regORAIRA, 0xFF, context)
+	writeToVia(via, circuit, regORAIRA, 0xFF, &context)
 
 	// CA2 will drop to signal "data ready"
 	if mode == 0x08 {
 		// Simulate some more steps and check, in this mode CA2 will stay
 		// low until transition of CB1 happens
-		disableChipAndStepTime(via, circuit, context)
-		disableChipAndStepTime(via, circuit, context)
-		disableChipAndStepTime(via, circuit, context)
+		disableChipAndStepTime(via, circuit, &context)
+		disableChipAndStepTime(via, circuit, &context)
+		disableChipAndStepTime(via, circuit, &context)
 		assert.Equal(t, false, circuit.ca2.Status())
 	} else {
 		// In this mode CA2 will stay low for only 1 cycle
 		// and return to high
-		disableChipAndStepTime(via, circuit, context)
+		disableChipAndStepTime(via, circuit, &context)
 		assert.Equal(t, false, circuit.ca2.Status())
 
-		disableChipAndStepTime(via, circuit, context)
+		disableChipAndStepTime(via, circuit, &context)
 		assert.Equal(t, true, circuit.ca2.Status())
-		disableChipAndStepTime(via, circuit, context)
+		disableChipAndStepTime(via, circuit, &context)
 		assert.Equal(t, true, circuit.ca2.Status())
 	}
 
@@ -668,21 +668,21 @@ func writeHandshakeOnPortA(t *testing.T, mode uint8) {
 
 	// Step time and check that IRQ is now active (low)
 	// And CA2 has been returned to high
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 	assert.Equal(t, true, circuit.ca2.Status())
 
 	// Do some steps and renable the Data Taken flag,
 	// IRQ must stay triggered (low)
-	disableChipAndStepTime(via, circuit, context)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
+	disableChipAndStepTime(via, circuit, &context)
 	circuit.ca1.Set(false)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 
 	// Re-enable the chip and write to ORA
 	enableChip(circuit)
-	writeToVia(via, circuit, regORAIRA, 0xFE, context)
+	writeToVia(via, circuit, regORAIRA, 0xFE, &context)
 
 	// IRQ must be reset and CA2 goes low again
 	assert.Equal(t, true, circuit.irq.Status())
@@ -698,13 +698,13 @@ func writeHandshakeOnPortB(t *testing.T, mode uint8) {
 	circuit.wire(via)
 
 	// Set all pins on Port B to output
-	writeToVia(via, circuit, regDDRB, 0xFF, context)
+	writeToVia(via, circuit, regDDRB, 0xFF, &context)
 
 	// Set interrupt on CB1 transition enabled
-	writeToVia(via, circuit, regIER, 0x90, context)
+	writeToVia(via, circuit, regIER, 0x90, &context)
 
 	// Set interrupt on positive edge of CB1 (0x10) and CB2 in handshake desired handshake mode
-	writeToVia(via, circuit, regPCR, mode|0x10, context)
+	writeToVia(via, circuit, regPCR, mode|0x10, &context)
 
 	// Data taken is low
 	assert.Equal(t, false, circuit.cb1.Status())
@@ -714,25 +714,25 @@ func writeHandshakeOnPortB(t *testing.T, mode uint8) {
 	assert.Equal(t, true, circuit.irq.Status())
 
 	// Write to ORB
-	writeToVia(via, circuit, regORBIRB, 0xFF, context)
+	writeToVia(via, circuit, regORBIRB, 0xFF, &context)
 
 	// CB2 will drop to signal "data ready"
 	if mode == 0x80 {
 		// Simulate some more steps and check, in this mode CB2 will stay
 		// low until transition of CB1 happens
-		disableChipAndStepTime(via, circuit, context)
-		disableChipAndStepTime(via, circuit, context)
-		disableChipAndStepTime(via, circuit, context)
+		disableChipAndStepTime(via, circuit, &context)
+		disableChipAndStepTime(via, circuit, &context)
+		disableChipAndStepTime(via, circuit, &context)
 		assert.Equal(t, false, circuit.cb2.Status())
 	} else {
 		// In this mode CB2 will stay low for only 1 cycle
 		// and return to high
-		disableChipAndStepTime(via, circuit, context)
+		disableChipAndStepTime(via, circuit, &context)
 		assert.Equal(t, false, circuit.cb2.Status())
 
-		disableChipAndStepTime(via, circuit, context)
+		disableChipAndStepTime(via, circuit, &context)
 		assert.Equal(t, true, circuit.cb2.Status())
-		disableChipAndStepTime(via, circuit, context)
+		disableChipAndStepTime(via, circuit, &context)
 		assert.Equal(t, true, circuit.cb2.Status())
 	}
 
@@ -741,21 +741,21 @@ func writeHandshakeOnPortB(t *testing.T, mode uint8) {
 
 	// Step time and check that IRQ is now active (low)
 	// And CB2 has been returned to high
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 	assert.Equal(t, true, circuit.cb2.Status())
 
 	// Do some steps and renable the Data Taken flag,
 	// IRQ must stay triggered (low)
-	disableChipAndStepTime(via, circuit, context)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
+	disableChipAndStepTime(via, circuit, &context)
 	circuit.cb1.Set(false)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 
 	// Re-enable the chip and write to ORB
 	enableChip(circuit)
-	writeToVia(via, circuit, regORBIRB, 0xFE, context)
+	writeToVia(via, circuit, regORBIRB, 0xFE, &context)
 
 	// IRQ must be reset and CB2 goes low again
 	assert.Equal(t, true, circuit.irq.Status())
@@ -771,31 +771,31 @@ func TestFixedModeOnPortA(t *testing.T) {
 	circuit.wire(via)
 
 	// Set CA2 in fixed mode low
-	writeToVia(via, circuit, regPCR, 0x0C, context)
+	writeToVia(via, circuit, regPCR, 0x0C, &context)
 
 	// CA2 is fixed low
 	assert.Equal(t, false, circuit.ca2.Status())
 
 	// Write to ORA
-	writeToVia(via, circuit, regORAIRA, 0xFF, context)
+	writeToVia(via, circuit, regORAIRA, 0xFF, &context)
 
 	// Make the time pass and check that CA2 is still high
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	// CA2 is fixed low
 	assert.Equal(t, false, circuit.ca2.Status())
 
 	// Changing CA1 should not affect CA2
 	circuit.ca1.Set(true)
 
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	// CA2 is fixed low
 	assert.Equal(t, false, circuit.ca2.Status())
 
 	// Set CA2 in fixed mode high
 	enableChip(circuit)
-	writeToVia(via, circuit, regPCR, 0x0E, context)
+	writeToVia(via, circuit, regPCR, 0x0E, &context)
 
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	// CA2 is fixed high
 	assert.Equal(t, true, circuit.ca2.Status())
 }
@@ -809,31 +809,31 @@ func TestFixedModeOnPortB(t *testing.T) {
 	circuit.wire(via)
 
 	// Set CB2 in fixed mode low
-	writeToVia(via, circuit, regPCR, 0xC0, context)
+	writeToVia(via, circuit, regPCR, 0xC0, &context)
 
 	// CB2 is fixed low
 	assert.Equal(t, false, circuit.cb2.Status())
 
 	// Write to ORB
-	writeToVia(via, circuit, regORBIRB, 0xFF, context)
+	writeToVia(via, circuit, regORBIRB, 0xFF, &context)
 
 	// Make the time pass and check that CB2 is still high
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	// CB2 is fixed low
 	assert.Equal(t, false, circuit.cb2.Status())
 
 	// Changing CB1 should not affect CB2
 	circuit.cb1.Set(true)
 
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	// CB2 is fixed low
 	assert.Equal(t, false, circuit.cb2.Status())
 
 	// Set CB2 in fixed mode high
 	enableChip(circuit)
-	writeToVia(via, circuit, regPCR, 0xE0, context)
+	writeToVia(via, circuit, regPCR, 0xE0, &context)
 
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	// CB2 is fixed high
 	assert.Equal(t, true, circuit.cb2.Status())
 }
@@ -865,38 +865,38 @@ func TestTimer1OneShotMode(t *testing.T) {
 	}
 
 	// Set ACR to 0x00, for this test is important bit 6 and 7 = 00 -> Timer 1 single shot PB7 disabled
-	writeToVia(via, circuit, regACR, 0x00, context)
+	writeToVia(via, circuit, regACR, 0x00, &context)
 
 	// Enable interrupts for T1 timeout (bit 7 -> enable, bit 6 -> T1)
-	writeToVia(via, circuit, regIER, 0xC0, context)
+	writeToVia(via, circuit, regIER, 0xC0, &context)
 
 	// Counts down from 10, it takes N+1 cycles to count down
 	// While counting PB7 is not driven and IRQ stays high
-	setupAndCountFrom(t, &config, context)
+	setupAndCountFrom(t, &config, &context)
 
 	// After counting to 0 requires extra 0.5 step
 	// to trigger IRQ
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 
 	// Counter keeps counting down.
 	// When IRQ triggered counter was in the end of FFFF / beginning of FFFE
 	// 2 extra cycles will move that to FFFC
-	disableChipAndStepTime(via, circuit, context)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, uint16(0xFFFC), via.registers.counter1)
 
 	// Reenable the chip
 	enableChip(circuit)
 
 	// Clear the interrupt flag by reading T1 low order counter
-	counter := readFromVia(via, circuit, regT1CL, context)
+	counter := readFromVia(via, circuit, regT1CL, &context)
 	assert.Equal(t, uint8(0xFB), counter)
 	assert.Equal(t, true, circuit.irq.Status())
 
 	// Repeats the couting from 10
-	setupAndCountFrom(t, &config, context)
-	disableChipAndStepTime(via, circuit, context)
+	setupAndCountFrom(t, &config, &context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 
 	// Reenable the chip
@@ -904,7 +904,7 @@ func TestTimer1OneShotMode(t *testing.T) {
 
 	// Set ACR to 0x80, for this test is important bit 6 and 7 = 10 -> Timer 1 single shot PB7 enabled
 	// When ACR sets PB7 as output, line goes high
-	writeToVia(via, circuit, regACR, 0x80, context)
+	writeToVia(via, circuit, regACR, 0x80, &context)
 	assert.Equal(t, true, circuit.portB.GetBusLine(7).Status())
 
 	// Will now test PB7 behaviour
@@ -913,8 +913,8 @@ func TestTimer1OneShotMode(t *testing.T) {
 
 	// Repeats the couting from 10, now evaluating the
 	// PB7 flag to stay low while counting
-	setupAndCountFrom(t, &config, context)
-	disableChipAndStepTime(via, circuit, context)
+	setupAndCountFrom(t, &config, &context)
+	disableChipAndStepTime(via, circuit, &context)
 
 	// At this point IRQ is set (low) and PB7 goes back to high
 	assert.Equal(t, false, circuit.irq.Status())
@@ -923,7 +923,7 @@ func TestTimer1OneShotMode(t *testing.T) {
 	// Counter kept decreasing and rolled over to 0xFFFE
 	assert.Equal(t, uint16(0xFFFE), via.registers.counter1)
 	enableChip(circuit)
-	t1HighCounter := readFromVia(via, circuit, regT1CH, context)
+	t1HighCounter := readFromVia(via, circuit, regT1CH, &context)
 	assert.Equal(t, uint8(0xFF), t1HighCounter)
 }
 
@@ -951,19 +951,19 @@ func TestTimer1FreeRunMode(t *testing.T) {
 
 	// Set ACR to 0x11, for this test is important bit 6 and 7 = 11 -> Timer 1 free run and PB7 enabled
 	// Line 7 goes high when ACR is set to output
-	writeToVia(via, circuit, regACR, 0xC0, context)
+	writeToVia(via, circuit, regACR, 0xC0, &context)
 	assert.Equal(t, true, circuit.portB.GetBusLine(7).Status())
 
 	// Enable interrupts for T1 timeout (bit 7 -> enable, bit 6 -> T1)
-	writeToVia(via, circuit, regIER, 0xC0, context)
+	writeToVia(via, circuit, regIER, 0xC0, &context)
 
 	// Counts down from 10, it takes N+1 cycles to count down
 	// While counting PB7 is driven low and IRQ stays high
-	setupAndCountFrom(t, &config, context)
+	setupAndCountFrom(t, &config, &context)
 
 	// After counting to 0 requires extra 0.5 step
 	// to trigger IRQ and port B toggles high.
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 	assert.Equal(t, true, circuit.portB.GetBusLine(7).Status())
 
@@ -973,18 +973,18 @@ func TestTimer1FreeRunMode(t *testing.T) {
 	// expect that one to remain low.
 	config.pB7expectedStatus = true
 	config.expectedIRQStatusWhenCounting = false
-	countToTarget(t, &config, context)
+	countToTarget(t, &config, &context)
 
 	// After couting to zero, we need one more step to transition.
 	// PB7 will go low, IRQ remains low (unchanged)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 	assert.Equal(t, false, circuit.portB.GetBusLine(7).Status())
 
 	// Clear the interrupt flag by reading T1 low order counter
 	// This spent one cycle from the new counting so counter will be 9.
 	enableChip(circuit)
-	counter := readFromVia(via, circuit, regT1CL, context)
+	counter := readFromVia(via, circuit, regT1CL, &context)
 	assert.Equal(t, uint8(0x09), counter)
 	assert.Equal(t, true, circuit.irq.Status())
 
@@ -994,17 +994,17 @@ func TestTimer1FreeRunMode(t *testing.T) {
 	config.cyclesToExecute = 10
 	config.expectedIRQStatusWhenCounting = true
 	config.pB7expectedStatus = false
-	countToTarget(t, &config, context)
+	countToTarget(t, &config, &context)
 
 	// One extra step to update status lines,
 	// IRQ will trigger (go low) and PB7 will toggle high
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 	assert.Equal(t, true, circuit.portB.GetBusLine(7).Status())
 
 	// Clear the interrupt flag by writing zero to the high latch
 	enableChip(circuit)
-	writeToVia(via, circuit, regT1HL, 0x01, context)
+	writeToVia(via, circuit, regT1HL, 0x01, &context)
 	assert.Equal(t, uint8(0x01), via.registers.highLatches1)
 	assert.Equal(t, true, circuit.irq.Status())
 }
@@ -1032,44 +1032,44 @@ func TestTimer2OneShotMode(t *testing.T) {
 	}
 
 	// Set ACR to 0x00, for this test is important bit 5 = 00 -> Timer 2 single shot
-	writeToVia(via, circuit, regACR, 0x00, context)
+	writeToVia(via, circuit, regACR, 0x00, &context)
 
 	// Enable interrupts for T2 timeout (bit 7 -> enable, bit 5 -> T2)
-	writeToVia(via, circuit, regIER, 0xA0, context)
+	writeToVia(via, circuit, regIER, 0xA0, &context)
 
 	// Counts down from 10, it takes N+1 cycles to count down
 	// While counting PB7 is not driven and IRQ stays high
-	setupAndCountFrom(t, &config, context)
+	setupAndCountFrom(t, &config, &context)
 
 	// After counting to 0 requires extra 0.5 step
 	// to trigger IRQ
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 
 	// Counter keeps counting down.
 	// When IRQ triggered counter was in the end of FFFF / beginning of FFFE
 	// 2 extra cycles will move that to FFFC
-	disableChipAndStepTime(via, circuit, context)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, uint16(0xFFFC), via.registers.counter2)
 
 	// Reenable the chip
 	enableChip(circuit)
 
 	// Clear the interrupt flag by reading T2 low order counter
-	counter := readFromVia(via, circuit, regT2CL, context)
+	counter := readFromVia(via, circuit, regT2CL, &context)
 	assert.Equal(t, uint8(0xFB), counter)
 	assert.Equal(t, true, circuit.irq.Status())
 
 	// Repeats the couting from 10
-	setupAndCountFrom(t, &config, context)
-	disableChipAndStepTime(via, circuit, context)
+	setupAndCountFrom(t, &config, &context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 
 	// Counter kept going down and rolled over to 0xFFFE
 	assert.Equal(t, uint16(0xFFFE), via.registers.counter2)
 	enableChip(circuit)
-	t2HighCounter := readFromVia(via, circuit, regT2CH, context)
+	t2HighCounter := readFromVia(via, circuit, regT2CH, &context)
 	assert.Equal(t, uint8(0xFF), t2HighCounter)
 
 }
@@ -1083,21 +1083,21 @@ func TestTimer2PulseCountingMode(t *testing.T) {
 	circuit.wire(via)
 
 	// Set ACR to 0x00, for this test is important bit 5 = 1 -> Timer 2 pulse counting
-	writeToVia(via, circuit, regACR, 0x20, context)
+	writeToVia(via, circuit, regACR, 0x20, &context)
 
 	// Enable interrupts for T2 timeout (bit 7 -> enable, bit 5 -> T2)
-	writeToVia(via, circuit, regIER, 0xA0, context)
+	writeToVia(via, circuit, regIER, 0xA0, &context)
 
 	// Set PB6 high so it doesn't count down
 	circuit.portB.GetBusLine(6).Set(true)
 
 	// Set counter to 10
-	writeToVia(via, circuit, regT2CL, 10, context)
-	writeToVia(via, circuit, regT2CH, 0x00, context)
+	writeToVia(via, circuit, regT2CL, 10, &context)
+	writeToVia(via, circuit, regT2CH, 0x00, &context)
 
 	// Pass 2 cycles, counter should still be in 10
-	disableChipAndStepTime(via, circuit, context)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
+	disableChipAndStepTime(via, circuit, &context)
 
 	assert.Equal(t, uint16(10), via.registers.counter2)
 
@@ -1107,18 +1107,18 @@ func TestTimer2PulseCountingMode(t *testing.T) {
 	// beggining of cycle with 0 in the counter. Might need to test in real hardware
 	for n := 11; n > 0; n-- {
 		circuit.portB.GetBusLine(6).Set(false)
-		disableChipAndStepTime(via, circuit, context)
+		disableChipAndStepTime(via, circuit, &context)
 		assert.Equal(t, uint16(n-2), via.registers.counter2)
 
 		circuit.portB.GetBusLine(6).Set(true)
-		disableChipAndStepTime(via, circuit, context)
+		disableChipAndStepTime(via, circuit, &context)
 		assert.Equal(t, uint16(n-2), via.registers.counter2)
 	}
 
 	// After counting to 0 requires extra 0.5 step
 	// to trigger IRQ
 	circuit.portB.GetBusLine(6).Set(false)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 }
 
@@ -1138,7 +1138,7 @@ type shiftingTestConfiguration struct {
 	outputMode       bool
 }
 
-func executeShiftingCycle(t *testing.T, config *shiftingTestConfiguration, context common.StepContext) {
+func executeShiftingCycle(t *testing.T, config *shiftingTestConfiguration, context *common.StepContext) {
 	for i := range config.numberOfCycles {
 		if !config.automatic {
 			if i == config.manualShiftStart {
@@ -1169,7 +1169,7 @@ func executeShiftingCycle(t *testing.T, config *shiftingTestConfiguration, conte
 	}
 }
 
-func executeNonShiftingCycle(t *testing.T, config *shiftingTestConfiguration, context common.StepContext) {
+func executeNonShiftingCycle(t *testing.T, config *shiftingTestConfiguration, context *common.StepContext) {
 	if !config.automatic {
 		config.circuit.cb1.Set(true)
 	}
@@ -1193,16 +1193,16 @@ func TestShiftInAtT2Rate(t *testing.T) {
 	circuit.wire(via)
 
 	// Set ACR to 0x04, for this test is important bit 4, 3 and 2 = 001 (Shift under T2 control)
-	writeToVia(via, circuit, regACR, 0x04, context)
+	writeToVia(via, circuit, regACR, 0x04, &context)
 
 	// Enable interrupts for SR completion (Bit 2)
-	writeToVia(via, circuit, regIER, 0x84, context)
+	writeToVia(via, circuit, regIER, 0x84, &context)
 
 	// Trigger shifting by writing 0 to SR
-	writeToVia(via, circuit, regSR, 0x00, context)
+	writeToVia(via, circuit, regSR, 0x00, &context)
 
 	// Write T2 low latch to set shifting every 5 cycles
-	writeToVia(via, circuit, regT2CL, 0x05, context)
+	writeToVia(via, circuit, regT2CL, 0x05, &context)
 
 	// TODO: Due to the above set of timer, isn't it waiting one extra cycle?
 
@@ -1213,12 +1213,12 @@ func TestShiftInAtT2Rate(t *testing.T) {
 	assert.Equal(t, uint8(0x00), via.registers.shiftRegister)
 
 	// Step will just decrement timer, no expected change
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, true, circuit.irq.Status())
 	assert.Equal(t, true, circuit.cb1.Status())
 
 	// Step will just decrement timer, no expected change
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, true, circuit.irq.Status())
 	assert.Equal(t, true, circuit.cb1.Status())
 
@@ -1233,37 +1233,37 @@ func TestShiftInAtT2Rate(t *testing.T) {
 
 	// Execute shifting cycle, a total of N+2 cycles will be needed
 	// to complete the shifting. CB1 will be down until cycle completion
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0x01), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift a 0 on second cycle
 	config.dataChangeCyle = 1
 	config.bitValue = false
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0x02), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift a 1 on last cycle
 	config.dataChangeCyle = 6
 	config.bitValue = true
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0x05), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift a 0 on first cycle
 	config.dataChangeCyle = 0
 	config.bitValue = false
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0x0a), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift 3 bits in one in a row
 	config.dataChangeCyle = 0
 	config.bitValue = true
 	for range 3 {
-		executeShiftingCycle(t, &config, context)
-		executeNonShiftingCycle(t, &config, context)
+		executeShiftingCycle(t, &config, &context)
+		executeNonShiftingCycle(t, &config, &context)
 	}
 
 	assert.Equal(t, uint8(0x57), via.registers.shiftRegister)
@@ -1272,10 +1272,10 @@ func TestShiftInAtT2Rate(t *testing.T) {
 	config.dataChangeCyle = 0
 	config.bitValue = true
 	config.numberOfCycles = 6
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 
 	// Execute last shift for a full byte shifted
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 
 	// 8 bits were shifted, IRQ is triggered shifting stops.
 	assert.Equal(t, uint8(0xaf), via.registers.shiftRegister)
@@ -1292,13 +1292,13 @@ func TestShiftInAtClockRate(t *testing.T) {
 	circuit.wire(via)
 
 	// Set ACR to 0x04, for this test is important bit 4, 3 and 2 = 010 (Shift under clock control)
-	writeToVia(via, circuit, regACR, 0x08, context)
+	writeToVia(via, circuit, regACR, 0x08, &context)
 
 	// Enable interrupts for SR completion (Bit 2)
-	writeToVia(via, circuit, regIER, 0x84, context)
+	writeToVia(via, circuit, regIER, 0x84, &context)
 
 	// Trigger shifting by writing 0 to SR
-	writeToVia(via, circuit, regSR, 0x00, context)
+	writeToVia(via, circuit, regSR, 0x00, &context)
 
 	// IRQ is not triggered and CB1 is raised high for 1.5 cycles (see WDC data sheet for 65C22S page 22)
 	// SR is 0
@@ -1317,39 +1317,39 @@ func TestShiftInAtClockRate(t *testing.T) {
 	}
 
 	// Shift a 1
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0x01), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift a 0
 	config.bitValue = false
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0x02), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift a 1
 	config.bitValue = true
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0x05), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift a 0
 	config.bitValue = false
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0x0a), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift 3 bits in one in a row
 	config.bitValue = true
 	for range 3 {
-		executeShiftingCycle(t, &config, context)
-		executeNonShiftingCycle(t, &config, context)
+		executeShiftingCycle(t, &config, &context)
+		executeNonShiftingCycle(t, &config, &context)
 	}
 
 	assert.Equal(t, uint8(0x57), via.registers.shiftRegister)
 
 	// Last shifting cycle
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 
 	// 8 bits were shifted, IRQ is triggered shifting stops.
 	assert.Equal(t, uint8(0xaf), via.registers.shiftRegister)
@@ -1366,17 +1366,17 @@ func TestShiftInAtExternalRate(t *testing.T) {
 	circuit.wire(via)
 
 	// Set ACR to 0x0C, for this test is important bit 4, 3 and 2 = 011 (Shift under clock control)
-	writeToVia(via, circuit, regACR, 0x0C, context)
+	writeToVia(via, circuit, regACR, 0x0C, &context)
 
 	// Shifting is controlled externally when CB1 is dropped
 	// Let's make it high for now
 	circuit.cb1.Set(true)
 
 	// Enable interrupts for SR completion (Bit 2)
-	writeToVia(via, circuit, regIER, 0x84, context)
+	writeToVia(via, circuit, regIER, 0x84, &context)
 
 	// Trigger shifting by writing 0 to SR
-	writeToVia(via, circuit, regSR, 0x00, context)
+	writeToVia(via, circuit, regSR, 0x00, &context)
 
 	// IRQ is not triggered, SR is 0
 	assert.Equal(t, true, circuit.irq.Status())
@@ -1394,39 +1394,39 @@ func TestShiftInAtExternalRate(t *testing.T) {
 	}
 
 	// Shift a 1
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0x01), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift a 0, but because data in CB2 changes too late
 	circuit.cb2.Set(false)
 	config.bitValue = true
 	config.dataChangeCyle = 9
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0x02), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift a 1
 	config.bitValue = true
 	config.dataChangeCyle = 7
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0x05), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift a 0, data changing early
 	config.bitValue = false
 	config.dataChangeCyle = 1
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0x0a), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift 3 bits in one in a row
 	// Shift a 1
 	config.bitValue = true
 	config.dataChangeCyle = 6
 	for range 3 {
-		executeShiftingCycle(t, &config, context)
-		executeNonShiftingCycle(t, &config, context)
+		executeShiftingCycle(t, &config, &context)
+		executeNonShiftingCycle(t, &config, &context)
 	}
 
 	assert.Equal(t, uint8(0x57), via.registers.shiftRegister)
@@ -1437,12 +1437,12 @@ func TestShiftInAtExternalRate(t *testing.T) {
 	config.numberOfCycles = 6
 	config.manualShiftStart = 0
 	config.manualShiftStop = 10
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 
 	// Raise CB1 and execute 1 step to complete shifting last bit
 	// of a full byte
 	circuit.cb1.Set(true)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 
 	// 8 bits were shifted, IRQ is triggered shifting stops.
 	assert.Equal(t, uint8(0xaf), via.registers.shiftRegister)
@@ -1459,16 +1459,16 @@ func TestShiftOutAtT2Rate(t *testing.T) {
 	circuit.wire(via)
 
 	// Set ACR to 0x14, for this test is important bit 4, 3 and 2 = 101 (Shift under T2 control)
-	writeToVia(via, circuit, regACR, 0x14, context)
+	writeToVia(via, circuit, regACR, 0x14, &context)
 
 	// Enable interrupts for SR completion (Bit 2)
-	writeToVia(via, circuit, regIER, 0x84, context)
+	writeToVia(via, circuit, regIER, 0x84, &context)
 
 	// Trigger shifting by writing 0 to SR
-	writeToVia(via, circuit, regSR, 0xAA, context)
+	writeToVia(via, circuit, regSR, 0xAA, &context)
 
 	// Write T2 low latch to set shifting every 5 cycles
-	writeToVia(via, circuit, regT2CL, 0x05, context)
+	writeToVia(via, circuit, regT2CL, 0x05, &context)
 
 	// IRQ is not triggered and CB1 is raised high for 1.5 cycles (see WDC data sheet for 65C22S page 22)
 	assert.Equal(t, true, circuit.irq.Status())
@@ -1477,13 +1477,13 @@ func TestShiftOutAtT2Rate(t *testing.T) {
 	assert.Equal(t, uint8(0xAA), via.registers.shiftRegister)
 
 	// Step will just decrement timer, no expected change
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, true, circuit.irq.Status())
 	assert.Equal(t, true, circuit.cb1.Status())
 	assert.Equal(t, true, circuit.cb2.Status())
 
 	// Step will just decrement timer, no expected change
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, true, circuit.irq.Status())
 	assert.Equal(t, true, circuit.cb1.Status())
 	assert.Equal(t, true, circuit.cb2.Status())
@@ -1502,7 +1502,7 @@ func TestShiftOutAtT2Rate(t *testing.T) {
 	// This means that value will alternate between 0xAA and 0x55.
 	// This sequence stops one bit short of a full byte
 	for range 7 {
-		executeShiftingCycle(t, &config, context)
+		executeShiftingCycle(t, &config, &context)
 
 		if config.bitValue {
 			assert.Equal(t, uint8(0x55), via.registers.shiftRegister)
@@ -1510,7 +1510,7 @@ func TestShiftOutAtT2Rate(t *testing.T) {
 			assert.Equal(t, uint8(0xaa), via.registers.shiftRegister)
 		}
 
-		executeNonShiftingCycle(t, &config, context)
+		executeNonShiftingCycle(t, &config, &context)
 
 		config.bitValue = !config.bitValue
 	}
@@ -1518,10 +1518,10 @@ func TestShiftOutAtT2Rate(t *testing.T) {
 	// Shift 1 more bit but stop 1 cycle short of shift completion
 	config.bitValue = false
 	config.numberOfCycles = 6
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 
 	// Execute last shift for a full byte shifted
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 
 	// 8 bits were shifted out, IRQ is triggered shifting stops.
 	assert.Equal(t, uint8(0xaa), via.registers.shiftRegister)
@@ -1531,7 +1531,7 @@ func TestShiftOutAtT2Rate(t *testing.T) {
 
 	// Reads the SR
 	enableChip(circuit)
-	value := readFromVia(via, circuit, regSR, context)
+	value := readFromVia(via, circuit, regSR, &context)
 	assert.Equal(t, uint8(0xaa), value)
 }
 
@@ -1544,13 +1544,13 @@ func TestShiftOutAtClockRate(t *testing.T) {
 	circuit.wire(via)
 
 	// Set ACR to 0x18, for this test is important bit 4, 3 and 2 = 110 (Shift under T2 control)
-	writeToVia(via, circuit, regACR, 0x18, context)
+	writeToVia(via, circuit, regACR, 0x18, &context)
 
 	// Enable interrupts for SR completion (Bit 2)
-	writeToVia(via, circuit, regIER, 0x84, context)
+	writeToVia(via, circuit, regIER, 0x84, &context)
 
 	// Trigger shifting by writing 0 to SR
-	writeToVia(via, circuit, regSR, 0xAA, context)
+	writeToVia(via, circuit, regSR, 0xAA, &context)
 
 	// TODO: Not waiting 2 cycles to start ?
 
@@ -1573,7 +1573,7 @@ func TestShiftOutAtClockRate(t *testing.T) {
 	// This means that value will alternate between 0xAA and 0x55.
 	// This sequence stops one bit short of a full byte
 	for range 7 {
-		executeShiftingCycle(t, &config, context)
+		executeShiftingCycle(t, &config, &context)
 
 		if config.bitValue {
 			assert.Equal(t, uint8(0x55), via.registers.shiftRegister)
@@ -1581,13 +1581,13 @@ func TestShiftOutAtClockRate(t *testing.T) {
 			assert.Equal(t, uint8(0xaa), via.registers.shiftRegister)
 		}
 
-		executeNonShiftingCycle(t, &config, context)
+		executeNonShiftingCycle(t, &config, &context)
 
 		config.bitValue = !config.bitValue
 	}
 
 	// Execute last shift for a full byte shifted
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 
 	// 8 bits were shifted out, IRQ is triggered shifting stops.
 	assert.Equal(t, uint8(0xaa), via.registers.shiftRegister)
@@ -1606,17 +1606,17 @@ func TestShiftOutAtExternalRate(t *testing.T) {
 	circuit.wire(via)
 
 	// Set ACR to 0x1C, for this test is important bit 4, 3 and 2 = 111 (Shift under clock control)
-	writeToVia(via, circuit, regACR, 0x1C, context)
+	writeToVia(via, circuit, regACR, 0x1C, &context)
 
 	// Shifting is controlled externally when CB1 is dropped
 	// Let's make it high for now
 	circuit.cb1.Set(true)
 
 	// Enable interrupts for SR completion (Bit 2)
-	writeToVia(via, circuit, regIER, 0x84, context)
+	writeToVia(via, circuit, regIER, 0x84, &context)
 
 	// Trigger shifting by writing 0xAA to SR
-	writeToVia(via, circuit, regSR, 0xAA, context)
+	writeToVia(via, circuit, regSR, 0xAA, &context)
 
 	// IRQ is not triggered, SR is 0
 	assert.Equal(t, true, circuit.irq.Status())
@@ -1634,63 +1634,63 @@ func TestShiftOutAtExternalRate(t *testing.T) {
 	}
 
 	// Shift a 1
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0x55), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift a 0
 	config.bitValue = false
 	config.manualShiftStart = 0
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0xAA), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift a 1
 	config.bitValue = true
 	config.manualShiftStart = 1
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0x55), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift a 0
 	config.bitValue = false
 	config.manualShiftStart = 4
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0xAA), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift a 1
 	config.bitValue = true
 	config.manualShiftStart = 6
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0x55), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift a 0
 	config.bitValue = false
 	config.manualShiftStart = 2
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0xAA), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift a 1
 	config.bitValue = true
 	config.manualShiftStart = 3
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 	assert.Equal(t, uint8(0x55), via.registers.shiftRegister)
-	executeNonShiftingCycle(t, &config, context)
+	executeNonShiftingCycle(t, &config, &context)
 
 	// Shift 1 more bit but stop 1 cycle short of shift completion
 	config.bitValue = false
 	config.numberOfCycles = 6
 	config.manualShiftStart = 0
 	config.manualShiftStop = 10
-	executeShiftingCycle(t, &config, context)
+	executeShiftingCycle(t, &config, &context)
 
 	// Raise CB1 and execute 1 step to complete shifting last bit
 	// of a full byte
 	circuit.cb1.Set(true)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 
 	// 8 bits were shifted, IRQ is triggered shifting stops.
 	assert.Equal(t, uint8(0xaa), via.registers.shiftRegister)
@@ -1708,16 +1708,16 @@ func TestShiftOutAtFreeRate(t *testing.T) {
 	circuit.wire(via)
 
 	// Set ACR to 0x10, for this test is important bit 4, 3 and 2 = 100 (Shift free under T2 control)
-	writeToVia(via, circuit, regACR, 0x10, context)
+	writeToVia(via, circuit, regACR, 0x10, &context)
 
 	// Enable interrupts for SR completion (Bit 2)
-	writeToVia(via, circuit, regIER, 0x84, context)
+	writeToVia(via, circuit, regIER, 0x84, &context)
 
 	// Trigger shifting by writing 0 to SR
-	writeToVia(via, circuit, regSR, 0xAA, context)
+	writeToVia(via, circuit, regSR, 0xAA, &context)
 
 	// Write T2 low latch to set shifting every 5 cycles
-	writeToVia(via, circuit, regT2CL, 0x05, context)
+	writeToVia(via, circuit, regT2CL, 0x05, &context)
 
 	// IRQ is not triggered and CB1 is raised high for 1.5 cycles (see WDC data sheet for 65C22S page 22)
 	assert.Equal(t, true, circuit.irq.Status())
@@ -1726,13 +1726,13 @@ func TestShiftOutAtFreeRate(t *testing.T) {
 	assert.Equal(t, uint8(0xAA), via.registers.shiftRegister)
 
 	// Step will just decrement timer, no expected change
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, true, circuit.irq.Status())
 	assert.Equal(t, true, circuit.cb1.Status())
 	assert.Equal(t, true, circuit.cb2.Status())
 
 	// Step will just decrement timer, no expected change
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, true, circuit.irq.Status())
 	assert.Equal(t, true, circuit.cb1.Status())
 	assert.Equal(t, true, circuit.cb2.Status())
@@ -1752,7 +1752,7 @@ func TestShiftOutAtFreeRate(t *testing.T) {
 	// Since the Shift Register bit 7 (SR7) is recirculated back into bit 0, the 8 bits loaded into the
 	// shift register will be clocked onto CB2 repetitively. In this mode the shift register counter is disabled.
 	for range 16 {
-		executeShiftingCycle(t, &config, context)
+		executeShiftingCycle(t, &config, &context)
 
 		if config.bitValue {
 			assert.Equal(t, uint8(0x55), via.registers.shiftRegister)
@@ -1760,7 +1760,7 @@ func TestShiftOutAtFreeRate(t *testing.T) {
 			assert.Equal(t, uint8(0xaa), via.registers.shiftRegister)
 		}
 
-		executeNonShiftingCycle(t, &config, context)
+		executeNonShiftingCycle(t, &config, &context)
 
 		config.bitValue = !config.bitValue
 	}
@@ -1807,51 +1807,51 @@ func TestCausingAnInterruptInT1AndT2andClearByWritingToIFR(t *testing.T) {
 	}
 
 	// Set ACR to 0x00, for this test is important bit 6 and 7 = 00 -> Timer 1 single shot PB7 disabled
-	writeToVia(via, circuit, regACR, 0x00, context)
+	writeToVia(via, circuit, regACR, 0x00, &context)
 
 	// Enable interrupts for T1 and T2 timeout (bit 7 -> enable, bit 6 -> T1, bit 5 -> T2)
-	writeToVia(via, circuit, regIER, 0xE0, context)
+	writeToVia(via, circuit, regIER, 0xE0, &context)
 
 	// Counts down from 10 on T1, it takes N+1 cycles to count down
-	setupAndCountFrom(t, &configT1, context)
-	disableChipAndStepTime(via, circuit, context)
+	setupAndCountFrom(t, &configT1, &context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 
 	enableChip(circuit)
 	// Counts down from 10 on T2, it takes N+1 cycles to count down
-	setupAndCountFrom(t, &configT2, context)
-	disableChipAndStepTime(via, circuit, context)
+	setupAndCountFrom(t, &configT2, &context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 
 	// Reenable the chip and read IFR, value should be IRQ Enabled (Bit 7) | Timout T1 (Bit 6) | Timeout T2 (Bit 5)
 	enableChip(circuit)
-	ifr := readFromVia(via, circuit, regIFR, context)
+	ifr := readFromVia(via, circuit, regIFR, &context)
 	assert.Equal(t, uint8(0xE0), ifr)
 
 	// Clear T2 only by writing to IFR
-	writeToVia(via, circuit, regIFR, 0x20, context)
+	writeToVia(via, circuit, regIFR, 0x20, &context)
 
 	// Assert that IRQ nad T1 are still set
-	ifr = readFromVia(via, circuit, regIFR, context)
+	ifr = readFromVia(via, circuit, regIFR, &context)
 	assert.Equal(t, uint8(0xC0), ifr)
 
 	// Clear T1 only by writing to IFR
-	writeToVia(via, circuit, regIFR, 0x40, context)
+	writeToVia(via, circuit, regIFR, 0x40, &context)
 
 	// Since now T1 is cleared and there are not active flags IRQ flag (bit 7) also clears
 	// and IRQ line goes high
-	ifr = readFromVia(via, circuit, regIFR, context)
+	ifr = readFromVia(via, circuit, regIFR, &context)
 	assert.Equal(t, uint8(0x00), ifr)
 	assert.Equal(t, true, circuit.irq.Status())
 
 	// IER is still enabled for T1 and T2 (bit 7 is always returned as 0 when reading)
-	ier := readFromVia(via, circuit, regIER, context)
+	ier := readFromVia(via, circuit, regIER, &context)
 	assert.Equal(t, uint8(0x60), ier)
 
 	// Writing to IER with bit 7 in 0 clears the corresponding bits.
 	// Disable interrupts for T2
-	writeToVia(via, circuit, regIER, 0x20, context)
-	ier = readFromVia(via, circuit, regIER, context)
+	writeToVia(via, circuit, regIER, 0x20, &context)
+	ier = readFromVia(via, circuit, regIER, &context)
 	assert.Equal(t, uint8(0x40), ier)
 }
 
@@ -1868,13 +1868,13 @@ func TestNoHandshakeOnPortAWhenReadingOnRSEqualF(t *testing.T) {
 	circuit.wire(via)
 
 	// Set all pins on Port A to input
-	writeToVia(via, circuit, regDDRA, 0x00, context)
+	writeToVia(via, circuit, regDDRA, 0x00, &context)
 
 	// Set interrupt on CA1 transition enabled
-	writeToVia(via, circuit, regIER, 0x82, context)
+	writeToVia(via, circuit, regIER, 0x82, &context)
 
 	// Set interrupt on positive edge of CA1 (0x01) and CA2 in handshake desired handshake mode
-	writeToVia(via, circuit, regPCR, 0x08|0x01, context)
+	writeToVia(via, circuit, regPCR, 0x08|0x01, &context)
 
 	// In handshake mode CA2 is default high
 	assert.Equal(t, true, circuit.ca2.Status())
@@ -1885,25 +1885,25 @@ func TestNoHandshakeOnPortAWhenReadingOnRSEqualF(t *testing.T) {
 	circuit.ca1.Set(true)
 
 	// Step time and check that IRQ is now active (low)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 
 	// Simulate some more steps and check
-	disableChipAndStepTime(via, circuit, context)
-	disableChipAndStepTime(via, circuit, context)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
+	disableChipAndStepTime(via, circuit, &context)
+	disableChipAndStepTime(via, circuit, &context)
 	assert.Equal(t, false, circuit.irq.Status())
 
 	// Clear the data ready signal in CA 1
 	circuit.ca1.Set(false)
-	disableChipAndStepTime(via, circuit, context)
-	disableChipAndStepTime(via, circuit, context)
+	disableChipAndStepTime(via, circuit, &context)
+	disableChipAndStepTime(via, circuit, &context)
 	// IRQ stays triggered
 	assert.Equal(t, false, circuit.irq.Status())
 
 	// Re-enable the chip and read IRA
 	enableChip(circuit)
-	readFromVia(via, circuit, regORAIRANoHandshake, context)
+	readFromVia(via, circuit, regORAIRANoHandshake, &context)
 
 	// CA2 will not dropp to signal "data taken" as no handshake is triggered
 	assert.Equal(t, true, circuit.ca2.Status())
@@ -1911,10 +1911,10 @@ func TestNoHandshakeOnPortAWhenReadingOnRSEqualF(t *testing.T) {
 	assert.Equal(t, true, circuit.irq.Status())
 
 	// Set latching enabled on Port A
-	writeToVia(via, circuit, regACR, 0x01, context)
+	writeToVia(via, circuit, regACR, 0x01, &context)
 
 	// With latching enabled the value of CA2 is also not changed
-	readFromVia(via, circuit, regORAIRANoHandshake, context)
+	readFromVia(via, circuit, regORAIRANoHandshake, &context)
 
 	// CA2 will not dropp to signal "data taken" as no handshake is triggered
 	assert.Equal(t, true, circuit.ca2.Status())
@@ -1932,13 +1932,13 @@ func TestNoHandshakeOnPortAWhenWritingOnRSEqualF(t *testing.T) {
 	circuit.wire(via)
 
 	// Set all pins on Port A to output
-	writeToVia(via, circuit, regDDRA, 0xFF, context)
+	writeToVia(via, circuit, regDDRA, 0xFF, &context)
 
 	// Set interrupt on CA1 transition enabled
-	writeToVia(via, circuit, regIER, 0x82, context)
+	writeToVia(via, circuit, regIER, 0x82, &context)
 
 	// Set interrupt on positive edge of CA1 (0x01) and CA2 in handshake desired handshake mode
-	writeToVia(via, circuit, regPCR, 0x08|0x01, context)
+	writeToVia(via, circuit, regPCR, 0x08|0x01, &context)
 
 	// Data taken is low
 	assert.Equal(t, false, circuit.ca1.Status())
@@ -1948,7 +1948,7 @@ func TestNoHandshakeOnPortAWhenWritingOnRSEqualF(t *testing.T) {
 	assert.Equal(t, true, circuit.irq.Status())
 
 	// Write to ORA
-	writeToVia(via, circuit, regORAIRANoHandshake, 0xFF, context)
+	writeToVia(via, circuit, regORAIRANoHandshake, 0xFF, &context)
 
 	// CA2 will stay high as no signal "data ready" will be done when writing to 0x0F
 	assert.Equal(t, true, circuit.ca2.Status())

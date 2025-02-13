@@ -13,10 +13,10 @@ func runInstructionTest(cpu *Cpu65C02S, ram *memory.Ram, cycles uint64) {
 	context := common.CreateStepContext()
 
 	for i := range cycles {
-		cpu.Tick(context)
-		ram.Tick(context)
+		cpu.Tick(&context)
+		ram.Tick(&context)
 
-		cpu.PostTick(context)
+		cpu.PostTick(&context)
 
 		context.Next()
 		context.Cycle = i

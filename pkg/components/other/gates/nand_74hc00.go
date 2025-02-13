@@ -57,7 +57,7 @@ func (gate *Nand74HC00) YPin(index int) buses.LineConnector {
 }
 
 // Executes one emulation step
-func (gate *Nand74HC00) Tick(stepContext common.StepContext) {
+func (gate *Nand74HC00) Tick(stepContext *common.StepContext) {
 	for i := range numberOfGates {
 		value := !(gate.a[i].Enabled() && gate.b[i].Enabled())
 		gate.y[i].SetEnable(value)

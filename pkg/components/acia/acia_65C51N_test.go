@@ -146,7 +146,7 @@ func writeToAcia(acia *Acia65C51N, circuit *testCircuit, register uint8, value u
 
 	step.Next()
 
-	acia.Tick(*step)
+	acia.Tick(step)
 }
 
 // Reads and returns the value from the specified register in the ACIA chip.
@@ -156,7 +156,7 @@ func readFromAcia(acia *Acia65C51N, circuit *testCircuit, register uint8, step *
 
 	step.Next()
 
-	acia.Tick(*step)
+	acia.Tick(step)
 
 	return circuit.dataBus.Read()
 }
@@ -168,7 +168,7 @@ func disableChipAndStepTime(acia *Acia65C51N, circuit *testCircuit, step *common
 
 	step.Next()
 
-	acia.Tick(*step)
+	acia.Tick(step)
 }
 
 // Re-enables chip
