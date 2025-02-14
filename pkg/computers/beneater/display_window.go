@@ -9,10 +9,11 @@ import (
 )
 
 type displayWindow struct {
-	text *tview.TextView
+	computer *BenEaterComputer
+	text     *tview.TextView
 }
 
-func createDisplayWindow() *displayWindow {
+func createDisplayWindow(computer *BenEaterComputer) *displayWindow {
 	text := tview.NewTextView()
 	text.SetTextAlign(tview.AlignCenter).
 		SetScrollable(false).
@@ -21,11 +22,17 @@ func createDisplayWindow() *displayWindow {
 		SetTitle("LCD Display")
 
 	return &displayWindow{
-		text: text,
+		computer: computer,
+		text:     text,
 	}
 }
 
-func (d *displayWindow) showLCD(lcd *lcd.LcdHD44780U) {
+func (d *displayWindow) Clear() {
+	d.text.Clear()
+}
+
+func (d *displayWindow) Draw() {
+	lcd := d.computer.chips.lcd
 	const line1MinIndex, line1MaxIndex = 0, 40
 	const line2MinIndex, line2MaxIndex = 40, 80
 

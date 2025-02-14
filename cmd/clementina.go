@@ -13,8 +13,8 @@ func main() {
 	computer.Load("./assets/computer/beneater/eater.bin")
 
 	executor := computers.CreateExecutor(computer, &computers.ExecutorConfig{
-		TargetSpeedMhz: 20.0,
-		DisplayFps:     10,
+		TargetSpeedMhz: 80.0,
+		DisplayFps:     15,
 	})
 
 	t := time.Now()

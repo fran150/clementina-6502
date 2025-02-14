@@ -9,7 +9,6 @@ import (
 	"github.com/fran150/clementina6502/pkg/components/memory"
 	"github.com/fran150/clementina6502/pkg/components/other/gates"
 	"github.com/fran150/clementina6502/pkg/components/via"
-	"github.com/fran150/clementina6502/pkg/ui"
 	"github.com/gdamore/tcell/v2"
 	"go.bug.st/serial"
 )
@@ -172,15 +171,16 @@ func CreateBenEaterComputer(portName string) *BenEaterComputer {
 
 	chips.acia.ConnectToPort(circuit.serial)
 
-	console := createMainConsole()
-
-	return &BenEaterComputer{
+	computer := &BenEaterComputer{
 		chips:       chips,
 		circuit:     circuit,
-		console:     console,
 		mustReset:   false,
 		resetCycles: 0,
 	}
+
+	computer.console = createMainConsole(computer)
+
+	return computer
 }
 
 func (c *BenEaterComputer) Load(romImagePath string) {
@@ -191,16 +191,7 @@ func (c *BenEaterComputer) Load(romImagePath string) {
 }
 
 func (c *BenEaterComputer) UpdateDisplay(context *common.StepContext) {
-	c.console.lcdDisplay.text.Clear()
-	c.console.lcdDisplay.showLCD(c.chips.lcd)
-
-	c.console.codeWindow.code.Clear()
-	c.console.codeWindow.ShowCode()
-
-	c.console.other.Clear()
-	ui.ShowLCDState(c.console.other, c.chips.lcd)
-
-	c.console.app.Draw()
+	c.console.Draw(context)
 }
 
 func (c *BenEaterComputer) Close() {

@@ -12,8 +12,8 @@ import (
 const maxLinesOfCode = 30
 
 type codeWindow struct {
-	code      *tview.TextView
-	codeLines *queue.SimpleQueue[string]
+	text  *tview.TextView
+	lines *queue.SimpleQueue[string]
 }
 
 func createCodeWindow() *codeWindow {
@@ -25,22 +25,26 @@ func createCodeWindow() *codeWindow {
 	code.SetBorder(true)
 
 	return &codeWindow{
-		code:      code,
-		codeLines: queue.CreateQueue[string](),
+		text:  code,
+		lines: queue.CreateQueue[string](),
 	}
 }
 
 func (d *codeWindow) AddLineOfCode(programCounter uint16, instruction *cpu.CpuInstructionData, potentialOperands [2]uint8) {
 	codeLine := ui.ShowCurrentInstruction(programCounter, instruction, potentialOperands)
 
-	d.codeLines.Queue(codeLine)
+	d.lines.Queue(codeLine)
 
-	if d.codeLines.Size() > maxLinesOfCode {
-		d.codeLines.DeQueue()
+	if d.lines.Size() > maxLinesOfCode {
+		d.lines.DeQueue()
 	}
 }
 
-func (d *codeWindow) ShowCode() {
-	values := d.codeLines.GetValues()
-	d.code.SetText(strings.Join(values, ""))
+func (d *codeWindow) Clear() {
+	d.text.Clear()
+}
+
+func (d *codeWindow) Draw() {
+	values := d.lines.GetValues()
+	d.text.SetText(strings.Join(values, ""))
 }
