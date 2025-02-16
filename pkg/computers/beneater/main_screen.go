@@ -2,20 +2,24 @@ package beneater
 
 import (
 	"github.com/fran150/clementina6502/pkg/components/common"
-	"github.com/fran150/clementina6502/pkg/ui"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
 type mainConsole struct {
-	computer    *BenEaterComputer
-	app         *tview.Application
-	grid        *tview.Grid
+	computer *BenEaterComputer
+	app      *tview.Application
+	grid     *tview.Grid
+
 	lcdDisplay  *displayWindow
 	codeWindow  *codeWindow
 	speedWindow *speedWindow
-	other       *tview.TextView
-	options     *optionsWindow
+
+	cpuWindow *cpuWindow
+	viaWindow *viaWindow
+	lcdWindow *lcdWindow
+
+	options *optionsWindow
 }
 
 func createMainConsole(computer *BenEaterComputer) *mainConsole {
@@ -28,17 +32,12 @@ func createMainConsole(computer *BenEaterComputer) *mainConsole {
 		SetTitle("Ben Eater 6502 Computer")
 
 	displayWindow := createDisplayWindow(computer)
-
-	codeWindow := createCodeWindow()
-
+	codeWindow := createCodeWindow(computer)
 	speedWindow := createSpeedWindow()
 
-	other := tview.NewTextView()
-	other.SetTextAlign(tview.AlignLeft).
-		SetScrollable(false).
-		SetDynamicColors(true).
-		SetBorder(true).
-		SetTitle("LCD")
+	cpuWindow := createCpuWindow(computer)
+	viaWindow := createViaWindow(computer)
+	lcdWindow := createLcdWindow(computer)
 
 	options := createOptionsWindow([]options{
 		{"ESC", "Quit"},
@@ -51,7 +50,7 @@ func createMainConsole(computer *BenEaterComputer) *mainConsole {
 	grid.AddItem(displayWindow.text, 0, 0, 1, 1, 0, 0, false).
 		AddItem(speedWindow.text, 1, 0, 1, 1, 0, 0, false).
 		AddItem(codeWindow.text, 2, 0, 1, 1, 0, 0, false).
-		AddItem(other, 0, 1, 3, 1, 0, 0, false).
+		AddItem(lcdWindow.text, 0, 1, 3, 1, 0, 0, false).
 		AddItem(options.text, 3, 0, 1, 2, 0, 0, false)
 
 	return &mainConsole{
@@ -61,23 +60,36 @@ func createMainConsole(computer *BenEaterComputer) *mainConsole {
 		lcdDisplay:  displayWindow,
 		codeWindow:  codeWindow,
 		speedWindow: speedWindow,
-		other:       other,
-		options:     options,
+
+		cpuWindow: cpuWindow,
+		viaWindow: viaWindow,
+		lcdWindow: lcdWindow,
+		options:   options,
 	}
+}
+
+func (c *mainConsole) Tick(context *common.StepContext) {
+	c.codeWindow.Tick(context)
 }
 
 func (c *mainConsole) Draw(context *common.StepContext) {
 	c.lcdDisplay.Clear()
-	c.lcdDisplay.Draw()
+	c.lcdDisplay.Draw(context)
 
 	c.codeWindow.Clear()
-	c.codeWindow.Draw()
+	c.codeWindow.Draw(context)
 
-	c.speedWindow.text.Clear()
+	c.speedWindow.Clear()
 	c.speedWindow.Draw(context)
 
-	c.other.Clear()
-	ui.ShowLCDState(c.other, c.computer.chips.lcd)
+	c.viaWindow.Clear()
+	c.viaWindow.Draw(context)
+
+	c.cpuWindow.Clear()
+	c.cpuWindow.Draw(context)
+
+	c.lcdWindow.Clear()
+	c.lcdWindow.Draw(context)
 
 	c.app.Draw()
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/fran150/clementina6502/pkg/components/common"
 	"github.com/fran150/clementina6502/pkg/components/lcd"
 	"github.com/rivo/tview"
 )
@@ -31,7 +32,7 @@ func (d *displayWindow) Clear() {
 	d.text.Clear()
 }
 
-func (d *displayWindow) Draw() {
+func (d *displayWindow) Draw(context *common.StepContext) {
 	lcd := d.computer.chips.lcd
 	const line1MinIndex, line1MaxIndex = 0, 40
 	const line2MinIndex, line2MaxIndex = 40, 80

@@ -199,14 +199,6 @@ func (c *BenEaterComputer) Close() {
 	c.circuit.serial.Close()
 }
 
-func (c *BenEaterComputer) getPotentialOperands(programCounter uint16) [2]uint8 {
-	programCounter &= 0x7FFF
-	operand1Address := (programCounter + 1) & 0x7FFF
-	operand2Address := (programCounter + 2) & 0x7FFF
-
-	return [2]uint8{c.chips.rom.Peek(operand1Address), c.chips.rom.Peek(operand2Address)}
-}
-
 func (c *BenEaterComputer) Step(context *common.StepContext) {
 	c.chips.cpu.Tick(context)
 	c.chips.nand.Tick(context)
@@ -216,12 +208,7 @@ func (c *BenEaterComputer) Step(context *common.StepContext) {
 	c.chips.lcd.Tick(context)
 	c.chips.acia.Tick(context)
 
-	pc := c.chips.cpu.GetProgramCounter()
-	instruction := c.chips.cpu.GetCurrentInstruction()
-
-	if c.chips.cpu.IsReadingOpcode() && instruction != nil {
-		c.console.codeWindow.AddLineOfCode(pc, instruction, c.getPotentialOperands(pc))
-	}
+	c.console.Tick(context)
 
 	c.chips.cpu.PostTick(context)
 
