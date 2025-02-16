@@ -747,13 +747,13 @@ func TestBusyFlag(t *testing.T) {
 	// Send clear display instruction
 	ti := context.T
 	sendInstruction(lcd, circuit, 0x01, &context)
-	context.Next()
+	context.NextCycle()
 
 	isBusy := true
 
 	for isBusy {
 		value := readInstruction(lcd, circuit, &context)
-		context.Next()
+		context.NextCycle()
 		isBusy = (value & 0x80) == 0x80
 	}
 
@@ -763,13 +763,13 @@ func TestBusyFlag(t *testing.T) {
 	// Send return home instruction
 	ti = context.T
 	sendInstruction(lcd, circuit, 0x02, &context)
-	context.Next()
+	context.NextCycle()
 
 	isBusy = true
 
 	for isBusy {
 		value := readInstruction(lcd, circuit, &context)
-		context.Next()
+		context.NextCycle()
 		isBusy = (value & 0x80) == 0x80
 	}
 
@@ -779,13 +779,13 @@ func TestBusyFlag(t *testing.T) {
 	// Regular instruction timing test
 	ti = context.T
 	sendInstruction(lcd, circuit, 0x02, &context)
-	context.Next()
+	context.NextCycle()
 
 	isBusy = true
 
 	for isBusy {
 		value := readInstruction(lcd, circuit, &context)
-		context.Next()
+		context.NextCycle()
 		isBusy = (value & 0x80) == 0x80
 	}
 
@@ -804,12 +804,12 @@ func TestCursorBlinking(t *testing.T) {
 
 	for !lcd.blinkingVisible {
 		lcd.Tick(&context)
-		context.Next()
+		context.NextCycle()
 	}
 
 	for lcd.blinkingVisible {
 		lcd.Tick(&context)
-		context.Next()
+		context.NextCycle()
 	}
 
 	elapsed := context.T - ti

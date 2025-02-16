@@ -54,7 +54,6 @@ func (d *displayWindow) Draw() {
 	drawLcdLine(d.text, lcd.GetDisplayStatus().Line1Start, displayStatus, cursorStatus, line1MinIndex, line1MaxIndex)
 	fmt.Fprint(d.text, "\n")
 	drawLcdLine(d.text, lcd.GetDisplayStatus().Line2Start, displayStatus, cursorStatus, line2MinIndex, line2MaxIndex)
-
 }
 
 func drawLcdLineOff(writer io.Writer) {

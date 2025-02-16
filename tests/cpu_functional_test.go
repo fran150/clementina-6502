@@ -160,7 +160,7 @@ func BenchmarkProcessor(b *testing.B) {
 			}
 
 			// Count number of cycles
-			context.Next()
+			context.NextCycle()
 		}
 	}
 

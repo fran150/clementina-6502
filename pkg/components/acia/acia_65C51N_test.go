@@ -144,7 +144,7 @@ func writeToAcia(acia *Acia65C51N, circuit *testCircuit, register uint8, value u
 	circuit.rw.Set(false)
 	circuit.dataBus.Write(value)
 
-	step.Next()
+	step.NextCycle()
 
 	acia.Tick(step)
 }
@@ -154,7 +154,7 @@ func readFromAcia(acia *Acia65C51N, circuit *testCircuit, register uint8, step *
 	circuit.setRegisterSelectValue(register)
 	circuit.rw.Set(true)
 
-	step.Next()
+	step.NextCycle()
 
 	acia.Tick(step)
 
@@ -166,7 +166,7 @@ func disableChipAndStepTime(acia *Acia65C51N, circuit *testCircuit, step *common
 	circuit.cs0.Set(false)
 	circuit.cs1.Set(true)
 
-	step.Next()
+	step.NextCycle()
 
 	acia.Tick(step)
 }

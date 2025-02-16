@@ -37,30 +37,29 @@ func (e *Executor) Run() common.StepContext {
 }
 
 func (e *Executor) runComputerLoop(context *common.StepContext) {
-	// Creates a nanoseconds ticker based on the target speed in mhz
-	ticker := time.NewTicker(time.Duration(1000/e.config.TargetSpeedMhz) * time.Nanosecond)
+	targetNano := int64(float64(time.Microsecond) / e.config.TargetSpeedMhz)
+	var lastExecuted int64 = context.T + targetNano
 
-	for range ticker.C {
-		e.computer.Step(context)
+	for !context.Stop {
+		if (context.T - lastExecuted) > targetNano {
+			lastExecuted = context.T
 
-		if context.Stop {
-			ticker.Stop()
-			break
+			e.computer.Step(context)
+			context.NextCycle()
 		}
 
-		context.Next()
+		context.SkipCycle()
 	}
 }
 
 func (e *Executor) runDisplayLoop(context *common.StepContext) {
-	ticker := time.NewTicker(time.Duration(1000/e.config.DisplayFps) * time.Millisecond)
+	targetNano := int64(int(time.Second) / e.config.DisplayFps)
+	var lastExecuted int64 = context.T + targetNano
 
-	for range ticker.C {
-		e.computer.UpdateDisplay(context)
-
-		if context.Stop {
-			ticker.Stop()
-			break
+	for !context.Stop {
+		if (context.T - lastExecuted) > targetNano {
+			lastExecuted = context.T
+			e.computer.UpdateDisplay(context)
 		}
 	}
 }

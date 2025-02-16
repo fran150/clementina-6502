@@ -17,12 +17,20 @@ var beginning = time.Now()
 func CreateStepContext() StepContext {
 	return StepContext{
 		Cycle: 0,
-		T:     int64(time.Since(beginning)),
+		T:     now(),
 		Stop:  false,
 	}
 }
 
-func (context *StepContext) Next() {
+func (context *StepContext) SkipCycle() {
+	context.T = now()
+}
+
+func (context *StepContext) NextCycle() {
 	context.Cycle++
-	context.T = int64(time.Since(beginning))
+	context.T = now()
+}
+
+func now() int64 {
+	return int64(time.Since(beginning))
 }

@@ -57,7 +57,7 @@ func TestRamReadWrite(t *testing.T) {
 	circuit.addressBus.Write(0x7FFA)
 	circuit.dataBus.Write(0xFA)
 	ram.Tick(&context)
-	context.Next()
+	context.NextCycle()
 
 	peek := ram.Peek(0x7FFA)
 
@@ -72,7 +72,7 @@ func TestRamReadWrite(t *testing.T) {
 	circuit.writeEnable.Set(true)
 	circuit.addressBus.Write(0x7FFA)
 	ram.Tick(&context)
-	context.Next()
+	context.NextCycle()
 
 	value := circuit.dataBus.Read()
 

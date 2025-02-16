@@ -102,7 +102,7 @@ func writeToVia(via *Via65C22S, circuit *testCircuit, register viaRegisterCode, 
 
 	via.Tick(context)
 
-	context.Next()
+	context.NextCycle()
 }
 
 // Reads the specified register from the VIA chip
@@ -112,7 +112,7 @@ func readFromVia(via *Via65C22S, circuit *testCircuit, register viaRegisterCode,
 
 	via.Tick(context)
 
-	context.Next()
+	context.NextCycle()
 
 	return circuit.dataBus.Read()
 }
@@ -124,7 +124,7 @@ func disableChipAndStepTime(via *Via65C22S, circuit *testCircuit, context *commo
 
 	via.Tick(context)
 
-	context.Next()
+	context.NextCycle()
 }
 
 // Reneables the chip (does not time step)

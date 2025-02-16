@@ -219,7 +219,7 @@ func runTest(cpu *Cpu65C02S, ram *memory.Ram, steps []addressModeTestData, t *te
 
 		evaluateCycle(cycle, cpu, &step, t)
 
-		context.Next()
+		context.NextCycle()
 	}
 }
 
@@ -261,7 +261,7 @@ func runTestWithInterrupts(cpu *Cpu65C02S, ram *memory.Ram, irqLine *buses.Stand
 			lines[i].Set(true)
 		}
 
-		context.Next()
+		context.NextCycle()
 	}
 }
 

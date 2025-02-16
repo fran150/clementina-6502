@@ -18,7 +18,7 @@ func runInstructionTest(cpu *Cpu65C02S, ram *memory.Ram, cycles uint64) {
 
 		cpu.PostTick(&context)
 
-		context.Next()
+		context.NextCycle()
 		context.Cycle = i
 	}
 }

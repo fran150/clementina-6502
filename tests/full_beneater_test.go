@@ -18,7 +18,7 @@ func BenchmarkComputer(b *testing.B) {
 	var start = time.Now()
 
 	for i := 0; i < b.N; i++ {
-		context.Next()
+		context.NextCycle()
 		computer.Step(&context)
 	}
 
