@@ -1,4 +1,4 @@
-package beneater
+package terminal
 
 import (
 	"fmt"
@@ -9,12 +9,12 @@ import (
 	"github.com/rivo/tview"
 )
 
-type displayWindow struct {
-	computer *BenEaterComputer
-	text     *tview.TextView
+type DisplayWindow struct {
+	text *tview.TextView
+	lcd  *lcd.LcdHD44780U
 }
 
-func createDisplayWindow(computer *BenEaterComputer) *displayWindow {
+func CreateDisplayWindow(lcd *lcd.LcdHD44780U) *DisplayWindow {
 	text := tview.NewTextView()
 	text.SetTextAlign(tview.AlignCenter).
 		SetScrollable(false).
@@ -22,23 +22,22 @@ func createDisplayWindow(computer *BenEaterComputer) *displayWindow {
 		SetBorder(true).
 		SetTitle("LCD Display")
 
-	return &displayWindow{
-		computer: computer,
-		text:     text,
+	return &DisplayWindow{
+		text: text,
+		lcd:  lcd,
 	}
 }
 
-func (d *displayWindow) Clear() {
+func (d *DisplayWindow) Clear() {
 	d.text.Clear()
 }
 
-func (d *displayWindow) Draw(context *common.StepContext) {
-	lcd := d.computer.chips.lcd
+func (d *DisplayWindow) Draw(context *common.StepContext) {
 	const line1MinIndex, line1MaxIndex = 0, 40
 	const line2MinIndex, line2MaxIndex = 40, 80
 
-	displayStatus := lcd.GetDisplayStatus()
-	cursorStatus := lcd.GetCursorStatus()
+	displayStatus := d.lcd.GetDisplayStatus()
+	cursorStatus := d.lcd.GetCursorStatus()
 
 	if !displayStatus.DisplayOn {
 		drawLcdLineOff(d.text)
@@ -52,9 +51,9 @@ func (d *displayWindow) Draw(context *common.StepContext) {
 		return
 	}
 
-	drawLcdLine(d.text, lcd.GetDisplayStatus().Line1Start, displayStatus, cursorStatus, line1MinIndex, line1MaxIndex)
+	drawLcdLine(d.text, d.lcd.GetDisplayStatus().Line1Start, displayStatus, cursorStatus, line1MinIndex, line1MaxIndex)
 	fmt.Fprint(d.text, "\n")
-	drawLcdLine(d.text, lcd.GetDisplayStatus().Line2Start, displayStatus, cursorStatus, line2MinIndex, line2MaxIndex)
+	drawLcdLine(d.text, d.lcd.GetDisplayStatus().Line2Start, displayStatus, cursorStatus, line2MinIndex, line2MaxIndex)
 }
 
 func drawLcdLineOff(writer io.Writer) {
@@ -91,4 +90,8 @@ func drawLcdLine(writer io.Writer, lineStart uint8, displayStatus lcd.DisplaySta
 		index++
 		count++
 	}
+}
+
+func (d *DisplayWindow) GetDrawArea() *tview.TextView {
+	return d.text
 }

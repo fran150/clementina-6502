@@ -2,6 +2,7 @@ package beneater
 
 import (
 	"github.com/fran150/clementina6502/pkg/components/common"
+	"github.com/fran150/clementina6502/pkg/computers/ui/terminal"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -11,15 +12,15 @@ type mainConsole struct {
 	app      *tview.Application
 	grid     *tview.Grid
 
-	lcdDisplay  *displayWindow
-	codeWindow  *codeWindow
-	speedWindow *speedWindow
+	lcdDisplay  *terminal.DisplayWindow
+	codeWindow  *terminal.CodeWindow
+	speedWindow *terminal.SpeedWindow
 
-	cpuWindow *cpuWindow
-	viaWindow *viaWindow
-	lcdWindow *lcdWindow
+	cpuWindow *terminal.CpuWindow
+	viaWindow *terminal.ViaWindow
+	lcdWindow *terminal.LcdWindow
 
-	options *optionsWindow
+	options *terminal.OptionsWindow
 }
 
 func createMainConsole(computer *BenEaterComputer) *mainConsole {
@@ -31,27 +32,28 @@ func createMainConsole(computer *BenEaterComputer) *mainConsole {
 		SetBorder(true).
 		SetTitle("Ben Eater 6502 Computer")
 
-	displayWindow := createDisplayWindow(computer)
-	codeWindow := createCodeWindow(computer)
-	speedWindow := createSpeedWindow()
+	displayWindow := terminal.CreateDisplayWindow(computer.chips.lcd)
+	codeWindow := terminal.CreateCodeWindow(computer.chips.cpu, computer.peekNext2Operands)
 
-	cpuWindow := createCpuWindow(computer)
-	viaWindow := createViaWindow(computer)
-	lcdWindow := createLcdWindow(computer)
+	speedWindow := terminal.CreateSpeedWindow()
 
-	options := createOptionsWindow([]options{
-		{"ESC", "Quit"},
-		{"R", "Reset CPU"},
-		{"P", "Pause Execution"},
-		{"S", "Next Step"},
+	cpuWindow := terminal.CreateCpuWindow(computer.chips.cpu)
+	viaWindow := terminal.CreateViaWindow(computer.chips.via)
+	lcdWindow := terminal.CreateLcdWindow(computer.chips.lcd)
+
+	options := terminal.CreateOptionsWindow([]terminal.OptionsWindowConfig{
+		{KeyName: "ESC", KeyDescription: "Quit"},
+		{KeyName: "R", KeyDescription: "Reset CPU"},
+		{KeyName: "P", KeyDescription: "Pause Execution"},
+		{KeyName: "S", KeyDescription: "Next Step"},
 	})
 
 	// Layout for screens narrower than 100 cells (menu and side bar are hidden).
-	grid.AddItem(displayWindow.text, 0, 0, 1, 1, 0, 0, false).
-		AddItem(speedWindow.text, 1, 0, 1, 1, 0, 0, false).
-		AddItem(codeWindow.text, 2, 0, 1, 1, 0, 0, false).
-		AddItem(lcdWindow.text, 0, 1, 3, 1, 0, 0, false).
-		AddItem(options.text, 3, 0, 1, 2, 0, 0, false)
+	grid.AddItem(displayWindow.GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
+		AddItem(speedWindow.GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
+		AddItem(codeWindow.GetDrawArea(), 2, 0, 1, 1, 0, 0, false).
+		AddItem(lcdWindow.GetDrawArea(), 0, 1, 3, 1, 0, 0, false).
+		AddItem(options.GetDrawArea(), 3, 0, 1, 2, 0, 0, false)
 
 	return &mainConsole{
 		computer:    computer,

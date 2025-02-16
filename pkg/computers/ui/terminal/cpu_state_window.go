@@ -1,4 +1,4 @@
-package beneater
+package terminal
 
 import (
 	"fmt"
@@ -8,21 +8,21 @@ import (
 	"github.com/rivo/tview"
 )
 
-type cpuWindow struct {
-	text     *tview.TextView
-	computer *BenEaterComputer
+type CpuWindow struct {
+	text      *tview.TextView
+	processor *cpu.Cpu65C02S
 }
 
-func createCpuWindow(computer *BenEaterComputer) *cpuWindow {
+func CreateCpuWindow(processor *cpu.Cpu65C02S) *CpuWindow {
 	text := tview.NewTextView()
 	text.SetScrollable(false).
 		SetDynamicColors(true).
 		SetBorder(true).
 		SetTitle("CPU State")
 
-	return &cpuWindow{
-		text:     text,
-		computer: computer,
+	return &CpuWindow{
+		text:      text,
+		processor: processor,
 	}
 }
 
@@ -34,20 +34,18 @@ func getFlagStatusColor(status cpu.StatusRegister, bit cpu.StatusBit) string {
 	return "[red]"
 }
 
-func (d *cpuWindow) Clear() {
+func (d *CpuWindow) Clear() {
 	d.text.Clear()
 }
 
-func (d *cpuWindow) Draw(context *common.StepContext) {
-	processor := d.computer.chips.cpu
+func (d *CpuWindow) Draw(context *common.StepContext) {
+	fmt.Fprintf(d.text, "[yellow] A: [white]%5d [grey]($%02X)\n", d.processor.GetAccumulatorRegister(), d.processor.GetAccumulatorRegister())
+	fmt.Fprintf(d.text, "[yellow] X: [white]%5d [grey]($%02X)\n", d.processor.GetXRegister(), d.processor.GetXRegister())
+	fmt.Fprintf(d.text, "[yellow] Y: [white]%5d [grey]($%02X)\n", d.processor.GetYRegister(), d.processor.GetYRegister())
+	fmt.Fprintf(d.text, "[yellow]SP: [white]%5d [grey]($%02X)\n", d.processor.GetStackPointer(), d.processor.GetStackPointer())
+	fmt.Fprintf(d.text, "[yellow]PC: [white]$%04X [grey](%v)\n", d.processor.GetProgramCounter(), d.processor.GetProgramCounter())
 
-	fmt.Fprintf(d.text, "[yellow] A: [white]%5d [grey]($%02X)\n", processor.GetAccumulatorRegister(), processor.GetAccumulatorRegister())
-	fmt.Fprintf(d.text, "[yellow] X: [white]%5d [grey]($%02X)\n", processor.GetXRegister(), processor.GetXRegister())
-	fmt.Fprintf(d.text, "[yellow] Y: [white]%5d [grey]($%02X)\n", processor.GetYRegister(), processor.GetYRegister())
-	fmt.Fprintf(d.text, "[yellow]SP: [white]%5d [grey]($%02X)\n", processor.GetStackPointer(), processor.GetStackPointer())
-	fmt.Fprintf(d.text, "[yellow]PC: [white]$%04X [grey](%v)\n", processor.GetProgramCounter(), processor.GetProgramCounter())
-
-	status := processor.GetProcessorStatusRegister()
+	status := d.processor.GetProcessorStatusRegister()
 
 	fmt.Fprint(d.text, "[yellow]Flags: ")
 	fmt.Fprintf(d.text, "%sN", getFlagStatusColor(status, cpu.NegativeFlagBit))
@@ -59,4 +57,8 @@ func (d *cpuWindow) Draw(context *common.StepContext) {
 	fmt.Fprintf(d.text, "%sZ", getFlagStatusColor(status, cpu.ZeroFlagBit))
 	fmt.Fprintf(d.text, "%sC", getFlagStatusColor(status, cpu.CarryFlagBit))
 	fmt.Fprint(d.text, "\n")
+}
+
+func (d *CpuWindow) GetDrawArea() *tview.TextView {
+	return d.text
 }

@@ -1,4 +1,4 @@
-package beneater
+package terminal
 
 import (
 	"fmt"
@@ -12,13 +12,15 @@ import (
 
 const maxLinesOfCode = 30
 
-type codeWindow struct {
-	text     *tview.TextView
-	lines    *queue.SimpleQueue[string]
-	computer *BenEaterComputer
+type CodeWindow struct {
+	text      *tview.TextView
+	lines     *queue.SimpleQueue[string]
+	processor *cpu.Cpu65C02S
+
+	operandsGetter func(programCounter uint16) [2]uint8
 }
 
-func createCodeWindow(computer *BenEaterComputer) *codeWindow {
+func CreateCodeWindow(processor *cpu.Cpu65C02S, operandsGetter func(programCounter uint16) [2]uint8) *CodeWindow {
 	code := tview.NewTextView()
 	code.SetTextAlign(tview.AlignLeft)
 	code.SetScrollable(false)
@@ -26,10 +28,11 @@ func createCodeWindow(computer *BenEaterComputer) *codeWindow {
 	code.SetTitle("Code")
 	code.SetBorder(true)
 
-	return &codeWindow{
-		text:     code,
-		lines:    queue.CreateQueue[string](),
-		computer: computer,
+	return &CodeWindow{
+		text:           code,
+		lines:          queue.CreateQueue[string](),
+		processor:      processor,
+		operandsGetter: operandsGetter,
 	}
 }
 
@@ -61,7 +64,7 @@ func showCurrentInstruction(programCounter uint16, instruction *cpu.CpuInstructi
 	return sb.String()
 }
 
-func (d *codeWindow) addLineOfCode(programCounter uint16, instruction *cpu.CpuInstructionData, potentialOperands [2]uint8) {
+func (d *CodeWindow) addLineOfCode(programCounter uint16, instruction *cpu.CpuInstructionData, potentialOperands [2]uint8) {
 	codeLine := showCurrentInstruction(programCounter, instruction, potentialOperands)
 
 	d.lines.Queue(codeLine)
@@ -71,32 +74,24 @@ func (d *codeWindow) addLineOfCode(programCounter uint16, instruction *cpu.CpuIn
 	}
 }
 
-func (d *codeWindow) getPotentialOperands(programCounter uint16) [2]uint8 {
-	rom := d.computer.chips.rom
+func (d *CodeWindow) Tick(context *common.StepContext) {
+	pc := d.processor.GetProgramCounter()
+	instruction := d.processor.GetCurrentInstruction()
 
-	programCounter &= 0x7FFF
-	operand1Address := (programCounter + 1) & 0x7FFF
-	operand2Address := (programCounter + 2) & 0x7FFF
-
-	return [2]uint8{rom.Peek(operand1Address), rom.Peek(operand2Address)}
-}
-
-func (d *codeWindow) Tick(context *common.StepContext) {
-	cpu := d.computer.chips.cpu
-
-	pc := cpu.GetProgramCounter()
-	instruction := cpu.GetCurrentInstruction()
-
-	if cpu.IsReadingOpcode() && instruction != nil {
-		d.addLineOfCode(pc, instruction, d.getPotentialOperands(pc))
+	if d.processor.IsReadingOpcode() && instruction != nil {
+		d.addLineOfCode(pc, instruction, d.operandsGetter(pc))
 	}
 }
 
-func (d *codeWindow) Clear() {
+func (d *CodeWindow) Clear() {
 	d.text.Clear()
 }
 
-func (d *codeWindow) Draw(context *common.StepContext) {
+func (d *CodeWindow) Draw(context *common.StepContext) {
 	values := d.lines.GetValues()
 	d.text.SetText(strings.Join(values, ""))
+}
+
+func (d *CodeWindow) GetDrawArea() *tview.TextView {
+	return d.text
 }

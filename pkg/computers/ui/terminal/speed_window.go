@@ -1,4 +1,4 @@
-package beneater
+package terminal
 
 import (
 	"fmt"
@@ -8,13 +8,13 @@ import (
 	"github.com/rivo/tview"
 )
 
-type speedWindow struct {
+type SpeedWindow struct {
 	text      *tview.TextView
 	previousT int64
 	previousC uint64
 }
 
-func createSpeedWindow() *speedWindow {
+func CreateSpeedWindow() *SpeedWindow {
 	text := tview.NewTextView()
 	text.SetTextAlign(tview.AlignCenter).
 		SetScrollable(false).
@@ -22,16 +22,16 @@ func createSpeedWindow() *speedWindow {
 		SetBorder(true).
 		SetTitle("Speed")
 
-	return &speedWindow{
+	return &SpeedWindow{
 		text: text,
 	}
 }
 
-func (s *speedWindow) Clear() {
+func (s *SpeedWindow) Clear() {
 	s.text.Clear()
 }
 
-func (s *speedWindow) Draw(context *common.StepContext) {
+func (s *SpeedWindow) Draw(context *common.StepContext) {
 	if s.previousT != 0 {
 		cycles := context.Cycle - s.previousC
 		elapsedMicro := (context.T - s.previousT) / int64(time.Microsecond)
@@ -43,4 +43,8 @@ func (s *speedWindow) Draw(context *common.StepContext) {
 
 	s.previousT = context.T
 	s.previousC = context.Cycle
+}
+
+func (d *SpeedWindow) GetDrawArea() *tview.TextView {
+	return d.text
 }
