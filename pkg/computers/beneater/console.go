@@ -2,12 +2,12 @@ package beneater
 
 import (
 	"github.com/fran150/clementina6502/pkg/components/common"
-	"github.com/fran150/clementina6502/pkg/computers/ui/terminal"
+	"github.com/fran150/clementina6502/pkg/ui/terminal"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
-type mainConsole struct {
+type console struct {
 	computer *BenEaterComputer
 	app      *tview.Application
 	grid     *tview.Grid
@@ -23,7 +23,7 @@ type mainConsole struct {
 	options *terminal.OptionsWindow
 }
 
-func createMainConsole(computer *BenEaterComputer) *mainConsole {
+func createMainConsole(computer *BenEaterComputer) *console {
 	app := tview.NewApplication()
 
 	grid := tview.NewGrid()
@@ -55,7 +55,7 @@ func createMainConsole(computer *BenEaterComputer) *mainConsole {
 		AddItem(lcdWindow.GetDrawArea(), 0, 1, 3, 1, 0, 0, false).
 		AddItem(options.GetDrawArea(), 3, 0, 1, 2, 0, 0, false)
 
-	return &mainConsole{
+	return &console{
 		computer:    computer,
 		app:         app,
 		grid:        grid,
@@ -70,11 +70,11 @@ func createMainConsole(computer *BenEaterComputer) *mainConsole {
 	}
 }
 
-func (c *mainConsole) Tick(context *common.StepContext) {
+func (c *console) Tick(context *common.StepContext) {
 	c.codeWindow.Tick(context)
 }
 
-func (c *mainConsole) Draw(context *common.StepContext) {
+func (c *console) Draw(context *common.StepContext) {
 	c.lcdDisplay.Clear()
 	c.lcdDisplay.Draw(context)
 
@@ -96,7 +96,7 @@ func (c *mainConsole) Draw(context *common.StepContext) {
 	c.app.Draw()
 }
 
-func (m *mainConsole) Run(inputCapture func(event *tcell.EventKey) *tcell.EventKey) {
+func (m *console) Run(inputCapture func(event *tcell.EventKey) *tcell.EventKey) {
 	m.app.SetInputCapture(inputCapture)
 
 	if err := m.app.SetRoot(m.grid, true).SetFocus(m.grid).Run(); err != nil {

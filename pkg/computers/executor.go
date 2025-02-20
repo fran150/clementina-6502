@@ -6,60 +6,68 @@ import (
 	"github.com/fran150/clementina6502/pkg/components/common"
 )
 
-type ExecutorConfig struct {
+type RateExecutorConfig struct {
 	TargetSpeedMhz float64
 	DisplayFps     int
 }
 
-type Executor struct {
-	computer Computer
-	config   *ExecutorConfig
+type RateExecutorHandlers struct {
+	Tick          func(*common.StepContext)
+	UpdateDisplay func(*common.StepContext)
 }
 
-func CreateExecutor(computer Computer, config *ExecutorConfig) *Executor {
-	return &Executor{
-		computer: computer,
+type RateExecutor struct {
+	config   *RateExecutorConfig
+	handlers *RateExecutorHandlers
+}
+
+func CreateExecutor(handlers *RateExecutorHandlers, config *RateExecutorConfig) *RateExecutor {
+	return &RateExecutor{
+		handlers: handlers,
 		config:   config,
 	}
 }
 
-func (e *Executor) Run() common.StepContext {
-	context := common.CreateStepContext()
-
-	go e.runComputerLoop(&context)
-	go e.runDisplayLoop(&context)
-
-	e.computer.RunEventLoop()
-
-	context.Stop = true
-
-	return context
+func (e *RateExecutor) GetHandlers() *RateExecutorHandlers {
+	return e.handlers
 }
 
-func (e *Executor) runComputerLoop(context *common.StepContext) {
-	targetNano := int64(float64(time.Microsecond) / e.config.TargetSpeedMhz)
-	var lastExecuted int64 = context.T + targetNano
+func (e *RateExecutor) GetConfig() *RateExecutorConfig {
+	return e.config
+}
+
+func (e *RateExecutor) Start() *common.StepContext {
+	context := common.CreateStepContext()
+
+	go e.executeLoop(&context)
+
+	return &context
+}
+
+func (e *RateExecutor) Stop(context *common.StepContext) {
+	context.Stop = true
+}
+
+func (e *RateExecutor) executeLoop(context *common.StepContext) {
+	targetFPSNano := int64(int(time.Second) / e.config.DisplayFps)
+	targetTPSNano := int64(float64(time.Microsecond) / e.config.TargetSpeedMhz)
+
+	var lastTPSExecuted int64 = context.T + targetTPSNano
+	var lastFPSExecuted int64 = context.T + targetFPSNano
 
 	for !context.Stop {
-		if (context.T - lastExecuted) > targetNano {
-			lastExecuted = context.T
+		if (context.T - lastTPSExecuted) > targetTPSNano {
+			lastTPSExecuted = context.T
 
-			e.computer.Step(context)
+			e.handlers.Tick(context)
 			context.NextCycle()
 		}
 
-		context.SkipCycle()
-	}
-}
-
-func (e *Executor) runDisplayLoop(context *common.StepContext) {
-	targetNano := int64(int(time.Second) / e.config.DisplayFps)
-	var lastExecuted int64 = context.T + targetNano
-
-	for !context.Stop {
-		if (context.T - lastExecuted) > targetNano {
-			lastExecuted = context.T
-			e.computer.UpdateDisplay(context)
+		if (context.T - lastFPSExecuted) > targetFPSNano {
+			lastFPSExecuted = context.T
+			e.handlers.UpdateDisplay(context)
 		}
+
+		context.SkipCycle()
 	}
 }

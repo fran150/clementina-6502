@@ -9,6 +9,7 @@ import (
 	"github.com/fran150/clementina6502/pkg/components/memory"
 	"github.com/fran150/clementina6502/pkg/components/other/gates"
 	"github.com/fran150/clementina6502/pkg/components/via"
+	"github.com/fran150/clementina6502/pkg/computers"
 	"github.com/gdamore/tcell/v2"
 	"go.bug.st/serial"
 )
@@ -43,9 +44,10 @@ type circuit struct {
 type BenEaterComputer struct {
 	chips       *chips
 	circuit     *circuit
-	console     *mainConsole
+	console     *console
 	mustReset   bool
 	resetCycles uint8
+	executor    *computers.RateExecutor
 }
 
 func CreateBenEaterComputer(portName string) *BenEaterComputer {
@@ -180,6 +182,35 @@ func CreateBenEaterComputer(portName string) *BenEaterComputer {
 
 	computer.console = createMainConsole(computer)
 
+	executorHandlers := computers.RateExecutorHandlers{
+		Tick: func(context *common.StepContext) {
+			chips.cpu.Tick(context)
+			chips.nand.Tick(context)
+			chips.ram.Tick(context)
+			chips.rom.Tick(context)
+			chips.via.Tick(context)
+			chips.lcd.Tick(context)
+			chips.acia.Tick(context)
+
+			computer.console.Tick(context)
+
+			chips.cpu.PostTick(context)
+
+			computer.checkReset()
+		},
+		UpdateDisplay: func(context *common.StepContext) {
+			computer.console.Draw(context)
+
+		},
+	}
+
+	executorConfig := computers.RateExecutorConfig{
+		TargetSpeedMhz: 1.2,
+		DisplayFps:     10,
+	}
+
+	computer.executor = computers.CreateExecutor(&executorHandlers, &executorConfig)
+
 	return computer
 }
 
@@ -190,29 +221,9 @@ func (c *BenEaterComputer) Load(romImagePath string) {
 	}
 }
 
-func (c *BenEaterComputer) UpdateDisplay(context *common.StepContext) {
-	c.console.Draw(context)
-}
-
 func (c *BenEaterComputer) Close() {
 	c.chips.acia.Close()
 	c.circuit.serial.Close()
-}
-
-func (c *BenEaterComputer) Step(context *common.StepContext) {
-	c.chips.cpu.Tick(context)
-	c.chips.nand.Tick(context)
-	c.chips.ram.Tick(context)
-	c.chips.rom.Tick(context)
-	c.chips.via.Tick(context)
-	c.chips.lcd.Tick(context)
-	c.chips.acia.Tick(context)
-
-	c.console.Tick(context)
-
-	c.chips.cpu.PostTick(context)
-
-	c.checkReset()
 }
 
 func (c *BenEaterComputer) peekNext2Operands(programCounter uint16) [2]uint8 {
@@ -251,4 +262,14 @@ func (c *BenEaterComputer) RunEventLoop() {
 
 		return event
 	})
+}
+
+func (e *BenEaterComputer) Run() *common.StepContext {
+	context := e.executor.Start()
+
+	e.RunEventLoop()
+
+	e.executor.Stop(context)
+
+	return context
 }
