@@ -12,13 +12,13 @@ type console struct {
 	app      *tview.Application
 	grid     *tview.Grid
 
-	lcdDisplay  *terminal.DisplayWindow
+	lcdDisplay  *terminal.Lcd16x2Window
 	codeWindow  *terminal.CodeWindow
 	speedWindow *terminal.SpeedWindow
 
 	cpuWindow *terminal.CpuWindow
 	viaWindow *terminal.ViaWindow
-	lcdWindow *terminal.LcdWindow
+	lcdWindow *terminal.LcdControllerWindow
 
 	options *terminal.OptionsWindow
 }
@@ -33,7 +33,17 @@ func createMainConsole(computer *BenEaterComputer) *console {
 		SetTitle("Ben Eater 6502 Computer")
 
 	displayWindow := terminal.CreateDisplayWindow(computer.chips.lcd)
-	codeWindow := terminal.CreateCodeWindow(computer.chips.cpu, computer.peekNext2Operands)
+
+	codeWindow := terminal.CreateCodeWindow(computer.chips.cpu, func(programCounter uint16) [2]uint8 {
+		// TODO: Might need to improve using address decoding logic
+		rom := computer.chips.rom
+
+		programCounter &= 0x7FFF
+		operand1Address := (programCounter + 1) & 0x7FFF
+		operand2Address := (programCounter + 2) & 0x7FFF
+
+		return [2]uint8{rom.Peek(operand1Address), rom.Peek(operand2Address)}
+	})
 
 	speedWindow := terminal.CreateSpeedWindow()
 

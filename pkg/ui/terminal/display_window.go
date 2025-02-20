@@ -9,12 +9,12 @@ import (
 	"github.com/rivo/tview"
 )
 
-type DisplayWindow struct {
-	text *tview.TextView
-	lcd  *lcd.LcdHD44780U
+type Lcd16x2Window struct {
+	text       *tview.TextView
+	controller *lcd.LcdHD44780U
 }
 
-func CreateDisplayWindow(lcd *lcd.LcdHD44780U) *DisplayWindow {
+func CreateDisplayWindow(lcd *lcd.LcdHD44780U) *Lcd16x2Window {
 	text := tview.NewTextView()
 	text.SetTextAlign(tview.AlignCenter).
 		SetScrollable(false).
@@ -22,22 +22,22 @@ func CreateDisplayWindow(lcd *lcd.LcdHD44780U) *DisplayWindow {
 		SetBorder(true).
 		SetTitle("LCD Display")
 
-	return &DisplayWindow{
-		text: text,
-		lcd:  lcd,
+	return &Lcd16x2Window{
+		text:       text,
+		controller: lcd,
 	}
 }
 
-func (d *DisplayWindow) Clear() {
+func (d *Lcd16x2Window) Clear() {
 	d.text.Clear()
 }
 
-func (d *DisplayWindow) Draw(context *common.StepContext) {
+func (d *Lcd16x2Window) Draw(context *common.StepContext) {
 	const line1MinIndex, line1MaxIndex = 0, 40
 	const line2MinIndex, line2MaxIndex = 40, 80
 
-	displayStatus := d.lcd.GetDisplayStatus()
-	cursorStatus := d.lcd.GetCursorStatus()
+	displayStatus := d.controller.GetDisplayStatus()
+	cursorStatus := d.controller.GetCursorStatus()
 
 	if !displayStatus.DisplayOn {
 		drawLcdLineOff(d.text)
@@ -51,9 +51,9 @@ func (d *DisplayWindow) Draw(context *common.StepContext) {
 		return
 	}
 
-	drawLcdLine(d.text, d.lcd.GetDisplayStatus().Line1Start, displayStatus, cursorStatus, line1MinIndex, line1MaxIndex)
+	drawLcdLine(d.text, d.controller.GetDisplayStatus().Line1Start, displayStatus, cursorStatus, line1MinIndex, line1MaxIndex)
 	fmt.Fprint(d.text, "\n")
-	drawLcdLine(d.text, d.lcd.GetDisplayStatus().Line2Start, displayStatus, cursorStatus, line2MinIndex, line2MaxIndex)
+	drawLcdLine(d.text, d.controller.GetDisplayStatus().Line2Start, displayStatus, cursorStatus, line2MinIndex, line2MaxIndex)
 }
 
 func drawLcdLineOff(writer io.Writer) {
@@ -92,6 +92,6 @@ func drawLcdLine(writer io.Writer, lineStart uint8, displayStatus lcd.DisplaySta
 	}
 }
 
-func (d *DisplayWindow) GetDrawArea() *tview.TextView {
+func (d *Lcd16x2Window) GetDrawArea() *tview.TextView {
 	return d.text
 }

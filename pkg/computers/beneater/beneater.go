@@ -226,17 +226,6 @@ func (c *BenEaterComputer) Close() {
 	c.circuit.serial.Close()
 }
 
-func (c *BenEaterComputer) peekNext2Operands(programCounter uint16) [2]uint8 {
-	// TODO: Might need to improve using address decoding logic
-	rom := c.chips.rom
-
-	programCounter &= 0x7FFF
-	operand1Address := (programCounter + 1) & 0x7FFF
-	operand2Address := (programCounter + 2) & 0x7FFF
-
-	return [2]uint8{rom.Peek(operand1Address), rom.Peek(operand2Address)}
-}
-
 func (c *BenEaterComputer) checkReset() {
 	if c.mustReset {
 		c.circuit.cpuReset.Set(false)

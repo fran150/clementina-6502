@@ -9,29 +9,29 @@ import (
 	"github.com/rivo/tview"
 )
 
-type LcdWindow struct {
+type LcdControllerWindow struct {
 	text *tview.TextView
 	lcd  *lcd.LcdHD44780U
 }
 
-func CreateLcdWindow(lcd *lcd.LcdHD44780U) *LcdWindow {
+func CreateLcdWindow(lcd *lcd.LcdHD44780U) *LcdControllerWindow {
 	text := tview.NewTextView()
 	text.SetScrollable(false).
 		SetDynamicColors(true).
 		SetBorder(true).
 		SetTitle("LCD Controller Status")
 
-	return &LcdWindow{
+	return &LcdControllerWindow{
 		text: text,
 		lcd:  lcd,
 	}
 }
 
-func (d *LcdWindow) Clear() {
+func (d *LcdControllerWindow) Clear() {
 	d.text.Clear()
 }
 
-func (d *LcdWindow) Draw(context *common.StepContext) {
+func (d *LcdControllerWindow) Draw(context *common.StepContext) {
 	cursorStatus := d.lcd.GetCursorStatus()
 	displayStatus := d.lcd.GetDisplayStatus()
 
@@ -60,6 +60,6 @@ func drawLcdDDRAM(writer io.Writer, displayStatus lcd.DisplayStatus) {
 	}
 }
 
-func (d *LcdWindow) GetDrawArea() *tview.TextView {
+func (d *LcdControllerWindow) GetDrawArea() *tview.TextView {
 	return d.text
 }
