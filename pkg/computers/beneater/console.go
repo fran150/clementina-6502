@@ -18,14 +18,14 @@ type console struct {
 	options *ui.OptionsWindow
 }
 
-func newMainConsole(computer *BenEaterComputer, tvApplication *tview.Application) *console {
+func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *console {
 	grid := tview.NewGrid()
 	grid.SetRows(4, 3, 0, 3).
 		SetColumns(25, 0).
 		SetBorder(true).
 		SetTitle("Ben Eater 6502 Computer")
 
-	tvApplication.SetRoot(grid, true)
+	tvApp.SetRoot(grid, true)
 
 	displayWindow := ui.NewDisplayWindow(computer.chips.lcd)
 

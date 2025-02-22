@@ -261,7 +261,7 @@ func (acia *Acia65C51N) getRegisterSelectValue() uint8 {
 }
 
 // Executes one emulation step
-func (acia *Acia65C51N) Tick(stepContext *common.StepContext) {
+func (acia *Acia65C51N) Tick(context *common.StepContext) {
 	// If the ACIA is configured to emulate modem lines
 	// it will evaluate the status of the DSR and DCD lines. This is slow (at least when used with SOCAT)
 	// so it can be disabled for faster emulation
@@ -297,10 +297,6 @@ func (acia *Acia65C51N) Tick(stepContext *common.StepContext) {
 	// If the reset line is enabled do a hardware reset
 	if acia.reset.Enabled() {
 		acia.hardwareReset()
-	}
-
-	if stepContext.Stop {
-		acia.Close()
 	}
 }
 

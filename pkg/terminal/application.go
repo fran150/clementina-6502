@@ -12,10 +12,10 @@ type ApplicationConfig struct {
 }
 
 type Application struct {
-	tvApplication *tview.Application
-	computer      Computer
-	executor      *computers.EmulationLoop
-	config        *ApplicationConfig
+	tvApp    *tview.Application
+	computer Computer
+	executor *computers.EmulationLoop
+	config   *ApplicationConfig
 }
 
 func NewApplication(computer Computer) *Application {
@@ -27,45 +27,43 @@ func NewApplication(computer Computer) *Application {
 	}
 
 	return &Application{
-		tvApplication: tview.NewApplication(),
-		computer:      computer,
-		executor:      computers.NewEmulationLoop(&config.EmulationLoopConfig),
-		config:        &config,
+		tvApp:    tview.NewApplication(),
+		computer: computer,
+		executor: computers.NewEmulationLoop(&config.EmulationLoopConfig),
+		config:   &config,
 	}
 }
 
 func (a *Application) Run() *common.StepContext {
-	a.computer.Init(a.tvApplication, a.config)
+	a.computer.Init(a.tvApp, a.config)
 
 	context := a.executor.Start(computers.EmulationLoopHandlers{
 		Tick: func(context *common.StepContext) {
 			a.computer.Tick(context)
 
 			if context.Stop {
-				a.tvApplication.Stop()
+				a.tvApp.Stop()
 			}
 		},
 		Draw: func(context *common.StepContext) {
 			a.computer.Draw(context)
-			a.tvApplication.Draw()
+			a.tvApp.Draw()
 		},
 	})
 
-	a.tvApplication.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+	a.tvApp.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		value := a.computer.KeyPressed(event, context)
 
 		if context.Stop {
-			a.tvApplication.Stop()
+			a.tvApp.Stop()
 		}
 
 		return value
 	})
 
-	if err := a.tvApplication.Run(); err != nil {
+	if err := a.tvApp.Run(); err != nil {
 		panic(err)
 	}
-
-	a.executor.Stop()
 
 	return context
 }

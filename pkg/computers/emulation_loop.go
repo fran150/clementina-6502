@@ -44,14 +44,6 @@ func (e *EmulationLoop) Start(handlers EmulationLoopHandlers) *common.StepContex
 	return e.context
 }
 
-func (e *EmulationLoop) Stop() {
-	if e.context == nil {
-		return
-	}
-
-	e.context.Stop = true
-}
-
 func (e *EmulationLoop) executeLoop(context *common.StepContext, handlers EmulationLoopHandlers) {
 	var lastFPSExecuted, lastTPSExecuted, targetFPSNano, targetTPSNano int64
 

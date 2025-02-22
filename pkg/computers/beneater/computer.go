@@ -189,9 +189,9 @@ func (c *BenEaterComputer) LoadRom(romImagePath string) {
 	}
 }
 
-func (c *BenEaterComputer) Init(tvApplication *tview.Application, appConfig *terminal.ApplicationConfig) {
+func (c *BenEaterComputer) Init(tvApp *tview.Application, appConfig *terminal.ApplicationConfig) {
 	c.appConfig = appConfig
-	c.console = newMainConsole(c, tvApplication)
+	c.console = newMainConsole(c, tvApp)
 }
 
 func (c *BenEaterComputer) Tick(context *common.StepContext) {
