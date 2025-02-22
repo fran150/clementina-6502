@@ -12,7 +12,7 @@ func main() {
 	computer := beneater.NewBenEaterComputer("/dev/ttys004")
 	defer computer.Close()
 
-	computer.Load("./assets/computer/beneater/eater.bin")
+	computer.LoadRom("./assets/computer/beneater/eater.bin")
 
 	app := terminal.NewApplication(computer)
 

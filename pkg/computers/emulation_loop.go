@@ -6,32 +6,32 @@ import (
 	"github.com/fran150/clementina6502/pkg/components/common"
 )
 
-type RateExecutorConfig struct {
+type EmulationLoopConfig struct {
 	TargetSpeedMhz float64
 	DisplayFps     int
 }
 
-type RateExecutorHandlers struct {
+type EmulationLoopHandlers struct {
 	Tick func(context *common.StepContext)
 	Draw func(context *common.StepContext)
 }
 
-type RateExecutor struct {
-	config  *RateExecutorConfig
+type EmulationLoop struct {
+	config  *EmulationLoopConfig
 	context *common.StepContext
 }
 
-func NewExecutor(config *RateExecutorConfig) *RateExecutor {
-	return &RateExecutor{
+func NewEmulationLoop(config *EmulationLoopConfig) *EmulationLoop {
+	return &EmulationLoop{
 		config: config,
 	}
 }
 
-func (e *RateExecutor) GetConfig() *RateExecutorConfig {
+func (e *EmulationLoop) GetConfig() *EmulationLoopConfig {
 	return e.config
 }
 
-func (e *RateExecutor) Start(handlers RateExecutorHandlers) *common.StepContext {
+func (e *EmulationLoop) Start(handlers EmulationLoopHandlers) *common.StepContext {
 	if handlers.Tick == nil || handlers.Draw == nil {
 		return nil
 	}
@@ -44,7 +44,7 @@ func (e *RateExecutor) Start(handlers RateExecutorHandlers) *common.StepContext 
 	return e.context
 }
 
-func (e *RateExecutor) Stop() {
+func (e *EmulationLoop) Stop() {
 	if e.context == nil {
 		return
 	}
@@ -52,7 +52,7 @@ func (e *RateExecutor) Stop() {
 	e.context.Stop = true
 }
 
-func (e *RateExecutor) executeLoop(context *common.StepContext, handlers RateExecutorHandlers) {
+func (e *EmulationLoop) executeLoop(context *common.StepContext, handlers EmulationLoopHandlers) {
 	var lastFPSExecuted, lastTPSExecuted, targetFPSNano, targetTPSNano int64
 
 	for !context.Stop {

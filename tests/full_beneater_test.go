@@ -10,7 +10,7 @@ import (
 
 func BenchmarkComputer(b *testing.B) {
 	computer := beneater.NewBenEaterComputer("/dev/ttys004")
-	computer.Load("../assets/computer/beneater/eater.bin")
+	computer.LoadRom("../assets/computer/beneater/eater.bin")
 
 	context := common.NewStepContext()
 

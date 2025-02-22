@@ -48,7 +48,7 @@ type BenEaterComputer struct {
 	console     *console
 	mustReset   bool
 	resetCycles uint8
-	config      *terminal.ApplicationConfig
+	appConfig   *terminal.ApplicationConfig
 }
 
 func NewBenEaterComputer(portName string) *BenEaterComputer {
@@ -182,6 +182,18 @@ func NewBenEaterComputer(portName string) *BenEaterComputer {
 	}
 }
 
+func (c *BenEaterComputer) LoadRom(romImagePath string) {
+	err := c.chips.rom.Load(romImagePath)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (c *BenEaterComputer) Init(tvApplication *tview.Application, appConfig *terminal.ApplicationConfig) {
+	c.appConfig = appConfig
+	c.console = newMainConsole(c, tvApplication)
+}
+
 func (c *BenEaterComputer) Tick(context *common.StepContext) {
 	c.chips.cpu.Tick(context)
 	c.chips.nand.Tick(context)
@@ -204,11 +216,6 @@ func (c *BenEaterComputer) Draw(context *common.StepContext) {
 	c.console.Draw(context)
 }
 
-func (c *BenEaterComputer) Init(tvApplication *tview.Application, config *terminal.ApplicationConfig) {
-	c.config = config
-	c.console = newMainConsole(c, tvApplication)
-}
-
 func (c *BenEaterComputer) KeyPressed(event *tcell.EventKey, context *common.StepContext) *tcell.EventKey {
 	if event.Key() == tcell.KeyEsc {
 		context.Stop = true
@@ -219,21 +226,14 @@ func (c *BenEaterComputer) KeyPressed(event *tcell.EventKey, context *common.Ste
 	}
 
 	if event.Rune() == '=' {
-		c.config.TargetSpeedMhz += 0.2
+		c.appConfig.TargetSpeedMhz += 0.2
 	}
 
 	if event.Rune() == '-' {
-		c.config.TargetSpeedMhz -= 0.2
+		c.appConfig.TargetSpeedMhz -= 0.2
 	}
 
 	return event
-}
-
-func (c *BenEaterComputer) Load(romImagePath string) {
-	err := c.chips.rom.Load(romImagePath)
-	if err != nil {
-		panic(err)
-	}
 }
 
 func (c *BenEaterComputer) Close() {

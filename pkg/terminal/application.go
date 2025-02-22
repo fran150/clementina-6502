@@ -8,19 +8,19 @@ import (
 )
 
 type ApplicationConfig struct {
-	computers.RateExecutorConfig
+	computers.EmulationLoopConfig
 }
 
 type Application struct {
 	tvApplication *tview.Application
 	computer      Computer
-	executor      *computers.RateExecutor
+	executor      *computers.EmulationLoop
 	config        *ApplicationConfig
 }
 
 func NewApplication(computer Computer) *Application {
 	config := ApplicationConfig{
-		computers.RateExecutorConfig{
+		computers.EmulationLoopConfig{
 			TargetSpeedMhz: 1.05,
 			DisplayFps:     10,
 		},
@@ -29,7 +29,7 @@ func NewApplication(computer Computer) *Application {
 	return &Application{
 		tvApplication: tview.NewApplication(),
 		computer:      computer,
-		executor:      computers.NewExecutor(&config.RateExecutorConfig),
+		executor:      computers.NewEmulationLoop(&config.EmulationLoopConfig),
 		config:        &config,
 	}
 }
@@ -37,7 +37,7 @@ func NewApplication(computer Computer) *Application {
 func (a *Application) Run() *common.StepContext {
 	a.computer.Init(a.tvApplication, a.config)
 
-	context := a.executor.Start(computers.RateExecutorHandlers{
+	context := a.executor.Start(computers.EmulationLoopHandlers{
 		Tick: func(context *common.StepContext) {
 			a.computer.Tick(context)
 

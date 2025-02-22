@@ -7,8 +7,6 @@ import (
 )
 
 type console struct {
-	grid *tview.Grid
-
 	lcdDisplay  *ui.Lcd16x2Window
 	codeWindow  *ui.CodeWindow
 	speedWindow *ui.SpeedWindow
@@ -55,7 +53,6 @@ func newMainConsole(computer *BenEaterComputer, tvApplication *tview.Application
 		{KeyName: "S", KeyDescription: "Next Step"},
 	})
 
-	// Layout for screens narrower than 100 cells (menu and side bar are hidden).
 	grid.AddItem(displayWindow.GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
 		AddItem(speedWindow.GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
 		AddItem(codeWindow.GetDrawArea(), 2, 0, 1, 1, 0, 0, false).
@@ -63,7 +60,6 @@ func newMainConsole(computer *BenEaterComputer, tvApplication *tview.Application
 		AddItem(options.GetDrawArea(), 3, 0, 1, 2, 0, 0, false)
 
 	return &console{
-		grid:        grid,
 		lcdDisplay:  displayWindow,
 		codeWindow:  codeWindow,
 		speedWindow: speedWindow,
