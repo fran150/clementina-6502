@@ -12,60 +12,63 @@ type RateExecutorConfig struct {
 }
 
 type RateExecutorHandlers struct {
-	Tick          func(*common.StepContext)
-	UpdateDisplay func(*common.StepContext)
+	Tick func(context *common.StepContext)
+	Draw func(context *common.StepContext)
 }
 
 type RateExecutor struct {
-	config   *RateExecutorConfig
-	handlers *RateExecutorHandlers
+	config  *RateExecutorConfig
+	context *common.StepContext
 }
 
-func CreateExecutor(handlers *RateExecutorHandlers, config *RateExecutorConfig) *RateExecutor {
+func CreateExecutor(config *RateExecutorConfig) *RateExecutor {
 	return &RateExecutor{
-		handlers: handlers,
-		config:   config,
+		config: config,
 	}
-}
-
-func (e *RateExecutor) GetHandlers() *RateExecutorHandlers {
-	return e.handlers
 }
 
 func (e *RateExecutor) GetConfig() *RateExecutorConfig {
 	return e.config
 }
 
-func (e *RateExecutor) Start() *common.StepContext {
+func (e *RateExecutor) Start(handlers RateExecutorHandlers) *common.StepContext {
+	if handlers.Tick == nil || handlers.Draw == nil {
+		return nil
+	}
+
 	context := common.CreateStepContext()
+	e.context = &context
 
-	go e.executeLoop(&context)
+	go e.executeLoop(e.context, handlers)
 
-	return &context
+	return e.context
 }
 
-func (e *RateExecutor) Stop(context *common.StepContext) {
-	context.Stop = true
+func (e *RateExecutor) Stop() {
+	if e.context == nil {
+		return
+	}
+
+	e.context.Stop = true
 }
 
-func (e *RateExecutor) executeLoop(context *common.StepContext) {
-	targetFPSNano := int64(int(time.Second) / e.config.DisplayFps)
-	targetTPSNano := int64(float64(time.Microsecond) / e.config.TargetSpeedMhz)
-
-	var lastTPSExecuted int64 = context.T + targetTPSNano
-	var lastFPSExecuted int64 = context.T + targetFPSNano
+func (e *RateExecutor) executeLoop(context *common.StepContext, handlers RateExecutorHandlers) {
+	var lastFPSExecuted, lastTPSExecuted, targetFPSNano, targetTPSNano int64
 
 	for !context.Stop {
+		targetFPSNano = int64(int(time.Second) / e.config.DisplayFps)
+		targetTPSNano = int64(float64(time.Microsecond) / e.config.TargetSpeedMhz)
+
 		if (context.T - lastTPSExecuted) > targetTPSNano {
 			lastTPSExecuted = context.T
 
-			e.handlers.Tick(context)
+			handlers.Tick(context)
 			context.NextCycle()
 		}
 
 		if (context.T - lastFPSExecuted) > targetFPSNano {
 			lastFPSExecuted = context.T
-			e.handlers.UpdateDisplay(context)
+			handlers.Draw(context)
 		}
 
 		context.SkipCycle()

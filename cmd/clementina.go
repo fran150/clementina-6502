@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/fran150/clementina6502/pkg/computers/beneater"
+	"github.com/fran150/clementina6502/pkg/terminal"
 )
 
 func main() {
@@ -13,9 +14,11 @@ func main() {
 
 	computer.Load("./assets/computer/beneater/eater.bin")
 
+	app := terminal.CreateApplication(computer)
+
 	t := time.Now()
 
-	context := computer.Run()
+	context := app.Run()
 
 	elapsed := time.Since(t)
 	total := (float64(context.Cycle) / elapsed.Seconds()) / 1_000_000

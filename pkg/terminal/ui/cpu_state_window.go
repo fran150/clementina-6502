@@ -1,4 +1,4 @@
-package terminal
+package ui
 
 import (
 	"fmt"

@@ -2,39 +2,36 @@ package beneater
 
 import (
 	"github.com/fran150/clementina6502/pkg/components/common"
-	"github.com/fran150/clementina6502/pkg/ui/terminal"
-	"github.com/gdamore/tcell/v2"
+	"github.com/fran150/clementina6502/pkg/terminal/ui"
 	"github.com/rivo/tview"
 )
 
 type console struct {
-	computer *BenEaterComputer
-	app      *tview.Application
-	grid     *tview.Grid
+	grid *tview.Grid
 
-	lcdDisplay  *terminal.Lcd16x2Window
-	codeWindow  *terminal.CodeWindow
-	speedWindow *terminal.SpeedWindow
+	lcdDisplay  *ui.Lcd16x2Window
+	codeWindow  *ui.CodeWindow
+	speedWindow *ui.SpeedWindow
 
-	cpuWindow *terminal.CpuWindow
-	viaWindow *terminal.ViaWindow
-	lcdWindow *terminal.LcdControllerWindow
+	cpuWindow *ui.CpuWindow
+	viaWindow *ui.ViaWindow
+	lcdWindow *ui.LcdControllerWindow
 
-	options *terminal.OptionsWindow
+	options *ui.OptionsWindow
 }
 
-func createMainConsole(computer *BenEaterComputer) *console {
-	app := tview.NewApplication()
-
+func createMainConsole(computer *BenEaterComputer, tvApplication *tview.Application) *console {
 	grid := tview.NewGrid()
 	grid.SetRows(4, 3, 0, 3).
 		SetColumns(25, 0).
 		SetBorder(true).
 		SetTitle("Ben Eater 6502 Computer")
 
-	displayWindow := terminal.CreateDisplayWindow(computer.chips.lcd)
+	tvApplication.SetRoot(grid, true)
 
-	codeWindow := terminal.CreateCodeWindow(computer.chips.cpu, func(programCounter uint16) [2]uint8 {
+	displayWindow := ui.CreateDisplayWindow(computer.chips.lcd)
+
+	codeWindow := ui.CreateCodeWindow(computer.chips.cpu, func(programCounter uint16) [2]uint8 {
 		// TODO: Might need to improve using address decoding logic
 		rom := computer.chips.rom
 
@@ -45,13 +42,13 @@ func createMainConsole(computer *BenEaterComputer) *console {
 		return [2]uint8{rom.Peek(operand1Address), rom.Peek(operand2Address)}
 	})
 
-	speedWindow := terminal.CreateSpeedWindow()
+	speedWindow := ui.CreateSpeedWindow()
 
-	cpuWindow := terminal.CreateCpuWindow(computer.chips.cpu)
-	viaWindow := terminal.CreateViaWindow(computer.chips.via)
-	lcdWindow := terminal.CreateLcdWindow(computer.chips.lcd)
+	cpuWindow := ui.CreateCpuWindow(computer.chips.cpu)
+	viaWindow := ui.CreateViaWindow(computer.chips.via)
+	lcdWindow := ui.CreateLcdWindow(computer.chips.lcd)
 
-	options := terminal.CreateOptionsWindow([]terminal.OptionsWindowConfig{
+	options := ui.CreateOptionsWindow([]ui.OptionsWindowConfig{
 		{KeyName: "ESC", KeyDescription: "Quit"},
 		{KeyName: "R", KeyDescription: "Reset CPU"},
 		{KeyName: "P", KeyDescription: "Pause Execution"},
@@ -66,8 +63,6 @@ func createMainConsole(computer *BenEaterComputer) *console {
 		AddItem(options.GetDrawArea(), 3, 0, 1, 2, 0, 0, false)
 
 	return &console{
-		computer:    computer,
-		app:         app,
 		grid:        grid,
 		lcdDisplay:  displayWindow,
 		codeWindow:  codeWindow,
@@ -102,14 +97,4 @@ func (c *console) Draw(context *common.StepContext) {
 
 	c.lcdWindow.Clear()
 	c.lcdWindow.Draw(context)
-
-	c.app.Draw()
-}
-
-func (m *console) Run(inputCapture func(event *tcell.EventKey) *tcell.EventKey) {
-	m.app.SetInputCapture(inputCapture)
-
-	if err := m.app.SetRoot(m.grid, true).SetFocus(m.grid).Run(); err != nil {
-		panic(err)
-	}
 }

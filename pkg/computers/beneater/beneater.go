@@ -9,8 +9,9 @@ import (
 	"github.com/fran150/clementina6502/pkg/components/memory"
 	"github.com/fran150/clementina6502/pkg/components/other/gates"
 	"github.com/fran150/clementina6502/pkg/components/via"
-	"github.com/fran150/clementina6502/pkg/computers"
+	"github.com/fran150/clementina6502/pkg/terminal"
 	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
 	"go.bug.st/serial"
 )
 
@@ -47,7 +48,7 @@ type BenEaterComputer struct {
 	console     *console
 	mustReset   bool
 	resetCycles uint8
-	executor    *computers.RateExecutor
+	config      *terminal.ApplicationConfig
 }
 
 func CreateBenEaterComputer(portName string) *BenEaterComputer {
@@ -173,45 +174,57 @@ func CreateBenEaterComputer(portName string) *BenEaterComputer {
 
 	chips.acia.ConnectToPort(circuit.serial)
 
-	computer := &BenEaterComputer{
+	return &BenEaterComputer{
 		chips:       chips,
 		circuit:     circuit,
 		mustReset:   false,
 		resetCycles: 0,
 	}
+}
 
-	computer.console = createMainConsole(computer)
+func (c *BenEaterComputer) Tick(context *common.StepContext) {
+	c.chips.cpu.Tick(context)
+	c.chips.nand.Tick(context)
+	c.chips.ram.Tick(context)
+	c.chips.rom.Tick(context)
+	c.chips.via.Tick(context)
+	c.chips.lcd.Tick(context)
+	c.chips.acia.Tick(context)
 
-	executorHandlers := computers.RateExecutorHandlers{
-		Tick: func(context *common.StepContext) {
-			chips.cpu.Tick(context)
-			chips.nand.Tick(context)
-			chips.ram.Tick(context)
-			chips.rom.Tick(context)
-			chips.via.Tick(context)
-			chips.lcd.Tick(context)
-			chips.acia.Tick(context)
+	c.console.Tick(context)
 
-			computer.console.Tick(context)
+	c.chips.cpu.PostTick(context)
 
-			chips.cpu.PostTick(context)
+	c.checkReset()
+}
 
-			computer.checkReset()
-		},
-		UpdateDisplay: func(context *common.StepContext) {
-			computer.console.Draw(context)
+func (c *BenEaterComputer) Draw(context *common.StepContext) {
+	c.console.Draw(context)
+}
 
-		},
+func (c *BenEaterComputer) Init(tvApplication *tview.Application, config *terminal.ApplicationConfig) {
+	c.config = config
+	c.console = createMainConsole(c, tvApplication)
+}
+
+func (c *BenEaterComputer) KeyPressed(event *tcell.EventKey, context *common.StepContext) *tcell.EventKey {
+	if event.Key() == tcell.KeyEsc {
+		context.Stop = true
 	}
 
-	executorConfig := computers.RateExecutorConfig{
-		TargetSpeedMhz: 1.2,
-		DisplayFps:     10,
+	if event.Rune() == 'r' {
+		c.mustReset = true
 	}
 
-	computer.executor = computers.CreateExecutor(&executorHandlers, &executorConfig)
+	if event.Rune() == '=' {
+		c.config.TargetSpeedMhz += 0.2
+	}
 
-	return computer
+	if event.Rune() == '-' {
+		c.config.TargetSpeedMhz -= 0.2
+	}
+
+	return event
 }
 
 func (c *BenEaterComputer) Load(romImagePath string) {
@@ -237,28 +250,4 @@ func (c *BenEaterComputer) checkReset() {
 	} else {
 		c.circuit.cpuReset.Set(true)
 	}
-}
-
-func (c *BenEaterComputer) RunEventLoop() {
-	c.console.Run(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyEsc {
-			c.console.app.Stop()
-		}
-
-		if event.Rune() == 'r' {
-			c.mustReset = true
-		}
-
-		return event
-	})
-}
-
-func (e *BenEaterComputer) Run() *common.StepContext {
-	context := e.executor.Start()
-
-	e.RunEventLoop()
-
-	e.executor.Stop(context)
-
-	return context
 }

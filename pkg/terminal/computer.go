@@ -1,0 +1,14 @@
+package terminal
+
+import (
+	"github.com/fran150/clementina6502/pkg/components/common"
+	"github.com/fran150/clementina6502/pkg/computers"
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
+)
+
+type Computer interface {
+	computers.Computer
+	Init(app *tview.Application, config *ApplicationConfig)
+	KeyPressed(event *tcell.EventKey, context *common.StepContext) *tcell.EventKey
+}
