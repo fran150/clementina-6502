@@ -20,7 +20,7 @@ type console struct {
 	options *ui.OptionsWindow
 }
 
-func createMainConsole(computer *BenEaterComputer, tvApplication *tview.Application) *console {
+func newMainConsole(computer *BenEaterComputer, tvApplication *tview.Application) *console {
 	grid := tview.NewGrid()
 	grid.SetRows(4, 3, 0, 3).
 		SetColumns(25, 0).
@@ -29,9 +29,9 @@ func createMainConsole(computer *BenEaterComputer, tvApplication *tview.Applicat
 
 	tvApplication.SetRoot(grid, true)
 
-	displayWindow := ui.CreateDisplayWindow(computer.chips.lcd)
+	displayWindow := ui.NewDisplayWindow(computer.chips.lcd)
 
-	codeWindow := ui.CreateCodeWindow(computer.chips.cpu, func(programCounter uint16) [2]uint8 {
+	codeWindow := ui.NewCodeWindow(computer.chips.cpu, func(programCounter uint16) [2]uint8 {
 		// TODO: Might need to improve using address decoding logic
 		rom := computer.chips.rom
 
@@ -42,13 +42,13 @@ func createMainConsole(computer *BenEaterComputer, tvApplication *tview.Applicat
 		return [2]uint8{rom.Peek(operand1Address), rom.Peek(operand2Address)}
 	})
 
-	speedWindow := ui.CreateSpeedWindow()
+	speedWindow := ui.NewSpeedWindow()
 
-	cpuWindow := ui.CreateCpuWindow(computer.chips.cpu)
-	viaWindow := ui.CreateViaWindow(computer.chips.via)
-	lcdWindow := ui.CreateLcdWindow(computer.chips.lcd)
+	cpuWindow := ui.NewCpuWindow(computer.chips.cpu)
+	viaWindow := ui.NewViaWindow(computer.chips.via)
+	lcdWindow := ui.NewLcdWindow(computer.chips.lcd)
 
-	options := ui.CreateOptionsWindow([]ui.OptionsWindowConfig{
+	options := ui.NewOptionsWindow([]ui.OptionsWindowConfig{
 		{KeyName: "ESC", KeyDescription: "Quit"},
 		{KeyName: "R", KeyDescription: "Reset CPU"},
 		{KeyName: "P", KeyDescription: "Pause Execution"},

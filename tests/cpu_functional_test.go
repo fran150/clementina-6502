@@ -30,27 +30,27 @@ const maxAllowedCycles uint64 = 100_000_000
 *******************************************************************************************************/
 
 // Creates a CPU connected to a RAM memory
-func CreateComputer() (*cpu.Cpu65C02S, *memory.Ram) {
-	addressBus := buses.Create16BitStandaloneBus()
-	dataBus := buses.Create8BitStandaloneBus()
+func NewComputer() (*cpu.Cpu65C02S, *memory.Ram) {
+	addressBus := buses.New16BitStandaloneBus()
+	dataBus := buses.New8BitStandaloneBus()
 
-	alwaysHighLine := buses.CreateStandaloneLine(true)
-	alwaysLowLine := buses.CreateStandaloneLine(false)
+	alwaysHighLine := buses.NewStandaloneLine(true)
+	alwaysLowLine := buses.NewStandaloneLine(false)
 
-	writeEnableLine := buses.CreateStandaloneLine(true)
+	writeEnableLine := buses.NewStandaloneLine(true)
 
-	memoryLockLine := buses.CreateStandaloneLine(false)
-	syncLine := buses.CreateStandaloneLine(false)
-	vectorPullLine := buses.CreateStandaloneLine(false)
+	memoryLockLine := buses.NewStandaloneLine(false)
+	syncLine := buses.NewStandaloneLine(false)
+	vectorPullLine := buses.NewStandaloneLine(false)
 
-	ram := memory.CreateRam(memory.RAM_SIZE_64K)
+	ram := memory.NewRam(memory.RAM_SIZE_64K)
 	ram.AddressBus().Connect(addressBus)
 	ram.DataBus().Connect(dataBus)
 	ram.WriteEnable().Connect(writeEnableLine)
 	ram.ChipSelect().Connect(alwaysLowLine)
 	ram.OutputEnable().Connect(alwaysLowLine)
 
-	processor := cpu.CreateCPU()
+	processor := cpu.NewCPU()
 	processor.AddressBus().Connect(addressBus)
 	processor.DataBus().Connect(dataBus)
 
@@ -130,7 +130,7 @@ func showExecutionSpeed(context *common.StepContext, elapsed time.Duration) {
 // See https://github.com/Klaus2m5/6502_65C02_functional_tests
 // In particular we use the compiled functional test provided in the "bin_files" folder as is.
 func BenchmarkProcessor(b *testing.B) {
-	processor, ram := CreateComputer()
+	processor, ram := NewComputer()
 
 	// Loads Klaus2m5 functional tests. See repository mentioned above for reference
 	ram.Load("../tests/6502_functional_test.bin")
@@ -143,7 +143,7 @@ func BenchmarkProcessor(b *testing.B) {
 	repeats = 0
 
 	// Will count the cycles required to complete execution
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 	var start = time.Now()
 
 	for i := 0; i < b.N; i++ {

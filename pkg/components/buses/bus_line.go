@@ -10,7 +10,7 @@ type BusLine[T uint8 | uint16] struct {
 
 // Creates a reference to the specified line of the bus. Any change in the
 // bus value will be reflected in the status high or low of the line
-func createBusLine[T uint8 | uint16](bus Bus[T], busLineNumber uint8) *BusLine[T] {
+func newBusLine[T uint8 | uint16](bus Bus[T], busLineNumber uint8) *BusLine[T] {
 	return &BusLine[T]{
 		bus:           bus,
 		busLineNumber: busLineNumber,

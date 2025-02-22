@@ -20,7 +20,7 @@ type CodeWindow struct {
 	operandsGetter func(programCounter uint16) [2]uint8
 }
 
-func CreateCodeWindow(processor *cpu.Cpu65C02S, operandsGetter func(programCounter uint16) [2]uint8) *CodeWindow {
+func NewCodeWindow(processor *cpu.Cpu65C02S, operandsGetter func(programCounter uint16) [2]uint8) *CodeWindow {
 	code := tview.NewTextView()
 	code.SetTextAlign(tview.AlignLeft)
 	code.SetScrollable(false)
@@ -30,7 +30,7 @@ func CreateCodeWindow(processor *cpu.Cpu65C02S, operandsGetter func(programCount
 
 	return &CodeWindow{
 		text:           code,
-		lines:          queue.CreateQueue[string](),
+		lines:          queue.NewQueue[string](),
 		processor:      processor,
 		operandsGetter: operandsGetter,
 	}

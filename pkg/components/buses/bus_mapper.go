@@ -23,7 +23,7 @@ func (bus *MappedBus[T, S]) GetBusLine(number uint8) *BusLine[T] {
 	}
 }
 
-func Create8BitMappedBus[S uint8 | uint16](target Bus[S], mapTo func(value uint8) S, mapFrom func(value S) uint8) *MappedBus[uint8, S] {
+func New8BitMappedBus[S uint8 | uint16](target Bus[S], mapTo func(value uint8) S, mapFrom func(value S) uint8) *MappedBus[uint8, S] {
 	bus := MappedBus[uint8, S]{
 		targetBus: target,
 		mapTo:     mapTo,
@@ -32,13 +32,13 @@ func Create8BitMappedBus[S uint8 | uint16](target Bus[S], mapTo func(value uint8
 	}
 
 	for i := range len(bus.busLines) {
-		bus.busLines[i] = createBusLine(&bus, uint8(i))
+		bus.busLines[i] = newBusLine(&bus, uint8(i))
 	}
 
 	return &bus
 }
 
-func Create16BitMappedBus[S uint8 | uint16](target Bus[S], mapTo func(value uint16) S, mapFrom func(value S) uint16) *MappedBus[uint16, S] {
+func New16BitMappedBus[S uint8 | uint16](target Bus[S], mapTo func(value uint16) S, mapFrom func(value S) uint16) *MappedBus[uint16, S] {
 	bus := MappedBus[uint16, S]{
 		targetBus: target,
 		mapTo:     mapTo,
@@ -47,7 +47,7 @@ func Create16BitMappedBus[S uint8 | uint16](target Bus[S], mapTo func(value uint
 	}
 
 	for i := range len(bus.busLines) {
-		bus.busLines[i] = createBusLine(&bus, uint8(i))
+		bus.busLines[i] = newBusLine(&bus, uint8(i))
 	}
 
 	return &bus

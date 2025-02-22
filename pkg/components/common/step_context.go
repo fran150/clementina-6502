@@ -14,7 +14,7 @@ type StepContext struct {
 
 var beginning = time.Now()
 
-func CreateStepContext() StepContext {
+func NewStepContext() StepContext {
 	return StepContext{
 		Cycle: 0,
 		T:     now(),

@@ -29,7 +29,7 @@ type viaLatches struct {
 }
 
 // Creates the latches and attaches them to the specified via chip
-func createViaLatches(via *Via65C22S, configuration *viaLatchesConfiguration) *viaLatches {
+func newViaLatches(via *Via65C22S, configuration *viaLatchesConfiguration) *viaLatches {
 	return &viaLatches{
 		handshakeInProgress:   false,
 		handshakeCycleCounter: 0,

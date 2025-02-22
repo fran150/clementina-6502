@@ -13,7 +13,7 @@ type ViaWindow struct {
 	via  *via.Via65C22S
 }
 
-func CreateViaWindow(via *via.Via65C22S) *ViaWindow {
+func NewViaWindow(via *via.Via65C22S) *ViaWindow {
 	text := tview.NewTextView()
 	text.SetScrollable(false).
 		SetDynamicColors(true).

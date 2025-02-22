@@ -138,7 +138,7 @@ func (addressModeSet *AddressModeSet) GetByName(name AddressMode) *AddressModeDa
 }
 
 // Creates and returns the list of address modes supported by this processor.
-func CreateAddressModesSet() *AddressModeSet {
+func NewAddressModesSet() *AddressModeSet {
 	addressModeSet := AddressModeSet{
 		nameIndex: [40]*AddressModeData{},
 	}

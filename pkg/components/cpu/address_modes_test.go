@@ -7,7 +7,7 @@ import (
 )
 
 func TestAddressModeDataGetters(t *testing.T) {
-	addressModeDataSet := CreateAddressModesSet()
+	addressModeDataSet := NewAddressModesSet()
 	absoluteAddressModeData := addressModeDataSet.GetByName(AddressModeAbsolute)
 
 	assert.Equal(t, AddressModeAbsolute, absoluteAddressModeData.Name())

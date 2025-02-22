@@ -7,8 +7,8 @@ import (
 	"github.com/fran150/clementina6502/pkg/components/common"
 )
 
-var addressModeSet *AddressModeSet = CreateAddressModesSet()
-var instructionSet *CpuInstructionSet = CreateInstructionSet()
+var addressModeSet *AddressModeSet = NewAddressModesSet()
+var instructionSet *CpuInstructionSet = NewInstructionSet()
 
 // Represents the WDC 65C02S processor. See https://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf
 // for details.
@@ -61,21 +61,21 @@ type Cpu65C02S struct {
 }
 
 // Creates a CPU with typical values for all registers, address and data bus are not connected
-func CreateCPU() *Cpu65C02S {
+func NewCPU() *Cpu65C02S {
 	cpu := &Cpu65C02S{
-		addressBus: buses.CreateBusConnector[uint16](),
-		dataBus:    buses.CreateBusConnector[uint8](),
+		addressBus: buses.NewBusConnector[uint16](),
+		dataBus:    buses.NewBusConnector[uint8](),
 
-		busEnable:            buses.CreateConnectorEnabledHigh(),
-		interruptRequest:     buses.CreateConnectorEnabledLow(),
-		memoryLock:           buses.CreateConnectorEnabledLow(),
-		nonMaskableInterrupt: buses.CreateConnectorEnabledLow(),
-		reset:                buses.CreateConnectorEnabledLow(),
-		setOverflow:          buses.CreateConnectorEnabledLow(),
-		readWrite:            buses.CreateConnectorEnabledLow(),
-		ready:                buses.CreateConnectorEnabledHigh(),
-		sync:                 buses.CreateConnectorEnabledHigh(),
-		vectorPull:           buses.CreateConnectorEnabledLow(),
+		busEnable:            buses.NewConnectorEnabledHigh(),
+		interruptRequest:     buses.NewConnectorEnabledLow(),
+		memoryLock:           buses.NewConnectorEnabledLow(),
+		nonMaskableInterrupt: buses.NewConnectorEnabledLow(),
+		reset:                buses.NewConnectorEnabledLow(),
+		setOverflow:          buses.NewConnectorEnabledLow(),
+		readWrite:            buses.NewConnectorEnabledLow(),
+		ready:                buses.NewConnectorEnabledHigh(),
+		sync:                 buses.NewConnectorEnabledHigh(),
+		vectorPull:           buses.NewConnectorEnabledLow(),
 
 		accumulatorRegister: 0x00,
 		xRegister:           0x00,

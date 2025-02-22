@@ -19,13 +19,13 @@ type testCircuit struct {
 }
 
 // Creates the test circuit and the ram
-func createTestCircuit(size int) (*Ram, *testCircuit) {
-	ram := CreateRam(size)
+func newTestCircuit(size int) (*Ram, *testCircuit) {
+	ram := NewRam(size)
 	circuit := &testCircuit{
-		addressBus:   buses.Create16BitStandaloneBus(),
-		dataBus:      buses.Create8BitStandaloneBus(),
-		writeEnable:  buses.CreateStandaloneLine(false),
-		outputEnable: buses.CreateStandaloneLine(false),
+		addressBus:   buses.New16BitStandaloneBus(),
+		dataBus:      buses.New8BitStandaloneBus(),
+		writeEnable:  buses.NewStandaloneLine(false),
+		outputEnable: buses.NewStandaloneLine(false),
 	}
 
 	return ram, circuit
@@ -47,9 +47,9 @@ func (circuit *testCircuit) Wire(ram *Ram) {
 
 // Writes and reads a value from the memory
 func TestRamReadWrite(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	ram, circuit := createTestCircuit(RAM_SIZE_64K)
+	ram, circuit := newTestCircuit(RAM_SIZE_64K)
 	circuit.Wire(ram)
 
 	// Write Cycle
@@ -90,7 +90,7 @@ func TestRamReadWrite(t *testing.T) {
 
 // Loads a bin file into the memory
 func TestLoadBinFile(t *testing.T) {
-	ram, circuit := createTestCircuit(RAM_SIZE_64K)
+	ram, circuit := newTestCircuit(RAM_SIZE_64K)
 	circuit.Wire(ram)
 
 	err := ram.Load(test_directory + "/6502_functional_test.bin")
@@ -102,7 +102,7 @@ func TestLoadBinFile(t *testing.T) {
 
 // Reading from non existing file fails with error
 func TestReadNonExistingFileFails(t *testing.T) {
-	ram, circuit := createTestCircuit(RAM_SIZE_1K)
+	ram, circuit := newTestCircuit(RAM_SIZE_1K)
 	circuit.Wire(ram)
 
 	err := ram.Load(test_directory + "/non_existing.bin")
@@ -114,7 +114,7 @@ func TestReadNonExistingFileFails(t *testing.T) {
 
 // Reading a bin file too big for the memory throws error
 func TestReadingFileTooLargeForMemory(t *testing.T) {
-	ram, circuit := createTestCircuit(RAM_SIZE_1K)
+	ram, circuit := newTestCircuit(RAM_SIZE_1K)
 	circuit.Wire(ram)
 
 	err := ram.Load(test_directory + "/6502_functional_test.bin")
@@ -130,7 +130,7 @@ func TestReadingFileTooLargeForMemory(t *testing.T) {
 
 // Tests peek and poke
 func TestPeekAndPokeReadsAndWritesValuesDirectly(t *testing.T) {
-	ram, circuit := createTestCircuit(RAM_SIZE_1K)
+	ram, circuit := newTestCircuit(RAM_SIZE_1K)
 	circuit.Wire(ram)
 
 	for i := range RAM_SIZE_1K {

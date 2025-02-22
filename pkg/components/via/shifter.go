@@ -48,7 +48,7 @@ type viaShifter struct {
 }
 
 // Creates a shifter and attaches it to the specified chip
-func createViaShifter(via *Via65C22S, configuration *viaShifterConfiguration) *viaShifter {
+func newViaShifter(via *Via65C22S, configuration *viaShifterConfiguration) *viaShifter {
 	return &viaShifter{
 		shifterEnabled: false,
 		bitCount:       0,

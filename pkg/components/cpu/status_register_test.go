@@ -9,7 +9,7 @@ import (
 func TestGetAndSetFlag(t *testing.T) {
 	// Creates new status register but 0x80 is transformed in
 	// 0xB0 as unused (U) and break (B) flags are always set
-	status := CreateStatusRegister(0x80)
+	status := NewStatusRegister(0x80)
 
 	assert.Equal(t, true, status.Flag(NegativeFlagBit))
 

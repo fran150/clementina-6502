@@ -19,7 +19,7 @@ type lcdBuffer struct {
 }
 
 // Creates a new LCD buffer
-func createLcdBuffer() *lcdBuffer {
+func newLcdBuffer() *lcdBuffer {
 	return &lcdBuffer{
 		is8BitMode: true,
 		value:      0x00,

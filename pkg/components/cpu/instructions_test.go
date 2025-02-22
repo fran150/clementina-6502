@@ -7,7 +7,7 @@ import (
 )
 
 func TestInstructionsGetters(t *testing.T) {
-	instructionSet := CreateInstructionSet()
+	instructionSet := NewInstructionSet()
 	loadAccumulatorInstruction := instructionSet.GetByOpCode(0xA9)
 
 	assert.Equal(t, OpCode(0xA9), loadAccumulatorInstruction.OpCode())

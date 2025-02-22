@@ -7,9 +7,9 @@ import (
 )
 
 // Creates a bus and a bus connector of 8 bits
-func createBusConnector() (Bus[uint8], *BusConnector[uint8]) {
-	bus := Create8BitStandaloneBus()
-	connector := CreateBusConnector[uint8]()
+func newBusConnector() (Bus[uint8], *BusConnector[uint8]) {
+	bus := New8BitStandaloneBus()
+	connector := NewBusConnector[uint8]()
 	connector.Connect(bus)
 
 	return bus, connector
@@ -17,7 +17,7 @@ func createBusConnector() (Bus[uint8], *BusConnector[uint8]) {
 
 // Tests reading the value of the bus from the connector
 func TestReadingFromConnectorReturnsTheBusValue(t *testing.T) {
-	bus, connector := createBusConnector()
+	bus, connector := newBusConnector()
 	bus.Write(0xFF)
 
 	assert.Equal(t, true, connector.IsConnected())
@@ -26,7 +26,7 @@ func TestReadingFromConnectorReturnsTheBusValue(t *testing.T) {
 
 // Reading from a disconnected connector will return 0x00
 func TestReadingFromConnectorWhenDisconnectedReturnsZero(t *testing.T) {
-	bus, connector := createBusConnector()
+	bus, connector := newBusConnector()
 
 	// Disconnect from bus
 	connector.Connect(nil)
@@ -39,7 +39,7 @@ func TestReadingFromConnectorWhenDisconnectedReturnsZero(t *testing.T) {
 
 // Setting the value on the connector will drive the bus to that value also
 func TestWritingToConnectorSetsTheBusValue(t *testing.T) {
-	bus, connector := createBusConnector()
+	bus, connector := newBusConnector()
 	connector.Write(0xFF)
 
 	assert.Equal(t, true, connector.IsConnected())
@@ -48,7 +48,7 @@ func TestWritingToConnectorSetsTheBusValue(t *testing.T) {
 
 // Writing to the bus when disconnected does nothing
 func TestWritingToConnectorWhenDisconnectedDoesNothing(t *testing.T) {
-	bus, connector := createBusConnector()
+	bus, connector := newBusConnector()
 
 	// Disconnect from bus
 	connector.Connect(nil)
@@ -63,7 +63,7 @@ func TestWritingToConnectorWhenDisconnectedDoesNothing(t *testing.T) {
 // Depending on the type of bus it can be from 0 to 8 or 0 to 15.
 // Also the bus line status must change with different values of the bus
 func TestGetLineReturnsReferenceToLine(t *testing.T) {
-	bus, connector := createBusConnector()
+	bus, connector := newBusConnector()
 
 	var lines [8]Line
 
@@ -92,7 +92,7 @@ func TestGetLineReturnsReferenceToLine(t *testing.T) {
 
 // Get line of a diconnected bus returns nil
 func TestGettingABusLineFromDisconnectedConnectorReturnsNil(t *testing.T) {
-	_, connector := createBusConnector()
+	_, connector := newBusConnector()
 
 	// Disconnect from bus
 	connector.Connect(nil)
@@ -105,7 +105,7 @@ func TestGettingABusLineFromDisconnectedConnectorReturnsNil(t *testing.T) {
 
 // Trying to get an unexistent bus line returns nil
 func TestGetInvalidBusLineReturnsNil(t *testing.T) {
-	_, connector := createBusConnector()
+	_, connector := newBusConnector()
 
 	line := connector.GetLine(10)
 

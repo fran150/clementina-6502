@@ -35,28 +35,28 @@ type Ram struct {
 }
 
 // Creates a RAM chip
-func CreateRam(size int) *Ram {
+func NewRam(size int) *Ram {
 	return &Ram{
 		values:       make([]uint8, size),
-		addressBus:   buses.CreateBusConnector[uint16](),
-		dataBus:      buses.CreateBusConnector[uint8](),
-		writeEnable:  buses.CreateConnectorEnabledLow(),
-		chipSelect:   buses.CreateConnectorEnabledLow(),
-		outputEnable: buses.CreateConnectorEnabledLow(),
+		addressBus:   buses.NewBusConnector[uint16](),
+		dataBus:      buses.NewBusConnector[uint8](),
+		writeEnable:  buses.NewConnectorEnabledLow(),
+		chipSelect:   buses.NewConnectorEnabledLow(),
+		outputEnable: buses.NewConnectorEnabledLow(),
 
 		addressPinsMask: useAllPins,
 	}
 }
 
 // Creates a RAM chip
-func CreateRamWithLessPins(size int, addressPinsMask uint16) *Ram {
+func NewRamWithLessPins(size int, addressPinsMask uint16) *Ram {
 	return &Ram{
 		values:       make([]uint8, size),
-		addressBus:   buses.CreateBusConnector[uint16](),
-		dataBus:      buses.CreateBusConnector[uint8](),
-		writeEnable:  buses.CreateConnectorEnabledLow(),
-		chipSelect:   buses.CreateConnectorEnabledLow(),
-		outputEnable: buses.CreateConnectorEnabledLow(),
+		addressBus:   buses.NewBusConnector[uint16](),
+		dataBus:      buses.NewBusConnector[uint8](),
+		writeEnable:  buses.NewConnectorEnabledLow(),
+		chipSelect:   buses.NewConnectorEnabledLow(),
+		outputEnable: buses.NewConnectorEnabledLow(),
 
 		addressPinsMask: addressPinsMask,
 	}

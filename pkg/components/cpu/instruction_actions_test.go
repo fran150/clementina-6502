@@ -10,7 +10,7 @@ import (
 )
 
 func runInstructionTest(cpu *Cpu65C02S, ram *memory.Ram, cycles uint64) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
 	for i := range cycles {
 		cpu.Tick(&context)
@@ -118,7 +118,7 @@ func evaluateFlagInstruction(t *testing.T, cpu *Cpu65C02S, ram *memory.Ram, cycl
 }
 
 func TestActionADC(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 0x05
 	cpu.yRegister = 0x0A
@@ -180,7 +180,7 @@ func TestActionADC(t *testing.T) {
 }
 
 func TestActionADCDecimal(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.processorStatusRegister.SetFlag(DecimalModeFlagBit, true)
 	cpu.accumulatorRegister = 0x11
@@ -195,7 +195,7 @@ func TestActionADCDecimal(t *testing.T) {
 }
 
 func TestActionADC2bytes(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0x11
 
@@ -210,7 +210,7 @@ func TestActionADC2bytes(t *testing.T) {
 }
 
 func TestActionAND(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xFF
 	cpu.xRegister = 0x05
@@ -274,7 +274,7 @@ func TestActionAND(t *testing.T) {
 }
 
 func TestActionASL(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xAA
 	cpu.xRegister = 0x05
@@ -306,7 +306,7 @@ func TestActionASL(t *testing.T) {
 }
 
 func TestActionBCC(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0x90) // BCC $10
 	ram.Poke(0xC001, 0x10)
@@ -325,7 +325,7 @@ func TestActionBCC(t *testing.T) {
 }
 
 func TestActionBCS(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.processorStatusRegister.SetFlag(CarryFlagBit, true)
 
@@ -346,7 +346,7 @@ func TestActionBCS(t *testing.T) {
 }
 
 func TestActionBEQ(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.processorStatusRegister.SetFlag(ZeroFlagBit, true)
 
@@ -367,7 +367,7 @@ func TestActionBEQ(t *testing.T) {
 }
 
 func TestActionBIT(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xFF
 	cpu.xRegister = 0x05
@@ -401,7 +401,7 @@ func TestActionBIT(t *testing.T) {
 }
 
 func TestActionBMI(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.processorStatusRegister.SetFlag(NegativeFlagBit, true)
 
@@ -422,7 +422,7 @@ func TestActionBMI(t *testing.T) {
 }
 
 func TestActionBNE(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0xD0) // BNE $10
 	ram.Poke(0xC001, 0x10)
@@ -441,7 +441,7 @@ func TestActionBNE(t *testing.T) {
 }
 
 func TestActionBPL(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0x10) // BPL $10
 	ram.Poke(0xC001, 0x10)
@@ -460,7 +460,7 @@ func TestActionBPL(t *testing.T) {
 }
 
 func TestActionBRA(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0x80) // BRA $10
 	ram.Poke(0xC001, 0x10)
@@ -472,7 +472,7 @@ func TestActionBRA(t *testing.T) {
 }
 
 func TestActionBRKandRTI(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xFFFE, 0x00)
 	ram.Poke(0xFFFF, 0xD0)
@@ -494,7 +494,7 @@ func TestActionBRKandRTI(t *testing.T) {
 }
 
 func TestActionBVC(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0x50) // BVC $10
 	ram.Poke(0xC001, 0x10)
@@ -513,7 +513,7 @@ func TestActionBVC(t *testing.T) {
 }
 
 func TestActionBVS(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.processorStatusRegister.SetFlag(OverflowFlagBit, true)
 
@@ -534,7 +534,7 @@ func TestActionBVS(t *testing.T) {
 }
 
 func TestActionCLC(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.processorStatusRegister.SetFlag(CarryFlagBit, true)
 
@@ -545,7 +545,7 @@ func TestActionCLC(t *testing.T) {
 }
 
 func TestActionCLD(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.processorStatusRegister.SetFlag(DecimalModeFlagBit, true)
 
@@ -556,7 +556,7 @@ func TestActionCLD(t *testing.T) {
 }
 
 func TestActionCLI(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.processorStatusRegister.SetFlag(IrqDisableFlagBit, true)
 
@@ -567,7 +567,7 @@ func TestActionCLI(t *testing.T) {
 }
 
 func TestActionCLV(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.processorStatusRegister.SetFlag(OverflowFlagBit, true)
 
@@ -578,7 +578,7 @@ func TestActionCLV(t *testing.T) {
 }
 
 func TestActionCMP(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0x0F
 
@@ -642,7 +642,7 @@ func TestActionCMP(t *testing.T) {
 }
 
 func TestActionCPX(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 0x0F
 
@@ -665,7 +665,7 @@ func TestActionCPX(t *testing.T) {
 }
 
 func TestActionCPY(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.yRegister = 0x0F
 
@@ -688,7 +688,7 @@ func TestActionCPY(t *testing.T) {
 }
 
 func TestActionDEC(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xFF
 	cpu.xRegister = 0x05
@@ -720,7 +720,7 @@ func TestActionDEC(t *testing.T) {
 }
 
 func TestActionDEX(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 0x02
 
@@ -735,7 +735,7 @@ func TestActionDEX(t *testing.T) {
 }
 
 func TestActionDEY(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.yRegister = 0x02
 
@@ -750,7 +750,7 @@ func TestActionDEY(t *testing.T) {
 }
 
 func TestActionEOR(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xFF
 	cpu.xRegister = 0x05
@@ -814,7 +814,7 @@ func TestActionEOR(t *testing.T) {
 }
 
 func TestActionINC(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xFF
 	cpu.xRegister = 0x05
@@ -846,7 +846,7 @@ func TestActionINC(t *testing.T) {
 }
 
 func TestActionINX(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 0xFE
 
@@ -861,7 +861,7 @@ func TestActionINX(t *testing.T) {
 }
 
 func TestActionINY(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.yRegister = 0xFE
 
@@ -876,7 +876,7 @@ func TestActionINY(t *testing.T) {
 }
 
 func TestActionJMP(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 0x50
 
@@ -906,7 +906,7 @@ func TestActionJMP(t *testing.T) {
 }
 
 func TestActionJSRandRTS(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xD000, 0xA9) // LDA #$FF
 	ram.Poke(0xD001, 0xFF)
@@ -925,7 +925,7 @@ func TestActionJSRandRTS(t *testing.T) {
 }
 
 func TestActionLDA(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 0x05
 	cpu.yRegister = 0x0A
@@ -987,7 +987,7 @@ func TestActionLDA(t *testing.T) {
 }
 
 func TestActionLDX(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.yRegister = 0x05
 
@@ -1018,7 +1018,7 @@ func TestActionLDX(t *testing.T) {
 }
 
 func TestActionLDY(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 0x05
 
@@ -1049,7 +1049,7 @@ func TestActionLDY(t *testing.T) {
 }
 
 func TestActionLSR(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xAA
 	cpu.xRegister = 0x05
@@ -1081,7 +1081,7 @@ func TestActionLSR(t *testing.T) {
 }
 
 func TestActionNOP(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.yRegister = 0xFE
 
@@ -1095,7 +1095,7 @@ func TestActionNOP(t *testing.T) {
 }
 
 func TestActionORA(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 0x05
 	cpu.yRegister = 0x0A
@@ -1158,7 +1158,7 @@ func TestActionORA(t *testing.T) {
 }
 
 func TestActionPHAandPLA(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0x48) // PHA
 	ram.Poke(0xC001, 0x48) // PHA
@@ -1180,7 +1180,7 @@ func TestActionPHAandPLA(t *testing.T) {
 }
 
 func TestActionPHP(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0x08) // PHP
 	ram.Poke(0xC001, 0x08) // PHP
@@ -1198,7 +1198,7 @@ func TestActionPHP(t *testing.T) {
 }
 
 func TestActionPHXandPLX(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0xDA) // PHX
 	ram.Poke(0xC001, 0xDA) // PHX
@@ -1220,7 +1220,7 @@ func TestActionPHXandPLX(t *testing.T) {
 }
 
 func TestActionPHYandPLY(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0x5A) // PHY
 	ram.Poke(0xC001, 0x5A) // PHY
@@ -1242,7 +1242,7 @@ func TestActionPHYandPLY(t *testing.T) {
 }
 
 func TestActionROL(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xAA
 	cpu.xRegister = 0x05
@@ -1274,7 +1274,7 @@ func TestActionROL(t *testing.T) {
 }
 
 func TestActionROR(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xAA
 	cpu.xRegister = 0x05
@@ -1307,7 +1307,7 @@ func TestActionROR(t *testing.T) {
 }
 
 func TestActionSBC(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xFF
 	cpu.xRegister = 0x05
@@ -1371,7 +1371,7 @@ func TestActionSBC(t *testing.T) {
 }
 
 func TestActionSBCDecimal(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0x99
 
@@ -1388,7 +1388,7 @@ func TestActionSBCDecimal(t *testing.T) {
 }
 
 func TestActionSBC2Bytes(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0x99
 
@@ -1404,7 +1404,7 @@ func TestActionSBC2Bytes(t *testing.T) {
 }
 
 func TestActionSEC(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.processorStatusRegister.SetFlag(CarryFlagBit, false)
 
@@ -1415,7 +1415,7 @@ func TestActionSEC(t *testing.T) {
 }
 
 func TestActionSED(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.processorStatusRegister.SetFlag(DecimalModeFlagBit, false)
 
@@ -1426,7 +1426,7 @@ func TestActionSED(t *testing.T) {
 }
 
 func TestActionSEI(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.processorStatusRegister.SetFlag(IrqDisableFlagBit, false)
 
@@ -1437,7 +1437,7 @@ func TestActionSEI(t *testing.T) {
 }
 
 func TestActionSTA(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xFF
 	cpu.xRegister = 0x05
@@ -1484,7 +1484,7 @@ func TestActionSTA(t *testing.T) {
 }
 
 func TestActionSTX(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 0xFF
 	cpu.yRegister = 0x05
@@ -1504,7 +1504,7 @@ func TestActionSTX(t *testing.T) {
 }
 
 func TestActionSTY(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 0x05
 	cpu.yRegister = 0xFF
@@ -1524,7 +1524,7 @@ func TestActionSTY(t *testing.T) {
 }
 
 func TestActionSTZ(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 0x05
 
@@ -1552,7 +1552,7 @@ func TestActionSTZ(t *testing.T) {
 }
 
 func TestActionTAX(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xAA
 	cpu.xRegister = 0x05
@@ -1567,7 +1567,7 @@ func TestActionTAX(t *testing.T) {
 }
 
 func TestActionTAY(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xAA
 	cpu.yRegister = 0x05
@@ -1582,7 +1582,7 @@ func TestActionTAY(t *testing.T) {
 }
 
 func TestActionTSX(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 0x05
 
@@ -1596,7 +1596,7 @@ func TestActionTSX(t *testing.T) {
 }
 
 func TestActionTXA(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 0xAA
 	cpu.accumulatorRegister = 0x05
@@ -1611,7 +1611,7 @@ func TestActionTXA(t *testing.T) {
 }
 
 func TestActionTXS(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0x9A) // TXS
 	ram.Poke(0xC001, 0x9A) // TXS
@@ -1624,7 +1624,7 @@ func TestActionTXS(t *testing.T) {
 }
 
 func TestActionTYA(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.yRegister = 0xAA
 	cpu.accumulatorRegister = 0x05
@@ -1639,7 +1639,7 @@ func TestActionTYA(t *testing.T) {
 }
 
 func TestActionBBR(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0x0010, 0xFD)
 	ram.Poke(0x0015, 0x7F)
@@ -1672,7 +1672,7 @@ func TestActionBBR(t *testing.T) {
 }
 
 func TestActionBBS(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0x0010, 0x02)
 	ram.Poke(0x0015, 0x80)
@@ -1705,7 +1705,7 @@ func TestActionBBS(t *testing.T) {
 }
 
 func TestActionRMB(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0x0010, 0xFF)
 
@@ -1737,7 +1737,7 @@ func TestActionRMB(t *testing.T) {
 }
 
 func TestActionSMB(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0x0010, 0x00)
 
@@ -1769,7 +1769,7 @@ func TestActionSMB(t *testing.T) {
 }
 
 func TestActionTRB(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0x0010, 0xAA)
 
@@ -1792,7 +1792,7 @@ func TestActionTRB(t *testing.T) {
 }
 
 func TestActionTSB(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0x0010, 0x00)
 

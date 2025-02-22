@@ -25,26 +25,26 @@ type testCircuit struct {
 
 // Creates and returns the test circuit including the ACIA chip
 // the circuit and a mock serial port implementation to interface with.
-func createTestCircuit() (*Acia65C51N, *testCircuit, *portMock) {
+func newTestCircuit() (*Acia65C51N, *testCircuit, *portMock) {
 	var rsLines [numOfRSLines]buses.Line
 
 	for i := range numOfRSLines {
-		rsLines[i] = buses.CreateStandaloneLine(false)
+		rsLines[i] = buses.NewStandaloneLine(false)
 	}
 
-	acia := CreateAcia65C51N(true)
+	acia := NewAcia65C51N(true)
 
 	circuit := testCircuit{
-		dataBus: buses.Create8BitStandaloneBus(),
-		irq:     buses.CreateStandaloneLine(true),
-		rw:      buses.CreateStandaloneLine(true),
-		cs0:     buses.CreateStandaloneLine(true),
-		cs1:     buses.CreateStandaloneLine(false),
+		dataBus: buses.New8BitStandaloneBus(),
+		irq:     buses.NewStandaloneLine(true),
+		rw:      buses.NewStandaloneLine(true),
+		cs0:     buses.NewStandaloneLine(true),
+		cs1:     buses.NewStandaloneLine(false),
 		rs:      rsLines,
-		reset:   buses.CreateStandaloneLine(true),
+		reset:   buses.NewStandaloneLine(true),
 	}
 
-	mock := createPortMock(&serial.Mode{})
+	mock := newPortMock(&serial.Mode{})
 
 	// Start a go soubrouting used to write or read bytes
 	// to and from the serial port.
@@ -238,7 +238,7 @@ func testModemStatusLine(t *testing.T, acia *Acia65C51N, circuit *testCircuit, m
 func TestWriteToTX(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -262,7 +262,7 @@ func TestWriteToTX(t *testing.T) {
 func TestWriteToTXWithCTSDisabled(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -290,7 +290,7 @@ func TestWriteToTXWithCTSDisabled(t *testing.T) {
 func TestProgrammedReset(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -318,7 +318,7 @@ func TestProgrammedReset(t *testing.T) {
 func TestWriteToCommandRegister(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -333,7 +333,7 @@ func TestWriteToCommandRegister(t *testing.T) {
 func TestWriteToControlRegister(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -348,7 +348,7 @@ func TestWriteToControlRegister(t *testing.T) {
 func TestWriteToControlConfiguresCorrectStopBit(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -385,7 +385,7 @@ func TestWriteToControlConfiguresCorrectStopBit(t *testing.T) {
 func TestPanicForInvalidModesFor65C51N(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -411,7 +411,7 @@ func TestPanicForInvalidModesFor65C51N(t *testing.T) {
 func TestReadFromRxPollingStatusRegister(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -469,7 +469,7 @@ func TestReadFromRxPollingStatusRegister(t *testing.T) {
 func TestReadFromRxUsingIRQ(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -531,7 +531,7 @@ func TestReadFromRxUsingIRQ(t *testing.T) {
 func TestReadFromRxUsingIRQAndReceiverEchoModeEnabled(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -593,7 +593,7 @@ func TestReadFromRxUsingIRQAndReceiverEchoModeEnabled(t *testing.T) {
 func TestReadFromRxOverrunning(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -625,7 +625,7 @@ func TestReadFromRxOverrunning(t *testing.T) {
 func TestReadFromStatusRegister(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -642,7 +642,7 @@ func TestReadFromStatusRegister(t *testing.T) {
 func TestReadFromCommandRegister(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -659,7 +659,7 @@ func TestReadFromCommandRegister(t *testing.T) {
 func TestReadFromControlRegister(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -680,7 +680,7 @@ func TestReadFromControlRegister(t *testing.T) {
 func TestHardwareReset(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -713,7 +713,7 @@ func TestHardwareReset(t *testing.T) {
 func TestInterruptFromModemLines(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -746,7 +746,7 @@ func TestInterruptFromModemLines(t *testing.T) {
 func TestCPUControlledLinesToModem(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -763,7 +763,7 @@ func TestCPUControlledLinesToModem(t *testing.T) {
 }
 
 func TestCTSStatusWhenNotConnected(t *testing.T) {
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -785,7 +785,7 @@ func TestCTSStatusWhenNotConnected(t *testing.T) {
 ****************************************************************************************************************/
 
 func TestPanicsWhenFailsToSetModeWhenConnectingToSerial(t *testing.T) {
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -799,7 +799,7 @@ func TestPanicsWhenFailsToSetModeWhenConnectingToSerial(t *testing.T) {
 func TestPanicsWhenFailsToSetDTRandRTS(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -821,7 +821,7 @@ func TestPanicsWhenFailsToSetDTRandRTS(t *testing.T) {
 func TestReturnsFalseWhenFailsToGetModemStatusLines(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 
@@ -842,7 +842,7 @@ func TestReturnsFalseWhenFailsToGetModemStatusLines(t *testing.T) {
 }
 
 func TestPanicsWhenPollerFailsToRead(t *testing.T) {
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	mock.Close()
 
 	circuit.wire(acia, mock)
@@ -860,7 +860,7 @@ func TestPanicsWhenPollerFailsToRead(t *testing.T) {
 }
 
 func TestPanicsWhenPollerFailsToWrite(t *testing.T) {
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	mock.Close()
 
 	circuit.wire(acia, mock)
@@ -880,7 +880,7 @@ func TestPanicsWhenPollerFailsToWrite(t *testing.T) {
 func TestPanicsWhenFailsToSetModeWhenChangingControlRegister(t *testing.T) {
 	var step common.StepContext
 
-	acia, circuit, mock := createTestCircuit()
+	acia, circuit, mock := newTestCircuit()
 	defer acia.Close()
 	defer mock.Close()
 

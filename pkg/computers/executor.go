@@ -21,7 +21,7 @@ type RateExecutor struct {
 	context *common.StepContext
 }
 
-func CreateExecutor(config *RateExecutorConfig) *RateExecutor {
+func NewExecutor(config *RateExecutorConfig) *RateExecutor {
 	return &RateExecutor{
 		config: config,
 	}
@@ -36,7 +36,7 @@ func (e *RateExecutor) Start(handlers RateExecutorHandlers) *common.StepContext 
 		return nil
 	}
 
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 	e.context = &context
 
 	go e.executeLoop(e.context, handlers)

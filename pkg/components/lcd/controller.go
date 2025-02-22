@@ -65,13 +65,13 @@ type LcdHD44780U struct {
 }
 
 // Creates the LCD controller chip
-func CreateLCD() *LcdHD44780U {
+func NewLCDController() *LcdHD44780U {
 	lcd := LcdHD44780U{
-		dataRegisterSelected: buses.CreateConnectorEnabledHigh(),
-		write:                buses.CreateConnectorEnabledLow(),
-		enable:               buses.CreateConnectorEnabledHigh(),
-		dataBus:              buses.CreateBusConnector[uint8](),
-		buffer:               createLcdBuffer(),
+		dataRegisterSelected: buses.NewConnectorEnabledHigh(),
+		write:                buses.NewConnectorEnabledLow(),
+		enable:               buses.NewConnectorEnabledHigh(),
+		dataBus:              buses.NewBusConnector[uint8](),
+		buffer:               newLcdBuffer(),
 
 		displayOn:      false,
 		displayCursor:  false,
@@ -89,7 +89,7 @@ func CreateLCD() *LcdHD44780U {
 		blinkingVisible: false,
 	}
 
-	lcd.addressCounter = createLCDAddressCounter(&lcd)
+	lcd.addressCounter = newLCDAddressCounter(&lcd)
 
 	lcd.instructions = [8]func(int64){
 		lcd.clearDisplay,

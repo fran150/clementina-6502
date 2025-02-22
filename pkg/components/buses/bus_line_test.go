@@ -9,7 +9,7 @@ import (
 // A bus line is a reference to 1 of the lines or traces that forms a bus.
 // The line will react to changes in bus values
 func TestChangingBusValueUpdatesLineStatus(t *testing.T) {
-	bus, connector := createBusConnector()
+	bus, connector := newBusConnector()
 
 	// Gets line for the most significant bit
 	line := connector.GetLine(7)
@@ -26,7 +26,7 @@ func TestChangingBusValueUpdatesLineStatus(t *testing.T) {
 // A bus line is a reference to 1 of the lines or traces that forms a bus.
 // The bus value will be changes when the status of the line is changed.
 func TestChangingLineStatusUpdatesBusValue(t *testing.T) {
-	bus, connector := createBusConnector()
+	bus, connector := newBusConnector()
 
 	// Gets line for the most significant bit
 	line := connector.GetLine(7)
@@ -47,7 +47,7 @@ func TestChangingLineStatusUpdatesBusValue(t *testing.T) {
 
 // Toggling the status of a bus line updates the bus value
 func TestTogglingLineStatusUpdatesBusValue(t *testing.T) {
-	bus, connector := createBusConnector()
+	bus, connector := newBusConnector()
 
 	// Gets line for the most significant bit
 	line := connector.GetLine(7)

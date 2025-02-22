@@ -14,25 +14,25 @@ type testCircuit struct {
 	y [numberOfGates]buses.Line
 }
 
-func createTestCircuit() *testCircuit {
+func newTestCircuit() *testCircuit {
 	return &testCircuit{
 		a: [numberOfGates]buses.Line{
-			buses.CreateStandaloneLine(false),
-			buses.CreateStandaloneLine(false),
-			buses.CreateStandaloneLine(false),
-			buses.CreateStandaloneLine(false),
+			buses.NewStandaloneLine(false),
+			buses.NewStandaloneLine(false),
+			buses.NewStandaloneLine(false),
+			buses.NewStandaloneLine(false),
 		},
 		b: [numberOfGates]buses.Line{
-			buses.CreateStandaloneLine(false),
-			buses.CreateStandaloneLine(false),
-			buses.CreateStandaloneLine(false),
-			buses.CreateStandaloneLine(false),
+			buses.NewStandaloneLine(false),
+			buses.NewStandaloneLine(false),
+			buses.NewStandaloneLine(false),
+			buses.NewStandaloneLine(false),
 		},
 		y: [numberOfGates]buses.Line{
-			buses.CreateStandaloneLine(false),
-			buses.CreateStandaloneLine(false),
-			buses.CreateStandaloneLine(false),
-			buses.CreateStandaloneLine(false),
+			buses.NewStandaloneLine(false),
+			buses.NewStandaloneLine(false),
+			buses.NewStandaloneLine(false),
+			buses.NewStandaloneLine(false),
 		},
 	}
 }
@@ -63,8 +63,8 @@ func (circuit *testCircuit) wire(chip *Nand74HC00) {
 func TestAllValuesForGates(t *testing.T) {
 	var step common.StepContext
 
-	chip := Create74HC00()
-	circuit := createTestCircuit()
+	chip := New74HC00()
+	circuit := newTestCircuit()
 	circuit.wire(chip)
 
 	tests := []testCases{
@@ -82,7 +82,7 @@ func TestAllValuesForGates(t *testing.T) {
 }
 
 func TestInvalidPinNumberReturnsNil(t *testing.T) {
-	chip := Create74HC00()
+	chip := New74HC00()
 
 	assert.Nil(t, chip.APin(-1))
 	assert.Nil(t, chip.APin(numberOfGates))

@@ -17,13 +17,13 @@ type Nand74HC00 struct {
 }
 
 // Creates a new 74CH00
-func Create74HC00() *Nand74HC00 {
+func New74HC00() *Nand74HC00 {
 	chip := Nand74HC00{}
 
 	for i := range numberOfGates {
-		chip.a[i] = buses.CreateConnectorEnabledHigh()
-		chip.b[i] = buses.CreateConnectorEnabledHigh()
-		chip.y[i] = buses.CreateConnectorEnabledHigh()
+		chip.a[i] = buses.NewConnectorEnabledHigh()
+		chip.b[i] = buses.NewConnectorEnabledHigh()
+		chip.y[i] = buses.NewConnectorEnabledHigh()
 	}
 
 	return &chip

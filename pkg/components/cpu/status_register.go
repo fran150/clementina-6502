@@ -20,7 +20,7 @@ const (
 )
 
 // Creates the status register with it's default value. The BRK (B) and unused (U) flag are always set to 1.
-func CreateStatusRegister(value uint8) StatusRegister {
+func NewStatusRegister(value uint8) StatusRegister {
 	return StatusRegister(value | 0x30)
 }
 

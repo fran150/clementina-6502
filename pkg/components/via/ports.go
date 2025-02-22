@@ -38,9 +38,9 @@ type viaPort struct {
 }
 
 // Creates a new via port and attach it to the specified chip
-func createViaPort(via *Via65C22S, config *viaPortConfiguration) *viaPort {
+func newViaPort(via *Via65C22S, config *viaPortConfiguration) *viaPort {
 	return &viaPort{
-		connector: buses.CreateBusConnector[uint8](),
+		connector: buses.NewBusConnector[uint8](),
 
 		configuration: config,
 

@@ -10,7 +10,7 @@ type ConnectorEnabledHigh struct {
 }
 
 // Creates and returns a connector that is enabled when the line is high
-func CreateConnectorEnabledHigh() *ConnectorEnabledHigh {
+func NewConnectorEnabledHigh() *ConnectorEnabledHigh {
 	return &ConnectorEnabledHigh{}
 }
 

@@ -7,9 +7,9 @@ import (
 )
 
 // Creates a line and a connector for testing
-func createConnectorLowAndLine() (*ConnectorEnabledLow, Line) {
-	connector := CreateConnectorEnabledLow()
-	line := CreateStandaloneLine(false)
+func newConnectorLowAndLine() (*ConnectorEnabledLow, Line) {
+	connector := NewConnectorEnabledLow()
+	line := NewStandaloneLine(false)
 
 	connector.Connect(line)
 
@@ -18,7 +18,7 @@ func createConnectorLowAndLine() (*ConnectorEnabledLow, Line) {
 
 // This type of connector is enabled when line is low.
 func TestConnectorIsEnabledWhenLineIsLow(t *testing.T) {
-	connector, line := createConnectorLowAndLine()
+	connector, line := newConnectorLowAndLine()
 
 	line.Set(false)
 	assert.Equal(t, true, connector.Enabled())
@@ -29,7 +29,7 @@ func TestConnectorIsEnabledWhenLineIsLow(t *testing.T) {
 
 // Enabling this connector sets the line low in this type
 func TestLineIsSetLowWhenConnectorIsEnabled(t *testing.T) {
-	connector, line := createConnectorLowAndLine()
+	connector, line := newConnectorLowAndLine()
 
 	connector.SetEnable(true)
 	assert.Equal(t, false, line.Status())
@@ -40,7 +40,7 @@ func TestLineIsSetLowWhenConnectorIsEnabled(t *testing.T) {
 
 // Regardless of line status connector shows as not enabled when disconnected
 func TestConnectorLowIsNotEnabledWhenDisconnected(t *testing.T) {
-	connector, line := createConnectorLowAndLine()
+	connector, line := newConnectorLowAndLine()
 
 	// Disconnect from line
 	connector.Connect(nil)
@@ -54,7 +54,7 @@ func TestConnectorLowIsNotEnabledWhenDisconnected(t *testing.T) {
 
 // Changing the connector value does not affect the line when disconnected
 func TestLineIsNotAffectedWhenConnectorLowDisconnected(t *testing.T) {
-	connector, line := createConnectorLowAndLine()
+	connector, line := newConnectorLowAndLine()
 
 	// Disconnect from line
 	connector.Connect(nil)
@@ -68,7 +68,7 @@ func TestLineIsNotAffectedWhenConnectorLowDisconnected(t *testing.T) {
 
 // Tests the function that return the line to which the connector is attached
 func TestGetLineReturnsTheConnectedLineForConnectorLow(t *testing.T) {
-	connector, line := createConnectorLowAndLine()
+	connector, line := newConnectorLowAndLine()
 
 	reference := connector.GetLine()
 

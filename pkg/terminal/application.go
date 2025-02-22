@@ -18,7 +18,7 @@ type Application struct {
 	config        *ApplicationConfig
 }
 
-func CreateApplication(computer Computer) *Application {
+func NewApplication(computer Computer) *Application {
 	config := ApplicationConfig{
 		computers.RateExecutorConfig{
 			TargetSpeedMhz: 1.05,
@@ -29,7 +29,7 @@ func CreateApplication(computer Computer) *Application {
 	return &Application{
 		tvApplication: tview.NewApplication(),
 		computer:      computer,
-		executor:      computers.CreateExecutor(&config.RateExecutorConfig),
+		executor:      computers.NewExecutor(&config.RateExecutorConfig),
 		config:        &config,
 	}
 }

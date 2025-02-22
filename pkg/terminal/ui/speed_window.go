@@ -14,7 +14,7 @@ type SpeedWindow struct {
 	previousC uint64
 }
 
-func CreateSpeedWindow() *SpeedWindow {
+func NewSpeedWindow() *SpeedWindow {
 	text := tview.NewTextView()
 	text.SetTextAlign(tview.AlignCenter).
 		SetScrollable(false).

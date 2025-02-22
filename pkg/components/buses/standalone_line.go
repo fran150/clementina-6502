@@ -10,7 +10,7 @@ type StandaloneLine struct {
 
 // Creates an electrical line or trace in a circuit that can be used to connect
 // multiple chips
-func CreateStandaloneLine(status bool) *StandaloneLine {
+func NewStandaloneLine(status bool) *StandaloneLine {
 	return &StandaloneLine{
 		status: status,
 	}

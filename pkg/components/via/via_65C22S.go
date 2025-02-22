@@ -100,25 +100,25 @@ type Via65C22S struct {
 }
 
 // Creates a VIA65C22S chip
-func CreateVia65C22() *Via65C22S {
+func NewVia65C22() *Via65C22S {
 	via := Via65C22S{
-		chipSelect1: buses.CreateConnectorEnabledHigh(),
-		chipSelect2: buses.CreateConnectorEnabledLow(),
-		dataBus:     buses.CreateBusConnector[uint8](),
-		irqRequest:  buses.CreateConnectorEnabledLow(),
-		reset:       buses.CreateConnectorEnabledLow(),
+		chipSelect1: buses.NewConnectorEnabledHigh(),
+		chipSelect2: buses.NewConnectorEnabledLow(),
+		dataBus:     buses.NewBusConnector[uint8](),
+		irqRequest:  buses.NewConnectorEnabledLow(),
+		reset:       buses.NewConnectorEnabledLow(),
 		registerSelect: [4]*buses.ConnectorEnabledHigh{
-			buses.CreateConnectorEnabledHigh(),
-			buses.CreateConnectorEnabledHigh(),
-			buses.CreateConnectorEnabledHigh(),
-			buses.CreateConnectorEnabledHigh(),
+			buses.NewConnectorEnabledHigh(),
+			buses.NewConnectorEnabledHigh(),
+			buses.NewConnectorEnabledHigh(),
+			buses.NewConnectorEnabledHigh(),
 		},
-		readWrite: buses.CreateConnectorEnabledLow(),
+		readWrite: buses.NewConnectorEnabledLow(),
 
 		registers: &via65C22SRegisters{},
 	}
 
-	via.controlLinesA = createViaControlLines(&via, &viaControlLineConfiguration{
+	via.controlLinesA = newViaControlLines(&via, &viaControlLineConfiguration{
 		transitionConfigurationMasks: [2]viaPCRTransitionMasks{
 			pcrMaskCA1TransitionType,
 			pcrMaskCA2TransitionType,
@@ -129,7 +129,7 @@ func CreateVia65C22() *Via65C22S {
 		},
 	})
 
-	via.controlLinesB = createViaControlLines(&via, &viaControlLineConfiguration{
+	via.controlLinesB = newViaControlLines(&via, &viaControlLineConfiguration{
 		transitionConfigurationMasks: [2]viaPCRTransitionMasks{
 			pcrMaskCB1TransitionType,
 			pcrMaskCB2TransitionType,
@@ -140,7 +140,7 @@ func CreateVia65C22() *Via65C22S {
 		},
 	})
 
-	via.peripheralPortA = createViaPort(&via, &viaPortConfiguration{
+	via.peripheralPortA = newViaPort(&via, &viaPortConfiguration{
 		clearC2OnRWMask: pcrMaskCA2ClearOnRW,
 		controlLinesIRQBits: [2]viaIRQFlags{
 			irqCA1,
@@ -152,7 +152,7 @@ func CreateVia65C22() *Via65C22S {
 		controlLines:          via.controlLinesA,
 	})
 
-	via.peripheralPortB = createViaPort(&via, &viaPortConfiguration{
+	via.peripheralPortB = newViaPort(&via, &viaPortConfiguration{
 		clearC2OnRWMask: pcrMaskCB2ClearOnRW,
 		controlLinesIRQBits: [2]viaIRQFlags{
 			irqCB1,
@@ -164,7 +164,7 @@ func CreateVia65C22() *Via65C22S {
 		controlLines:          via.controlLinesB,
 	})
 
-	via.latchesA = createViaLatches(&via, &viaLatchesConfiguration{
+	via.latchesA = newViaLatches(&via, &viaLatchesConfiguration{
 		latchingEnabledMasks:    acrMaskLatchingEnabledA,
 		outputConfigurationMask: pcrMaskCAOutputMode,
 		handshakeMode:           pcrCA2OutputModeHandshake,
@@ -176,7 +176,7 @@ func CreateVia65C22() *Via65C22S {
 		controlLines:            via.controlLinesA,
 	})
 
-	via.latchesB = createViaLatches(&via, &viaLatchesConfiguration{
+	via.latchesB = newViaLatches(&via, &viaLatchesConfiguration{
 		latchingEnabledMasks:    acrMaskLatchingEnabledB,
 		outputConfigurationMask: pcrMaskCBOutputMode,
 		handshakeMode:           pcrCB2OutputModeHandshake,
@@ -188,7 +188,7 @@ func CreateVia65C22() *Via65C22S {
 		controlLines:            via.controlLinesB,
 	})
 
-	via.timer1 = createViaTimer(&via, &viaTimerConfiguration{
+	via.timer1 = newViaTimer(&via, &viaTimerConfiguration{
 		timerInterruptBit: irqT1,
 		timerRunModeMask:  acrT1ControlRunModeMask,
 		timerOutputMask:   acrT1ControlOutputMask,
@@ -198,7 +198,7 @@ func CreateVia65C22() *Via65C22S {
 		port:              via.peripheralPortB,
 	})
 
-	via.timer2 = createViaTimer(&via, &viaTimerConfiguration{
+	via.timer2 = newViaTimer(&via, &viaTimerConfiguration{
 		timerInterruptBit: irqT2,
 		timerRunModeMask:  acrT2ControlRunModeMask,
 		lowLatches:        &via.registers.lowLatches2,
@@ -207,7 +207,7 @@ func CreateVia65C22() *Via65C22S {
 		port:              via.peripheralPortA,
 	})
 
-	via.shifter = createViaShifter(&via, &viaShifterConfiguration{
+	via.shifter = newViaShifter(&via, &viaShifterConfiguration{
 		timer:        via.timer2,
 		controlLines: via.controlLinesB,
 	})

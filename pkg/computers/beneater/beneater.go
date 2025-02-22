@@ -51,7 +51,7 @@ type BenEaterComputer struct {
 	config      *terminal.ApplicationConfig
 }
 
-func CreateBenEaterComputer(portName string) *BenEaterComputer {
+func NewBenEaterComputer(portName string) *BenEaterComputer {
 	port, err := serial.Open(portName, &serial.Mode{
 		BaudRate: 115200,
 		DataBits: 8,
@@ -63,17 +63,17 @@ func CreateBenEaterComputer(portName string) *BenEaterComputer {
 	}
 
 	chips := &chips{
-		cpu:  cpu.CreateCPU(),
-		ram:  memory.CreateRamWithLessPins(memory.RAM_SIZE_32K, 0x7FFF),
-		rom:  memory.CreateRamWithLessPins(memory.RAM_SIZE_32K, 0x7FFF),
-		via:  via.CreateVia65C22(),
-		lcd:  lcd.CreateLCD(),
-		acia: acia.CreateAcia65C51N(false),
-		nand: gates.Create74HC00(),
+		cpu:  cpu.NewCPU(),
+		ram:  memory.NewRamWithLessPins(memory.RAM_SIZE_32K, 0x7FFF),
+		rom:  memory.NewRamWithLessPins(memory.RAM_SIZE_32K, 0x7FFF),
+		via:  via.NewVia65C22(),
+		lcd:  lcd.NewLCDController(),
+		acia: acia.NewAcia65C51N(false),
+		nand: gates.New74HC00(),
 	}
 
-	portABus := buses.Create8BitStandaloneBus()
-	portBBus := buses.Create8BitStandaloneBus()
+	portABus := buses.New8BitStandaloneBus()
+	portBBus := buses.New8BitStandaloneBus()
 	mapPortBBusToLcdBus := func(value uint8) uint8 {
 		value &= 0x0F
 		return value << 4
@@ -84,19 +84,19 @@ func CreateBenEaterComputer(portName string) *BenEaterComputer {
 	}
 
 	circuit := &circuit{
-		addressBus: buses.Create16BitStandaloneBus(),
-		dataBus:    buses.Create8BitStandaloneBus(),
-		cpuIRQ:     buses.CreateStandaloneLine(true),
-		cpuReset:   buses.CreateStandaloneLine(true),
-		cpuRW:      buses.CreateStandaloneLine(false),
-		u4dOut:     buses.CreateStandaloneLine(false),
-		u4cOut:     buses.CreateStandaloneLine(false),
-		u4bOut:     buses.CreateStandaloneLine(false),
-		fiveVolts:  buses.CreateStandaloneLine(true),
-		ground:     buses.CreateStandaloneLine(false),
+		addressBus: buses.New16BitStandaloneBus(),
+		dataBus:    buses.New8BitStandaloneBus(),
+		cpuIRQ:     buses.NewStandaloneLine(true),
+		cpuReset:   buses.NewStandaloneLine(true),
+		cpuRW:      buses.NewStandaloneLine(false),
+		u4dOut:     buses.NewStandaloneLine(false),
+		u4cOut:     buses.NewStandaloneLine(false),
+		u4bOut:     buses.NewStandaloneLine(false),
+		fiveVolts:  buses.NewStandaloneLine(true),
+		ground:     buses.NewStandaloneLine(false),
 		portABus:   portABus,
 		portBBus:   portBBus,
-		lcdBus:     buses.Create8BitMappedBus(portBBus, mapLcdBusToPortBBus, mapPortBBusToLcdBus),
+		lcdBus:     buses.New8BitMappedBus(portBBus, mapLcdBusToPortBBus, mapPortBBusToLcdBus),
 		serial:     port,
 	}
 
@@ -191,7 +191,9 @@ func (c *BenEaterComputer) Tick(context *common.StepContext) {
 	c.chips.lcd.Tick(context)
 	c.chips.acia.Tick(context)
 
-	c.console.Tick(context)
+	if c.console != nil {
+		c.console.Tick(context)
+	}
 
 	c.chips.cpu.PostTick(context)
 
@@ -204,7 +206,7 @@ func (c *BenEaterComputer) Draw(context *common.StepContext) {
 
 func (c *BenEaterComputer) Init(tvApplication *tview.Application, config *terminal.ApplicationConfig) {
 	c.config = config
-	c.console = createMainConsole(c, tvApplication)
+	c.console = newMainConsole(c, tvApplication)
 }
 
 func (c *BenEaterComputer) KeyPressed(event *tcell.EventKey, context *common.StepContext) *tcell.EventKey {

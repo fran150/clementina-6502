@@ -16,7 +16,7 @@ type OptionsWindowConfig struct {
 	KeyDescription string
 }
 
-func CreateOptionsWindow(options []OptionsWindowConfig) *OptionsWindow {
+func NewOptionsWindow(options []OptionsWindowConfig) *OptionsWindow {
 	text := tview.NewTextView()
 	text.SetBorder(true)
 	text.SetDynamicColors(true)

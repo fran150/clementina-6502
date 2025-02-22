@@ -8,7 +8,7 @@ import (
 
 // Tests basic functions of the standalone line
 func TestCreateSetAndToggleLine(t *testing.T) {
-	line := CreateStandaloneLine(false)
+	line := NewStandaloneLine(false)
 
 	assert.Equal(t, false, line.Status())
 

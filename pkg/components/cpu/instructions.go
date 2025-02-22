@@ -54,7 +54,7 @@ func (instruction *CpuInstructionSet) GetByOpCode(opCode OpCode) *CpuInstruction
 }
 
 // Creates the instruction set supported by this CPU
-func CreateInstructionSet() *CpuInstructionSet {
+func NewInstructionSet() *CpuInstructionSet {
 	var data = []CpuInstructionData{
 		{0x00, BRK, nil, AddressModeBreak},
 		{0x01, ORA, actionORA, AddressModeZeroPageIndexedIndirectX},

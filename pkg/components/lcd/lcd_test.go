@@ -15,14 +15,14 @@ type testCircuit struct {
 	readWrite      *buses.StandaloneLine
 }
 
-func createTestCircuitCorrectTiming() (*LcdHD44780U, *testCircuit) {
-	lcd := CreateLCD()
+func newTestCircuitCorrectTiming() (*LcdHD44780U, *testCircuit) {
+	lcd := NewLCDController()
 
 	circuit := testCircuit{
-		bus:            buses.Create8BitStandaloneBus(),
-		registerSelect: buses.CreateStandaloneLine(false),
-		enable:         buses.CreateStandaloneLine(false),
-		readWrite:      buses.CreateStandaloneLine(false),
+		bus:            buses.New8BitStandaloneBus(),
+		registerSelect: buses.NewStandaloneLine(false),
+		enable:         buses.NewStandaloneLine(false),
+		readWrite:      buses.NewStandaloneLine(false),
 	}
 
 	lcd.dataBus.Connect(circuit.bus)
@@ -33,8 +33,8 @@ func createTestCircuitCorrectTiming() (*LcdHD44780U, *testCircuit) {
 	return lcd, &circuit
 }
 
-func createTestCircuit() (*LcdHD44780U, *testCircuit) {
-	lcd, circuit := createTestCircuitCorrectTiming()
+func newTestCircuit() (*LcdHD44780U, *testCircuit) {
+	lcd, circuit := newTestCircuitCorrectTiming()
 
 	lcd.timingConfig.clearDisplayMicro = 0
 	lcd.timingConfig.returnHomeMicro = 0
@@ -121,8 +121,8 @@ type instructionValidator[T bool | uint8] struct {
 	context *common.StepContext
 }
 
-func createInstructionValidator[T bool | uint8](t *testing.T, lcd *LcdHD44780U, circuit *testCircuit, fields ...*T) *instructionValidator[T] {
-	context := common.CreateStepContext()
+func newInstructionValidator[T bool | uint8](t *testing.T, lcd *LcdHD44780U, circuit *testCircuit, fields ...*T) *instructionValidator[T] {
+	context := common.NewStepContext()
 
 	return &instructionValidator[T]{
 		t,
@@ -148,9 +148,9 @@ func (val *instructionValidator[T]) validate(values ...T) {
 ****************************************************************************************************************/
 
 func TestClearDisplayInstruction(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	// Fill DDRAM with 1s
 	for i := range DDRAM_SIZE {
@@ -184,9 +184,9 @@ func TestClearDisplayInstruction(t *testing.T) {
 }
 
 func TestReturnHomeInstruction(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	// Fill DDRAM with 1s
 	for i := range DDRAM_SIZE {
@@ -220,9 +220,9 @@ func TestReturnHomeInstruction(t *testing.T) {
 }
 
 func TestEntryModeSetInstruction(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	// Fill the DDRAM with consecutive values
 	for i := range DDRAM_SIZE {
@@ -251,14 +251,14 @@ func TestEntryModeSetInstruction(t *testing.T) {
 }
 
 func TestDisplayControl(t *testing.T) {
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	// Check default values for D, C and B flags
 	assert.Equal(t, false, lcd.displayOn)
 	assert.Equal(t, false, lcd.displayCursor)
 	assert.Equal(t, false, lcd.characterBlink)
 
-	validator := createInstructionValidator[bool](t, lcd, circuit,
+	validator := newInstructionValidator[bool](t, lcd, circuit,
 		&lcd.displayOn,
 		&lcd.displayCursor,
 		&lcd.characterBlink,
@@ -282,14 +282,14 @@ func TestDisplayControl(t *testing.T) {
 }
 
 func TestFunctionSet(t *testing.T) {
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	// Check default values for DL, N and F flags
 	assert.Equal(t, true, lcd.buffer.is8BitMode)
 	assert.Equal(t, false, lcd.addressCounter.is2LineDisplay)
 	assert.Equal(t, false, lcd.is5x10Font)
 
-	validator := createInstructionValidator[bool](t, lcd, circuit,
+	validator := newInstructionValidator[bool](t, lcd, circuit,
 		&lcd.buffer.is8BitMode,
 		&lcd.addressCounter.is2LineDisplay,
 		&lcd.is5x10Font,
@@ -323,7 +323,7 @@ func TestFunctionSet(t *testing.T) {
 ****************************************************************************************************************/
 
 func TestCursorShift1Line(t *testing.T) {
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	// Set 1 line display
 	lcd.addressCounter.is2LineDisplay = false
@@ -334,7 +334,7 @@ func TestCursorShift1Line(t *testing.T) {
 	assert.Equal(t, uint8(0x40), lcd.addressCounter.line2Shift)
 
 	// Create a validator for the address counter
-	validator := createInstructionValidator[uint8](t, lcd, circuit,
+	validator := newInstructionValidator[uint8](t, lcd, circuit,
 		&lcd.addressCounter.value,
 		&lcd.addressCounter.line1Shift,
 		&lcd.addressCounter.line2Shift,
@@ -362,7 +362,7 @@ func TestCursorShift1Line(t *testing.T) {
 }
 
 func TestCursorShift2Line(t *testing.T) {
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	// Set 2 line display
 	lcd.addressCounter.is2LineDisplay = true
@@ -373,7 +373,7 @@ func TestCursorShift2Line(t *testing.T) {
 	assert.Equal(t, uint8(0x40), lcd.addressCounter.line2Shift)
 
 	// Create a validator for the address counter
-	validator := createInstructionValidator[uint8](t, lcd, circuit,
+	validator := newInstructionValidator[uint8](t, lcd, circuit,
 		&lcd.addressCounter.value,
 		&lcd.addressCounter.line1Shift,
 		&lcd.addressCounter.line2Shift,
@@ -421,7 +421,7 @@ func TestCursorShift2Line(t *testing.T) {
 }
 
 func TestDisplayShift1Line(t *testing.T) {
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	lcd.addressCounter.is2LineDisplay = false
 
@@ -429,7 +429,7 @@ func TestDisplayShift1Line(t *testing.T) {
 	assert.Equal(t, uint8(0x00), lcd.addressCounter.line1Shift)
 	assert.Equal(t, uint8(0x40), lcd.addressCounter.line2Shift)
 
-	validator := createInstructionValidator[uint8](t, lcd, circuit,
+	validator := newInstructionValidator[uint8](t, lcd, circuit,
 		&lcd.addressCounter.value,
 		&lcd.addressCounter.line1Shift,
 	)
@@ -456,7 +456,7 @@ func TestDisplayShift1Line(t *testing.T) {
 }
 
 func TestDisplayShift2Line(t *testing.T) {
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	lcd.addressCounter.is2LineDisplay = true
 
@@ -464,7 +464,7 @@ func TestDisplayShift2Line(t *testing.T) {
 	assert.Equal(t, uint8(0x00), lcd.addressCounter.line1Shift)
 	assert.Equal(t, uint8(0x40), lcd.addressCounter.line2Shift)
 
-	validator := createInstructionValidator[uint8](t, lcd, circuit,
+	validator := newInstructionValidator[uint8](t, lcd, circuit,
 		&lcd.addressCounter.value,
 		&lcd.addressCounter.line1Shift,
 		&lcd.addressCounter.line2Shift,
@@ -496,9 +496,9 @@ func TestDisplayShift2Line(t *testing.T) {
 ****************************************************************************************************************/
 
 func TestSetCGRAMAddress(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	// Set CGRAM instruction bit
 	const SET_CGRAM uint8 = 0x40
@@ -516,9 +516,9 @@ func TestSetCGRAMAddress(t *testing.T) {
 }
 
 func TestSetDDRAMAddress1Line(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	// Set DDRAM instruction bit
 	const SET_DDRAM uint8 = 0x80
@@ -532,9 +532,9 @@ func TestSetDDRAMAddress1Line(t *testing.T) {
 }
 
 func TestSetDDRAMAddress2Line(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	lcd.addressCounter.is2LineDisplay = true
 
@@ -557,9 +557,9 @@ func TestSetDDRAMAddress2Line(t *testing.T) {
 }
 
 func TestSetInvalidValueDDRAMMovesToZero(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	lcd.addressCounter.is2LineDisplay = true
 
@@ -576,9 +576,9 @@ func TestSetInvalidValueDDRAMMovesToZero(t *testing.T) {
 ****************************************************************************************************************/
 
 func TestReadAddressCounter(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	// Set DDRAM instruction bit
 	const SET_DDRAM uint8 = 0x80
@@ -591,9 +591,9 @@ func TestReadAddressCounter(t *testing.T) {
 }
 
 func TestWriteAndReadCGRAM(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	// Set AC to write to CGRAM address 0x00
 	sendInstruction(lcd, circuit, 0x40, &context)
@@ -616,9 +616,9 @@ func TestWriteAndReadCGRAM(t *testing.T) {
 }
 
 func TestWriteAndReadDDRAM1Line(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	// Set AC to write to DDRAM address 0x00
 	sendInstruction(lcd, circuit, 0x80, &context)
@@ -641,9 +641,9 @@ func TestWriteAndReadDDRAM1Line(t *testing.T) {
 }
 
 func TestWriteAndReadDDRAM2Lines(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	lcd.addressCounter.is2LineDisplay = true
 
@@ -673,9 +673,9 @@ func TestWriteAndReadDDRAM2Lines(t *testing.T) {
 }
 
 func TestWriteAndReadCGRAMShiftsDisplayRightAndLeft(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	// Set display shift right
 	sendInstruction(lcd, circuit, 0x07, &context)
@@ -705,9 +705,9 @@ func TestWriteAndReadCGRAMShiftsDisplayRightAndLeft(t *testing.T) {
 }
 
 func TestWriteAndReadDDRAMShiftsDisplayRightAndLeft(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	// Set display shift right
 	sendInstruction(lcd, circuit, 0x07, &context)
@@ -740,9 +740,9 @@ func TestWriteAndReadDDRAMShiftsDisplayRightAndLeft(t *testing.T) {
 * Timing tests
 ****************************************************************************************************************/
 func TestBusyFlag(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	lcd, circuit := createTestCircuitCorrectTiming()
+	lcd, circuit := newTestCircuitCorrectTiming()
 
 	// Send clear display instruction
 	ti := context.T
@@ -794,9 +794,9 @@ func TestBusyFlag(t *testing.T) {
 }
 
 func TestCursorBlinking(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	lcd, _ := createTestCircuitCorrectTiming()
+	lcd, _ := newTestCircuitCorrectTiming()
 
 	lcd.characterBlink = true
 
@@ -821,9 +821,9 @@ func TestCursorBlinking(t *testing.T) {
 ****************************************************************************************************************/
 
 func TestWriteAndReadDDRAM1Line4BitsMode(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	lcd, circuit := createTestCircuit()
+	lcd, circuit := newTestCircuit()
 
 	// Set 4 bits data length
 	sendInstruction(lcd, circuit, 0x20, &context)

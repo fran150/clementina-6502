@@ -7,7 +7,7 @@ type SimpleQueue[T any] struct {
 	values []T
 }
 
-func CreateQueue[T any]() *SimpleQueue[T] {
+func NewQueue[T any]() *SimpleQueue[T] {
 	return &SimpleQueue[T]{
 		mu:     &sync.Mutex{},
 		values: make([]T, 0),

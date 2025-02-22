@@ -7,9 +7,9 @@ import (
 )
 
 // Creates a line and a connector for testing
-func createConnectorHighAndLine() (*ConnectorEnabledHigh, Line) {
-	connector := CreateConnectorEnabledHigh()
-	line := CreateStandaloneLine(false)
+func newConnectorHighAndLine() (*ConnectorEnabledHigh, Line) {
+	connector := NewConnectorEnabledHigh()
+	line := NewStandaloneLine(false)
 
 	connector.Connect(line)
 
@@ -18,7 +18,7 @@ func createConnectorHighAndLine() (*ConnectorEnabledHigh, Line) {
 
 // This type of connector is enabled when line is high.
 func TestConnectorIsEnabledWhenLineIsHigh(t *testing.T) {
-	connector, line := createConnectorHighAndLine()
+	connector, line := newConnectorHighAndLine()
 
 	line.Set(false)
 	assert.Equal(t, false, connector.Enabled())
@@ -29,7 +29,7 @@ func TestConnectorIsEnabledWhenLineIsHigh(t *testing.T) {
 
 // Enabling this connector sets the line high in this type
 func TestLineIsSetHighWhenConnectorIsEnabled(t *testing.T) {
-	connector, line := createConnectorHighAndLine()
+	connector, line := newConnectorHighAndLine()
 
 	connector.SetEnable(true)
 	assert.Equal(t, true, line.Status())
@@ -40,7 +40,7 @@ func TestLineIsSetHighWhenConnectorIsEnabled(t *testing.T) {
 
 // Regardless of line status connector shows as not enabled when disconnected
 func TestConnectorIsNotEnabledWhenDisconnected(t *testing.T) {
-	connector, line := createConnectorHighAndLine()
+	connector, line := newConnectorHighAndLine()
 
 	// Disconnect from line
 	connector.Connect(nil)
@@ -54,7 +54,7 @@ func TestConnectorIsNotEnabledWhenDisconnected(t *testing.T) {
 
 // Changing the connector value does not affect the line when disconnected
 func TestLineIsNotAffectedWhenConnectorHighDisconnected(t *testing.T) {
-	connector, line := createConnectorHighAndLine()
+	connector, line := newConnectorHighAndLine()
 
 	// Disconnect from line
 	connector.Connect(nil)
@@ -68,7 +68,7 @@ func TestLineIsNotAffectedWhenConnectorHighDisconnected(t *testing.T) {
 
 // Tests the function that return the line to which the connector is attached
 func TestGetLineReturnsTheConnectedLineForConnectorHigh(t *testing.T) {
-	connector, line := createConnectorHighAndLine()
+	connector, line := newConnectorHighAndLine()
 
 	reference := connector.GetLine()
 

@@ -10,7 +10,7 @@ type BusConnector[T uint8 | uint16] struct {
 }
 
 // Creates and returns a connector of the specified type
-func CreateBusConnector[T uint8 | uint16]() *BusConnector[T] {
+func NewBusConnector[T uint8 | uint16]() *BusConnector[T] {
 	return &BusConnector[T]{}
 }
 

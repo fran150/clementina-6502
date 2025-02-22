@@ -28,27 +28,27 @@ type testCircuit struct {
 }
 
 // Creates and returns a reference to the test circuit
-func createTestCircuit() *testCircuit {
+func newTestCircuit() *testCircuit {
 	var rsLines [4]buses.Line
 
 	for i := range 4 {
-		rsLines[i] = buses.CreateStandaloneLine(false)
+		rsLines[i] = buses.NewStandaloneLine(false)
 	}
 
 	return &testCircuit{
-		cs1:     buses.CreateStandaloneLine(true),
-		cs2:     buses.CreateStandaloneLine(false),
-		ca1:     buses.CreateStandaloneLine(false),
-		ca2:     buses.CreateStandaloneLine(false),
-		cb1:     buses.CreateStandaloneLine(false),
-		cb2:     buses.CreateStandaloneLine(false),
-		dataBus: buses.Create8BitStandaloneBus(),
-		irq:     buses.CreateStandaloneLine(true),
-		portA:   buses.Create8BitStandaloneBus(),
-		portB:   buses.Create8BitStandaloneBus(),
-		reset:   buses.CreateStandaloneLine(true),
+		cs1:     buses.NewStandaloneLine(true),
+		cs2:     buses.NewStandaloneLine(false),
+		ca1:     buses.NewStandaloneLine(false),
+		ca2:     buses.NewStandaloneLine(false),
+		cb1:     buses.NewStandaloneLine(false),
+		cb2:     buses.NewStandaloneLine(false),
+		dataBus: buses.New8BitStandaloneBus(),
+		irq:     buses.NewStandaloneLine(true),
+		portA:   buses.New8BitStandaloneBus(),
+		portB:   buses.New8BitStandaloneBus(),
+		reset:   buses.NewStandaloneLine(true),
 		rs:      rsLines,
-		rw:      buses.CreateStandaloneLine(true),
+		rw:      buses.NewStandaloneLine(true),
 	}
 }
 
@@ -181,10 +181,10 @@ func countToTarget(t *testing.T, config *coutingTestConfiguration, context *comm
 ****************************************************************************************************************/
 
 func TestOutputToPortAChangingTheDirectionAndDeselectingChip(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -231,10 +231,10 @@ func TestOutputToPortAChangingTheDirectionAndDeselectingChip(t *testing.T) {
 }
 
 func TestOutputToPortBChangingTheDirectionAndDeselectingChip(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -280,10 +280,10 @@ func TestOutputToPortBChangingTheDirectionAndDeselectingChip(t *testing.T) {
 }
 
 func TestInputFromPortANoLatching(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -321,10 +321,10 @@ func TestInputFromPortANoLatching(t *testing.T) {
 }
 
 func TestInputFromPortALatching(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -387,10 +387,10 @@ func TestInputFromPortALatching(t *testing.T) {
 }
 
 func TestInputFromPortBNoLatching(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -428,10 +428,10 @@ func TestInputFromPortBNoLatching(t *testing.T) {
 }
 
 func TestInputFromPortBLatching(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -536,10 +536,10 @@ func TestWriteHandshakePulseOnPortB(t *testing.T) {
 }
 
 func readHandshakeOnPortA(t *testing.T, mode uint8) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -617,10 +617,10 @@ func readHandshakeOnPortA(t *testing.T, mode uint8) {
 }
 
 func writeHandshakeOnPortA(t *testing.T, mode uint8) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -690,10 +690,10 @@ func writeHandshakeOnPortA(t *testing.T, mode uint8) {
 }
 
 func writeHandshakeOnPortB(t *testing.T, mode uint8) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -763,10 +763,10 @@ func writeHandshakeOnPortB(t *testing.T, mode uint8) {
 }
 
 func TestFixedModeOnPortA(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -801,10 +801,10 @@ func TestFixedModeOnPortA(t *testing.T) {
 }
 
 func TestFixedModeOnPortB(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -843,10 +843,10 @@ func TestFixedModeOnPortB(t *testing.T) {
 ****************************************************************************************************************/
 
 func TestTimer1OneShotMode(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -928,10 +928,10 @@ func TestTimer1OneShotMode(t *testing.T) {
 }
 
 func TestTimer1FreeRunMode(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -1010,10 +1010,10 @@ func TestTimer1FreeRunMode(t *testing.T) {
 }
 
 func TestTimer2OneShotMode(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -1075,10 +1075,10 @@ func TestTimer2OneShotMode(t *testing.T) {
 }
 
 func TestTimer2PulseCountingMode(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -1185,10 +1185,10 @@ func executeNonShiftingCycle(t *testing.T, config *shiftingTestConfiguration, co
 }
 
 func TestShiftInAtT2Rate(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -1284,10 +1284,10 @@ func TestShiftInAtT2Rate(t *testing.T) {
 }
 
 func TestShiftInAtClockRate(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -1358,10 +1358,10 @@ func TestShiftInAtClockRate(t *testing.T) {
 }
 
 func TestShiftInAtExternalRate(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -1451,10 +1451,10 @@ func TestShiftInAtExternalRate(t *testing.T) {
 }
 
 func TestShiftOutAtT2Rate(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -1536,10 +1536,10 @@ func TestShiftOutAtT2Rate(t *testing.T) {
 }
 
 func TestShiftOutAtClockRate(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -1598,10 +1598,10 @@ func TestShiftOutAtClockRate(t *testing.T) {
 }
 
 func TestShiftOutAtExternalRate(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -1700,10 +1700,10 @@ func TestShiftOutAtExternalRate(t *testing.T) {
 }
 
 func TestShiftOutAtFreeRate(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -1771,10 +1771,10 @@ func TestShiftOutAtFreeRate(t *testing.T) {
 ****************************************************************************************************************/
 
 func TestCausingAnInterruptInT1AndT2andClearByWritingToIFR(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -1860,10 +1860,10 @@ func TestCausingAnInterruptInT1AndT2andClearByWritingToIFR(t *testing.T) {
 ****************************************************************************************************************/
 
 func TestNoHandshakeOnPortAWhenReadingOnRSEqualF(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 
@@ -1924,10 +1924,10 @@ func TestNoHandshakeOnPortAWhenReadingOnRSEqualF(t *testing.T) {
 }
 
 func TestNoHandshakeOnPortAWhenWritingOnRSEqualF(t *testing.T) {
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
-	via := CreateVia65C22()
-	circuit := createTestCircuit()
+	via := NewVia65C22()
+	circuit := newTestCircuit()
 
 	circuit.wire(via)
 

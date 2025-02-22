@@ -14,7 +14,7 @@ type LcdControllerWindow struct {
 	lcd  *lcd.LcdHD44780U
 }
 
-func CreateLcdWindow(lcd *lcd.LcdHD44780U) *LcdControllerWindow {
+func NewLcdWindow(lcd *lcd.LcdHD44780U) *LcdControllerWindow {
 	text := tview.NewTextView()
 	text.SetScrollable(false).
 		SetDynamicColors(true).

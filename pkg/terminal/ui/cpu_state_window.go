@@ -13,7 +13,7 @@ type CpuWindow struct {
 	processor *cpu.Cpu65C02S
 }
 
-func CreateCpuWindow(processor *cpu.Cpu65C02S) *CpuWindow {
+func NewCpuWindow(processor *cpu.Cpu65C02S) *CpuWindow {
 	text := tview.NewTextView()
 	text.SetScrollable(false).
 		SetDynamicColors(true).

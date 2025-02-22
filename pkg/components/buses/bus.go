@@ -14,28 +14,28 @@ type StandaloneBus[T uint16 | uint8] struct {
 }
 
 // Creates a 8 bit bus
-func Create8BitStandaloneBus() Bus[uint8] {
+func New8BitStandaloneBus() Bus[uint8] {
 	bus := StandaloneBus[uint8]{
 		value:    0x00,
 		busLines: make([]*BusLine[uint8], 8),
 	}
 
 	for i := range len(bus.busLines) {
-		bus.busLines[i] = createBusLine(&bus, uint8(i))
+		bus.busLines[i] = newBusLine(&bus, uint8(i))
 	}
 
 	return &bus
 }
 
 // Creates a 16 bits bus
-func Create16BitStandaloneBus() Bus[uint16] {
+func New16BitStandaloneBus() Bus[uint16] {
 	bus := StandaloneBus[uint16]{
 		value:    0x00,
 		busLines: make([]*BusLine[uint16], 16),
 	}
 
 	for i := range len(bus.busLines) {
-		bus.busLines[i] = createBusLine(&bus, uint8(i))
+		bus.busLines[i] = newBusLine(&bus, uint8(i))
 	}
 
 	return &bus

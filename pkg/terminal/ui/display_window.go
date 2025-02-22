@@ -14,7 +14,7 @@ type Lcd16x2Window struct {
 	controller *lcd.LcdHD44780U
 }
 
-func CreateDisplayWindow(lcd *lcd.LcdHD44780U) *Lcd16x2Window {
+func NewDisplayWindow(lcd *lcd.LcdHD44780U) *Lcd16x2Window {
 	text := tview.NewTextView()
 	text.SetTextAlign(tview.AlignCenter).
 		SetScrollable(false).

@@ -28,7 +28,7 @@ type viaTimer struct {
 }
 
 // Creates a timer and attaches it to the specified via chip
-func createViaTimer(via *Via65C22S, configuration *viaTimerConfiguration) *viaTimer {
+func newViaTimer(via *Via65C22S, configuration *viaTimerConfiguration) *viaTimer {
 	return &viaTimer{
 		timerEnabled:                 false,
 		line7OutputStatusWhenEnabled: false,

@@ -107,18 +107,18 @@ type Acia65C51N struct {
 }
 
 // Creates an ACIA chip in default initialization state
-func CreateAcia65C51N(emulateModemLines bool) *Acia65C51N {
+func NewAcia65C51N(emulateModemLines bool) *Acia65C51N {
 	acia := &Acia65C51N{
-		dataBus:     buses.CreateBusConnector[uint8](),
-		irqRequest:  buses.CreateConnectorEnabledLow(),
-		readWrite:   buses.CreateConnectorEnabledLow(),
-		chipSelect1: buses.CreateConnectorEnabledHigh(),
-		chipSelect2: buses.CreateConnectorEnabledLow(),
+		dataBus:     buses.NewBusConnector[uint8](),
+		irqRequest:  buses.NewConnectorEnabledLow(),
+		readWrite:   buses.NewConnectorEnabledLow(),
+		chipSelect1: buses.NewConnectorEnabledHigh(),
+		chipSelect2: buses.NewConnectorEnabledLow(),
 		registerSelect: [numOfRSLines]*buses.ConnectorEnabledHigh{
-			buses.CreateConnectorEnabledHigh(),
-			buses.CreateConnectorEnabledHigh(),
+			buses.NewConnectorEnabledHigh(),
+			buses.NewConnectorEnabledHigh(),
 		},
-		reset: buses.CreateConnectorEnabledLow(),
+		reset: buses.NewConnectorEnabledLow(),
 
 		commandRegister: 0x00,
 		controlRegister: 0x00,

@@ -11,7 +11,7 @@ type ConnectorEnabledLow struct {
 }
 
 // Creates and returns a connector that is enabled when the line is low
-func CreateConnectorEnabledLow() *ConnectorEnabledLow {
+func NewConnectorEnabledLow() *ConnectorEnabledLow {
 	return &ConnectorEnabledLow{}
 }
 

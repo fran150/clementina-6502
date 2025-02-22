@@ -42,27 +42,27 @@ type addressModeTestDataWithControlLines struct {
 // Creates a computer for testing the CPU emulation.
 // It is only 64K of RAM memory connected to the bus, processor lines are wired
 // to always high or low lines.
-func createComputer() (*Cpu65C02S, *memory.Ram) {
-	addressBus := buses.Create16BitStandaloneBus()
-	dataBus := buses.Create8BitStandaloneBus()
+func newComputer() (*Cpu65C02S, *memory.Ram) {
+	addressBus := buses.New16BitStandaloneBus()
+	dataBus := buses.New8BitStandaloneBus()
 
-	alwaysHighLine := buses.CreateStandaloneLine(true)
-	alwaysLowLine := buses.CreateStandaloneLine(false)
+	alwaysHighLine := buses.NewStandaloneLine(true)
+	alwaysLowLine := buses.NewStandaloneLine(false)
 
-	writeEnableLine := buses.CreateStandaloneLine(true)
+	writeEnableLine := buses.NewStandaloneLine(true)
 
-	memoryLockLine := buses.CreateStandaloneLine(false)
-	syncLine := buses.CreateStandaloneLine(false)
-	vectorPullLine := buses.CreateStandaloneLine(false)
+	memoryLockLine := buses.NewStandaloneLine(false)
+	syncLine := buses.NewStandaloneLine(false)
+	vectorPullLine := buses.NewStandaloneLine(false)
 
-	ram := memory.CreateRam(memory.RAM_SIZE_64K)
+	ram := memory.NewRam(memory.RAM_SIZE_64K)
 	ram.AddressBus().Connect(addressBus)
 	ram.DataBus().Connect(dataBus)
 	ram.WriteEnable().Connect(writeEnableLine)
 	ram.ChipSelect().Connect(alwaysLowLine)
 	ram.OutputEnable().Connect(alwaysLowLine)
 
-	cpu := CreateCPU()
+	cpu := NewCPU()
 	cpu.AddressBus().Connect(addressBus)
 	cpu.DataBus().Connect(dataBus)
 
@@ -85,13 +85,13 @@ func createComputer() (*Cpu65C02S, *memory.Ram) {
 
 // Similar to the createComputer() function but in this case it returns the NMI, IRQ, RESET and RDY lines
 // to allow testing
-func createComputerWithControlLines() (*Cpu65C02S, *memory.Ram, *buses.StandaloneLine, *buses.StandaloneLine, *buses.StandaloneLine, *buses.StandaloneLine) {
-	cpu, ram := createComputer()
+func newComputerWithControlLines() (*Cpu65C02S, *memory.Ram, *buses.StandaloneLine, *buses.StandaloneLine, *buses.StandaloneLine, *buses.StandaloneLine) {
+	cpu, ram := newComputer()
 
-	nmiLine := buses.CreateStandaloneLine(true)
-	irqLine := buses.CreateStandaloneLine(true)
-	resetLine := buses.CreateStandaloneLine(true)
-	readyLine := buses.CreateStandaloneLine(true)
+	nmiLine := buses.NewStandaloneLine(true)
+	irqLine := buses.NewStandaloneLine(true)
+	resetLine := buses.NewStandaloneLine(true)
+	readyLine := buses.NewStandaloneLine(true)
 
 	cpu.NonMaskableInterrupt().Connect(nmiLine)
 	cpu.InterruptRequest().Connect(irqLine)
@@ -204,7 +204,7 @@ func runTest(cpu *Cpu65C02S, ram *memory.Ram, steps []addressModeTestData, t *te
 	t.Logf("Cycle \t Addr \t Data \t R/W \t PC \t A \t X \t Y \t SP \t Flags \n")
 	t.Logf("---- \t ---- \t ---- \t ---- \t ---- \t -- \t -- \t -- \t -- \t ----- \n")
 
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
 	for cycle, step := range steps {
 		cpu.Tick(&context)
@@ -232,7 +232,7 @@ func runTestWithInterrupts(cpu *Cpu65C02S, ram *memory.Ram, irqLine *buses.Stand
 	t.Logf("Cycle \t Addr \t Data \t R/W \t PC \t A \t X \t Y \t SP \t Flags \n")
 	t.Logf("---- \t ---- \t ---- \t ---- \t ---- \t -- \t -- \t -- \t -- \t ----- \n")
 
-	context := common.CreateStepContext()
+	context := common.NewStepContext()
 
 	lines := []*buses.StandaloneLine{irqLine, nmiLine, resetLine, readyLine}
 
@@ -278,7 +278,7 @@ func runTestWithInterrupts(cpu *Cpu65C02S, ram *memory.Ram, irqLine *buses.Stand
 ******************************************/
 
 func TestImplicitAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0x18) // CLC
 	ram.Poke(0xC001, 0xea) // NOP
@@ -292,7 +292,7 @@ func TestImplicitAddressMode(t *testing.T) {
 }
 
 func TestAccumulatorAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0x2A) // ROL a
 	ram.Poke(0xC001, 0xEA) // NOP
@@ -306,7 +306,7 @@ func TestAccumulatorAddressMode(t *testing.T) {
 }
 
 func TestImmediateAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0xA9) // LDA #FF
 	ram.Poke(0xC001, 0xFF)
@@ -326,7 +326,7 @@ func TestImmediateAddressMode(t *testing.T) {
 ****************/
 
 func TestAbsoluteJumpAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0x4C)
 	ram.Poke(0xC001, 0x00)
@@ -344,7 +344,7 @@ func TestAbsoluteJumpAddressMode(t *testing.T) {
 }
 
 func TestAbsoluteAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0xAD) // LDA $D000
 	ram.Poke(0xC001, 0x00)
@@ -364,7 +364,7 @@ func TestAbsoluteAddressMode(t *testing.T) {
 }
 
 func TestAbsoluteAddressRMWMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0xEE) // INC $D000
 	ram.Poke(0xC001, 0x00)
@@ -386,7 +386,7 @@ func TestAbsoluteAddressRMWMode(t *testing.T) {
 }
 
 func TestWriteAbsoluteAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xFF
 
@@ -411,7 +411,7 @@ func TestWriteAbsoluteAddressMode(t *testing.T) {
 **************************/
 
 func TestZeroPageAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0x00C0, 0xFF)
 	ram.Poke(0xC000, 0xA5) // LDA $C0
@@ -429,7 +429,7 @@ func TestZeroPageAddressMode(t *testing.T) {
 }
 
 func TestZeroPageRMWAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0x00C0, 0xFA)
 	ram.Poke(0xC000, 0xE6) // INC $C0
@@ -449,7 +449,7 @@ func TestZeroPageRMWAddressMode(t *testing.T) {
 }
 
 func TestZeroPageAddressWriteMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xDD
 
@@ -472,7 +472,7 @@ func TestZeroPageAddressWriteMode(t *testing.T) {
 *************************/
 
 func TestZeroPageIndexedAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 5
 
@@ -495,7 +495,7 @@ func TestZeroPageIndexedAddressMode(t *testing.T) {
 }
 
 func TestZeroPageIndexedYAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.yRegister = 5
 
@@ -518,7 +518,7 @@ func TestZeroPageIndexedYAddressMode(t *testing.T) {
 }
 
 func TestZeroPageIndexedRMWAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 0x05
 
@@ -543,7 +543,7 @@ func TestZeroPageIndexedRMWAddressMode(t *testing.T) {
 }
 
 func TestZeroPageIndexedWriteAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xBB
 	cpu.xRegister = 5
@@ -571,7 +571,7 @@ func TestZeroPageIndexedWriteAddressMode(t *testing.T) {
 ************************/
 
 func TestAbsoluteIndexedWithExtraCycleAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 5
 
@@ -596,7 +596,7 @@ func TestAbsoluteIndexedWithExtraCycleAddressMode(t *testing.T) {
 }
 
 func TestAbsoluteIndexedAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 5
 
@@ -620,7 +620,7 @@ func TestAbsoluteIndexedAddressMode(t *testing.T) {
 }
 
 func TestAbsoluteIndexedRMWWithExtraCycleAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 5
 
@@ -647,7 +647,7 @@ func TestAbsoluteIndexedRMWWithExtraCycleAddressMode(t *testing.T) {
 }
 
 func TestAbsoluteIndexedRMWAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 5
 
@@ -673,7 +673,7 @@ func TestAbsoluteIndexedRMWAddressMode(t *testing.T) {
 }
 
 func TestAbsoluteIndexedRMWIncAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 5
 
@@ -700,7 +700,7 @@ func TestAbsoluteIndexedRMWIncAddressMode(t *testing.T) {
 }
 
 func TestAbsoluteIndexedWithExtraCycleWriteAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xCC
 	cpu.yRegister = 5
@@ -726,7 +726,7 @@ func TestAbsoluteIndexedWithExtraCycleWriteAddressMode(t *testing.T) {
 }
 
 func TestAbsoluteIndexedWriteAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xCC
 	cpu.yRegister = 5
@@ -751,7 +751,7 @@ func TestAbsoluteIndexedWriteAddressMode(t *testing.T) {
 }
 
 func TestAbsoluteIndexedSTAAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xCC
 	cpu.xRegister = 5
@@ -781,7 +781,7 @@ func TestAbsoluteIndexedSTAAddressMode(t *testing.T) {
 ************************/
 
 func TestRelativeBranchTakenAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.processorStatusRegister.SetFlag(CarryFlagBit, false)
 
@@ -803,7 +803,7 @@ func TestRelativeBranchTakenAddressMode(t *testing.T) {
 }
 
 func TestRelativeBranchTakenPageBoundaryAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.programCounter = 0xC0FD
 	cpu.processorStatusRegister.SetFlag(CarryFlagBit, false)
@@ -827,7 +827,7 @@ func TestRelativeBranchTakenPageBoundaryAddressMode(t *testing.T) {
 }
 
 func TestRelativeBranchNotTakenAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.processorStatusRegister.SetFlag(CarryFlagBit, true)
 
@@ -855,7 +855,7 @@ func TestRelativeBranchNotTakenAddressMode(t *testing.T) {
 ********************************************************/
 
 func TestRelativeExtendedBranchTakenAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0x0010, 0xF0)
 
@@ -880,7 +880,7 @@ func TestRelativeExtendedBranchTakenAddressMode(t *testing.T) {
 }
 
 func TestRelativeExtendedBranchTakenPageBoundaryAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.programCounter = 0xC0FC
 
@@ -908,7 +908,7 @@ func TestRelativeExtendedBranchTakenPageBoundaryAddressMode(t *testing.T) {
 }
 
 func TestRelativeExtendedBranchNotTakenAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0x0010, 0xFF)
 
@@ -934,7 +934,7 @@ func TestRelativeExtendedBranchNotTakenAddressMode(t *testing.T) {
 ************************/
 
 func TestZeroPageIndexedIndirectXAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 5
 
@@ -961,7 +961,7 @@ func TestZeroPageIndexedIndirectXAddressMode(t *testing.T) {
 }
 
 func TestZeroPageIndexedIndirectXWriteAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xDD
 	cpu.xRegister = 5
@@ -992,7 +992,7 @@ func TestZeroPageIndexedIndirectXWriteAddressMode(t *testing.T) {
 ************************/
 
 func TestIndirectIndexedYAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.yRegister = 5
 
@@ -1017,7 +1017,7 @@ func TestIndirectIndexedYAddressMode(t *testing.T) {
 }
 
 func TestIndirectIndexedYPageBoundaryAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.yRegister = 5
 
@@ -1044,7 +1044,7 @@ func TestIndirectIndexedYPageBoundaryAddressMode(t *testing.T) {
 }
 
 func TestIndirectIndexedYWriteAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xFA
 	cpu.yRegister = 5
@@ -1069,7 +1069,7 @@ func TestIndirectIndexedYWriteAddressMode(t *testing.T) {
 }
 
 func TestIndirectIndexedYWritePageBoundaryAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xFA
 	cpu.yRegister = 5
@@ -1100,7 +1100,7 @@ func TestIndirectIndexedYWritePageBoundaryAddressMode(t *testing.T) {
 ************************/
 
 func TestIndirectAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0x6C) // JMP ($C100)
 	ram.Poke(0xC001, 0x00)
@@ -1136,7 +1136,7 @@ func TestIndirectAddressMode(t *testing.T) {
 // would get the least significant byte of the target address at $12FF and the most significant byte of the target address from $1200
 // rather than $1300. The 65C02 corrected this issue
 func TestIndirectAddressMode65C02BugFix(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0x6C) // JMP ($12FF)
 	ram.Poke(0xC001, 0xFF)
@@ -1166,7 +1166,7 @@ func TestIndirectAddressMode65C02BugFix(t *testing.T) {
 ************************/
 
 func TestZeroPageIndirectAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0x00C0, 0x00)
 	ram.Poke(0x00C1, 0xD0)
@@ -1190,7 +1190,7 @@ func TestZeroPageIndirectAddressMode(t *testing.T) {
 }
 
 func TestZeroPageIndirectWriteAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xAA
 
@@ -1218,7 +1218,7 @@ func TestZeroPageIndirectWriteAddressMode(t *testing.T) {
 *****************************/
 
 func TestAbsoluteIndexedIndirectXAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.xRegister = 5
 
@@ -1249,7 +1249,7 @@ func TestAbsoluteIndexedIndirectXAddressMode(t *testing.T) {
 *****************************/
 
 func TestPushStackAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.accumulatorRegister = 0xFF
 
@@ -1267,7 +1267,7 @@ func TestPushStackAddressMode(t *testing.T) {
 }
 
 func TestPullStackAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	cpu.stackPointer = 0xFC
 
@@ -1289,7 +1289,7 @@ func TestPullStackAddressMode(t *testing.T) {
 }
 
 func TestBreakAndReturnFromInterruptAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0x00) // BRK
 	ram.Poke(0xC001, 0xEA) // NOP
@@ -1325,7 +1325,7 @@ func TestBreakAndReturnFromInterruptAddressMode(t *testing.T) {
 }
 
 func TestJumpAndReturnFromSubroutineAddressMode(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0x20) // JSR $D000
 	ram.Poke(0xC001, 0x00)
@@ -1358,7 +1358,7 @@ func TestJumpAndReturnFromSubroutineAddressMode(t *testing.T) {
 }
 
 func TestIRQAndReturnFromInterruptAddressMode(t *testing.T) {
-	cpu, ram, nmiLine, irqLine, resetLine, readyLine := createComputerWithControlLines()
+	cpu, ram, nmiLine, irqLine, resetLine, readyLine := newComputerWithControlLines()
 
 	cpu.processorStatusRegister.SetFlag(IrqDisableFlagBit, false)
 
@@ -1413,7 +1413,7 @@ func TestIRQAndReturnFromInterruptAddressMode(t *testing.T) {
 }
 
 func TestNMIAndReturnFromInterruptAddressMode(t *testing.T) {
-	cpu, ram, nmiLine, irqLine, resetLine, readyLine := createComputerWithControlLines()
+	cpu, ram, nmiLine, irqLine, resetLine, readyLine := newComputerWithControlLines()
 
 	// Interrupt disable is on by default
 
@@ -1468,7 +1468,7 @@ func TestNMIAndReturnFromInterruptAddressMode(t *testing.T) {
 }
 
 func TestResetAddressMode(t *testing.T) {
-	cpu, ram, nmiLine, irqLine, resetLine, readyLine := createComputerWithControlLines()
+	cpu, ram, nmiLine, irqLine, resetLine, readyLine := newComputerWithControlLines()
 
 	ram.Poke(0xC000, 0xA9) // LDA #FF
 	ram.Poke(0xC001, 0xFF)
@@ -1502,7 +1502,7 @@ func TestResetAddressMode(t *testing.T) {
 }
 
 func TestPausingProcessorByDroppingReadyLine(t *testing.T) {
-	cpu, ram, nmiLine, irqLine, resetLine, readyLine := createComputerWithControlLines()
+	cpu, ram, nmiLine, irqLine, resetLine, readyLine := newComputerWithControlLines()
 
 	cpu.stackPointer = 0xFC
 
@@ -1530,7 +1530,7 @@ func TestPausingProcessorByDroppingReadyLine(t *testing.T) {
 }
 
 func TestWAIInstructionPausingProcessor(t *testing.T) {
-	cpu, ram, nmiLine, irqLine, resetLine, readyLine := createComputerWithControlLines()
+	cpu, ram, nmiLine, irqLine, resetLine, readyLine := newComputerWithControlLines()
 
 	ram.Poke(0xC000, 0xA9) // LDA #FF
 	ram.Poke(0xC001, 0xFF)
@@ -1554,7 +1554,7 @@ func TestWAIInstructionPausingProcessor(t *testing.T) {
 }
 
 func TestSTPInstructionStoppingProcessor(t *testing.T) {
-	cpu, ram, nmiLine, irqLine, resetLine, readyLine := createComputerWithControlLines()
+	cpu, ram, nmiLine, irqLine, resetLine, readyLine := newComputerWithControlLines()
 
 	cpu.processorStatusRegister.SetFlag(IrqDisableFlagBit, false)
 
@@ -1586,7 +1586,7 @@ func TestSTPInstructionStoppingProcessor(t *testing.T) {
 }
 
 func TestSetOverflowFlagForcesVStatus(t *testing.T) {
-	cpu, ram := createComputer()
+	cpu, ram := newComputer()
 
 	ram.Poke(0xC000, 0xEA) // NOP
 	ram.Poke(0xC001, 0xEA) // NOP
@@ -1598,7 +1598,7 @@ func TestSetOverflowFlagForcesVStatus(t *testing.T) {
 
 	runTest(cpu, ram, steps, t)
 
-	sobLine := buses.CreateStandaloneLine(false)
+	sobLine := buses.NewStandaloneLine(false)
 	cpu.SetOverflow().Connect(sobLine)
 
 	steps2 := []addressModeTestData{

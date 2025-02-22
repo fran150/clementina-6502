@@ -9,12 +9,12 @@ import (
 )
 
 func main() {
-	computer := beneater.CreateBenEaterComputer("/dev/ttys004")
+	computer := beneater.NewBenEaterComputer("/dev/ttys004")
 	defer computer.Close()
 
 	computer.Load("./assets/computer/beneater/eater.bin")
 
-	app := terminal.CreateApplication(computer)
+	app := terminal.NewApplication(computer)
 
 	t := time.Now()
 

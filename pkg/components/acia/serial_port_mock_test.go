@@ -41,7 +41,7 @@ type portMock struct {
 }
 
 // Creates a new mock of the serial port
-func createPortMock(mode *serial.Mode) *portMock {
+func newPortMock(mode *serial.Mode) *portMock {
 	return &portMock{
 		mode: mode,
 		status: serial.ModemStatusBits{
@@ -52,10 +52,10 @@ func createPortMock(mode *serial.Mode) *portMock {
 		},
 		dtr:              false,
 		rts:              false,
-		portTxBuffer:     queue.CreateQueue[byte](),
-		terminalTxBuffer: queue.CreateQueue[byte](),
-		portRxBuffer:     queue.CreateQueue[byte](),
-		terminalRxBuffer: queue.CreateQueue[byte](),
+		portTxBuffer:     queue.NewQueue[byte](),
+		terminalTxBuffer: queue.NewQueue[byte](),
+		portRxBuffer:     queue.NewQueue[byte](),
+		terminalRxBuffer: queue.NewQueue[byte](),
 
 		makeCallsFailFrom: failInNone,
 	}
