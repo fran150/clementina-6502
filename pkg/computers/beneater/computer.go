@@ -216,24 +216,24 @@ func (c *BenEaterComputer) Draw(context *common.StepContext) {
 	c.console.Draw(context)
 }
 
+func (c *BenEaterComputer) Stop(context *common.StepContext) {
+	context.Stop = true
+}
+
+func (c *BenEaterComputer) Reset(context *common.StepContext) {
+	c.mustReset = true
+}
+
+func (c *BenEaterComputer) SpeedUp(context *common.StepContext) {
+	c.appConfig.TargetSpeedMhz += 0.2
+}
+
+func (c *BenEaterComputer) SpeedDown(context *common.StepContext) {
+	c.appConfig.TargetSpeedMhz -= 0.2
+}
+
 func (c *BenEaterComputer) KeyPressed(event *tcell.EventKey, context *common.StepContext) *tcell.EventKey {
-	if event.Key() == tcell.KeyEsc {
-		context.Stop = true
-	}
-
-	if event.Rune() == 'r' {
-		c.mustReset = true
-	}
-
-	if event.Rune() == '=' {
-		c.appConfig.TargetSpeedMhz += 0.2
-	}
-
-	if event.Rune() == '-' {
-		c.appConfig.TargetSpeedMhz -= 0.2
-	}
-
-	return event
+	return c.console.options.ProcessKey(event, context)
 }
 
 func (c *BenEaterComputer) Close() {

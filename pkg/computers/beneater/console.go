@@ -46,11 +46,38 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 	viaWindow := ui.NewViaWindow(computer.chips.via)
 	lcdWindow := ui.NewLcdWindow(computer.chips.lcd)
 
-	options := ui.NewOptionsWindow([]ui.OptionsWindowConfig{
-		{KeyName: "ESC", KeyDescription: "Quit"},
-		{KeyName: "R", KeyDescription: "Reset CPU"},
-		{KeyName: "P", KeyDescription: "Pause Execution"},
-		{KeyName: "S", KeyDescription: "Next Step"},
+	options := ui.NewOptionsWindow([]*ui.OptionsWindowMenuOption{
+		{
+			Key:            'r',
+			KeyName:        "R",
+			KeyDescription: "Reset",
+			Action:         computer.Reset,
+		},
+		{
+			Key:            'q',
+			KeyName:        "Q",
+			KeyDescription: "Quit",
+			Action:         computer.Stop,
+		},
+		{
+			Key:            's',
+			KeyName:        "S",
+			KeyDescription: "Speed",
+			SubMenu: []*ui.OptionsWindowMenuOption{
+				{
+					Key:            '=',
+					KeyName:        "+",
+					KeyDescription: "Speed Up",
+					Action:         computer.SpeedUp,
+				},
+				{
+					Key:            '-',
+					KeyName:        "-",
+					KeyDescription: "Speed Down",
+					Action:         computer.SpeedDown,
+				},
+			},
+		},
 	})
 
 	grid.AddItem(displayWindow.GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
@@ -93,4 +120,7 @@ func (c *console) Draw(context *common.StepContext) {
 
 	c.lcdWindow.Clear()
 	c.lcdWindow.Draw(context)
+
+	c.options.Clear()
+	c.options.Draw(context)
 }
