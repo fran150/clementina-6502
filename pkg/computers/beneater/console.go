@@ -7,6 +7,8 @@ import (
 )
 
 type console struct {
+	grid *tview.Grid
+
 	lcdDisplay  *ui.Lcd16x2Window
 	codeWindow  *ui.CodeWindow
 	speedWindow *ui.SpeedWindow
@@ -15,10 +17,17 @@ type console struct {
 	viaWindow *ui.ViaWindow
 	lcdWindow *ui.LcdControllerWindow
 
+	breakpointForm *ui.BreakPointForm
+
+	active   tview.Primitive
+	previous tview.Primitive
+
 	options *ui.OptionsWindow
 }
 
 func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *console {
+	console := &console{}
+
 	grid := tview.NewGrid()
 	grid.SetRows(4, 3, 0, 3).
 		SetColumns(25, 0).
@@ -46,12 +55,31 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 	viaWindow := ui.NewViaWindow(computer.chips.via)
 	lcdWindow := ui.NewLcdWindow(computer.chips.lcd)
 
+	breakPointForm := ui.NewBreakPointForm()
+
 	options := ui.NewOptionsWindow([]*ui.OptionsWindowMenuOption{
 		{
 			Key:            'r',
 			KeyName:        "R",
 			KeyDescription: "Reset",
 			Action:         computer.Reset,
+		},
+		{
+			Key:            'b',
+			KeyName:        "B",
+			KeyDescription: "Breakpoints",
+			Action:         console.SetBreakpointConfigMode,
+			BackAction:     console.ReturnToPreviousWindow,
+
+			SubMenu: []*ui.OptionsWindowMenuOption{
+				{
+					Key:            'r',
+					KeyName:        "R",
+					KeyDescription: "Remove Selected Breakpoint",
+
+					Action: breakPointForm.RemoveSelectedItem,
+				},
+			},
 		},
 		{
 			Key:            'q',
@@ -80,21 +108,43 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 		},
 	})
 
+	console.active = cpuWindow.GetDrawArea()
 	grid.AddItem(displayWindow.GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
 		AddItem(speedWindow.GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
 		AddItem(codeWindow.GetDrawArea(), 2, 0, 1, 1, 0, 0, false).
-		AddItem(lcdWindow.GetDrawArea(), 0, 1, 3, 1, 0, 0, false).
+		AddItem(console.active, 0, 1, 3, 1, 0, 0, false).
 		AddItem(options.GetDrawArea(), 3, 0, 1, 2, 0, 0, false)
 
-	return &console{
-		lcdDisplay:  displayWindow,
-		codeWindow:  codeWindow,
-		speedWindow: speedWindow,
+	console.grid = grid
+	console.lcdDisplay = displayWindow
+	console.codeWindow = codeWindow
+	console.speedWindow = speedWindow
+	console.cpuWindow = cpuWindow
+	console.viaWindow = viaWindow
+	console.lcdWindow = lcdWindow
+	console.breakpointForm = breakPointForm
+	console.options = options
 
-		cpuWindow: cpuWindow,
-		viaWindow: viaWindow,
-		lcdWindow: lcdWindow,
-		options:   options,
+	return console
+}
+
+func (c *console) SetBreakpointConfigMode(context *common.StepContext) {
+	c.SetActiveWindow(c.breakpointForm.GetDrawArea())
+}
+
+func (c *console) SetActiveWindow(value tview.Primitive) {
+	c.grid.RemoveItem(c.active)
+	c.previous = c.active
+	c.active = value
+	c.grid.AddItem(c.active, 0, 1, 3, 1, 0, 0, false)
+}
+
+func (c *console) ReturnToPreviousWindow(context *common.StepContext) {
+	if c.previous != nil {
+		c.grid.RemoveItem(c.active)
+		c.active = c.previous
+		c.previous = nil
+		c.grid.AddItem(c.active, 0, 1, 3, 1, 0, 0, false)
 	}
 }
 
@@ -103,6 +153,7 @@ func (c *console) Tick(context *common.StepContext) {
 }
 
 func (c *console) Draw(context *common.StepContext) {
+	// TODO: Only draw the visible one
 	c.lcdDisplay.Clear()
 	c.lcdDisplay.Draw(context)
 

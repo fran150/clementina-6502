@@ -190,6 +190,8 @@ func (c *BenEaterComputer) LoadRom(romImagePath string) {
 }
 
 func (c *BenEaterComputer) Init(tvApp *tview.Application, appConfig *terminal.ApplicationConfig) {
+	tvApp.EnableMouse(true).EnablePaste(true)
+
 	c.appConfig = appConfig
 	c.console = newMainConsole(c, tvApp)
 }

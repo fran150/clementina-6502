@@ -20,6 +20,7 @@ type OptionsWindowMenuOption struct {
 	KeyName        string
 	KeyDescription string
 	Action         func(context *common.StepContext)
+	BackAction     func(context *common.StepContext)
 
 	SubMenu []*OptionsWindowMenuOption
 
@@ -49,17 +50,26 @@ func (d *OptionsWindow) SetActiveMenu(menu *OptionsWindowMenuOption) {
 }
 
 func (d *OptionsWindow) ProcessKey(event *tcell.EventKey, context *common.StepContext) *tcell.EventKey {
+	active := d.GetActiveMenu()
 	options := d.getActiveOptions()
 
 	for _, option := range options {
 		if option.Key == event.Rune() {
 			if option.SubMenu != nil {
 				d.SetActiveMenu(option)
-			} else if option.Action != nil {
+			}
+
+			if option.Action != nil {
 				option.Action(context)
 			}
 		} else if event.Key() == tcell.KeyEsc {
-			d.SetActiveMenu(nil)
+			if active != nil {
+				if active.BackAction != nil {
+					active.BackAction(context)
+				}
+
+				d.SetActiveMenu(active.parent)
+			}
 		}
 	}
 
