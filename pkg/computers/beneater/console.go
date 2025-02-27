@@ -43,8 +43,8 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 		rom := computer.chips.rom
 
 		programCounter &= 0x7FFF
-		operand1Address := (programCounter + 1) & 0x7FFF
-		operand2Address := (programCounter + 2) & 0x7FFF
+		operand1Address := programCounter & 0x7FFF
+		operand2Address := (programCounter + 1) & 0x7FFF
 
 		return [2]uint8{rom.Peek(operand1Address), rom.Peek(operand2Address)}
 	})
@@ -88,6 +88,18 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 			Action:         computer.Stop,
 		},
 		{
+			Key:            'p',
+			KeyName:        "P",
+			KeyDescription: "Pause",
+			Action:         computer.Pause,
+		},
+		{
+			Key:            'o',
+			KeyName:        "O",
+			KeyDescription: "Resume",
+			Action:         computer.Resume,
+		},
+		{
 			Key:            's',
 			KeyName:        "S",
 			KeyDescription: "Speed",
@@ -106,13 +118,17 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 				},
 			},
 		},
+		{
+			Key:            'i',
+			KeyName:        "I",
+			KeyDescription: "Step",
+			Action:         computer.Step,
+		},
 	})
 
-	console.active = cpuWindow.GetDrawArea()
 	grid.AddItem(displayWindow.GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
 		AddItem(speedWindow.GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
 		AddItem(codeWindow.GetDrawArea(), 2, 0, 1, 1, 0, 0, false).
-		AddItem(console.active, 0, 1, 3, 1, 0, 0, false).
 		AddItem(options.GetDrawArea(), 3, 0, 1, 2, 0, 0, false)
 
 	console.grid = grid
@@ -124,6 +140,7 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 	console.lcdWindow = lcdWindow
 	console.breakpointForm = breakPointForm
 	console.options = options
+	console.SetActiveWindow(cpuWindow.GetDrawArea())
 
 	return console
 }

@@ -49,6 +49,9 @@ type BenEaterComputer struct {
 	mustReset   bool
 	resetCycles uint8
 	appConfig   *terminal.ApplicationConfig
+
+	pause bool
+	step  bool
 }
 
 func NewBenEaterComputer(portName string) *BenEaterComputer {
@@ -197,21 +200,44 @@ func (c *BenEaterComputer) Init(tvApp *tview.Application, appConfig *terminal.Ap
 }
 
 func (c *BenEaterComputer) Tick(context *common.StepContext) {
-	c.chips.cpu.Tick(context)
-	c.chips.nand.Tick(context)
-	c.chips.ram.Tick(context)
-	c.chips.rom.Tick(context)
-	c.chips.via.Tick(context)
-	c.chips.lcd.Tick(context)
-	c.chips.acia.Tick(context)
+	if !c.pause || c.step {
+		c.chips.cpu.Tick(context)
+		c.chips.nand.Tick(context)
+		c.chips.ram.Tick(context)
+		c.chips.rom.Tick(context)
+		c.chips.via.Tick(context)
+		c.chips.lcd.Tick(context)
+		c.chips.acia.Tick(context)
 
-	if c.console != nil {
-		c.console.Tick(context)
+		c.chips.cpu.PostTick(context)
+
+		c.checkReset()
+
+		if c.console != nil {
+			c.console.Tick(context)
+		}
+
+		c.step = false
+
+		if c.chips.cpu.IsReadingOpcode() {
+			if c.console.breakpointForm.CheckBreakpoint(c.chips.cpu.GetProgramCounter() - 1) {
+				c.pause = true
+			}
+		}
 	}
+}
 
-	c.chips.cpu.PostTick(context)
+func (c *BenEaterComputer) Pause(context *common.StepContext) {
+	c.pause = true
+}
 
-	c.checkReset()
+func (c *BenEaterComputer) Resume(context *common.StepContext) {
+	c.pause = false
+	c.step = true
+}
+
+func (c *BenEaterComputer) Step(context *common.StepContext) {
+	c.step = true
 }
 
 func (c *BenEaterComputer) Draw(context *common.StepContext) {

@@ -11,6 +11,16 @@ In construction....
   '----------`
   ```
 
+### Port emulation
+
+In order to test the emulator I use:
+
+```
+socat -d -d pty,raw,echo=0 pty,raw,echo=0
+```
+
+to create pseudo interconnected ports. Ben's computer operates with 8-N-1, 19200 bps
+
 ### Profiling
 
 For profiling the CPU I'm using

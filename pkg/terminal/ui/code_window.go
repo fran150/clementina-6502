@@ -41,10 +41,18 @@ func showCurrentInstruction(programCounter uint16, instruction *cpu.CpuInstructi
 
 	addressModeDetails := cpu.GetAddressMode(instruction.AddressMode())
 
-	size := addressModeDetails.MemSize() - 1
+	var size uint8
+
+	// BRK is internally a 2 byte instruction, but we show it as 1 byte.
+	// So no operand reading is needed.
+	if instruction.AddressMode() == cpu.AddressModeBreak {
+		size = 0
+	} else {
+		size = addressModeDetails.MemSize() - 1
+	}
 
 	// Write current address
-	fmt.Fprintf(&sb, "[blue]$%04X: [red]%s [white]", programCounter, instruction.Mnemonic())
+	fmt.Fprintf(&sb, "[blue]$%04X: [red]%s [white]", (programCounter - 1), instruction.Mnemonic())
 
 	// Write operands
 	switch size {
