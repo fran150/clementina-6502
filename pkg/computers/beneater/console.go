@@ -16,11 +16,13 @@ type console struct {
 	cpuWindow *ui.CpuWindow
 	viaWindow *ui.ViaWindow
 	lcdWindow *ui.LcdControllerWindow
+	ramWindow *ui.MemoryWindow
+	romWindow *ui.MemoryWindow
 
 	breakpointForm *ui.BreakPointForm
 
 	active   tview.Primitive
-	previous tview.Primitive
+	previous []tview.Primitive
 
 	options *ui.OptionsWindow
 }
@@ -54,6 +56,8 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 	cpuWindow := ui.NewCpuWindow(computer.chips.cpu)
 	viaWindow := ui.NewViaWindow(computer.chips.via)
 	lcdWindow := ui.NewLcdWindow(computer.chips.lcd)
+	ramWindow := ui.NewMemoryWindow(computer.chips.ram)
+	romWindow := ui.NewMemoryWindow(computer.chips.rom)
 
 	breakPointForm := ui.NewBreakPointForm()
 
@@ -138,9 +142,13 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 	console.cpuWindow = cpuWindow
 	console.viaWindow = viaWindow
 	console.lcdWindow = lcdWindow
+	console.ramWindow = ramWindow
+	console.romWindow = romWindow
 	console.breakpointForm = breakPointForm
 	console.options = options
-	console.SetActiveWindow(cpuWindow.GetDrawArea())
+	console.previous = make([]tview.Primitive, 2)
+
+	console.SetActiveWindow(romWindow.GetDrawArea())
 
 	return console
 }
@@ -150,18 +158,17 @@ func (c *console) SetBreakpointConfigMode(context *common.StepContext) {
 }
 
 func (c *console) SetActiveWindow(value tview.Primitive) {
-	c.grid.RemoveItem(c.active)
-	c.previous = c.active
+	c.previous = append(c.previous, c.active)
 	c.active = value
-	c.grid.AddItem(c.active, 0, 1, 3, 1, 0, 0, false)
+	c.setActiveWindowOnGrid()
 }
 
 func (c *console) ReturnToPreviousWindow(context *common.StepContext) {
 	if c.previous != nil {
-		c.grid.RemoveItem(c.active)
-		c.active = c.previous
-		c.previous = nil
-		c.grid.AddItem(c.active, 0, 1, 3, 1, 0, 0, false)
+		previous, active := common.SlicePop(c.previous)
+		c.previous = previous
+		c.active = active
+		c.setActiveWindowOnGrid()
 	}
 }
 
@@ -170,7 +177,6 @@ func (c *console) Tick(context *common.StepContext) {
 }
 
 func (c *console) Draw(context *common.StepContext) {
-	// TODO: Only draw the visible one
 	c.lcdDisplay.Clear()
 	c.lcdDisplay.Draw(context)
 
@@ -189,6 +195,17 @@ func (c *console) Draw(context *common.StepContext) {
 	c.lcdWindow.Clear()
 	c.lcdWindow.Draw(context)
 
+	c.ramWindow.Clear()
+	c.ramWindow.Draw(context)
+
+	c.romWindow.Clear()
+	c.romWindow.Draw(context)
+
 	c.options.Clear()
 	c.options.Draw(context)
+}
+
+func (c *console) setActiveWindowOnGrid() {
+	c.grid.RemoveItem(c.active)
+	c.grid.AddItem(c.active, 0, 1, 3, 1, 0, 0, false)
 }

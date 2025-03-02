@@ -142,6 +142,11 @@ func (ram *Ram) Load(binFilePath string) error {
 	return nil
 }
 
+// Returns the memory size in bytes
+func (ram *Ram) Size() int {
+	return len(ram.values)
+}
+
 /************************************************************************************
 * Internal functions
 *************************************************************************************/

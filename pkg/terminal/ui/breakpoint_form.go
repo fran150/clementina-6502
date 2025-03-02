@@ -44,14 +44,10 @@ func NewBreakPointForm() *BreakPointForm {
 	return breakPointForm
 }
 
-func remove(slice []uint16, s int) []uint16 {
-	return append(slice[:s], slice[s+1:]...)
-}
-
 func (d *BreakPointForm) RemoveSelectedItem(context *common.StepContext) {
 	current := d.list.GetCurrentItem()
 
-	d.breakpointAddresses = remove(d.breakpointAddresses, current)
+	d.breakpointAddresses = common.SliceRemove(d.breakpointAddresses, current)
 
 	d.list.RemoveItem(current)
 }
