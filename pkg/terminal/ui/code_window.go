@@ -39,7 +39,8 @@ func NewCodeWindow(processor *cpu.Cpu65C02S, operandsGetter func(programCounter 
 func showCurrentInstruction(programCounter uint16, instruction *cpu.CpuInstructionData, potentialOperands [2]uint8) string {
 	var sb strings.Builder = strings.Builder{}
 
-	addressModeDetails := cpu.GetAddressMode(instruction.AddressMode())
+	addressMode := instruction.AddressMode()
+	addressModeDetails := cpu.GetAddressMode(addressMode)
 
 	var size uint8
 
@@ -65,6 +66,23 @@ func showCurrentInstruction(programCounter uint16, instruction *cpu.CpuInstructi
 		fmt.Fprintf(&sb, addressModeDetails.Format(), msb|lsb)
 	default:
 		fmt.Fprintf(&sb, "Unrecognized Instruction or Address Mode")
+	}
+
+	// If the address mode is relative we will show the value to which the CPU will jump
+	if addressMode == cpu.AddressModeRelative || addressMode == cpu.AddressModeRelativeExtended {
+		// Get the operator value
+		value := uint16(potentialOperands[0])
+
+		// If bit 7 is set then we will perform substraction by using 2's component
+		if value&0x80 == 0x80 {
+			value |= 0xFF00
+		}
+
+		// Add the value to the program counter
+		value = programCounter + value + 1
+
+		// Print the relative jump
+		fmt.Fprintf(&sb, "[green] ($%04X)", value)
 	}
 
 	fmt.Fprint(&sb, "\r\n")
