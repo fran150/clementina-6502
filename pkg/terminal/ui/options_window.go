@@ -16,7 +16,8 @@ type OptionsWindow struct {
 }
 
 type OptionsWindowMenuOption struct {
-	Key            rune
+	Key            tcell.Key
+	Rune           rune
 	KeyName        string
 	KeyDescription string
 	Action         func(context *common.StepContext)
@@ -54,7 +55,7 @@ func (d *OptionsWindow) ProcessKey(event *tcell.EventKey, context *common.StepCo
 	options := d.getActiveOptions()
 
 	for _, option := range options {
-		if option.Key == event.Rune() {
+		if option.Key == event.Key() || option.Rune == event.Rune() {
 			if option.SubMenu != nil {
 				d.SetActiveMenu(option)
 			}
@@ -62,7 +63,7 @@ func (d *OptionsWindow) ProcessKey(event *tcell.EventKey, context *common.StepCo
 			if option.Action != nil {
 				option.Action(context)
 			}
-		} else if event.Key() == tcell.KeyEsc {
+		} else if event.Key() == tcell.KeyESC {
 			if active != nil {
 				if active.BackAction != nil {
 					active.BackAction(context)

@@ -3,6 +3,7 @@ package beneater
 import (
 	"github.com/fran150/clementina6502/pkg/components/common"
 	"github.com/fran150/clementina6502/pkg/terminal/ui"
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -63,13 +64,13 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 
 	options := ui.NewOptionsWindow([]*ui.OptionsWindowMenuOption{
 		{
-			Key:            'r',
+			Rune:           'r',
 			KeyName:        "R",
 			KeyDescription: "Reset",
 			Action:         computer.Reset,
 		},
 		{
-			Key:            'b',
+			Rune:           'b',
 			KeyName:        "B",
 			KeyDescription: "Breakpoints",
 			Action:         console.SetBreakpointConfigMode,
@@ -77,7 +78,7 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 
 			SubMenu: []*ui.OptionsWindowMenuOption{
 				{
-					Key:            'r',
+					Rune:           'r',
 					KeyName:        "R",
 					KeyDescription: "Remove Selected Breakpoint",
 
@@ -86,36 +87,36 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 			},
 		},
 		{
-			Key:            'q',
+			Rune:           'q',
 			KeyName:        "Q",
 			KeyDescription: "Quit",
 			Action:         computer.Stop,
 		},
 		{
-			Key:            'p',
+			Rune:           'p',
 			KeyName:        "P",
 			KeyDescription: "Pause",
 			Action:         computer.Pause,
 		},
 		{
-			Key:            'o',
+			Rune:           'o',
 			KeyName:        "O",
 			KeyDescription: "Resume",
 			Action:         computer.Resume,
 		},
 		{
-			Key:            's',
-			KeyName:        "S",
+			Key:            tcell.KeyF1,
+			KeyName:        "F1",
 			KeyDescription: "Speed",
 			SubMenu: []*ui.OptionsWindowMenuOption{
 				{
-					Key:            '=',
+					Rune:           '=',
 					KeyName:        "+",
 					KeyDescription: "Speed Up",
 					Action:         computer.SpeedUp,
 				},
 				{
-					Key:            '-',
+					Rune:           '-',
 					KeyName:        "-",
 					KeyDescription: "Speed Down",
 					Action:         computer.SpeedDown,
@@ -123,7 +124,7 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 			},
 		},
 		{
-			Key:            'i',
+			Rune:           'i',
 			KeyName:        "I",
 			KeyDescription: "Step",
 			Action:         computer.Step,
