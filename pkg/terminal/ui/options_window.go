@@ -55,7 +55,7 @@ func (d *OptionsWindow) ProcessKey(event *tcell.EventKey, context *common.StepCo
 	options := d.getActiveOptions()
 
 	for _, option := range options {
-		if option.Key == event.Key() || option.Rune == event.Rune() {
+		if (event.Key() == tcell.KeyRune && option.Rune == event.Rune()) || (event.Key() != tcell.KeyRune && option.Key == event.Key()) {
 			if option.SubMenu != nil {
 				d.SetActiveMenu(option)
 			}

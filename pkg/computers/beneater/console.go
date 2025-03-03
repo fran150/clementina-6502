@@ -87,6 +87,62 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 			},
 		},
 		{
+			Rune:           's',
+			KeyName:        "S",
+			KeyDescription: "Speed",
+			SubMenu: []*ui.OptionsWindowMenuOption{
+				{
+					Rune:           '=',
+					KeyName:        "+",
+					KeyDescription: "Speed Up",
+					Action:         computer.SpeedUp,
+				},
+				{
+					Rune:           '-',
+					KeyName:        "-",
+					KeyDescription: "Speed Down",
+					Action:         computer.SpeedDown,
+				},
+			},
+		},
+		{
+			Rune:           'w',
+			KeyName:        "W",
+			KeyDescription: "Windows",
+			SubMenu: []*ui.OptionsWindowMenuOption{
+				{
+					Key:            tcell.KeyF1,
+					KeyName:        "F1",
+					KeyDescription: "CPU",
+					Action:         console.ShowCPUWindow,
+				},
+				{
+					Key:            tcell.KeyF2,
+					KeyName:        "F2",
+					KeyDescription: "VIA",
+					Action:         console.ShowVIAWindow,
+				},
+				{
+					Key:            tcell.KeyF3,
+					KeyName:        "F3",
+					KeyDescription: "LCD",
+					Action:         console.ShowLCDWindow,
+				},
+				{
+					Key:            tcell.KeyF4,
+					KeyName:        "F4",
+					KeyDescription: "ROM",
+					Action:         console.ShowROMWindow,
+				},
+				{
+					Key:            tcell.KeyF5,
+					KeyName:        "F5",
+					KeyDescription: "RAM",
+					Action:         console.ShowRAMWindow,
+				},
+			},
+		},
+		{
 			Rune:           'q',
 			KeyName:        "Q",
 			KeyDescription: "Quit",
@@ -103,25 +159,6 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 			KeyName:        "O",
 			KeyDescription: "Resume",
 			Action:         computer.Resume,
-		},
-		{
-			Key:            tcell.KeyF1,
-			KeyName:        "F1",
-			KeyDescription: "Speed",
-			SubMenu: []*ui.OptionsWindowMenuOption{
-				{
-					Rune:           '=',
-					KeyName:        "+",
-					KeyDescription: "Speed Up",
-					Action:         computer.SpeedUp,
-				},
-				{
-					Rune:           '-',
-					KeyName:        "-",
-					KeyDescription: "Speed Down",
-					Action:         computer.SpeedDown,
-				},
-			},
 		},
 		{
 			Rune:           'i',
@@ -155,13 +192,37 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 }
 
 func (c *console) SetBreakpointConfigMode(context *common.StepContext) {
-	c.SetActiveWindow(c.breakpointForm.GetDrawArea())
+	c.AppendActiveWindow(c.breakpointForm.GetDrawArea())
+}
+
+func (c *console) ShowCPUWindow(context *common.StepContext) {
+	c.SetActiveWindow(c.cpuWindow.GetDrawArea())
+}
+
+func (c *console) ShowVIAWindow(context *common.StepContext) {
+	c.SetActiveWindow(c.viaWindow.GetDrawArea())
+}
+
+func (c *console) ShowLCDWindow(context *common.StepContext) {
+	c.SetActiveWindow(c.lcdWindow.GetDrawArea())
+}
+
+func (c *console) ShowRAMWindow(context *common.StepContext) {
+	c.SetActiveWindow(c.ramWindow.GetDrawArea())
+}
+
+func (c *console) ShowROMWindow(context *common.StepContext) {
+	c.SetActiveWindow(c.romWindow.GetDrawArea())
 }
 
 func (c *console) SetActiveWindow(value tview.Primitive) {
-	c.previous = append(c.previous, c.active)
 	c.active = value
 	c.setActiveWindowOnGrid()
+}
+
+func (c *console) AppendActiveWindow(value tview.Primitive) {
+	c.previous = append(c.previous, c.active)
+	c.SetActiveWindow(value)
 }
 
 func (c *console) ReturnToPreviousWindow(context *common.StepContext) {
