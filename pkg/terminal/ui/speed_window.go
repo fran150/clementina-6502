@@ -45,6 +45,6 @@ func (s *SpeedWindow) Draw(context *common.StepContext) {
 	s.previousC = context.Cycle
 }
 
-func (d *SpeedWindow) GetDrawArea() *tview.TextView {
+func (d *SpeedWindow) GetDrawArea() tview.Primitive {
 	return d.text
 }

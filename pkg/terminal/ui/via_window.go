@@ -52,6 +52,6 @@ func (d *ViaWindow) Draw(context *common.StepContext) {
 	fmt.Fprintf(d.text, "[yellow] Bus:  [white]$%04X\n", d.via.DataBus().Read())
 }
 
-func (d *ViaWindow) GetDrawArea() *tview.TextView {
+func (d *ViaWindow) GetDrawArea() tview.Primitive {
 	return d.text
 }

@@ -91,6 +91,12 @@ func validateHexInput(textToCheck string, lastChar rune) bool {
 	return strings.ContainsRune(allowedChars, lastChar)
 }
 
-func (d *BreakPointForm) GetDrawArea() *tview.Grid {
+func (d *BreakPointForm) Draw(context *common.StepContext) {
+}
+
+func (d *BreakPointForm) Clear() {
+}
+
+func (d *BreakPointForm) GetDrawArea() tview.Primitive {
 	return d.grid
 }

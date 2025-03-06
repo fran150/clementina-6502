@@ -174,6 +174,6 @@ func (w *AciaWindow) Draw(context *common.StepContext) {
 	w.drawCommandRegisterDetails()
 }
 
-func (d *AciaWindow) GetDrawArea() *tview.TextView {
+func (d *AciaWindow) GetDrawArea() tview.Primitive {
 	return d.text
 }

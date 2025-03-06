@@ -60,6 +60,6 @@ func drawLcdDDRAM(writer io.Writer, displayStatus lcd.DisplayStatus) {
 	}
 }
 
-func (d *LcdControllerWindow) GetDrawArea() *tview.TextView {
+func (d *LcdControllerWindow) GetDrawArea() tview.Primitive {
 	return d.text
 }

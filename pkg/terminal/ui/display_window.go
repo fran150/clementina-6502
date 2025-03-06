@@ -92,6 +92,6 @@ func drawLcdLine(writer io.Writer, lineStart uint8, displayStatus lcd.DisplaySta
 	}
 }
 
-func (d *Lcd16x2Window) GetDrawArea() *tview.TextView {
+func (d *Lcd16x2Window) GetDrawArea() tview.Primitive {
 	return d.text
 }

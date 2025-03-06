@@ -90,7 +90,7 @@ func (d *OptionsWindow) Draw(context *common.StepContext) {
 	}
 }
 
-func (d *OptionsWindow) GetDrawArea() *tview.TextView {
+func (d *OptionsWindow) GetDrawArea() tview.Primitive {
 	return d.text
 }
 

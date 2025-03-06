@@ -2,6 +2,7 @@ package beneater
 
 import (
 	"github.com/fran150/clementina6502/pkg/components/common"
+	"github.com/fran150/clementina6502/pkg/terminal"
 	"github.com/fran150/clementina6502/pkg/terminal/ui"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -23,8 +24,8 @@ type console struct {
 
 	breakpointForm *ui.BreakPointForm
 
-	active   tview.Primitive
-	previous []tview.Primitive
+	active   terminal.Window
+	previous []terminal.Window
 
 	options *ui.OptionsWindow
 }
@@ -141,12 +142,64 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 					KeyName:        "F5",
 					KeyDescription: "ROM",
 					Action:         console.ShowROMWindow,
+					SubMenu: []*ui.OptionsWindowMenuOption{
+						{
+							Rune:           'w',
+							KeyName:        "W",
+							KeyDescription: "Scroll Up",
+							Action:         console.ScrollUp,
+						},
+						{
+							Rune:           's',
+							KeyName:        "S",
+							KeyDescription: "Scroll Down",
+							Action:         console.ScrollDown,
+						},
+						{
+							Rune:           'e',
+							KeyName:        "E",
+							KeyDescription: "Scroll Up Fast",
+							Action:         console.ScrollUpFast,
+						},
+						{
+							Rune:           'd',
+							KeyName:        "D",
+							KeyDescription: "Scroll Down Fast",
+							Action:         console.ScrollDownFast,
+						},
+					},
 				},
 				{
 					Key:            tcell.KeyF6,
 					KeyName:        "F6",
 					KeyDescription: "RAM",
 					Action:         console.ShowRAMWindow,
+					SubMenu: []*ui.OptionsWindowMenuOption{
+						{
+							Rune:           'w',
+							KeyName:        "W",
+							KeyDescription: "Scroll Up",
+							Action:         console.ScrollUp,
+						},
+						{
+							Rune:           's',
+							KeyName:        "S",
+							KeyDescription: "Scroll Down",
+							Action:         console.ScrollDown,
+						},
+						{
+							Rune:           'e',
+							KeyName:        "E",
+							KeyDescription: "Scroll Up Fast",
+							Action:         console.ScrollUpFast,
+						},
+						{
+							Rune:           'd',
+							KeyName:        "D",
+							KeyDescription: "Scroll Down Fast",
+							Action:         console.ScrollDownFast,
+						},
+					},
 				},
 			},
 		},
@@ -193,47 +246,79 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 	console.romWindow = romWindow
 	console.breakpointForm = breakPointForm
 	console.options = options
-	console.previous = make([]tview.Primitive, 2)
+	console.previous = make([]terminal.Window, 2)
 
-	console.SetActiveWindow(cpuWindow.GetDrawArea())
+	console.SetActiveWindow(cpuWindow)
 
 	return console
 }
 
+/************************************************************************************
+* Set Active Windows
+*************************************************************************************/
+
 func (c *console) SetBreakpointConfigMode(context *common.StepContext) {
-	c.AppendActiveWindow(c.breakpointForm.GetDrawArea())
+	c.AppendActiveWindow(c.breakpointForm)
 }
 
 func (c *console) ShowCPUWindow(context *common.StepContext) {
-	c.SetActiveWindow(c.cpuWindow.GetDrawArea())
+	c.SetActiveWindow(c.cpuWindow)
 }
 
 func (c *console) ShowVIAWindow(context *common.StepContext) {
-	c.SetActiveWindow(c.viaWindow.GetDrawArea())
+	c.SetActiveWindow(c.viaWindow)
 }
 
 func (c *console) ShowLCDWindow(context *common.StepContext) {
-	c.SetActiveWindow(c.lcdWindow.GetDrawArea())
+	c.SetActiveWindow(c.lcdWindow)
 }
 
 func (c *console) ShowAciaWindow(context *common.StepContext) {
-	c.SetActiveWindow(c.aciaWindow.GetDrawArea())
+	c.SetActiveWindow(c.aciaWindow)
 }
 
 func (c *console) ShowRAMWindow(context *common.StepContext) {
-	c.SetActiveWindow(c.ramWindow.GetDrawArea())
+	c.SetActiveWindow(c.ramWindow)
 }
 
 func (c *console) ShowROMWindow(context *common.StepContext) {
-	c.SetActiveWindow(c.romWindow.GetDrawArea())
+	c.SetActiveWindow(c.romWindow)
 }
 
-func (c *console) SetActiveWindow(value tview.Primitive) {
+/************************************************************************************
+* Other key functions
+*************************************************************************************/
+
+func (c *console) ScrollUp(context *common.StepContext) {
+	explorer := c.active.(*ui.MemoryWindow)
+	explorer.ScrollUp(1)
+}
+
+func (c *console) ScrollUpFast(context *common.StepContext) {
+	explorer := c.active.(*ui.MemoryWindow)
+	explorer.ScrollUp(20)
+}
+
+func (c *console) ScrollDown(context *common.StepContext) {
+	explorer := c.active.(*ui.MemoryWindow)
+	explorer.ScrollDown(1)
+}
+
+func (c *console) ScrollDownFast(context *common.StepContext) {
+	explorer := c.active.(*ui.MemoryWindow)
+	explorer.ScrollDown(20)
+}
+
+/************************************************************************************
+* Internal Functions
+*************************************************************************************/
+
+func (c *console) SetActiveWindow(value terminal.Window) {
 	c.active = value
 	c.setActiveWindowOnGrid()
 }
 
-func (c *console) AppendActiveWindow(value tview.Primitive) {
+func (c *console) AppendActiveWindow(value terminal.Window) {
 	c.previous = append(c.previous, c.active)
 	c.SetActiveWindow(value)
 }
@@ -284,6 +369,6 @@ func (c *console) Draw(context *common.StepContext) {
 }
 
 func (c *console) setActiveWindowOnGrid() {
-	c.grid.RemoveItem(c.active)
-	c.grid.AddItem(c.active, 0, 1, 3, 1, 0, 0, false)
+	c.grid.RemoveItem(c.active.GetDrawArea())
+	c.grid.AddItem(c.active.GetDrawArea(), 0, 1, 3, 1, 0, 0, false)
 }

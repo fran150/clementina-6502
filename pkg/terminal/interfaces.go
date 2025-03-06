@@ -12,3 +12,9 @@ type Computer interface {
 	Init(app *tview.Application, config *ApplicationConfig)
 	KeyPressed(event *tcell.EventKey, context *common.StepContext) *tcell.EventKey
 }
+
+type Window interface {
+	Clear()
+	Draw(context *common.StepContext)
+	GetDrawArea() tview.Primitive
+}

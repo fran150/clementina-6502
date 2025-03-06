@@ -67,6 +67,10 @@ func (m *MemoryWindow) Draw(context *common.StepContext) {
 	address := m.start
 
 	for range maxLines {
+		if address >= uint16(m.memory.Size()) {
+			break
+		}
+
 		fmt.Fprintf(m.text, "[yellow]%04X:[white]", address)
 
 		for i := range uint16(8) {
@@ -78,6 +82,6 @@ func (m *MemoryWindow) Draw(context *common.StepContext) {
 	}
 }
 
-func (d *MemoryWindow) GetDrawArea() *tview.TextView {
+func (d *MemoryWindow) GetDrawArea() tview.Primitive {
 	return d.text
 }

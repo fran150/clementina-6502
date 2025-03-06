@@ -118,6 +118,6 @@ func (d *CodeWindow) Draw(context *common.StepContext) {
 	d.text.SetText(strings.Join(values, ""))
 }
 
-func (d *CodeWindow) GetDrawArea() *tview.TextView {
+func (d *CodeWindow) GetDrawArea() tview.Primitive {
 	return d.text
 }

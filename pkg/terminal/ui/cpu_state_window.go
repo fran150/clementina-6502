@@ -59,6 +59,6 @@ func (d *CpuWindow) Draw(context *common.StepContext) {
 	fmt.Fprint(d.text, "\n")
 }
 
-func (d *CpuWindow) GetDrawArea() *tview.TextView {
+func (d *CpuWindow) GetDrawArea() tview.Primitive {
 	return d.text
 }
