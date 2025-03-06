@@ -14,11 +14,12 @@ type console struct {
 	codeWindow  *ui.CodeWindow
 	speedWindow *ui.SpeedWindow
 
-	cpuWindow *ui.CpuWindow
-	viaWindow *ui.ViaWindow
-	lcdWindow *ui.LcdControllerWindow
-	ramWindow *ui.MemoryWindow
-	romWindow *ui.MemoryWindow
+	cpuWindow  *ui.CpuWindow
+	viaWindow  *ui.ViaWindow
+	lcdWindow  *ui.LcdControllerWindow
+	aciaWindow *ui.AciaWindow
+	ramWindow  *ui.MemoryWindow
+	romWindow  *ui.MemoryWindow
 
 	breakpointForm *ui.BreakPointForm
 
@@ -57,6 +58,7 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 	cpuWindow := ui.NewCpuWindow(computer.chips.cpu)
 	viaWindow := ui.NewViaWindow(computer.chips.via)
 	lcdWindow := ui.NewLcdWindow(computer.chips.lcd)
+	aciaWindow := ui.NewAciaWindow(computer.chips.acia)
 	ramWindow := ui.NewMemoryWindow(computer.chips.ram)
 	romWindow := ui.NewMemoryWindow(computer.chips.rom)
 
@@ -125,18 +127,24 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 				{
 					Key:            tcell.KeyF3,
 					KeyName:        "F3",
-					KeyDescription: "LCD",
-					Action:         console.ShowLCDWindow,
+					KeyDescription: "ACIA",
+					Action:         console.ShowAciaWindow,
 				},
 				{
 					Key:            tcell.KeyF4,
 					KeyName:        "F4",
-					KeyDescription: "ROM",
-					Action:         console.ShowROMWindow,
+					KeyDescription: "LCD",
+					Action:         console.ShowLCDWindow,
 				},
 				{
 					Key:            tcell.KeyF5,
 					KeyName:        "F5",
+					KeyDescription: "ROM",
+					Action:         console.ShowROMWindow,
+				},
+				{
+					Key:            tcell.KeyF6,
+					KeyName:        "F6",
 					KeyDescription: "RAM",
 					Action:         console.ShowRAMWindow,
 				},
@@ -179,6 +187,7 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 	console.speedWindow = speedWindow
 	console.cpuWindow = cpuWindow
 	console.viaWindow = viaWindow
+	console.aciaWindow = aciaWindow
 	console.lcdWindow = lcdWindow
 	console.ramWindow = ramWindow
 	console.romWindow = romWindow
@@ -186,7 +195,7 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 	console.options = options
 	console.previous = make([]tview.Primitive, 2)
 
-	console.SetActiveWindow(romWindow.GetDrawArea())
+	console.SetActiveWindow(cpuWindow.GetDrawArea())
 
 	return console
 }
@@ -205,6 +214,10 @@ func (c *console) ShowVIAWindow(context *common.StepContext) {
 
 func (c *console) ShowLCDWindow(context *common.StepContext) {
 	c.SetActiveWindow(c.lcdWindow.GetDrawArea())
+}
+
+func (c *console) ShowAciaWindow(context *common.StepContext) {
+	c.SetActiveWindow(c.aciaWindow.GetDrawArea())
 }
 
 func (c *console) ShowRAMWindow(context *common.StepContext) {
@@ -242,17 +255,20 @@ func (c *console) Draw(context *common.StepContext) {
 	c.lcdDisplay.Clear()
 	c.lcdDisplay.Draw(context)
 
+	c.speedWindow.Clear()
+	c.speedWindow.Draw(context)
+
 	c.codeWindow.Clear()
 	c.codeWindow.Draw(context)
 
-	c.speedWindow.Clear()
-	c.speedWindow.Draw(context)
+	c.cpuWindow.Clear()
+	c.cpuWindow.Draw(context)
 
 	c.viaWindow.Clear()
 	c.viaWindow.Draw(context)
 
-	c.cpuWindow.Clear()
-	c.cpuWindow.Draw(context)
+	c.aciaWindow.Clear()
+	c.aciaWindow.Draw(context)
 
 	c.lcdWindow.Clear()
 	c.lcdWindow.Draw(context)

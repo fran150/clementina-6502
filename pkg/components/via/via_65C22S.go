@@ -267,7 +267,7 @@ func (via *Via65C22S) populateRegisterWriteHandlers() {
 }
 
 /************************************************************************************
-* Getters / Setters
+* Pin Getters / Setters
 *************************************************************************************/
 
 // Retuns a reference to the specified peripherial control line A (CA1 and CA2).
@@ -424,7 +424,7 @@ func (via *Via65C22S) Tick(context *common.StepContext) {
 }
 
 /************************************************************************************
-* Getters / Setters
+* Internal Registers Getters
 *************************************************************************************/
 
 func (via *Via65C22S) GetOutputRegisterA() uint8 {

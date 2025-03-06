@@ -31,7 +31,7 @@ func (d *ViaWindow) Clear() {
 }
 
 func (d *ViaWindow) Draw(context *common.StepContext) {
-	fmt.Fprintf(d.text, "[yellow]d.via Registers:\n")
+	fmt.Fprintf(d.text, "[yellow] VIA Registers:\n")
 	fmt.Fprintf(d.text, "[yellow] ORA:  [white]$%02X\n", d.via.GetOutputRegisterA())
 	fmt.Fprintf(d.text, "[yellow] ORB:  [white]$%02X\n", d.via.GetOutputRegisterB())
 	fmt.Fprintf(d.text, "[yellow] IRA:  [white]$%02X\n", d.via.GetInputRegisterA())

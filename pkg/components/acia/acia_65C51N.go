@@ -148,24 +148,6 @@ func NewAcia65C51N(emulateModemLines bool) *Acia65C51N {
 	return acia
 }
 
-// These are the actions executed according to each value of the register
-// select lines and when the R/W pin is in write
-var registerWriteHandlers = []func(*Acia65C51N){
-	writeTransmitData,
-	programmedReset,
-	writeCommand,
-	writeControl,
-}
-
-// These are the actions executed according to each value of the register
-// select lines and when the R/W pin is in read
-var registerReadHandlers = []func(*Acia65C51N){
-	readReceiverData,
-	readStatus,
-	readCommand,
-	readControl,
-}
-
 // Connects the ACIA chip to the specified serial port.
 // The port must be open and it's mode will be reconfigured according with the register
 // values withing the ACIA chip
@@ -192,6 +174,32 @@ func (acia *Acia65C51N) Close() {
 	acia.running = false
 	acia.wg.Wait()
 }
+
+/************************************************************************************
+* Handler configuration
+*************************************************************************************/
+
+// These are the actions executed according to each value of the register
+// select lines and when the R/W pin is in write
+var registerWriteHandlers = []func(*Acia65C51N){
+	writeTransmitData,
+	programmedReset,
+	writeCommand,
+	writeControl,
+}
+
+// These are the actions executed according to each value of the register
+// select lines and when the R/W pin is in read
+var registerReadHandlers = []func(*Acia65C51N){
+	readReceiverData,
+	readStatus,
+	readCommand,
+	readControl,
+}
+
+/************************************************************************************
+* Pin Getters / Setters
+*************************************************************************************/
 
 // The eight data line (D0-D7) pins transfer data between the processor and the ACIA. These lines are bi-
 // directional and are normally high-impedance except during Read cycles when the ACIA is selected.
@@ -246,19 +254,9 @@ func (via *Acia65C51N) ConnectRegisterSelectLines(lines [numOfRSLines]buses.Line
 	}
 }
 
-// Returns a byte that respresents the status of the RS lines in where
-// RS0 is bit 0 and RS1 is bit 1
-func (acia *Acia65C51N) getRegisterSelectValue() uint8 {
-	var value uint8
-
-	for i := range numOfRSLines {
-		if acia.registerSelect[i].Enabled() {
-			value += uint8(math.Pow(2, float64(i)))
-		}
-	}
-
-	return value
-}
+/************************************************************************************
+* Tick methods
+*************************************************************************************/
 
 // Executes one emulation step
 func (acia *Acia65C51N) Tick(context *common.StepContext) {
@@ -298,6 +296,56 @@ func (acia *Acia65C51N) Tick(context *common.StepContext) {
 	if acia.reset.Enabled() {
 		acia.hardwareReset()
 	}
+}
+
+/************************************************************************************
+* Internal Registers Getters
+*************************************************************************************/
+
+func (acia *Acia65C51N) GetStatusRegister() uint8 {
+	return acia.statusRegister
+}
+
+func (acia *Acia65C51N) GetControlRegister() uint8 {
+	return acia.controlRegister
+}
+
+func (acia *Acia65C51N) GetCommandRegister() uint8 {
+	return acia.commandRegister
+}
+
+func (acia *Acia65C51N) GetTXRegister() uint8 {
+	return acia.txRegister
+}
+
+func (acia *Acia65C51N) GetRXRegister() uint8 {
+	return acia.rxRegister
+}
+
+func (acia *Acia65C51N) GetTXRegisterEmpty() bool {
+	return acia.txRegisterEmpty
+}
+
+func (acia *Acia65C51N) GetRXRegisterEmpty() bool {
+	return acia.rxRegisterEmpty
+}
+
+/************************************************************************************
+* Internal functions
+*************************************************************************************/
+
+// Returns a byte that respresents the status of the RS lines in where
+// RS0 is bit 0 and RS1 is bit 1
+func (acia *Acia65C51N) getRegisterSelectValue() uint8 {
+	var value uint8
+
+	for i := range numOfRSLines {
+		if acia.registerSelect[i].Enabled() {
+			value += uint8(math.Pow(2, float64(i)))
+		}
+	}
+
+	return value
 }
 
 // Sets the Data Terminal Ready (DTR) and Ready to Receive (RTS)
