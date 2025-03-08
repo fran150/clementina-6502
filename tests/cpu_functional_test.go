@@ -50,7 +50,7 @@ func NewComputer() (*cpu.Cpu65C02S, *memory.Ram) {
 	ram.ChipSelect().Connect(alwaysLowLine)
 	ram.OutputEnable().Connect(alwaysLowLine)
 
-	processor := cpu.NewCPU()
+	processor := cpu.NewCpu65C02S()
 	processor.AddressBus().Connect(addressBus)
 	processor.DataBus().Connect(dataBus)
 

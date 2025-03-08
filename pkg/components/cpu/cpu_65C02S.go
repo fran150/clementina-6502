@@ -61,7 +61,7 @@ type Cpu65C02S struct {
 }
 
 // Creates a CPU with typical values for all registers, address and data bus are not connected
-func NewCPU() *Cpu65C02S {
+func NewCpu65C02S() *Cpu65C02S {
 	cpu := &Cpu65C02S{
 		addressBus: buses.NewBusConnector[uint16](),
 		dataBus:    buses.NewBusConnector[uint8](),

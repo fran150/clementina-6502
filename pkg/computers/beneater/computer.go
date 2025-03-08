@@ -66,7 +66,7 @@ func NewBenEaterComputer(portName string) *BenEaterComputer {
 	}
 
 	chips := &chips{
-		cpu:  cpu.NewCPU(),
+		cpu:  cpu.NewCpu65C02S(),
 		ram:  memory.NewRamWithLessPins(memory.RAM_SIZE_32K, 0x7FFF),
 		rom:  memory.NewRamWithLessPins(memory.RAM_SIZE_32K, 0x7FFF),
 		via:  via.NewVia65C22(),

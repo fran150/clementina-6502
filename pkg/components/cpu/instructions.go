@@ -50,7 +50,6 @@ func (instruction *CpuInstructionSet) GetByOpCode(opCode OpCode) *CpuInstruction
 		// In case of invalid instruction return NOP
 		return instruction.opCodeIndex[OpCode(0xEA)]
 	}
-
 }
 
 // Creates the instruction set supported by this CPU
