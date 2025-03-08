@@ -5,6 +5,7 @@ package buses
 // to the R/W line of the CPU, RAM and VIA chips. Then whoever drives the line,
 // typically the CPU, will use to signal a read or write operation to the selected chip.
 type StandaloneLine struct {
+	// Status indicates whether the line is high (true) or low (false)
 	status bool
 }
 

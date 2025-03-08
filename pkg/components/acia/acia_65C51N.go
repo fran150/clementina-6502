@@ -233,12 +233,17 @@ func (via *Acia65C51N) ChipSelect1() *buses.ConnectorEnabledLow {
 
 // The two register select lines are normally connected to the processor address lines to allow the processor
 // to select the various ACIA internal registers.
+// There are 2 lines, 0 is the connector for RS0 and 1 is the connector for RS1
 // Considering the values of RS0 as bit 0 and RS1 as bit 1 and the R/W line status:
 // 0x00 - W: Transmit Data/Shift Register / R: Read Receiver Data Register
 // 0x01 - W: Programmed Reset (Data is “Don’t Care”) / R: Read Status Register
 // 0x02 - W: Write Command Register / R: Read Command Register
 // 0x03 - W:  Write Control Register / R: Read Control Register
 func (via *Acia65C51N) RegisterSelect(num uint8) *buses.ConnectorEnabledHigh {
+	if num >= numOfRSLines {
+		panic("Register select line number out of range")
+	}
+
 	return via.registerSelect[num]
 }
 
@@ -302,30 +307,48 @@ func (acia *Acia65C51N) Tick(context *common.StepContext) {
 * Internal Registers Getters
 *************************************************************************************/
 
+// Returns the current value of the ACIA status register.
+// This register contains information about the current state of the ACIA,
+// including transmit/receive status and error flags.
 func (acia *Acia65C51N) GetStatusRegister() uint8 {
 	return acia.statusRegister
 }
 
+// Returns the current value of the ACIA control register.
+// This register controls the baud rate and other communication parameters.
 func (acia *Acia65C51N) GetControlRegister() uint8 {
 	return acia.controlRegister
 }
 
+// Returns the current value of the ACIA command register.
+// This register controls the operation modes, interrupt enables, and other
+// control functions of the ACIA.
 func (acia *Acia65C51N) GetCommandRegister() uint8 {
 	return acia.commandRegister
 }
 
+// Returns the current value in the transmit data register.
+// This register holds the byte that is being or will be transmitted.
 func (acia *Acia65C51N) GetTXRegister() uint8 {
 	return acia.txRegister
 }
 
+// Returns the current value in the receive data register.
+// This register contains the most recently received byte of data.
 func (acia *Acia65C51N) GetRXRegister() uint8 {
 	return acia.rxRegister
 }
 
+// Returns whether the transmit register is empty and
+// ready to accept new data for transmission.
+// Returns true if empty, false if it contains data to be transmitted.
 func (acia *Acia65C51N) GetTXRegisterEmpty() bool {
 	return acia.txRegisterEmpty
 }
 
+// Returns whether the receive register is empty.
+// Returns true if empty (no data received), false if it contains received data
+// that needs to be read.
 func (acia *Acia65C51N) GetRXRegisterEmpty() bool {
 	return acia.rxRegisterEmpty
 }

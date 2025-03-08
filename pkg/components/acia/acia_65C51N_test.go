@@ -892,3 +892,175 @@ func TestPanicsWhenFailsToSetModeWhenChangingControlRegister(t *testing.T) {
 		writeToAcia(acia, circuit, 0x03, 0xFF, &step)
 	})
 }
+
+/****************************************************************************************************************
+* Amazon Q generated tests for getters
+****************************************************************************************************************/
+
+func TestAcia65C51N_GetRegisters(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func(*Acia65C51N)
+		want     uint8
+		testFunc func(*Acia65C51N) uint8
+	}{
+		{
+			name: "Get Status Register",
+			setup: func(a *Acia65C51N) {
+				a.statusRegister = 0x55
+			},
+			want:     0x55,
+			testFunc: (*Acia65C51N).GetStatusRegister,
+		},
+		{
+			name: "Get Control Register",
+			setup: func(a *Acia65C51N) {
+				a.controlRegister = 0xAA
+			},
+			want:     0xAA,
+			testFunc: (*Acia65C51N).GetControlRegister,
+		},
+		{
+			name: "Get Command Register",
+			setup: func(a *Acia65C51N) {
+				a.commandRegister = 0x33
+			},
+			want:     0x33,
+			testFunc: (*Acia65C51N).GetCommandRegister,
+		},
+		{
+			name: "Get TX Register",
+			setup: func(a *Acia65C51N) {
+				a.txRegister = 0xFF
+			},
+			want:     0xFF,
+			testFunc: (*Acia65C51N).GetTXRegister,
+		},
+		{
+			name: "Get RX Register",
+			setup: func(a *Acia65C51N) {
+				a.rxRegister = 0x12
+			},
+			want:     0x12,
+			testFunc: (*Acia65C51N).GetRXRegister,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			acia := &Acia65C51N{}
+			tt.setup(acia)
+			if got := tt.testFunc(acia); got != tt.want {
+				t.Errorf("%s = %v, want %v", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAcia65C51N_GetRegisterStates(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func(*Acia65C51N)
+		want     bool
+		testFunc func(*Acia65C51N) bool
+	}{
+		{
+			name: "Get TX Register Empty - True",
+			setup: func(a *Acia65C51N) {
+				a.txRegisterEmpty = true
+			},
+			want:     true,
+			testFunc: (*Acia65C51N).GetTXRegisterEmpty,
+		},
+		{
+			name: "Get TX Register Empty - False",
+			setup: func(a *Acia65C51N) {
+				a.txRegisterEmpty = false
+			},
+			want:     false,
+			testFunc: (*Acia65C51N).GetTXRegisterEmpty,
+		},
+		{
+			name: "Get RX Register Empty - True",
+			setup: func(a *Acia65C51N) {
+				a.rxRegisterEmpty = true
+			},
+			want:     true,
+			testFunc: (*Acia65C51N).GetRXRegisterEmpty,
+		},
+		{
+			name: "Get RX Register Empty - False",
+			setup: func(a *Acia65C51N) {
+				a.rxRegisterEmpty = false
+			},
+			want:     false,
+			testFunc: (*Acia65C51N).GetRXRegisterEmpty,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			acia := &Acia65C51N{}
+			tt.setup(acia)
+			if got := tt.testFunc(acia); got != tt.want {
+				t.Errorf("%s = %v, want %v", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAcia65C51N_RegisterSelect(t *testing.T) {
+	tests := []struct {
+		name      string
+		lineNum   uint8
+		wantPanic bool
+	}{
+		{
+			name:      "Valid RS0 line",
+			lineNum:   0,
+			wantPanic: false,
+		},
+		{
+			name:      "Valid RS1 line",
+			lineNum:   1,
+			wantPanic: false,
+		},
+		{
+			name:      "Invalid line number",
+			lineNum:   2,
+			wantPanic: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			acia := &Acia65C51N{
+				registerSelect: [numOfRSLines]*buses.ConnectorEnabledHigh{
+					buses.NewConnectorEnabledHigh(),
+					buses.NewConnectorEnabledHigh(),
+				},
+			}
+
+			if tt.wantPanic {
+				defer func() {
+					if r := recover(); r == nil {
+						t.Errorf("RegisterSelect(%d) should have panicked", tt.lineNum)
+					}
+				}()
+			}
+
+			result := acia.RegisterSelect(tt.lineNum)
+
+			if !tt.wantPanic {
+				if result == nil {
+					t.Errorf("RegisterSelect(%d) returned nil, expected valid connector", tt.lineNum)
+				}
+
+				// Verify we got the correct connector from the array
+				if result != acia.registerSelect[tt.lineNum] {
+					t.Errorf("RegisterSelect(%d) returned wrong connector", tt.lineNum)
+				}
+			}
+		})
+	}
+}
