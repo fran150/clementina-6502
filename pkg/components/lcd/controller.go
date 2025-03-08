@@ -64,6 +64,24 @@ type LcdHD44780U struct {
 	instructions [8]func(int64) // Handlers for the different instructions that can be specified to the chip
 }
 
+// Returns the data needed to display the cursor on the LCD
+type CursorStatus struct {
+	CursorVisible      bool
+	CursorPosition     uint8 // Position of the cursor in the DDRAM
+	BlinkStatusShowing bool
+}
+
+type DisplayStatus struct {
+	DisplayOn      bool
+	Is2LineDisplay bool
+	Is5x10Font     bool
+	Line1Start     uint8
+	Line2Start     uint8
+	Is8BitMode     bool
+	CGRAM          []uint8
+	DDRAM          []uint8
+}
+
 // Creates the LCD controller chip
 func NewLCDController() *LcdHD44780U {
 	lcd := LcdHD44780U{
@@ -178,30 +196,12 @@ func (ctrl *LcdHD44780U) Tick(context *common.StepContext) {
 	ctrl.previousEnable = ctrl.enable.Enabled()
 }
 
-// Returns the data needed to display the cursor on the LCD
-type CursorStatus struct {
-	CursorVisible      bool
-	CursorPosition     uint8 // Position of the cursor in the DDRAM
-	BlinkStatusShowing bool
-}
-
 func (ctrl *LcdHD44780U) GetCursorStatus() CursorStatus {
 	return CursorStatus{
 		CursorVisible:      ctrl.displayCursor,
 		CursorPosition:     ctrl.addressCounter.getDDRAMIndex(ctrl.addressCounter.value),
 		BlinkStatusShowing: ctrl.blinkingVisible,
 	}
-}
-
-type DisplayStatus struct {
-	DisplayOn      bool
-	Is2LineDisplay bool
-	Is5x10Font     bool
-	Line1Start     uint8
-	Line2Start     uint8
-	Is8BitMode     bool
-	CGRAM          []uint8
-	DDRAM          []uint8
 }
 
 func (ctrl *LcdHD44780U) GetDisplayStatus() DisplayStatus {
