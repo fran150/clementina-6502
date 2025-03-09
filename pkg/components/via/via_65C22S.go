@@ -7,6 +7,8 @@ import (
 	"github.com/fran150/clementina6502/pkg/components/common"
 )
 
+const numOfRSLines = 4
+
 // Registers of the VIA chip
 type via65C22SRegisters struct {
 	outputRegisterA        uint8
@@ -80,7 +82,7 @@ type Via65C22S struct {
 	dataBus        *buses.BusConnector[uint8]
 	irqRequest     *buses.ConnectorEnabledLow
 	reset          *buses.ConnectorEnabledLow
-	registerSelect [4]*buses.ConnectorEnabledHigh
+	registerSelect [numOfRSLines]*buses.ConnectorEnabledHigh
 	readWrite      *buses.ConnectorEnabledLow
 
 	registers *via65C22SRegisters
@@ -107,7 +109,7 @@ func NewVia65C22() *Via65C22S {
 		dataBus:     buses.NewBusConnector[uint8](),
 		irqRequest:  buses.NewConnectorEnabledLow(),
 		reset:       buses.NewConnectorEnabledLow(),
-		registerSelect: [4]*buses.ConnectorEnabledHigh{
+		registerSelect: [numOfRSLines]*buses.ConnectorEnabledHigh{
 			buses.NewConnectorEnabledHigh(),
 			buses.NewConnectorEnabledHigh(),
 			buses.NewConnectorEnabledHigh(),
@@ -322,6 +324,10 @@ func (via *Via65C22S) Reset() *buses.ConnectorEnabledLow {
 // Returns a reference to the register select lines.
 // It's zero based so RS1 is 0, RS 2 is 1, etc.
 func (via *Via65C22S) RegisterSelect(num uint8) *buses.ConnectorEnabledHigh {
+	if num >= numOfRSLines {
+		panic("Register select line number out of range")
+	}
+
 	return via.registerSelect[num]
 }
 
@@ -331,8 +337,8 @@ func (via *Via65C22S) ReadWrite() *buses.ConnectorEnabledLow {
 }
 
 // Connects the register select lines to the specified lines
-func (via *Via65C22S) ConnectRegisterSelectLines(lines [4]buses.Line) {
-	for i := range 4 {
+func (via *Via65C22S) ConnectRegisterSelectLines(lines [numOfRSLines]buses.Line) {
+	for i := range numOfRSLines {
 		via.registerSelect[i].Connect(lines[i])
 	}
 }

@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/fran150/clementina6502/pkg/components/buses"
@@ -150,4 +151,107 @@ func TestPeekAndPokeReadsAndWritesValuesDirectly(t *testing.T) {
 		assert.Equal(t, uint8(i), values[i])
 	}
 
+}
+
+/************************************************************************************
+* Test RAM initialization
+*************************************************************************************/
+
+// Tests that NewRamWithLessPins correctly masks address pins
+func TestNewRamWithLessPinsMasksAddressCorrectly(t *testing.T) {
+	var ram *Ram
+
+	context := common.NewStepContext()
+
+	// Create a RAM with only lower 10 bits active (1024 addresses)
+	addressMask := uint16(0x03FF) // Binary: 0000001111111111
+	_, circuit := newTestCircuit(RAM_SIZE_2K)
+	ram = NewRamWithLessPins(RAM_SIZE_2K, addressMask)
+	circuit.Wire(ram)
+
+	// Test writing to an address above the mask
+	// Address 0x0400 should wrap to 0x0000 due to mask
+	circuit.writeEnable.Set(false)
+	circuit.addressBus.Write(0x0400)
+	circuit.dataBus.Write(0xAA)
+	ram.Tick(&context)
+	context.NextCycle()
+
+	// Verify that the value was written to the masked address (0x0000)
+	if ram.Peek(0x0000) != 0xAA {
+		t.Errorf("Expected value 0xAA at address 0x0000, got %02X", ram.Peek(0x0000))
+	}
+
+	// Write to another address above mask
+	// Address 0x0401 should wrap to 0x0001
+	circuit.addressBus.Write(0x0401)
+	circuit.dataBus.Write(0xBB)
+	ram.Tick(&context)
+	context.NextCycle()
+
+	// Verify that the value was written to the masked address (0x0001)
+	if ram.Peek(0x0001) != 0xBB {
+		t.Errorf("Expected value 0xBB at address 0x0001, got %02X", ram.Peek(0x0001))
+	}
+
+	// Test reading from a masked address
+	circuit.writeEnable.Set(true)
+	circuit.addressBus.Write(0x0400) // Should read from 0x0000
+	circuit.dataBus.Write(0x00)      // Clear data bus
+	ram.Tick(&context)
+	context.NextCycle()
+
+	value := circuit.dataBus.Read()
+	if value != 0xAA {
+		t.Errorf("Expected to read 0xAA from masked address 0x0400, got %02X", value)
+	}
+
+	// Verify that addresses within mask work normally
+	circuit.writeEnable.Set(false)
+	circuit.addressBus.Write(0x03FF) // Last valid address
+	circuit.dataBus.Write(0xCC)
+	ram.Tick(&context)
+	context.NextCycle()
+
+	if ram.Peek(0x03FF) != 0xCC {
+		t.Errorf("Expected value 0xCC at address 0x03FF, got %02X", ram.Peek(0x03FF))
+	}
+}
+
+/************************************************************************************
+* Test RAM initialization
+*************************************************************************************/
+
+// TestRamSizeReporting verifies that the Size method correctly reports the RAM size
+func TestRamSizeReporting(t *testing.T) {
+	testCases := []struct {
+		size     int
+		expected int
+	}{
+		{RAM_SIZE_64K, 65536},
+		{RAM_SIZE_32K, 32768},
+		{RAM_SIZE_16K, 16384},
+		{RAM_SIZE_8K, 8192},
+		{RAM_SIZE_4K, 4096},
+		{RAM_SIZE_2K, 2048},
+		{RAM_SIZE_1K, 1024},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("RAM size %d bytes", tc.size), func(t *testing.T) {
+			ram, _ := newTestCircuit(tc.size)
+			actualSize := ram.Size()
+
+			if actualSize != tc.expected {
+				t.Errorf("RAM size mismatch: got %d bytes, expected %d bytes", actualSize, tc.expected)
+			}
+		})
+	}
+
+	// Test custom size
+	customSize := 512
+	ram, _ := newTestCircuit(customSize)
+	if ram.Size() != customSize {
+		t.Errorf("Custom RAM size mismatch: got %d bytes, expected %d bytes", ram.Size(), customSize)
+	}
 }

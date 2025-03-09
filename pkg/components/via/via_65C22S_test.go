@@ -1953,3 +1953,196 @@ func TestNoHandshakeOnPortAWhenWritingOnRSEqualF(t *testing.T) {
 	// CA2 will stay high as no signal "data ready" will be done when writing to 0x0F
 	assert.Equal(t, true, circuit.ca2.Status())
 }
+
+/****************************************************************************************************************
+* Getters Test
+****************************************************************************************************************/
+
+func TestVia65C22SGetters(t *testing.T) {
+	// Setup using constructor
+	via := NewVia65C22()
+
+	// Directly assign test values to registers
+	via.registers.outputRegisterA = 0xAA
+	via.registers.outputRegisterB = 0xBB
+	via.registers.inputRegisterA = 0xCC
+	via.registers.inputRegisterB = 0xDD
+	via.registers.dataDirectionRegisterA = 0xEE
+	via.registers.dataDirectionRegisterB = 0xFF
+	via.registers.lowLatches2 = 0x11
+	via.registers.lowLatches1 = 0x22
+	via.registers.highLatches2 = 0x33
+	via.registers.highLatches1 = 0x44
+	via.registers.counter2 = 0x5555
+	via.registers.counter1 = 0x6666
+	via.registers.shiftRegister = 0x77
+	via.registers.auxiliaryControl = 0x88
+	via.registers.peripheralControl = 0x99
+
+	// Set interrupt-related registers
+	via.registers.interrupts.setInterruptFlagValue(0x55)
+	via.registers.interrupts.setInterruptEnabledFlag(0xAA)
+
+	// Test cases
+	t.Run("GetOutputRegisterA", func(t *testing.T) {
+		if got := via.GetOutputRegisterA(); got != 0xAA {
+			t.Errorf("GetOutputRegisterA() = %#02x; want %#02x", got, 0xAA)
+		}
+	})
+
+	t.Run("GetOutputRegisterB", func(t *testing.T) {
+		if got := via.GetOutputRegisterB(); got != 0xBB {
+			t.Errorf("GetOutputRegisterB() = %#02x; want %#02x", got, 0xBB)
+		}
+	})
+
+	t.Run("GetInputRegisterA", func(t *testing.T) {
+		if got := via.GetInputRegisterA(); got != 0xCC {
+			t.Errorf("GetInputRegisterA() = %#02x; want %#02x", got, 0xCC)
+		}
+	})
+
+	t.Run("GetInputRegisterB", func(t *testing.T) {
+		if got := via.GetInputRegisterB(); got != 0xDD {
+			t.Errorf("GetInputRegisterB() = %#02x; want %#02x", got, 0xDD)
+		}
+	})
+
+	t.Run("GetDataDirectionRegisterA", func(t *testing.T) {
+		if got := via.GetDataDirectionRegisterA(); got != 0xEE {
+			t.Errorf("GetDataDirectionRegisterA() = %#02x; want %#02x", got, 0xEE)
+		}
+	})
+
+	t.Run("GetDataDirectionRegisterB", func(t *testing.T) {
+		if got := via.GetDataDirectionRegisterB(); got != 0xFF {
+			t.Errorf("GetDataDirectionRegisterB() = %#02x; want %#02x", got, 0xFF)
+		}
+	})
+
+	t.Run("GetLowLatches", func(t *testing.T) {
+		if got := via.GetLowLatches2(); got != 0x11 {
+			t.Errorf("GetLowLatches2() = %#02x; want %#02x", got, 0x11)
+		}
+		if got := via.GetLowLatches1(); got != 0x22 {
+			t.Errorf("GetLowLatches1() = %#02x; want %#02x", got, 0x22)
+		}
+	})
+
+	t.Run("GetHighLatches", func(t *testing.T) {
+		if got := via.GetHighLatches2(); got != 0x33 {
+			t.Errorf("GetHighLatches2() = %#02x; want %#02x", got, 0x33)
+		}
+		if got := via.GetHighLatches1(); got != 0x44 {
+			t.Errorf("GetHighLatches1() = %#02x; want %#02x", got, 0x44)
+		}
+	})
+
+	t.Run("GetCounters", func(t *testing.T) {
+		if got := via.GetCounter2(); got != 0x5555 {
+			t.Errorf("GetCounter2() = %#04x; want %#04x", got, 0x5555)
+		}
+		if got := via.GetCounter1(); got != 0x6666 {
+			t.Errorf("GetCounter1() = %#04x; want %#04x", got, 0x6666)
+		}
+	})
+
+	t.Run("GetShiftRegister", func(t *testing.T) {
+		if got := via.GetShiftRegister(); got != 0x77 {
+			t.Errorf("GetShiftRegister() = %#02x; want %#02x", got, 0x77)
+		}
+	})
+
+	t.Run("GetControls", func(t *testing.T) {
+		if got := via.GetAuxiliaryControl(); got != 0x88 {
+			t.Errorf("GetAuxiliaryControl() = %#02x; want %#02x", got, 0x88)
+		}
+		if got := via.GetPeripheralControl(); got != 0x99 {
+			t.Errorf("GetPeripheralControl() = %#02x; want %#02x", got, 0x99)
+		}
+	})
+
+	t.Run("GetInterrupts", func(t *testing.T) {
+		if got := via.GetInterruptFlagValue(); got != 0x55 {
+			t.Errorf("GetInterruptFlagValue() = %#02x; want %#02x", got, 0x55)
+		}
+		if got := via.GetInterruptEnabledFlag(); got != 0x2A {
+			t.Errorf("GetInterruptEnabledFlag() = %#02x; want %#02x", got, 0x2A)
+		}
+	})
+}
+
+func TestViaRegisterSelect(t *testing.T) {
+	tests := []struct {
+		name      string
+		lineNum   uint8
+		wantPanic bool
+	}{
+		{
+			name:      "Valid RS0 line",
+			lineNum:   0,
+			wantPanic: false,
+		},
+		{
+			name:      "Valid RS1 line",
+			lineNum:   1,
+			wantPanic: false,
+		},
+		{
+			name:      "Valid RS2 line",
+			lineNum:   2,
+			wantPanic: false,
+		},
+		{
+			name:      "Valid RS3 line",
+			lineNum:   3,
+			wantPanic: false,
+		},
+		{
+			name:      "Invalid line number",
+			lineNum:   4,
+			wantPanic: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			via := NewVia65C22()
+
+			if tt.wantPanic {
+				defer func() {
+					if r := recover(); r == nil {
+						t.Errorf("RegisterSelect(%d) should have panicked", tt.lineNum)
+					}
+				}()
+			}
+
+			result := via.RegisterSelect(tt.lineNum)
+
+			if !tt.wantPanic {
+				if result == nil {
+					t.Errorf("RegisterSelect(%d) returned nil, expected valid connector", tt.lineNum)
+				}
+
+				// Verify we got the correct connector from the array
+				if result != via.registerSelect[tt.lineNum] {
+					t.Errorf("RegisterSelect(%d) returned wrong connector", tt.lineNum)
+				}
+			}
+		})
+	}
+}
+
+func TestReadingInvalidControlLinesReturnsNil(t *testing.T) {
+	via := NewVia65C22()
+	circuit := newTestCircuit()
+
+	circuit.wire(via)
+
+	// Attempt to read from an invalid line number
+	result := via.PeripheralAControlLines(4)
+
+	if result != nil {
+		t.Errorf("RegisterSelect(4) returned a connector, expected nil")
+	}
+}
