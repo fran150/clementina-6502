@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/fran150/clementina6502/internal/queue"
+	"github.com/fran150/clementina6502/pkg/components"
 	"github.com/fran150/clementina6502/pkg/components/common"
 	"github.com/fran150/clementina6502/pkg/components/cpu"
 	"github.com/rivo/tview"
@@ -15,12 +16,12 @@ const maxLinesOfCode = 30
 type CodeWindow struct {
 	text      *tview.TextView
 	lines     *queue.SimpleQueue[string]
-	processor *cpu.Cpu65C02S
+	processor components.Cpu6502Chip
 
 	operandsGetter func(programCounter uint16) [2]uint8
 }
 
-func NewCodeWindow(processor *cpu.Cpu65C02S, operandsGetter func(programCounter uint16) [2]uint8) *CodeWindow {
+func NewCodeWindow(processor components.Cpu6502Chip, operandsGetter func(programCounter uint16) [2]uint8) *CodeWindow {
 	code := tview.NewTextView()
 	code.SetTextAlign(tview.AlignLeft)
 	code.SetScrollable(false)
@@ -64,8 +65,6 @@ func showCurrentInstruction(programCounter uint16, instruction *cpu.CpuInstructi
 		msb := uint16(potentialOperands[1]) << 8
 		lsb := uint16(potentialOperands[0])
 		fmt.Fprintf(&sb, addressModeDetails.Format(), msb|lsb)
-	default:
-		fmt.Fprintf(&sb, "Unrecognized Instruction or Address Mode")
 	}
 
 	// If the address mode is relative we will show the value to which the CPU will jump

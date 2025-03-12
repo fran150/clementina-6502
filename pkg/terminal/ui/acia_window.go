@@ -3,17 +3,17 @@ package ui
 import (
 	"fmt"
 
-	"github.com/fran150/clementina6502/pkg/components/acia"
+	"github.com/fran150/clementina6502/pkg/components"
 	"github.com/fran150/clementina6502/pkg/components/common"
 	"github.com/rivo/tview"
 )
 
 type AciaWindow struct {
 	text *tview.TextView
-	acia *acia.Acia65C51N
+	acia components.Acia6522Chip
 }
 
-func NewAciaWindow(acia *acia.Acia65C51N) *AciaWindow {
+func NewAciaWindow(acia components.Acia6522Chip) *AciaWindow {
 	text := tview.NewTextView()
 	text.SetScrollable(false).
 		SetDynamicColors(true).
