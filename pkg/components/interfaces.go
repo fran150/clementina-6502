@@ -4,6 +4,7 @@ import (
 	"github.com/fran150/clementina6502/pkg/components/buses"
 	"github.com/fran150/clementina6502/pkg/components/common"
 	"github.com/fran150/clementina6502/pkg/components/cpu"
+	"github.com/fran150/clementina6502/pkg/components/lcd"
 	"go.bug.st/serial"
 )
 
@@ -67,4 +68,19 @@ type Cpu6502Chip interface {
 
 	// Program counter manipulation
 	ForceProgramCounter(value uint16)
+}
+
+type LCDControllerChip interface {
+	// Bus connection methods
+	Enable() *buses.ConnectorEnabledHigh
+	ReadWrite() *buses.ConnectorEnabledLow
+	RegisterSelect() *buses.ConnectorEnabledHigh
+	DataBus() *buses.BusConnector[uint8]
+
+	// Emulation method
+	Tick(context *common.StepContext)
+
+	// Status methods (based on usage in lcd_controller_window.go)
+	GetCursorStatus() lcd.CursorStatus
+	GetDisplayStatus() lcd.DisplayStatus
 }

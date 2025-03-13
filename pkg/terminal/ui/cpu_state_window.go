@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 
+	"github.com/fran150/clementina6502/pkg/components"
 	"github.com/fran150/clementina6502/pkg/components/common"
 	"github.com/fran150/clementina6502/pkg/components/cpu"
 	"github.com/rivo/tview"
@@ -10,10 +11,10 @@ import (
 
 type CpuWindow struct {
 	text      *tview.TextView
-	processor *cpu.Cpu65C02S
+	processor components.Cpu6502Chip
 }
 
-func NewCpuWindow(processor *cpu.Cpu65C02S) *CpuWindow {
+func NewCpuWindow(processor components.Cpu6502Chip) *CpuWindow {
 	text := tview.NewTextView()
 	text.SetScrollable(false).
 		SetDynamicColors(true).

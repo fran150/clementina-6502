@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/fran150/clementina6502/pkg/components"
 	"github.com/fran150/clementina6502/pkg/components/common"
 	"github.com/fran150/clementina6502/pkg/components/lcd"
 	"github.com/rivo/tview"
@@ -11,10 +12,10 @@ import (
 
 type Lcd16x2Window struct {
 	text       *tview.TextView
-	controller *lcd.LcdHD44780U
+	controller components.LCDControllerChip
 }
 
-func NewDisplayWindow(lcd *lcd.LcdHD44780U) *Lcd16x2Window {
+func NewDisplayWindow(lcd components.LCDControllerChip) *Lcd16x2Window {
 	text := tview.NewTextView()
 	text.SetTextAlign(tview.AlignCenter).
 		SetScrollable(false).

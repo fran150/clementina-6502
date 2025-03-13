@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/fran150/clementina6502/pkg/components"
 	"github.com/fran150/clementina6502/pkg/components/common"
 	"github.com/fran150/clementina6502/pkg/components/lcd"
 	"github.com/rivo/tview"
@@ -11,10 +12,10 @@ import (
 
 type LcdControllerWindow struct {
 	text *tview.TextView
-	lcd  *lcd.LcdHD44780U
+	lcd  components.LCDControllerChip
 }
 
-func NewLcdWindow(lcd *lcd.LcdHD44780U) *LcdControllerWindow {
+func NewLcdWindow(lcd components.LCDControllerChip) *LcdControllerWindow {
 	text := tview.NewTextView()
 	text.SetScrollable(false).
 		SetDynamicColors(true).
@@ -52,7 +53,7 @@ func drawLcdDDRAM(writer io.Writer, displayStatus lcd.DisplayStatus) {
 	const itemsPerLine = 10
 
 	for i, data := range displayStatus.DDRAM {
-		fmt.Fprintf(writer, "[yellow]%02v: [white]%s ", i, string(data))
+		fmt.Fprintf(writer, "[yellow]%02X: [white]%s ", i, string(data))
 
 		if i%itemsPerLine == (itemsPerLine - 1) {
 			fmt.Fprintf(writer, "\n")
