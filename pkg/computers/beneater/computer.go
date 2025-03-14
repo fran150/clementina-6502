@@ -1,6 +1,7 @@
 package beneater
 
 import (
+	"github.com/fran150/clementina6502/pkg/components"
 	"github.com/fran150/clementina6502/pkg/components/acia"
 	"github.com/fran150/clementina6502/pkg/components/buses"
 	"github.com/fran150/clementina6502/pkg/components/common"
@@ -16,13 +17,13 @@ import (
 )
 
 type chips struct {
-	cpu  *cpu.Cpu65C02S
-	ram  *memory.Ram
-	rom  *memory.Ram
-	via  *via.Via65C22S
-	lcd  *lcd.LcdHD44780U
-	acia *acia.Acia65C51N
-	nand *gates.Nand74HC00
+	cpu  components.Cpu6502Chip
+	ram  components.MemoryChip
+	rom  components.MemoryChip
+	via  components.ViaChip
+	lcd  components.LCDControllerChip
+	acia components.Acia6522Chip
+	nand components.NANDGatesChip
 }
 
 type circuit struct {

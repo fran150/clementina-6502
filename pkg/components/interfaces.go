@@ -141,3 +141,17 @@ type ViaChip interface {
 	GetInterruptFlagValue() uint8
 	GetInterruptEnabledFlag() uint8
 }
+
+type NANDGatesChip interface {
+	// Returns the connector for pin A at the specified index (0-3)
+	APin(index int) buses.LineConnector
+
+	// Returns the connector for pin B at the specified index (0-3)
+	BPin(index int) buses.LineConnector
+
+	// Returns the connector for pin Y at the specified index (0-3)
+	YPin(index int) buses.LineConnector
+
+	// Processes one clock tick
+	Tick(context *common.StepContext)
+}
