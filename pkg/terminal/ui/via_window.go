@@ -3,17 +3,17 @@ package ui
 import (
 	"fmt"
 
+	"github.com/fran150/clementina6502/pkg/components"
 	"github.com/fran150/clementina6502/pkg/components/common"
-	"github.com/fran150/clementina6502/pkg/components/via"
 	"github.com/rivo/tview"
 )
 
 type ViaWindow struct {
 	text *tview.TextView
-	via  *via.Via65C22S
+	via  components.ViaChip
 }
 
-func NewViaWindow(via *via.Via65C22S) *ViaWindow {
+func NewViaWindow(via components.ViaChip) *ViaWindow {
 	text := tview.NewTextView()
 	text.SetScrollable(false).
 		SetDynamicColors(true).

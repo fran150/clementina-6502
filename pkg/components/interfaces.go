@@ -103,3 +103,41 @@ type MemoryChip interface {
 	// Emulation method
 	Tick(context *common.StepContext)
 }
+
+type ViaChip interface {
+	// Pin Getters / Setters
+	PeripheralAControlLines(num int) *buses.ConnectorEnabledHigh
+	PeripheralBControlLines(num int) *buses.ConnectorEnabledHigh
+	ChipSelect1() *buses.ConnectorEnabledHigh
+	ChipSelect2() *buses.ConnectorEnabledLow
+	DataBus() *buses.BusConnector[uint8]
+	IrqRequest() *buses.ConnectorEnabledLow
+	PeripheralPortA() *buses.BusConnector[uint8]
+	PeripheralPortB() *buses.BusConnector[uint8]
+	Reset() *buses.ConnectorEnabledLow
+	RegisterSelect(num uint8) *buses.ConnectorEnabledHigh
+	ReadWrite() *buses.ConnectorEnabledLow
+	ConnectRegisterSelectLines(lines [4]buses.Line)
+
+	// Tick method
+	Tick(context *common.StepContext)
+
+	// Internal Registers Getters
+	GetOutputRegisterA() uint8
+	GetOutputRegisterB() uint8
+	GetInputRegisterA() uint8
+	GetInputRegisterB() uint8
+	GetDataDirectionRegisterA() uint8
+	GetDataDirectionRegisterB() uint8
+	GetLowLatches2() uint8
+	GetLowLatches1() uint8
+	GetHighLatches2() uint8
+	GetHighLatches1() uint8
+	GetCounter2() uint16
+	GetCounter1() uint16
+	GetShiftRegister() uint8
+	GetAuxiliaryControl() uint8
+	GetPeripheralControl() uint8
+	GetInterruptFlagValue() uint8
+	GetInterruptEnabledFlag() uint8
+}
