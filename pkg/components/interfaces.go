@@ -84,3 +84,22 @@ type LCDControllerChip interface {
 	GetCursorStatus() lcd.CursorStatus
 	GetDisplayStatus() lcd.DisplayStatus
 }
+
+type MemoryChip interface {
+	// Bus and control signal connections
+	AddressBus() *buses.BusConnector[uint16]
+	DataBus() *buses.BusConnector[uint8]
+	WriteEnable() *buses.ConnectorEnabledLow
+	ChipSelect() *buses.ConnectorEnabledLow
+	OutputEnable() *buses.ConnectorEnabledLow
+
+	// Utility methods
+	Peek(address uint16) uint8
+	PeekRange(startAddress uint16, endAddress uint16) []uint8
+	Poke(address uint16, value uint8)
+	Load(binFilePath string) error
+	Size() int
+
+	// Emulation method
+	Tick(context *common.StepContext)
+}

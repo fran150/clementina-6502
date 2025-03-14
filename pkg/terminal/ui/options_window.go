@@ -54,23 +54,26 @@ func (d *OptionsWindow) ProcessKey(event *tcell.EventKey, context *common.StepCo
 	active := d.GetActiveMenu()
 	options := d.getActiveOptions()
 
-	for _, option := range options {
-		if (event.Key() == tcell.KeyRune && option.Rune == event.Rune()) || (event.Key() != tcell.KeyRune && option.Key == event.Key()) {
-			if option.SubMenu != nil {
-				d.SetActiveMenu(option)
+	if event.Key() == tcell.KeyESC {
+		if active != nil {
+			if active.BackAction != nil {
+				active.BackAction(context)
 			}
+			d.SetActiveMenu(active.parent)
+		}
+		return event
+	}
 
+	for _, option := range options {
+		if (event.Key() == tcell.KeyRune && option.Rune == event.Rune()) ||
+			(event.Key() != tcell.KeyRune && option.Key == event.Key()) {
 			if option.Action != nil {
 				option.Action(context)
 			}
-		} else if event.Key() == tcell.KeyESC {
-			if active != nil {
-				if active.BackAction != nil {
-					active.BackAction(context)
-				}
-
-				d.SetActiveMenu(active.parent)
+			if option.SubMenu != nil {
+				d.SetActiveMenu(option)
 			}
+			return event
 		}
 	}
 

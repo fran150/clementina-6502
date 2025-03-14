@@ -3,8 +3,8 @@ package ui
 import (
 	"fmt"
 
+	"github.com/fran150/clementina6502/pkg/components"
 	"github.com/fran150/clementina6502/pkg/components/common"
-	"github.com/fran150/clementina6502/pkg/components/memory"
 	"github.com/rivo/tview"
 )
 
@@ -12,12 +12,12 @@ const maxLines = 37
 
 type MemoryWindow struct {
 	text   *tview.TextView
-	memory *memory.Ram
+	memory components.MemoryChip
 
 	start uint16
 }
 
-func NewMemoryWindow(memory *memory.Ram) *MemoryWindow {
+func NewMemoryWindow(memory components.MemoryChip) *MemoryWindow {
 	text := tview.NewTextView()
 	text.SetTextAlign(tview.AlignLeft).
 		SetScrollable(false).
