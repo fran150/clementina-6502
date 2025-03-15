@@ -1,7 +1,8 @@
 package beneater
 
 import (
-	"github.com/fran150/clementina6502/pkg/components/common"
+	"github.com/fran150/clementina6502/internal/slicesext"
+	"github.com/fran150/clementina6502/pkg/common"
 	"github.com/fran150/clementina6502/pkg/terminal"
 	"github.com/fran150/clementina6502/pkg/terminal/ui"
 	"github.com/gdamore/tcell/v2"
@@ -325,7 +326,7 @@ func (c *console) AppendActiveWindow(value terminal.Window) {
 
 func (c *console) ReturnToPreviousWindow(context *common.StepContext) {
 	if c.previous != nil {
-		previous, active := common.SlicePop(c.previous)
+		previous, active := slicesext.SlicePop(c.previous)
 		c.previous = previous
 		c.active = active
 		c.setActiveWindowOnGrid()

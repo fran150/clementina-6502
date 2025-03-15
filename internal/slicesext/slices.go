@@ -1,4 +1,4 @@
-package common
+package slicesext
 
 // Returns a slice with the element at the specified index removed
 func SliceRemove[T any](slice []T, index int) []T {

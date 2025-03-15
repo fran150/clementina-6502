@@ -3,7 +3,7 @@ package computers
 import (
 	"time"
 
-	"github.com/fran150/clementina6502/pkg/components/common"
+	"github.com/fran150/clementina6502/pkg/common"
 )
 
 type EmulationLoopConfig struct {

@@ -1,8 +1,8 @@
 package components
 
 import (
+	"github.com/fran150/clementina6502/pkg/common"
 	"github.com/fran150/clementina6502/pkg/components/buses"
-	"github.com/fran150/clementina6502/pkg/components/common"
 	"github.com/fran150/clementina6502/pkg/components/cpu"
 	"github.com/fran150/clementina6502/pkg/components/lcd"
 	"go.bug.st/serial"

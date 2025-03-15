@@ -1,4 +1,4 @@
-package common
+package slicesext
 
 import (
 	"reflect"

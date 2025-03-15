@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/fran150/clementina6502/pkg/components/common"
+	"github.com/fran150/clementina6502/pkg/common"
 	"github.com/stretchr/testify/assert"
 )
 
