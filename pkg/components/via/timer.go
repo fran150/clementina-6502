@@ -44,12 +44,8 @@ func newViaTimer(via *Via65C22S, configuration *viaTimerConfiguration) *viaTimer
 
 // Executes one simulation step.
 func (t *viaTimer) tick(pbLine6Status bool) {
-	if t.getRunningMode() != acrT2RunModePulseCounting {
+	if t.getRunningMode() != acrT2RunModePulseCounting || !pbLine6Status {
 		*t.configuration.counter -= 1
-	} else {
-		if !pbLine6Status {
-			*t.configuration.counter -= 1
-		}
 	}
 
 	// Counting on the low part of the counter is used mainly by the shift register.

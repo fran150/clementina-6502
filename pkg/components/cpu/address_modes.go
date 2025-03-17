@@ -193,8 +193,8 @@ func NewAddressModesSet() *AddressModeSet {
 		{AddressModeRelativeExtended, "zp, r", "$%02x, $%02X", addressModeRelativeExtendedActions, 3},
 	}
 
-	for _, addressMode := range data {
-		addressModeSet.nameIndex[addressMode.name] = &addressMode
+	for i := range data {
+		addressModeSet.nameIndex[data[i].name] = &data[i]
 	}
 
 	return &addressModeSet

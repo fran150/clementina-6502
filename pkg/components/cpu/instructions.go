@@ -54,7 +54,7 @@ func (instruction *CpuInstructionSet) GetByOpCode(opCode OpCode) *CpuInstruction
 
 // Creates the instruction set supported by this CPU
 func NewInstructionSet() *CpuInstructionSet {
-	var data = []CpuInstructionData{
+	var instructionData = []CpuInstructionData{
 		{0x00, BRK, nil, AddressModeBreak},
 		{0x01, ORA, actionORA, AddressModeZeroPageIndexedIndirectX},
 		{0x04, TSB, actionTSB, AddressModeZeroPageRMW},
@@ -288,8 +288,8 @@ func NewInstructionSet() *CpuInstructionSet {
 		opCodeIndex: [0x100]*CpuInstructionData{},
 	}
 
-	for _, data := range data {
-		instructionSet.opCodeIndex[data.opcode] = &data
+	for i := range instructionData {
+		instructionSet.opCodeIndex[instructionData[i].opcode] = &instructionData[i]
 	}
 
 	return &instructionSet
