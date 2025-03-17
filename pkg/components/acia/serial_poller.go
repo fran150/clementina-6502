@@ -1,5 +1,12 @@
 package acia
 
+// writeBytes is a goroutine that handles the transmission of bytes through the ACIA.
+// It continuously monitors the transmit register and sends data through the serial port
+// when the following conditions are met:
+// - A port is configured
+// - The transmit register is not empty
+// - CTS (Clear To Send) is enabled (if CTS control is being used)
+// The goroutine runs until acia.running is set to false.
 func (acia *Acia65C51N) writeBytes() {
 	defer acia.wg.Done()
 
@@ -17,6 +24,17 @@ func (acia *Acia65C51N) writeBytes() {
 	}
 }
 
+// readBytes is a goroutine that handles the reception of bytes through the ACIA.
+// It continuously reads from the serial port and processes incoming data as follows:
+// - Reads one byte at a time from the configured port
+// - If the receive register is not empty when new data arrives, sets the overrun flag
+// - Stores the received byte in the receive register
+// - If echo mode is enabled, copies the received byte to the transmit register
+// The goroutine runs until acia.running is set to false.
+//
+// The function uses mutexes to ensure thread-safe access to shared registers:
+// - rxMutex for protecting the receive register and status
+// - txMutex for protecting the transmit register when in echo mode
 func (acia *Acia65C51N) readBytes() {
 	defer acia.wg.Done()
 

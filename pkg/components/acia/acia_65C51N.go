@@ -1,3 +1,6 @@
+// Package acia implements the Asynchronous Communications Interface Adapter (ACIA).
+// The ACIA provides serial communication capabilities for 6502-based systems, enabling
+// communication with external devices through standard RS-232 serial interfaces.
 package acia
 
 import (
@@ -45,11 +48,21 @@ const (
 )
 
 const (
-	softResetStatusRegMask  uint8 = 0xFB
+	// This mask is used to clear the bits of the status register when a soft
+	// reset is performed
+	softResetStatusRegMask uint8 = 0xFB
+	// This mask is used to clear the bits of the command register when a soft
+	// reset is performed
 	softResetCommandRegMask uint8 = 0xE0
 
-	hardResetStatusRegMask   uint8 = 0x60
+	// This mask is used to clear the bits of the status register when a hard
+	// reset is performed
+	hardResetStatusRegMask uint8 = 0x60
+	// This mask is used to clear the bits of the control register when a hard
+	// reset is performed
 	hardResetControlRegValue uint8 = 0x00
+	// This mask is used to clear the bits of the command register when a hard
+	// reset is performed
 	hardResetCommandRegValue uint8 = 0x00
 )
 
@@ -505,6 +518,12 @@ func (acia *Acia65C51N) isCTSEnabled() bool {
 	return cts
 }
 
+// isReceiverEchoModeEnabled checks if the ACIA is configured in echo mode.
+// Echo mode is enabled when the REM (Receiver Echo Mode) bit is set and both
+// the TICRTS (Transmit Interrupt Control/RTS) and TICTX (Transmit Interrupt
+// Control/TX) bits are clear in the command register.
+//
+// Returns true if echo mode is enabled, false otherwise.
 func (acia *Acia65C51N) isReceiverEchoModeEnabled() bool {
 	return (acia.commandRegister & (commandREMBit | commandTICRTSBit | commandTICTXBit)) == commandREMBit
 }
