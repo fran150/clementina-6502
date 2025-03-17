@@ -22,6 +22,7 @@ type console struct {
 	aciaWindow *ui.AciaWindow
 	ramWindow  *ui.MemoryWindow
 	romWindow  *ui.MemoryWindow
+	busWindow  *ui.BusWindow
 
 	breakpointForm *ui.BreakPointForm
 
@@ -63,6 +64,12 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 	aciaWindow := ui.NewAciaWindow(computer.chips.acia)
 	ramWindow := ui.NewMemoryWindow(computer.chips.ram)
 	romWindow := ui.NewMemoryWindow(computer.chips.rom)
+
+	busWindow := ui.NewBusWindow()
+	busWindow.AddBus16("Address Bus", computer.circuit.addressBus)
+	busWindow.AddBus8("Data Bus", computer.circuit.dataBus)
+	busWindow.AddBus8("Port A", computer.circuit.portABus)
+	busWindow.AddBus8("Port B", computer.circuit.portBBus)
 
 	breakPointForm := ui.NewBreakPointForm()
 
@@ -202,6 +209,12 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 						},
 					},
 				},
+				{
+					Key:            tcell.KeyF7,
+					KeyName:        "F7",
+					KeyDescription: "Buses",
+					Action:         console.ShowBusWindow,
+				},
 			},
 		},
 		{
@@ -245,6 +258,7 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 	console.lcdWindow = lcdWindow
 	console.ramWindow = ramWindow
 	console.romWindow = romWindow
+	console.busWindow = busWindow
 	console.breakpointForm = breakPointForm
 	console.options = options
 	console.previous = make([]terminal.Window, 2)
@@ -284,6 +298,10 @@ func (c *console) ShowRAMWindow(context *common.StepContext) {
 
 func (c *console) ShowROMWindow(context *common.StepContext) {
 	c.SetActiveWindow(c.romWindow)
+}
+
+func (c *console) ShowBusWindow(context *common.StepContext) {
+	c.SetActiveWindow(c.busWindow)
 }
 
 /************************************************************************************
@@ -364,6 +382,9 @@ func (c *console) Draw(context *common.StepContext) {
 
 	c.romWindow.Clear()
 	c.romWindow.Draw(context)
+
+	c.busWindow.Clear()
+	c.busWindow.Draw(context)
 
 	c.options.Clear()
 	c.options.Draw(context)
