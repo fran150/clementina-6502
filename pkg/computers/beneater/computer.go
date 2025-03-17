@@ -11,6 +11,7 @@ import (
 	"github.com/fran150/clementina6502/pkg/components/other/gates"
 	"github.com/fran150/clementina6502/pkg/components/via"
 	"github.com/fran150/clementina6502/pkg/terminal"
+	"github.com/fran150/clementina6502/pkg/terminal/ui"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"go.bug.st/serial"
@@ -221,8 +222,10 @@ func (c *BenEaterComputer) Tick(context *common.StepContext) {
 		c.step = false
 
 		if c.chips.cpu.IsReadingOpcode() {
-			if c.console.breakpointForm.CheckBreakpoint(c.chips.cpu.GetProgramCounter() - 1) {
-				c.pause = true
+			if breakpointForm := GetWindow[ui.BreakPointForm](c.console, "breakpoint"); breakpointForm != nil {
+				if breakpointForm.CheckBreakpoint(c.chips.cpu.GetProgramCounter() - 1) {
+					c.pause = true
+				}
 			}
 		}
 	}
@@ -262,7 +265,11 @@ func (c *BenEaterComputer) SpeedDown(context *common.StepContext) {
 }
 
 func (c *BenEaterComputer) KeyPressed(event *tcell.EventKey, context *common.StepContext) *tcell.EventKey {
-	return c.console.options.ProcessKey(event, context)
+	if options := GetWindow[ui.OptionsWindow](c.console, "options"); options != nil {
+		return options.ProcessKey(event, context)
+	}
+
+	return event
 }
 
 func (c *BenEaterComputer) Close() {
