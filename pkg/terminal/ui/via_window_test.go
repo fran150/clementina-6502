@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/fran150/clementina6502/pkg/common"
@@ -164,28 +165,44 @@ func TestViaWindowDraw(t *testing.T) {
 	window.Draw(context)
 	text := window.text.GetText(true)
 
-	// Check if all register values are present in the output
-	expectedValues := []string{
-		"ORA:  $01",
-		"ORB:  $02",
-		"IRA:  $03",
-		"IRB:  $04",
-		"DDRA: $05",
-		"DDRB: $06",
-		"LL1:  $07",
-		"HL1:  $08",
-		"CTR1: $0910",
-		"LL2:  $0A",
-		"HL2:  $0B",
-		"CTR2: $0C0D",
-		"SR:   $0E",
-		"ACR:  $0F",
-		"PCR:  $10",
-		"IFR:  $11",
-		"IER:  $12",
-		"Bus:  $0013",
+	// Check for the presence of borders and section headers
+	expectedStructure := []string{
+		"╔══════════════════════════════════╗",
+		"Port A",
+		"Port B",
+		"Timer 1",
+		"Timer 2",
+		"Control Registers",
+		"Interrupts",
+		"╚══════════════════════════════════╝",
 	}
 
+	// Check if structural elements are present
+	for _, expected := range expectedStructure {
+		assert.Contains(t, text, expected)
+	}
+
+	// Check if all register values are present with correct formatting
+	expectedValues := []string{
+		fmt.Sprintf("ORA:  $%02X", mockVia.outputRegisterA),
+		fmt.Sprintf("ORB:  $%02X", mockVia.outputRegisterB),
+		fmt.Sprintf("IRA:  $%02X", mockVia.inputRegisterA),
+		fmt.Sprintf("IRB:  $%02X", mockVia.inputRegisterB),
+		fmt.Sprintf("DDRA: $%02X", mockVia.dataDirectionRegisterA),
+		fmt.Sprintf("DDRB: $%02X", mockVia.dataDirectionRegisterB),
+		fmt.Sprintf("Latches: $%02X/$%02X", mockVia.lowLatches1, mockVia.highLatches1),
+		fmt.Sprintf("Counter: $%04X", mockVia.counter1),
+		fmt.Sprintf("Latches: $%02X/$%02X", mockVia.lowLatches2, mockVia.highLatches2),
+		fmt.Sprintf("Counter: $%04X", mockVia.counter2),
+		fmt.Sprintf("SR:  $%02X", mockVia.shiftRegister),
+		fmt.Sprintf("ACR: $%02X", mockVia.auxiliaryControl),
+		fmt.Sprintf("PCR: $%02X", mockVia.peripheralControl),
+		fmt.Sprintf("IFR: $%02X", mockVia.interruptFlag),
+		fmt.Sprintf("IER: $%02X", mockVia.interruptEnabled),
+		fmt.Sprintf("Data Bus: $%04X", mockVia.dataBusValue),
+	}
+
+	// Check if all values are present in the output
 	for _, expected := range expectedValues {
 		assert.Contains(t, text, expected)
 	}

@@ -85,6 +85,37 @@ func TestOptionsWindow_ProcessKey(t *testing.T) {
 	event = tcell.NewEventKey(tcell.KeyRune, 'q', tcell.ModNone)
 	window.ProcessKey(event, context)
 	assert.Nil(t, window.active)
+
+	// Add new test cases for DoNotForward
+	t.Run("Test DoNotForward flag", func(t *testing.T) {
+		menu := []*OptionsWindowMenuOption{
+			{
+				Key:            tcell.KeyF1,
+				KeyName:        "F1",
+				KeyDescription: "Non-forwarding Option",
+				DoNotForward:   true,
+			},
+			{
+				Key:            tcell.KeyF2,
+				KeyName:        "F2",
+				KeyDescription: "Forwarding Option",
+				DoNotForward:   false,
+			},
+		}
+
+		window := NewOptionsWindow(menu)
+		context := &common.StepContext{}
+
+		// Test non-forwarding option
+		event := tcell.NewEventKey(tcell.KeyF1, 0, tcell.ModNone)
+		result := window.ProcessKey(event, context)
+		assert.Nil(t, result, "Event should not be forwarded when DoNotForward is true")
+
+		// Test forwarding option
+		event = tcell.NewEventKey(tcell.KeyF2, 0, tcell.ModNone)
+		result = window.ProcessKey(event, context)
+		assert.Equal(t, event, result, "Event should be forwarded when DoNotForward is false")
+	})
 }
 
 func TestOptionsWindow_GetActiveOptions(t *testing.T) {
