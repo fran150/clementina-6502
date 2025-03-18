@@ -22,22 +22,13 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 		previous: make([]terminal.Window, 2),
 	}
 
-	console.grid.SetRows(4, 3, 0, 3).
-		SetColumns(25, 0).
-		SetBorder(true).
-		SetTitle("Ben Eater 6502 Computer")
+	console.initializeMainGrid(tvApp)
 
-	tvApp.SetRoot(console.grid, true)
+	menuOptions := createMenuOptions(computer, console)
 
 	// Initialize all windows
 	console.windows["lcd"] = ui.NewDisplayWindow(computer.chips.lcd)
-	console.windows["code"] = ui.NewCodeWindow(computer.chips.cpu, func(programCounter uint16) [2]uint8 {
-		rom := computer.chips.rom
-		programCounter &= 0x7FFF
-		operand1Address := programCounter & 0x7FFF
-		operand2Address := (programCounter + 1) & 0x7FFF
-		return [2]uint8{rom.Peek(operand1Address), rom.Peek(operand2Address)}
-	})
+	console.windows["code"] = ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators)
 	console.windows["speed"] = ui.NewSpeedWindow()
 	console.windows["cpu"] = ui.NewCpuWindow(computer.chips.cpu)
 	console.windows["via"] = ui.NewViaWindow(computer.chips.via)
@@ -45,28 +36,48 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 	console.windows["acia"] = ui.NewAciaWindow(computer.chips.acia)
 	console.windows["ram"] = ui.NewMemoryWindow(computer.chips.ram)
 	console.windows["rom"] = ui.NewMemoryWindow(computer.chips.rom)
-
 	busWindow := ui.NewBusWindow()
-	busWindow.AddBus16("Address Bus", computer.circuit.addressBus)
-	busWindow.AddBus8("Data Bus", computer.circuit.dataBus)
-	busWindow.AddBus8("Port A", computer.circuit.portABus)
-	busWindow.AddBus8("Port B", computer.circuit.portBBus)
 	console.windows["bus"] = busWindow
-
-	// Add breakpoint form and options to windows map
 	console.windows["breakpoint"] = ui.NewBreakPointForm()
-	console.windows["options"] = ui.NewOptionsWindow(createMenuOptions(computer, console))
+	console.windows["options"] = ui.NewOptionsWindow(menuOptions)
 
-	// Setup initial grid layout
-	console.grid.AddItem(console.windows["lcd"].GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
-		AddItem(console.windows["speed"].GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
-		AddItem(console.windows["code"].GetDrawArea(), 2, 0, 1, 1, 0, 0, false).
-		AddItem(console.windows["options"].GetDrawArea(), 3, 0, 1, 2, 0, 0, false)
+	initializeBusWindow(computer, busWindow)
+
+	console.initializeLayout()
 
 	// Set initial active window
 	console.SetActiveWindow(console.windows["cpu"])
 
 	return console
+}
+
+/************************************************************************************
+* Initialization methods
+*************************************************************************************/
+
+func (c *console) initializeMainGrid(tvApp *tview.Application) {
+	c.grid.SetRows(4, 3, 0, 3).
+		SetColumns(25, 0).
+		SetBorder(true).
+		SetTitle("Ben Eater 6502 Computer")
+
+	tvApp.SetRoot(c.grid, true)
+}
+
+func initializeBusWindow(computer *BenEaterComputer, busWindow *ui.BusWindow) {
+	busWindow.AddBus16("Address Bus", computer.circuit.addressBus)
+	busWindow.AddBus8("Data Bus", computer.circuit.dataBus)
+	busWindow.AddBus8("Port A", computer.circuit.portABus)
+	busWindow.AddBus8("Port B", computer.circuit.portBBus)
+}
+
+func (c *console) initializeLayout() {
+	// Setup initial grid layout
+	c.grid.AddItem(c.windows["lcd"].GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
+		AddItem(c.windows["speed"].GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
+		AddItem(c.windows["code"].GetDrawArea(), 2, 0, 1, 1, 0, 0, false).
+		AddItem(c.windows["options"].GetDrawArea(), 3, 0, 1, 2, 0, 0, false)
+
 }
 
 /************************************************************************************
