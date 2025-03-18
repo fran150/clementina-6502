@@ -40,24 +40,56 @@ func (d *CpuWindow) Clear() {
 }
 
 func (d *CpuWindow) Draw(context *common.StepContext) {
-	fmt.Fprintf(d.text, "[yellow] A: [white]%5d [grey]($%02X)\n", d.processor.GetAccumulatorRegister(), d.processor.GetAccumulatorRegister())
-	fmt.Fprintf(d.text, "[yellow] X: [white]%5d [grey]($%02X)\n", d.processor.GetXRegister(), d.processor.GetXRegister())
-	fmt.Fprintf(d.text, "[yellow] Y: [white]%5d [grey]($%02X)\n", d.processor.GetYRegister(), d.processor.GetYRegister())
-	fmt.Fprintf(d.text, "[yellow]SP: [white]%5d [grey]($%02X)\n", d.processor.GetStackPointer(), d.processor.GetStackPointer())
-	fmt.Fprintf(d.text, "[yellow]PC: [white]$%04X [grey](%v)\n", d.processor.GetProgramCounter(), d.processor.GetProgramCounter())
+	// Create a consistent layout with aligned columns
+	fmt.Fprintf(d.text, "┌────────────────────────┐\n")
+	fmt.Fprintf(d.text, "│ [yellow]Registers              [white]│\n")
+	fmt.Fprintf(d.text, "│ [yellow]A :   [white]%3d [grey]($%02X)        [white]│\n",
+		d.processor.GetAccumulatorRegister(),
+		d.processor.GetAccumulatorRegister())
+	fmt.Fprintf(d.text, "│ [yellow]X :   [white]%3d [grey]($%02X)        [white]│\n",
+		d.processor.GetXRegister(),
+		d.processor.GetXRegister())
+	fmt.Fprintf(d.text, "│ [yellow]Y :   [white]%3d [grey]($%02X)        [white]│\n",
+		d.processor.GetYRegister(),
+		d.processor.GetYRegister())
+	fmt.Fprintf(d.text, "│ [yellow]SP:   [white]%3d [grey]($%02X)        [white]│\n",
+		d.processor.GetStackPointer(),
+		d.processor.GetStackPointer())
+	fmt.Fprintf(d.text, "│ [yellow]PC: [white]$%04X [grey](%5d)      [white]│\n",
+		d.processor.GetProgramCounter(),
+		d.processor.GetProgramCounter())
+	fmt.Fprintf(d.text, "├────────────────────────┤\n")
 
+	// Status flags with better visual separation
 	status := d.processor.GetProcessorStatusRegister()
+	fmt.Fprintf(d.text, "│ [yellow]Status Flags:          [white]│\n")
+	fmt.Fprintf(d.text, "│ ")
 
-	fmt.Fprint(d.text, "[yellow]Flags: ")
-	fmt.Fprintf(d.text, "%sN", getFlagStatusColor(status, cpu.NegativeFlagBit))
-	fmt.Fprintf(d.text, "%sV", getFlagStatusColor(status, cpu.OverflowFlagBit))
-	fmt.Fprintf(d.text, "%s-", getFlagStatusColor(status, cpu.UnusedFlagBit))
-	fmt.Fprintf(d.text, "%sB", getFlagStatusColor(status, cpu.BreakCommandFlagBit))
-	fmt.Fprintf(d.text, "%sD", getFlagStatusColor(status, cpu.DecimalModeFlagBit))
-	fmt.Fprintf(d.text, "%sI", getFlagStatusColor(status, cpu.IrqDisableFlagBit))
-	fmt.Fprintf(d.text, "%sZ", getFlagStatusColor(status, cpu.ZeroFlagBit))
-	fmt.Fprintf(d.text, "%sC", getFlagStatusColor(status, cpu.CarryFlagBit))
-	fmt.Fprint(d.text, "\n")
+	// Create flag display with descriptions
+	flags := []struct {
+		name string
+		bit  cpu.StatusBit
+		desc string
+	}{
+		{"N", cpu.NegativeFlagBit, "Negative"},
+		{"V", cpu.OverflowFlagBit, "Overflow"},
+		{"-", cpu.UnusedFlagBit, "Unused"},
+		{"B", cpu.BreakCommandFlagBit, "Break"},
+		{"D", cpu.DecimalModeFlagBit, "Decimal"},
+		{"I", cpu.IrqDisableFlagBit, "IRQ Disable"},
+		{"Z", cpu.ZeroFlagBit, "Zero"},
+		{"C", cpu.CarryFlagBit, "Carry"},
+	}
+
+	// Print flags with colors
+	for _, flag := range flags {
+		fmt.Fprintf(d.text, "%s%s[white:-]", getFlagStatusColor(status, flag.bit), flag.name)
+		if flag.name != "C" {
+			fmt.Fprint(d.text, " ")
+		}
+	}
+	fmt.Fprintf(d.text, "        [white]│\n")
+	fmt.Fprintf(d.text, "└────────────────────────┘\n")
 }
 
 func (d *CpuWindow) GetDrawArea() tview.Primitive {

@@ -88,22 +88,31 @@ func TestCpuWindow_Draw(t *testing.T) {
 	// Get the text content
 	content := window.text.GetText(true)
 
-	// Verify the content contains all expected values
-	assert.Contains(t, content, "A:    66 ($42)")
-	assert.Contains(t, content, "X:    36 ($24)")
-	assert.Contains(t, content, "Y:    18 ($12)")
+	// Verify the content contains all expected values with the new format
+	assert.Contains(t, content, "A :    66 ($42)")
+	assert.Contains(t, content, "X :    36 ($24)")
+	assert.Contains(t, content, "Y :    18 ($12)")
 	assert.Contains(t, content, "SP:   255 ($FF)")
-	assert.Contains(t, content, "PC: $1234 (4660)")
+	assert.Contains(t, content, "PC: $1234 ( 4660)")
+	assert.Contains(t, content, "Status Flags:")
 
-	// Verify flags are present
-	assert.Contains(t, content, "Flags:")
+	// Verify the box drawing characters are present
+	assert.Contains(t, content, "┌────────────────────────┐")
+	assert.Contains(t, content, "└────────────────────────┘")
 
 	// Count color markers to verify correct flag rendering
-	greenCount := strings.Count(window.text.GetText(false), "[green]")
-	redCount := strings.Count(window.text.GetText(false), "[red]")
+	text := window.text.GetText(false)
+	greenCount := strings.Count(text, "[green]")
+	redCount := strings.Count(text, "[red]")
 
-	assert.Equal(t, 4, greenCount) // For bits that are 1
-	assert.Equal(t, 4, redCount)   // For bits that are 0
+	// Since the status register is 0b10101010, we should have 4 green and 4 red flags
+	assert.Equal(t, 4, greenCount, "Should have 4 green (set) flags")
+	assert.Equal(t, 4, redCount, "Should have 4 red (unset) flags")
+
+	// Verify color usage
+	assert.Contains(t, text, "[yellow]")
+	assert.Contains(t, text, "[white]")
+	assert.Contains(t, text, "[grey]")
 }
 
 func TestCpuWindow_GetDrawArea(t *testing.T) {
