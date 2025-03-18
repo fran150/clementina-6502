@@ -22,6 +22,7 @@ type OptionsWindowMenuOption struct {
 	KeyDescription string
 	Action         func(context *common.StepContext)
 	BackAction     func(context *common.StepContext)
+	DoNotForward   bool
 
 	SubMenu []*OptionsWindowMenuOption
 
@@ -73,7 +74,12 @@ func (d *OptionsWindow) ProcessKey(event *tcell.EventKey, context *common.StepCo
 			if option.SubMenu != nil {
 				d.SetActiveMenu(option)
 			}
-			return event
+
+			if option.DoNotForward {
+				return nil
+			} else {
+				return event
+			}
 		}
 	}
 

@@ -6,56 +6,90 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+// E Execution / W Windows / Q Quit
+
 func createMenuOptions(computer *BenEaterComputer, console *console) []*ui.OptionsWindowMenuOption {
 	return []*ui.OptionsWindowMenuOption{
 		{
-			Rune:           'r',
-			KeyName:        "R",
-			KeyDescription: "Reset",
-			Action:         computer.Reset,
-		},
-		{
-			Rune:           'b',
-			KeyName:        "B",
-			KeyDescription: "Breakpoints",
-			Action:         console.SetBreakpointConfigMode,
-			BackAction:     console.ReturnToPreviousWindow,
+			Rune:           'e',
+			KeyName:        "E",
+			KeyDescription: "Emulation",
 			SubMenu: []*ui.OptionsWindowMenuOption{
 				{
 					Rune:           'r',
 					KeyName:        "R",
-					KeyDescription: "Remove Selected Breakpoint",
-					Action: func(context *common.StepContext) {
-						if breakpointForm := GetWindow[ui.BreakPointForm](console, "breakpoint"); breakpointForm != nil {
-							breakpointForm.RemoveSelectedItem(context)
-						}
+					KeyDescription: "Reset",
+					Action:         computer.Reset,
+				},
+				{
+					Rune:           'e',
+					KeyName:        "E",
+					KeyDescription: "Execution",
+					SubMenu: []*ui.OptionsWindowMenuOption{
+						{
+							Rune:           'p',
+							KeyName:        "P",
+							KeyDescription: "Pause",
+							Action:         computer.Pause,
+						},
+						{
+							Rune:           'r',
+							KeyName:        "R",
+							KeyDescription: "Resume",
+							Action:         computer.Resume,
+						},
+						{
+							Rune:           's',
+							KeyName:        "S",
+							KeyDescription: "Step",
+							Action:         computer.Step,
+						},
+						{
+							Rune:           'b',
+							KeyName:        "B",
+							KeyDescription: "Breakpoints",
+							Action:         console.SetBreakpointConfigMode,
+							BackAction:     console.ReturnToPreviousWindow,
+							SubMenu: []*ui.OptionsWindowMenuOption{
+								{
+									Rune:           'r',
+									KeyName:        "R",
+									KeyDescription: "Remove Selected Breakpoint",
+									Action: func(context *common.StepContext) {
+										if breakpointForm := GetWindow[ui.BreakPointForm](console, "breakpoint"); breakpointForm != nil {
+											breakpointForm.RemoveSelectedItem(context)
+										}
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Rune:           's',
+					KeyName:        "S",
+					KeyDescription: "Speed",
+					SubMenu: []*ui.OptionsWindowMenuOption{
+						{
+							Rune:           '=',
+							KeyName:        "+",
+							KeyDescription: "Speed Up",
+							Action:         computer.SpeedUp,
+						},
+						{
+							Rune:           '-',
+							KeyName:        "-",
+							KeyDescription: "Speed Down",
+							Action:         computer.SpeedDown,
+						},
 					},
 				},
 			},
 		},
 		{
-			Rune:           's',
-			KeyName:        "S",
-			KeyDescription: "Speed",
-			SubMenu: []*ui.OptionsWindowMenuOption{
-				{
-					Rune:           '=',
-					KeyName:        "+",
-					KeyDescription: "Speed Up",
-					Action:         computer.SpeedUp,
-				},
-				{
-					Rune:           '-',
-					KeyName:        "-",
-					KeyDescription: "Speed Down",
-					Action:         computer.SpeedDown,
-				},
-			},
-		},
-		{
-			Rune:           'w',
-			KeyName:        "W",
-			KeyDescription: "Windows",
+			Rune:           'v',
+			KeyName:        "V",
+			KeyDescription: "View",
 			SubMenu: []*ui.OptionsWindowMenuOption{
 				{
 					Key:            tcell.KeyF1,
@@ -123,24 +157,6 @@ func createMenuOptions(computer *BenEaterComputer, console *console) []*ui.Optio
 			KeyDescription: "Quit",
 			Action:         computer.Stop,
 		},
-		{
-			Rune:           'p',
-			KeyName:        "P",
-			KeyDescription: "Pause",
-			Action:         computer.Pause,
-		},
-		{
-			Rune:           'o',
-			KeyName:        "O",
-			KeyDescription: "Resume",
-			Action:         computer.Resume,
-		},
-		{
-			Rune:           'i',
-			KeyName:        "I",
-			KeyDescription: "Step",
-			Action:         computer.Step,
-		},
 	}
 }
 
@@ -148,32 +164,34 @@ func createMenuOptions(computer *BenEaterComputer, console *console) []*ui.Optio
 func createMemoryWindowSubMenu(console *console) []*ui.OptionsWindowMenuOption {
 	return []*ui.OptionsWindowMenuOption{
 		{
-			Rune:           'w',
-			KeyName:        "W",
+			Key:            tcell.KeyUp,
+			KeyName:        "Up",
 			KeyDescription: "Scroll Up",
 			Action: func(context *common.StepContext) {
 				console.ScrollUp(context, 1)
 			},
+			DoNotForward: true,
 		},
 		{
-			Rune:           's',
-			KeyName:        "S",
+			Key:            tcell.KeyDown,
+			KeyName:        "Dn",
 			KeyDescription: "Scroll Down",
 			Action: func(context *common.StepContext) {
 				console.ScrollDown(context, 1)
 			},
+			DoNotForward: true,
 		},
 		{
-			Rune:           'e',
-			KeyName:        "E",
+			Key:            tcell.KeyPgUp,
+			KeyName:        "Pg Up",
 			KeyDescription: "Scroll Up Fast",
 			Action: func(context *common.StepContext) {
 				console.ScrollUp(context, 20)
 			},
 		},
 		{
-			Rune:           'd',
-			KeyName:        "D",
+			Key:            tcell.KeyPgDn,
+			KeyName:        "Pg Dn",
 			KeyDescription: "Scroll Down Fast",
 			Action: func(context *common.StepContext) {
 				console.ScrollDown(context, 20)
