@@ -1,12 +1,12 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/fran150/clementina6502/pkg/common"
 	"github.com/fran150/clementina6502/pkg/components/buses"
 	"github.com/fran150/clementina6502/pkg/components/lcd"
-	"github.com/rivo/tview"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -79,15 +79,13 @@ func TestLcdControllerWindow_Draw(t *testing.T) {
 	content := window.text.GetText(true)
 
 	// Verify the content contains all expected information
-	assert.Contains(t, content, "LCD Memory:")
-	assert.Contains(t, content, "Display ON: true")
-	assert.Contains(t, content, "8 Bit Mode: true")
-	assert.Contains(t, content, "Line 2 display: true")
-	assert.Contains(t, content, "Cursor Position: 5")
-	assert.Contains(t, content, "Bus: 0")
-	assert.Contains(t, content, "E: true")
-	assert.Contains(t, content, "RW: false")
-	assert.Contains(t, content, "RS: true")
+	assert.Contains(t, content, "Display ON:     true")
+	assert.Contains(t, content, "8 Bit Mode:     true")
+	assert.Contains(t, content, "2 Line Display: true")
+	assert.Contains(t, content, "Bus:             $00")
+	assert.Contains(t, content, "Enable:          true")
+	assert.Contains(t, content, "Read/Write:      false")
+	assert.Contains(t, content, "Reg Select:      true")
 
 	// Verify that all expected methods were called
 	mockLcd.AssertExpectations(t)
@@ -106,45 +104,76 @@ func TestDrawLcdDDRAM(t *testing.T) {
 	tests := []struct {
 		name          string
 		displayStatus lcd.DisplayStatus
-		wantContains  []string
+		wantContains  string
 	}{
 		{
 			name: "Empty DDRAM",
 			displayStatus: lcd.DisplayStatus{
-				DDRAM: []byte{},
+				DisplayOn:      true,
+				Is2LineDisplay: true,
+				Is8BitMode:     true,
+				Line1Start:     0x00,
+				Line2Start:     0x40,
+				DDRAM:          make([]uint8, 8),
 			},
-			wantContains: []string{},
+			wantContains: `     ┌─────────────────────────┐
+     │ [blue] 0 [white][blue] 1 [white][blue] 2 [white][blue] 3 [white][blue] 4 [white][blue] 5 [white][blue] 6 [white][blue] 7[white] │
+     ├─────────────────────────┤
+ [blue]00:[white] │ [yellow]00 [white][yellow]00 [white][yellow]00 [white][yellow]00 [white][yellow]00 [white][yellow]00 [white][yellow]00 [white][yellow]00[white] │
+     └─────────────────────────┘
+`,
 		},
 		{
 			name: "Single line of data",
 			displayStatus: lcd.DisplayStatus{
-				DDRAM: []byte("Hello"),
+				DisplayOn:      true,
+				Is2LineDisplay: true,
+				Is8BitMode:     true,
+				Line1Start:     0x00,
+				Line2Start:     0x40,
+				DDRAM: func() []uint8 {
+					ddram := make([]uint8, 8)
+					copy(ddram, []uint8{'H', 'e', 'l', 'l', 'o'})
+					return ddram
+				}(),
 			},
-			wantContains: []string{"00: H", "01: e", "02: l", "03: l", "04: o"},
+			wantContains: `     ┌─────────────────────────┐
+     │ [blue] 0 [white][blue] 1 [white][blue] 2 [white][blue] 3 [white][blue] 4 [white][blue] 5 [white][blue] 6 [white][blue] 7[white] │
+     ├─────────────────────────┤
+ [blue]00:[white] │ [green] H [white][green] e [white][green] l [white][green] l [white][green] o [white][yellow]00 [white][yellow]00 [white][yellow]00[white] │
+     └─────────────────────────┘
+`,
 		},
 		{
 			name: "Multiple lines of data",
 			displayStatus: lcd.DisplayStatus{
-				DDRAM: []byte("0123456789ABCDEF"),
+				DisplayOn:      true,
+				Is2LineDisplay: true,
+				Is8BitMode:     true,
+				Line1Start:     0x00,
+				Line2Start:     0x40,
+				DDRAM: func() []uint8 {
+					ddram := make([]uint8, 16)
+					copy(ddram, []uint8{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'})
+					return ddram
+				}(),
 			},
-			wantContains: []string{
-				"00: 0", "09: 9",
-				"0A: A", "0F: F",
-			},
+			wantContains: `     ┌─────────────────────────┐
+     │ [blue] 0 [white][blue] 1 [white][blue] 2 [white][blue] 3 [white][blue] 4 [white][blue] 5 [white][blue] 6 [white][blue] 7[white] │
+     ├─────────────────────────┤
+ [blue]00:[white] │ [green] 0 [white][green] 1 [white][green] 2 [white][green] 3 [white][green] 4 [white][green] 5 [white][green] 6 [white][green] 7[white] │
+ [blue]08:[white] │ [green] 8 [white][green] 9 [white][green] A [white][green] B [white][green] C [white][green] D [white][green] E [white][green] F[white] │
+     └─────────────────────────┘
+`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			text := tview.NewTextView()
-			text.SetScrollable(false).
-				SetDynamicColors(true)
-			drawLcdDDRAM(text, tt.displayStatus)
-			result := text.GetText(true)
-
-			for _, want := range tt.wantContains {
-				assert.Contains(t, result, want)
-			}
+			var buf strings.Builder
+			drawLcdDDRAM(&buf, tt.displayStatus)
+			content := buf.String()
+			assert.Equal(t, tt.wantContains, content)
 		})
 	}
 }
