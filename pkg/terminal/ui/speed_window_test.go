@@ -2,13 +2,20 @@ package ui
 
 import (
 	"testing"
+	"time"
 
 	"github.com/fran150/clementina6502/pkg/common"
+	"github.com/fran150/clementina6502/pkg/computers"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNewSpeedWindow(t *testing.T) {
-	sw := NewSpeedWindow()
+	config := &computers.EmulationLoopConfig{
+		TargetSpeedMhz: 1.0,
+		DisplayFps:     10,
+	}
+
+	sw := NewSpeedWindow(config)
 
 	assert.NotNil(t, sw)
 	assert.NotNil(t, sw.text)
@@ -17,7 +24,12 @@ func TestNewSpeedWindow(t *testing.T) {
 }
 
 func TestSpeedWindow_Clear(t *testing.T) {
-	sw := NewSpeedWindow()
+	config := &computers.EmulationLoopConfig{
+		TargetSpeedMhz: 1.0,
+		DisplayFps:     10,
+	}
+
+	sw := NewSpeedWindow(config)
 	// Set some initial values
 	sw.previousT = 1000
 	sw.previousC = 2000
@@ -81,7 +93,13 @@ func TestSpeedWindow_Draw(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sw := NewSpeedWindow()
+			config := &computers.EmulationLoopConfig{
+				TargetSpeedMhz: 1.0,
+				DisplayFps:     10,
+			}
+
+			sw := NewSpeedWindow(config)
+
 			sw.previousT = tt.initialT
 			sw.previousC = tt.initialC
 
@@ -100,9 +118,104 @@ func TestSpeedWindow_Draw(t *testing.T) {
 }
 
 func TestSpeedWindow_GetDrawArea(t *testing.T) {
-	sw := NewSpeedWindow()
+	config := &computers.EmulationLoopConfig{
+		TargetSpeedMhz: 1.0,
+		DisplayFps:     10,
+	}
+
+	sw := NewSpeedWindow(config)
 	primitive := sw.GetDrawArea()
 
 	assert.NotNil(t, primitive)
 	assert.Equal(t, sw.text, primitive)
+}
+
+func TestSpeedWindow_ShowConfig(t *testing.T) {
+	config := &computers.EmulationLoopConfig{
+		TargetSpeedMhz: 1.5,
+		DisplayFps:     10,
+	}
+
+	sw := NewSpeedWindow(config)
+	context := &common.StepContext{
+		T:     1000000, // 1ms in nanoseconds
+		Cycle: 1000,
+	}
+
+	// Test showing config
+	sw.ShowConfig(context)
+	assert.True(t, sw.showConfig)
+	assert.Equal(t, context.T, sw.showConfigStart)
+
+	// Draw should show target speed
+	sw.Draw(context)
+	// Config should still be shown (less than 3 seconds)
+	assert.True(t, sw.showConfig)
+
+	// Test config timeout
+	newContext := &common.StepContext{
+		T:     context.T + (int64(time.Second) * 4), // 4 seconds later
+		Cycle: 2000,
+	}
+	sw.Draw(newContext)
+	// Config should be hidden after 3 seconds
+	assert.False(t, sw.showConfig)
+}
+
+func TestSpeedWindow_DrawModes(t *testing.T) {
+	config := &computers.EmulationLoopConfig{
+		TargetSpeedMhz: 1.5,
+		DisplayFps:     10,
+	}
+
+	tests := []struct {
+		name         string
+		showConfig   bool
+		contextT     int64
+		configStartT int64
+		shouldHide   bool
+	}{
+		{
+			name:         "Show target speed",
+			showConfig:   true,
+			contextT:     1000000,
+			configStartT: 0,
+			shouldHide:   false,
+		},
+		{
+			name:         "Hide config after timeout",
+			showConfig:   true,
+			contextT:     int64(time.Second * 4),
+			configStartT: 0,
+			shouldHide:   true,
+		},
+		{
+			name:         "Keep showing speed",
+			showConfig:   false,
+			contextT:     1000000,
+			configStartT: 0,
+			shouldHide:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sw := NewSpeedWindow(config)
+			sw.showConfig = tt.showConfig
+			sw.showConfigStart = tt.configStartT
+
+			context := &common.StepContext{
+				T:     tt.contextT,
+				Cycle: 1000,
+			}
+
+			sw.Draw(context)
+
+			if tt.shouldHide {
+				assert.False(t, sw.showConfig)
+			} else {
+				assert.Equal(t, tt.showConfig, sw.showConfig)
+			}
+		})
+	}
 }

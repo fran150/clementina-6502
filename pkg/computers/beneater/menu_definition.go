@@ -74,13 +74,19 @@ func createMenuOptions(computer *BenEaterComputer, console *console) []*ui.Optio
 							Rune:           '=',
 							KeyName:        "+",
 							KeyDescription: "Speed Up",
-							Action:         computer.SpeedUp,
+							Action: func(context *common.StepContext) {
+								console.ShowEmulationSpeed(context)
+								computer.SpeedUp(context)
+							},
 						},
 						{
 							Rune:           '-',
 							KeyName:        "-",
 							KeyDescription: "Speed Down",
-							Action:         computer.SpeedDown,
+							Action: func(context *common.StepContext) {
+								console.ShowEmulationSpeed(context)
+								computer.SpeedDown(context)
+							},
 						},
 					},
 				},

@@ -29,7 +29,7 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 	// Initialize all windows
 	console.windows["lcd"] = ui.NewDisplayWindow(computer.chips.lcd)
 	console.windows["code"] = ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators)
-	console.windows["speed"] = ui.NewSpeedWindow()
+	console.windows["speed"] = ui.NewSpeedWindow(&computer.appConfig.EmulationLoopConfig)
 	console.windows["cpu"] = ui.NewCpuWindow(computer.chips.cpu)
 	console.windows["via"] = ui.NewViaWindow(computer.chips.via)
 	console.windows["lcd_controller"] = ui.NewLcdWindow(computer.chips.lcd)
@@ -95,7 +95,7 @@ func (c *console) ShowWindow(windowKey string, context *common.StepContext) {
 }
 
 /************************************************************************************
-* Scrolling methods
+* Menu methods
 *************************************************************************************/
 
 func (c *console) ScrollUp(context *common.StepContext, step uint16) {
@@ -107,6 +107,12 @@ func (c *console) ScrollUp(context *common.StepContext, step uint16) {
 func (c *console) ScrollDown(context *common.StepContext, step uint16) {
 	if explorer, ok := c.active.(*ui.MemoryWindow); ok {
 		explorer.ScrollDown(step)
+	}
+}
+
+func (c *console) ShowEmulationSpeed(context *common.StepContext) {
+	if speedWindow := GetWindow[ui.SpeedWindow](c, "speed"); speedWindow != nil {
+		speedWindow.ShowConfig(context)
 	}
 }
 
