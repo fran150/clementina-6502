@@ -46,6 +46,10 @@ func NewBreakPointForm() *BreakPointForm {
 }
 
 func (d *BreakPointForm) RemoveSelectedItem(context *common.StepContext) {
+	if d.list.GetItemCount() == 0 {
+		return
+	}
+
 	current := d.list.GetCurrentItem()
 
 	d.breakpointAddresses = slicesext.SliceRemove(d.breakpointAddresses, current)

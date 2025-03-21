@@ -64,6 +64,20 @@ func TestCheckBreakpoint(t *testing.T) {
 
 func TestRemoveSelectedItem(t *testing.T) {
 	form := NewBreakPointForm()
+
+	// Test empty list case first
+	t.Run("Remove from empty list", func(t *testing.T) {
+		context := &common.StepContext{}
+		// List should be empty by default after initialization
+		assert.Equal(t, 0, form.list.GetItemCount())
+		// This should not panic or modify anything
+		form.RemoveSelectedItem(context)
+		// Verify it's still empty
+		assert.Equal(t, 0, form.list.GetItemCount())
+		assert.Empty(t, form.breakpointAddresses)
+	})
+
+	// Setup for the rest of the tests
 	form.breakpointAddresses = []uint16{0x1234, 0x5678, 0x9ABC}
 
 	// Add items to the list
