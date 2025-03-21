@@ -90,6 +90,10 @@ func (d *OptionsWindow) Draw(context *common.StepContext) {
 	activeMenu := d.GetActiveMenu()
 	options := d.getActiveOptions()
 
+	if activeMenu != nil {
+		fmt.Fprintf(d.text, " [yellow]%s: ", activeMenu.KeyDescription)
+	}
+
 	for _, option := range options {
 		fmt.Fprintf(d.text, " [white::r]%s[white:-:-] %s ", option.KeyName, option.KeyDescription)
 	}

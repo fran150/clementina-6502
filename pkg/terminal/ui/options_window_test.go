@@ -275,4 +275,39 @@ func TestOptionsWindow_Draw(t *testing.T) {
 		text = window.text.GetText(true)
 		assert.Contains(t, text, "F1 Test Option")
 	})
+
+	// Test case 6: Active menu title display
+	t.Run("Draw with active menu title", func(t *testing.T) {
+		menu := []*OptionsWindowMenuOption{
+			{
+				Key:            tcell.KeyF1,
+				KeyName:        "F1",
+				KeyDescription: "Main Option",
+				SubMenu: []*OptionsWindowMenuOption{
+					{
+						Key:            tcell.KeyF2,
+						KeyName:        "F2",
+						KeyDescription: "Sub Option",
+					},
+				},
+			},
+		}
+
+		window := NewOptionsWindow(menu)
+		context := &common.StepContext{}
+
+		// Test main menu (no title should be shown)
+		window.Draw(context)
+		text := window.text.GetText(true)
+		assert.NotContains(t, text, "Main Option:")
+
+		// Test submenu (should show parent menu title)
+		window.SetActiveMenu(menu[0])
+		window.Clear()
+		window.Draw(context)
+		text = window.text.GetText(true)
+		assert.Contains(t, text, "Main Option:")
+		assert.Contains(t, text, "F2 Sub Option")
+		assert.Contains(t, text, "ESC Back")
+	})
 }
