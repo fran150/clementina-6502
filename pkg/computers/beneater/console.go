@@ -10,16 +10,17 @@ import (
 
 type console struct {
 	grid     *tview.Grid
+	pages    *tview.Pages
 	windows  map[string]terminal.Window
-	active   terminal.Window
-	previous []terminal.Window
+	active   string
+	previous []string
 }
 
 func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *console {
 	console := &console{
 		grid:     tview.NewGrid(),
 		windows:  make(map[string]terminal.Window),
-		previous: make([]terminal.Window, 2),
+		previous: make([]string, 2),
 	}
 
 	console.initializeMainGrid(tvApp)
@@ -41,12 +42,17 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 	console.windows["breakpoint"] = ui.NewBreakPointForm()
 	console.windows["options"] = ui.NewOptionsWindow(menuOptions)
 
+	console.pages = tview.NewPages()
+	for key, window := range console.windows {
+		console.pages.AddPage(key, window.GetDrawArea(), true, true)
+	}
+
 	initializeBusWindow(computer, busWindow)
 
 	console.initializeLayout()
 
 	// Set initial active window
-	console.SetActiveWindow(console.windows["cpu"])
+	console.SetActiveWindow("cpu")
 
 	return console
 }
@@ -76,8 +82,8 @@ func (c *console) initializeLayout() {
 	c.grid.AddItem(c.windows["lcd"].GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
 		AddItem(c.windows["speed"].GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
 		AddItem(c.windows["code"].GetDrawArea(), 2, 0, 1, 1, 0, 0, false).
-		AddItem(c.windows["options"].GetDrawArea(), 3, 0, 1, 2, 0, 0, false)
-
+		AddItem(c.windows["options"].GetDrawArea(), 3, 0, 1, 2, 0, 0, false).
+		AddItem(c.pages, 0, 1, 3, 1, 0, 0, true)
 }
 
 /************************************************************************************
@@ -85,13 +91,11 @@ func (c *console) initializeLayout() {
 *************************************************************************************/
 
 func (c *console) SetBreakpointConfigMode(context *common.StepContext) {
-	c.AppendActiveWindow(c.windows["breakpoint"])
+	c.AppendActiveWindow("breakpoint")
 }
 
 func (c *console) ShowWindow(windowKey string, context *common.StepContext) {
-	if window, exists := c.windows[windowKey]; exists {
-		c.SetActiveWindow(window)
-	}
+	c.SetActiveWindow(windowKey)
 }
 
 /************************************************************************************
@@ -99,13 +103,13 @@ func (c *console) ShowWindow(windowKey string, context *common.StepContext) {
 *************************************************************************************/
 
 func (c *console) ScrollUp(context *common.StepContext, step uint16) {
-	if explorer, ok := c.active.(*ui.MemoryWindow); ok {
+	if explorer, ok := c.windows[c.active].(*ui.MemoryWindow); ok {
 		explorer.ScrollUp(step)
 	}
 }
 
 func (c *console) ScrollDown(context *common.StepContext, step uint16) {
-	if explorer, ok := c.active.(*ui.MemoryWindow); ok {
+	if explorer, ok := c.windows[c.active].(*ui.MemoryWindow); ok {
 		explorer.ScrollDown(step)
 	}
 }
@@ -120,28 +124,22 @@ func (c *console) ShowEmulationSpeed(context *common.StepContext) {
 * Internal Functions
 *************************************************************************************/
 
-func (c *console) SetActiveWindow(value terminal.Window) {
-	c.active = value
-	c.setActiveWindowOnGrid()
+func (c *console) SetActiveWindow(key string) {
+	c.active = key
+	c.pages.SwitchToPage(key)
 }
 
-func (c *console) AppendActiveWindow(value terminal.Window) {
+func (c *console) AppendActiveWindow(key string) {
 	c.previous = append(c.previous, c.active)
-	c.SetActiveWindow(value)
+	c.SetActiveWindow(key)
 }
 
 func (c *console) ReturnToPreviousWindow(context *common.StepContext) {
 	if c.previous != nil {
 		previous, active := slicesext.SlicePop(c.previous)
 		c.previous = previous
-		c.active = active
-		c.setActiveWindowOnGrid()
+		c.SetActiveWindow(active)
 	}
-}
-
-func (c *console) setActiveWindowOnGrid() {
-	c.grid.RemoveItem(c.active.GetDrawArea())
-	c.grid.AddItem(c.active.GetDrawArea(), 0, 1, 3, 1, 0, 0, false)
 }
 
 /************************************************************************************
