@@ -1017,22 +1017,22 @@ func TestAcia65C51N_RegisterSelect(t *testing.T) {
 	tests := []struct {
 		name      string
 		lineNum   uint8
-		wantPanic bool
+		expectNil bool
 	}{
 		{
 			name:      "Valid RS0 line",
 			lineNum:   0,
-			wantPanic: false,
+			expectNil: false,
 		},
 		{
 			name:      "Valid RS1 line",
 			lineNum:   1,
-			wantPanic: false,
+			expectNil: false,
 		},
 		{
 			name:      "Invalid line number",
 			lineNum:   2,
-			wantPanic: true,
+			expectNil: true,
 		},
 	}
 
@@ -1045,17 +1045,9 @@ func TestAcia65C51N_RegisterSelect(t *testing.T) {
 				},
 			}
 
-			if tt.wantPanic {
-				defer func() {
-					if r := recover(); r == nil {
-						t.Errorf("RegisterSelect(%d) should have panicked", tt.lineNum)
-					}
-				}()
-			}
-
 			result := acia.RegisterSelect(tt.lineNum)
 
-			if !tt.wantPanic {
+			if !tt.expectNil {
 				if result == nil {
 					t.Errorf("RegisterSelect(%d) returned nil, expected valid connector", tt.lineNum)
 				}
@@ -1063,6 +1055,10 @@ func TestAcia65C51N_RegisterSelect(t *testing.T) {
 				// Verify we got the correct connector from the array
 				if result != acia.registerSelect[tt.lineNum] {
 					t.Errorf("RegisterSelect(%d) returned wrong connector", tt.lineNum)
+				}
+			} else {
+				if result != nil {
+					t.Errorf("RegisterSelect(%d) returned valid connector, expected nil", tt.lineNum)
 				}
 			}
 		})

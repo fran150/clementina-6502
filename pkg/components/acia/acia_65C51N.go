@@ -257,7 +257,7 @@ func (via *Acia65C51N) ChipSelect1() *buses.ConnectorEnabledLow {
 // 0x03 - W:  Write Control Register / R: Read Control Register
 func (via *Acia65C51N) RegisterSelect(num uint8) *buses.ConnectorEnabledHigh {
 	if num >= numOfRSLines {
-		panic("Register select line number out of range")
+		return nil
 	}
 
 	return via.registerSelect[num]
@@ -397,11 +397,11 @@ func (acia *Acia65C51N) setModemLines() error {
 		rts := isBitSet(acia.commandRegister, commandTICRTSBit)
 
 		if err := acia.port.SetDTR(dtr); err != nil {
-			panic(err)
+			return err
 		}
 
 		if err := acia.port.SetRTS(rts); err != nil {
-			panic(err)
+			return err
 		}
 	}
 
