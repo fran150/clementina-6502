@@ -52,7 +52,7 @@ func (m *MockComputer) KeyPressed(event *tcell.EventKey, context *common.StepCon
 
 func TestApplicationRun(t *testing.T) {
 	mockComputer := NewMockComputer()
-	app := NewApplication(mockComputer)
+	app := NewApplication(mockComputer, nil)
 
 	// Create a simulation screen
 	screen := tcell.NewSimulationScreen("")

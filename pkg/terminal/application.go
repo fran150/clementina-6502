@@ -18,19 +18,21 @@ type Application struct {
 	config   *ApplicationConfig
 }
 
-func NewApplication(computer Computer) *Application {
-	config := ApplicationConfig{
-		computers.EmulationLoopConfig{
-			TargetSpeedMhz: 1.05,
-			DisplayFps:     10,
-		},
+func NewApplication(computer Computer, config *ApplicationConfig) *Application {
+	if config == nil {
+		config = &ApplicationConfig{
+			computers.EmulationLoopConfig{
+				TargetSpeedMhz: 1.05,
+				DisplayFps:     10,
+			},
+		}
 	}
 
 	return &Application{
 		tvApp:    tview.NewApplication(),
 		computer: computer,
 		executor: computers.NewEmulationLoop(&config.EmulationLoopConfig),
-		config:   &config,
+		config:   config,
 	}
 }
 

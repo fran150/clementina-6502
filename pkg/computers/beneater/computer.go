@@ -57,14 +57,20 @@ type BenEaterComputer struct {
 }
 
 func NewBenEaterComputer(portName string) *BenEaterComputer {
-	port, err := serial.Open(portName, &serial.Mode{
-		BaudRate: 115200,
-		DataBits: 8,
-		Parity:   serial.NoParity,
-		StopBits: serial.OneStopBit,
-	})
-	if err != nil {
-		panic(err)
+	var port serial.Port = nil
+
+	if portName != "" {
+		var err error
+
+		port, err = serial.Open(portName, &serial.Mode{
+			BaudRate: 115200,
+			DataBits: 8,
+			Parity:   serial.NoParity,
+			StopBits: serial.OneStopBit,
+		})
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	chips := &chips{
@@ -177,7 +183,9 @@ func NewBenEaterComputer(portName string) *BenEaterComputer {
 	chips.nand.BPin(2).Connect(circuit.u4dOut)
 	chips.nand.YPin(2).Connect(circuit.u4bOut)
 
-	chips.acia.ConnectToPort(circuit.serial)
+	if circuit.serial != nil {
+		chips.acia.ConnectToPort(circuit.serial)
+	}
 
 	return &BenEaterComputer{
 		chips:       chips,
@@ -187,11 +195,13 @@ func NewBenEaterComputer(portName string) *BenEaterComputer {
 	}
 }
 
-func (c *BenEaterComputer) LoadRom(romImagePath string) {
+func (c *BenEaterComputer) LoadRom(romImagePath string) error {
 	err := c.chips.rom.Load(romImagePath)
 	if err != nil {
-		panic(err)
+		return err
 	}
+
+	return nil
 }
 
 func (c *BenEaterComputer) Init(tvApp *tview.Application, appConfig *terminal.ApplicationConfig) {
@@ -307,7 +317,9 @@ func (c *BenEaterComputer) KeyPressed(event *tcell.EventKey, context *common.Ste
 
 func (c *BenEaterComputer) Close() {
 	c.chips.acia.Close()
-	c.circuit.serial.Close()
+	if c.circuit.serial != nil {
+		c.circuit.serial.Close()
+	}
 }
 
 func (c *BenEaterComputer) getPotentialOperators(programCounter uint16) [2]uint8 {
