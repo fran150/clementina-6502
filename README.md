@@ -1,3 +1,4 @@
+![Logo](images/computer.jpeg) 
 # Clementina 6502 - A Feature-Rich 6502 Computer Emulator with Terminal UI
 
 Clementina 6502 is a comprehensive emulator for Ben Eater's 6502 computer that provides cycle-accurate emulation with an interactive terminal-based user interface. It features full emulation of the 65C02S CPU, VIA, ACIA, LCD controller, and memory components with real serial port connectivity.
