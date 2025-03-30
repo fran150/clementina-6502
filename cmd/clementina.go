@@ -12,10 +12,11 @@ import (
 )
 
 var (
-	serialPort string
-	romFile    string
-	targetMhz  float64
-	targetFps  int
+	serialPort        string
+	romFile           string
+	targetMhz         float64
+	targetFps         int
+	emulateModemLines bool
 )
 
 var rootCmd = &cobra.Command{
@@ -31,11 +32,12 @@ func init() {
 	rootCmd.Flags().StringVarP(&romFile, "rom", "r", "./assets/computer/beneater/eater.bin", "ROM file to load")
 	rootCmd.Flags().Float64VarP(&targetMhz, "mhz", "m", 1.2, "Target emulation speed in MHz")
 	rootCmd.Flags().IntVarP(&targetFps, "fps", "f", 15, "Target display refresh rate")
+	rootCmd.Flags().BoolVarP(&emulateModemLines, "emulate-modem", "e", false, "Enable modem lines emulation for serial port (RTS, CTS, DTR, DSR)")
 }
 
 func runEmulator(cmd *cobra.Command, args []string) {
 	// Create the computer instance
-	computer := beneater.NewBenEaterComputer(serialPort)
+	computer := beneater.NewBenEaterComputer(serialPort, emulateModemLines)
 	defer computer.Close()
 
 	// Try to load the ROM file

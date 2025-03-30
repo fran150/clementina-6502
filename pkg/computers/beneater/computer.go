@@ -56,7 +56,7 @@ type BenEaterComputer struct {
 	step  bool
 }
 
-func NewBenEaterComputer(portName string) *BenEaterComputer {
+func NewBenEaterComputer(portName string, emulateModemLines bool) *BenEaterComputer {
 	var port serial.Port = nil
 
 	if portName != "" {
@@ -79,7 +79,7 @@ func NewBenEaterComputer(portName string) *BenEaterComputer {
 		rom:  memory.NewRamWithLessPins(memory.RAM_SIZE_32K, 0x7FFF),
 		via:  via.NewVia65C22(),
 		lcd:  lcd.NewLCDController(),
-		acia: acia.NewAcia65C51N(false),
+		acia: acia.NewAcia65C51N(emulateModemLines),
 		nand: gates.New74HC00(),
 	}
 
