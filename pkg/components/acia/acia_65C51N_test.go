@@ -55,8 +55,10 @@ func newTestCircuit() (*Acia65C51N, *testCircuit, *portMock) {
 
 // Wire all components together in the circuit board. It allows to change
 // the input value and assert the output lines.
-func (circuit *testCircuit) wire(acia *Acia65C51N, mock *portMock) {
-	acia.ConnectToPort(mock)
+func (circuit *testCircuit) wire(acia *Acia65C51N, mock *portMock) error {
+	if err := acia.ConnectToPort(mock); err != nil {
+		return err
+	}
 
 	acia.DataBus().Connect(circuit.dataBus)
 
@@ -70,6 +72,8 @@ func (circuit *testCircuit) wire(acia *Acia65C51N, mock *portMock) {
 	acia.ConnectRegisterSelectLines(circuit.rs)
 
 	acia.Reset().Connect(circuit.reset)
+
+	return nil
 }
 
 // Calls the executor function at the specified baud rate, once per byte (not bit)
@@ -791,9 +795,9 @@ func TestPanicsWhenFailsToSetModeWhenConnectingToSerial(t *testing.T) {
 
 	mock.makeCallsFailFrom = failInSetMode
 
-	assert.Panics(t, func() {
-		circuit.wire(acia, mock)
-	})
+	err := circuit.wire(acia, mock)
+
+	assert.Error(t, err)
 }
 
 func TestPanicsWhenFailsToSetDTRandRTS(t *testing.T) {

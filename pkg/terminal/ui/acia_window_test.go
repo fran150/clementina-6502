@@ -72,7 +72,9 @@ func (t *testAcia) Reset() *buses.ConnectorEnabledLow {
 }
 
 // Configuration methods
-func (t *testAcia) ConnectToPort(port serial.Port) {}
+func (t *testAcia) ConnectToPort(port serial.Port) error {
+	return nil
+}
 
 func (t *testAcia) ConnectRegisterSelectLines(lines [2]buses.Line) {
 	t.registerSelect[0].Connect(lines[0])

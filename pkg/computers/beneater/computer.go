@@ -56,7 +56,7 @@ type BenEaterComputer struct {
 	step  bool
 }
 
-func NewBenEaterComputer(portName string, emulateModemLines bool) *BenEaterComputer {
+func NewBenEaterComputer(portName string, emulateModemLines bool) (*BenEaterComputer, error) {
 	var port serial.Port = nil
 
 	if portName != "" {
@@ -69,7 +69,7 @@ func NewBenEaterComputer(portName string, emulateModemLines bool) *BenEaterCompu
 			StopBits: serial.OneStopBit,
 		})
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	}
 
@@ -192,7 +192,7 @@ func NewBenEaterComputer(portName string, emulateModemLines bool) *BenEaterCompu
 		circuit:     circuit,
 		mustReset:   false,
 		resetCycles: 0,
-	}
+	}, nil
 }
 
 func (c *BenEaterComputer) LoadRom(romImagePath string) error {

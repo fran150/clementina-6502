@@ -37,7 +37,12 @@ func init() {
 
 func runEmulator(cmd *cobra.Command, args []string) {
 	// Create the computer instance
-	computer := beneater.NewBenEaterComputer(serialPort, emulateModemLines)
+	computer, err := beneater.NewBenEaterComputer(serialPort, emulateModemLines)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
+		os.Exit(1)
+	}
+
 	defer computer.Close()
 
 	// Try to load the ROM file

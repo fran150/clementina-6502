@@ -164,22 +164,25 @@ func NewAcia65C51N(emulateModemLines bool) *Acia65C51N {
 // Connects the ACIA chip to the specified serial port.
 // The port must be open and it's mode will be reconfigured according with the register
 // values withing the ACIA chip
-func (acia *Acia65C51N) ConnectToPort(port serial.Port) {
+func (acia *Acia65C51N) ConnectToPort(port serial.Port) error {
 	acia.port = port
 
 	// Set read time out to 1 second
 	port.SetReadTimeout(1 * time.Second)
 
 	mode := acia.getMode()
-	err := acia.port.SetMode(mode)
-	if err != nil {
-		panic(err)
+	if err := acia.port.SetMode(mode); err != nil {
+		return err
 	}
 
 	// Sets the values of the modem lines in the port according to the ACIA registers
 	if acia.emulateModemLines {
-		acia.setModemLines()
+		if err := acia.setModemLines(); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
 // Free resources used by the emulation. In particular it will stop the R/W pollers
@@ -304,7 +307,9 @@ func (acia *Acia65C51N) Tick(context *common.StepContext) {
 	// Sets the DTR and RTS modem lines (these are controlled by the ACIA)
 	// This is slow (at least when used with SOCAT) so it can be disabled for faster emulation
 	if acia.emulateModemLines {
-		acia.setModemLines()
+		if err := acia.setModemLines(); err != nil {
+			panic(err)
+		}
 	}
 
 	// Drives the IRQ line based on the status register
@@ -386,21 +391,21 @@ func (acia *Acia65C51N) getRegisterSelectValue() uint8 {
 
 // Sets the Data Terminal Ready (DTR) and Ready to Receive (RTS)
 // pins in the serial port according to the command register values
-func (acia *Acia65C51N) setModemLines() {
+func (acia *Acia65C51N) setModemLines() error {
 	if acia.port != nil {
 		dtr := isBitSet(acia.commandRegister, commandDTRBit)
 		rts := isBitSet(acia.commandRegister, commandTICRTSBit)
 
-		err := acia.port.SetDTR(dtr)
-		if err != nil {
+		if err := acia.port.SetDTR(dtr); err != nil {
 			panic(err)
 		}
 
-		err = acia.port.SetRTS(rts)
-		if err != nil {
+		if err := acia.port.SetRTS(rts); err != nil {
 			panic(err)
 		}
 	}
+
+	return nil
 }
 
 // If the modem changes the values of the DSR and DCD values this function updates

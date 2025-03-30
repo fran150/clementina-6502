@@ -19,7 +19,7 @@ type Acia6522Chip interface {
 	Reset() *buses.ConnectorEnabledLow
 
 	// Configuration methods
-	ConnectToPort(port serial.Port)
+	ConnectToPort(port serial.Port) error
 	ConnectRegisterSelectLines(lines [2]buses.Line)
 	Close()
 
