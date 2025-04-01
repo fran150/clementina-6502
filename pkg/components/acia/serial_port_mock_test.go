@@ -17,6 +17,7 @@ const (
 	failInSetDTR
 	failInSetRTS
 	failInGetModemStatusBits
+	failInSetReadTimeout
 	failInOther
 )
 
@@ -141,7 +142,7 @@ func (port *portMock) GetModemStatusBits() (*serial.ModemStatusBits, error) {
 // SetReadTimeout sets the timeout for the Read operation or use serial.NoTimeout
 // to disable read timeout.
 func (port *portMock) SetReadTimeout(t time.Duration) error {
-	return port.checkError(failInOther)
+	return port.checkError(failInSetReadTimeout)
 }
 
 // Close the serial port

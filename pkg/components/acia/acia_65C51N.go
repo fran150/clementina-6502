@@ -171,7 +171,7 @@ func (acia *Acia65C51N) ConnectToPort(port serial.Port) error {
 	// Read operations are blocker, if this is not set the application will not close
 	// as the serial poller will be blocked waiting for data
 	if err := port.SetReadTimeout(1 * time.Second); err != nil {
-		panic(err)
+		return err
 	}
 
 	mode := acia.getMode()

@@ -943,6 +943,61 @@ func TestPanicsWhenFailsToSetModeWhenChangingControlRegister(t *testing.T) {
 	})
 }
 
+func TestPanicsWhenFailsToSetReadTimeout(t *testing.T) {
+	acia, circuit, mock := newTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	mock.makeCallsFailFrom = failInSetReadTimeout
+
+	err := circuit.wire(acia, mock)
+	assert.Error(t, err)
+}
+
+func TestConnectToPortModemLinesError(t *testing.T) {
+	acia, circuit, mock := newTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	// First make the initial connection succeed
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a new ACIA with modem lines enabled
+	newAcia := NewAcia65C51N(true)
+
+	// Make SetDTR fail
+	mock.makeCallsFailFrom = failInSetDTR
+
+	// Attempt to connect - should fail due to modem lines error
+	err := newAcia.ConnectToPort(mock)
+	assert.Error(t, err, "Expected error when setting modem lines fails")
+
+	// Make SetRTS fail
+	mock.makeCallsFailFrom = failInSetRTS
+
+	// Attempt to connect again - should fail due to modem lines error
+	err = newAcia.ConnectToPort(mock)
+	assert.Error(t, err, "Expected error when setting modem lines fails")
+}
+
+func TestConnectToPortSkipsModemLinesWhenDisabled(t *testing.T) {
+	acia, _, mock := newTestCircuit()
+	defer acia.Close()
+	defer mock.Close()
+
+	// Create a new ACIA with modem lines disabled
+	newAcia := NewAcia65C51N(false)
+
+	// Make modem line operations fail
+	mock.makeCallsFailFrom = failInSetDTR
+
+	// Should succeed because modem lines are disabled
+	err := newAcia.ConnectToPort(mock)
+	assert.NoError(t, err, "Expected success when modem lines are disabled")
+}
+
 /****************************************************************************************************************
 * Amazon Q generated tests for getters
 ****************************************************************************************************************/
