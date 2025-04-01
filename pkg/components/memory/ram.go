@@ -2,13 +2,19 @@
 package memory
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 
 	"github.com/fran150/clementina6502/pkg/common"
 	"github.com/fran150/clementina6502/pkg/components/buses"
 )
+
+// FileReader interface abstracts file operations
+type FileReader interface {
+	Stat() (os.FileInfo, error)
+	Read(p []byte) (n int, err error)
+	Close() error
+}
 
 // Memory size constants representing common RAM configurations
 const (
@@ -127,30 +133,7 @@ func (ram *Ram) Poke(address uint16, value uint8) {
 // Returns an error if the file is too large for the available memory
 // or if there are any I/O errors.
 func (ram *Ram) Load(binFilePath string) error {
-	file, err := os.Open(binFilePath)
-
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	stats, statsErr := file.Stat()
-	if statsErr != nil {
-		return statsErr
-	}
-
-	var size int64 = stats.Size()
-
-	if size <= int64(len(ram.values)) {
-		bufr := bufio.NewReader(file)
-		if _, err := bufr.Read(ram.values[:]); err != nil {
-			return err
-		}
-	} else {
-		return fmt.Errorf("the file %s is too large for this ram memory (file size: %v, ram size: %v)", binFilePath, size, len(ram.values))
-	}
-
-	return nil
+	return ram.loadFromReader(os.Open(binFilePath))
 }
 
 // Size returns the total size of the RAM chip in bytes.
@@ -176,6 +159,30 @@ func (ram *Ram) read() {
 // write stores the data from the data bus to the current address.
 func (ram *Ram) write() {
 	ram.values[ram.getAddress()] = ram.dataBus.Read()
+}
+
+// LoadFromReader reads binary data from a reader into memory
+func (ram *Ram) loadFromReader(file FileReader, err error) error {
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	stats, statsErr := file.Stat()
+	if statsErr != nil {
+		return statsErr
+	}
+
+	var size int64 = stats.Size()
+	if size <= int64(len(ram.values)) {
+		if _, err := file.Read(ram.values[:]); err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("the file is too large for this ram memory (file size: %v, ram size: %v)", size, len(ram.values))
+	}
+
+	return nil
 }
 
 /************************************************************************************

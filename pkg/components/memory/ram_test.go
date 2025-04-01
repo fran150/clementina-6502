@@ -2,6 +2,7 @@ package memory
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/fran150/clementina6502/pkg/common"
@@ -40,6 +41,22 @@ func (circuit *testCircuit) Wire(ram *Ram) {
 	ram.OutputEnable().Connect(circuit.outputEnable)
 
 	ram.ChipSelect().Connect(circuit.addressBus.GetBusLine(15))
+}
+
+// MockFile implements FileReader for testing
+type MockFileReader struct {
+}
+
+func (m *MockFileReader) Stat() (os.FileInfo, error) {
+	return nil, fmt.Errorf("stat error")
+}
+
+func (m *MockFileReader) Read(p []byte) (n int, err error) {
+	return RAM_SIZE_16K, nil
+}
+
+func (m *MockFileReader) Close() error {
+	return nil
 }
 
 /************************************************************************************
@@ -219,7 +236,7 @@ func TestNewRamWithLessPinsMasksAddressCorrectly(t *testing.T) {
 }
 
 /************************************************************************************
-* Test RAM initialization
+* Test RAM Size Reporting
 *************************************************************************************/
 
 // TestRamSizeReporting verifies that the Size method correctly reports the RAM size
@@ -253,5 +270,47 @@ func TestRamSizeReporting(t *testing.T) {
 	ram, _ := newTestCircuit(customSize)
 	if ram.Size() != customSize {
 		t.Errorf("Custom RAM size mismatch: got %d bytes, expected %d bytes", ram.Size(), customSize)
+	}
+}
+
+/************************************************************************************
+* Amazon Q generated tests
+*************************************************************************************/
+// TestLoadFailsOnReadError verifies that Load returns an error when bufr.Read fails
+func TestLoadFailsOnReadError(t *testing.T) {
+	ram, circuit := newTestCircuit(RAM_SIZE_1K)
+	circuit.Wire(ram)
+
+	// Create a temporary file
+	tmpFile, err := os.CreateTemp("", "test*.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	// Create a file but don't write anything to it
+	// This will cause Read to return EOF error when trying to read RAM_SIZE_1K bytes
+	tmpFile.Close()
+
+	// Attempt to load the empty file
+	err = ram.Load(tmpFile.Name())
+	if err == nil {
+		t.Error("Expected error when bufr.Read fails, but got nil")
+	}
+}
+
+// Add this test to ram_test.go
+func TestLoadFailsOnStatError(t *testing.T) {
+	ram, circuit := newTestCircuit(RAM_SIZE_1K)
+	circuit.Wire(ram)
+
+	mockFile := &MockFileReader{}
+
+	err := ram.loadFromReader(mockFile, nil)
+	if err == nil {
+		t.Error("Expected error when Stat fails, but got nil")
+	}
+	if err.Error() != "stat error" {
+		t.Errorf("Expected 'stat error', got '%v'", err)
 	}
 }
