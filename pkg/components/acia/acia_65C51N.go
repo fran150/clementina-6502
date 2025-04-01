@@ -167,8 +167,12 @@ func NewAcia65C51N(emulateModemLines bool) *Acia65C51N {
 func (acia *Acia65C51N) ConnectToPort(port serial.Port) error {
 	acia.port = port
 
-	// Set read time out to 1 second
-	port.SetReadTimeout(1 * time.Second)
+	// Set read time out to 1 second.
+	// Read operations are blocker, if this is not set the application will not close
+	// as the serial poller will be blocked waiting for data
+	if err := port.SetReadTimeout(1 * time.Second); err != nil {
+		panic(err)
+	}
 
 	mode := acia.getMode()
 	if err := acia.port.SetMode(mode); err != nil {

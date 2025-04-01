@@ -4,15 +4,20 @@ MAIN_PACKAGE=./cmd/clementina.go
 GO=go
 
 # Build variables
-BUILD_DIR=build
+BUILD_DIR=build/bin
+TEST_DIR=tests
 VERSION?=1.0.0
 COMMIT=$(shell git rev-parse --short HEAD)
 BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 LDFLAGS=-ldflags "-X main.Version=${VERSION} -X main.Commit=${COMMIT} -X main.BuildTime=${BUILD_TIME}"
 
 # Test variables
-COVERAGE_DIR=coverage
-BENCH_FILE=clementina6502.prof
+COVERAGE_DIR=${TEST_DIR}/coverage
+PROFILES_DIR=${TEST_DIR}/profiles
+BENCH_FILE=${PROFILES_DIR}/clementina6502.prof
+BENCH_PACKAGE=github.com/fran150/clementina6502/tests
+BENCH_TESTS=^BenchmarkProcessor
+
 
 .PHONY: all build clean test coverage lint vet fmt bench profile help
 
@@ -27,7 +32,7 @@ clean: ## Clean build directory
 	@echo "Cleaning..."
 	@rm -rf ${BUILD_DIR}
 	@rm -rf ${COVERAGE_DIR}
-	@rm -f ${BENCH_FILE}
+	@rm -rf ${PROFILES_DIR}
 
 test: ## Run tests
 	@echo "Running tests..."
@@ -58,7 +63,8 @@ fmt: ## Run go fmt
 
 bench: ## Run benchmarks
 	@echo "Running benchmarks..."
-	${GO} test -benchmem -run=^$$ -bench ^BenchmarkProcessor$$ github.com/fran150/clementina6502/tests -cpuprofile ${BENCH_FILE}
+	@mkdir -p ${PROFILES_DIR}
+	${GO} test -benchmem -run=^$$ -bench ${BENCH_TESTS}$$ ${BENCH_PACKAGE} -cpuprofile ${BENCH_FILE}
 
 profile: bench ## Run profiler UI (requires bench first)
 	@echo "Starting profiler UI..."

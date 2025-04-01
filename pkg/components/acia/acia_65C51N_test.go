@@ -246,7 +246,9 @@ func TestWriteToTX(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	const data string = "Hello World!!!"
 
@@ -270,7 +272,9 @@ func TestWriteToTXWithCTSDisabled(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	const data string = "Hello World!!!"
 
@@ -298,7 +302,9 @@ func TestProgrammedReset(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	// Set all 1s (where possible) in the control and command registers
 	writeToAcia(acia, circuit, 0x02, 0xDF, &step)
@@ -326,7 +332,9 @@ func TestWriteToCommandRegister(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	writeToAcia(acia, circuit, 0x02, 0xDF, &step)
 
@@ -341,7 +349,9 @@ func TestWriteToControlRegister(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	writeToAcia(acia, circuit, 0x03, 0xFF, &step)
 
@@ -356,7 +366,9 @@ func TestWriteToControlConfiguresCorrectStopBit(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	type testConfig struct {
 		value            uint8
@@ -393,7 +405,9 @@ func TestPanicForInvalidModesFor65C51N(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	// Enabling TRDE will result in panic
 	assert.Panics(t, func() {
@@ -419,7 +433,9 @@ func TestReadFromRxPollingStatusRegister(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	const data string = "Hello World!!!"
 	var read []uint8
@@ -477,7 +493,9 @@ func TestReadFromRxUsingIRQ(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	const data string = "Hello World!!!"
 	var read []uint8
@@ -539,7 +557,9 @@ func TestReadFromRxUsingIRQAndReceiverEchoModeEnabled(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	const data string = "Hello World!!!"
 	var read []uint8
@@ -601,7 +621,9 @@ func TestReadFromRxOverrunning(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	const data string = "Hello World!!!"
 	var read []uint8
@@ -633,7 +655,9 @@ func TestReadFromStatusRegister(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	// Internally force the register to 0xFF and read
 	acia.statusRegister = 0xFF
@@ -650,7 +674,9 @@ func TestReadFromCommandRegister(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	// Internally force the register to 0xDF and read
 	acia.commandRegister = 0xDF
@@ -667,7 +693,9 @@ func TestReadFromControlRegister(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	// Internally force the register to 0xFF and read
 	acia.controlRegister = 0xFF
@@ -688,7 +716,9 @@ func TestHardwareReset(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	writeToAcia(acia, circuit, 0x02, 0xDF, &step)
 	writeToAcia(acia, circuit, 0x03, 0xFF, &step)
@@ -721,7 +751,9 @@ func TestInterruptFromModemLines(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	// Check that DSR and DCD status registers are 0 after initialization
 	status := readFromAcia(acia, circuit, 0x01, &step)
@@ -754,7 +786,9 @@ func TestCPUControlledLinesToModem(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	assert.Equal(t, false, mock.rts)
 	assert.Equal(t, false, mock.dtr)
@@ -771,7 +805,9 @@ func TestCTSStatusWhenNotConnected(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	// CTS is considered ready when there is an error reading the status. This if to support tesing using SOCAT
 	// or tool that don't handle the lines.
@@ -807,7 +843,9 @@ func TestPanicsWhenFailsToSetDTRandRTS(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	mock.makeCallsFailFrom = failInSetDTR
 
@@ -829,7 +867,9 @@ func TestReturnsFalseWhenFailsToGetModemStatusLines(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	// First set mock values to true
 	mock.status.DCD = true
@@ -849,7 +889,9 @@ func TestPanicsWhenPollerFailsToRead(t *testing.T) {
 	acia, circuit, mock := newTestCircuit()
 	mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	// Calls close on the acia to make go functions
 	// stop
@@ -867,7 +909,9 @@ func TestPanicsWhenPollerFailsToWrite(t *testing.T) {
 	acia, circuit, mock := newTestCircuit()
 	mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	// Calls close on the acia to make go functions
 	// stop
@@ -888,7 +932,9 @@ func TestPanicsWhenFailsToSetModeWhenChangingControlRegister(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	circuit.wire(acia, mock)
+	if err := circuit.wire(acia, mock); err != nil {
+		t.Fatal(err)
+	}
 
 	mock.makeCallsFailFrom = failInSetMode
 

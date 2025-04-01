@@ -133,7 +133,9 @@ func BenchmarkProcessor(b *testing.B) {
 	processor, ram := NewComputer()
 
 	// Loads Klaus2m5 functional tests. See repository mentioned above for reference
-	ram.Load("../tests/6502_functional_test.bin")
+	if err := ram.Load("../tests/6502_functional_test.bin"); err != nil {
+		b.Error(err)
+	}
 
 	// Functional Tests starts at $0400
 	processor.ForceProgramCounter(0x0400)

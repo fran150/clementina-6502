@@ -184,7 +184,9 @@ func NewBenEaterComputer(portName string, emulateModemLines bool) (*BenEaterComp
 	chips.nand.YPin(2).Connect(circuit.u4bOut)
 
 	if circuit.serial != nil {
-		chips.acia.ConnectToPort(circuit.serial)
+		if err := chips.acia.ConnectToPort(circuit.serial); err != nil {
+			return nil, err
+		}
 	}
 
 	return &BenEaterComputer{
@@ -317,9 +319,6 @@ func (c *BenEaterComputer) KeyPressed(event *tcell.EventKey, context *common.Ste
 
 func (c *BenEaterComputer) Close() {
 	c.chips.acia.Close()
-	if c.circuit.serial != nil {
-		c.circuit.serial.Close()
-	}
 }
 
 func (c *BenEaterComputer) getPotentialOperators(programCounter uint16) [2]uint8 {

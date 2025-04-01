@@ -24,7 +24,9 @@ func TestLcdControllerWindow_Clear(t *testing.T) {
 	window := NewLcdWindow(mockLcd)
 
 	// Write some content first
-	window.text.Write([]byte("Test content"))
+	if _, err := window.text.Write([]byte("Test content")); err != nil {
+		t.Fatalf("Failed to write to window: %v", err)
+	}
 	assert.NotEmpty(t, window.text.GetText(true))
 
 	// Clear the window

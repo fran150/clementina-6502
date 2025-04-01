@@ -143,7 +143,9 @@ func (ram *Ram) Load(binFilePath string) error {
 
 	if size <= int64(len(ram.values)) {
 		bufr := bufio.NewReader(file)
-		bufr.Read(ram.values[:])
+		if _, err := bufr.Read(ram.values[:]); err != nil {
+			return err
+		}
 	} else {
 		return fmt.Errorf("the file %s is too large for this ram memory (file size: %v, ram size: %v)", binFilePath, size, len(ram.values))
 	}

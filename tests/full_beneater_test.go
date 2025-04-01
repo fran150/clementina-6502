@@ -10,7 +10,9 @@ import (
 
 func BenchmarkComputer(b *testing.B) {
 	computer, _ := beneater.NewBenEaterComputer("/dev/ttys004", false)
-	computer.LoadRom("../assets/computer/beneater/eater.bin")
+	if err := computer.LoadRom("../assets/computer/beneater/eater.bin"); err != nil {
+		b.Fatal(err)
+	}
 
 	context := common.NewStepContext()
 
