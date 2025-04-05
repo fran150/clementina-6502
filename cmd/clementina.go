@@ -63,7 +63,11 @@ func runEmulator(cmd *cobra.Command, args []string) {
 	app := terminal.NewApplication(computer, &config)
 	t := time.Now()
 
-	context := app.Run()
+	context, err := app.Run()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error running application: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Print statistics
 	elapsed := time.Since(t)

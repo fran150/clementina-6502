@@ -73,7 +73,7 @@ func TestApplicationRun(t *testing.T) {
 	// Run the application in a goroutine
 	go func() {
 		close(started)
-		context := app.Run()
+		context, _ := app.Run()
 		assert.NotNil(t, context)
 		close(done)
 	}()
@@ -110,4 +110,55 @@ func TestApplicationRun(t *testing.T) {
 	// Verify that all expected methods were called
 	assert.True(t, mockComputer.tickCalled)
 	assert.True(t, mockComputer.drawCalled)
+}
+
+func TestApplicationStopOnKeyPress(t *testing.T) {
+	mockComputer := NewMockComputer()
+	app := NewApplication(mockComputer, nil)
+
+	// Create a simulation screen
+	screen := tcell.NewSimulationScreen("")
+	err := screen.Init()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Set the screen for the tview application
+	app.tvApp.SetScreen(screen)
+
+	// Create channels for synchronization
+	done := make(chan struct{})
+	started := make(chan struct{})
+
+	// Run the application in a goroutine
+	go func() {
+		close(started)
+		context, _ := app.Run()
+		assert.NotNil(t, context)
+		close(done)
+	}()
+
+	// Wait for the application to start
+	<-started
+	time.Sleep(100 * time.Millisecond)
+
+	// Queue updates in the main thread
+	go func() {
+		// Set shouldStop before injecting key press
+		mockComputer.shouldStop = true
+
+		// Simulate a key press - this should trigger the stop condition
+		screen.InjectKey(tcell.KeyRune, 'a', tcell.ModNone)
+	}()
+
+	// Wait for the application to stop with timeout
+	select {
+	case <-done:
+		// Success
+	case <-time.After(5 * time.Second):
+		t.Fatal("Test timed out")
+	}
+
+	// Verify that key press was handled
+	assert.True(t, mockComputer.keyPressed)
 }

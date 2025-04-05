@@ -36,7 +36,7 @@ func NewApplication(computer Computer, config *ApplicationConfig) *Application {
 	}
 }
 
-func (a *Application) Run() *common.StepContext {
+func (a *Application) Run() (*common.StepContext, error) {
 	a.computer.Init(a.tvApp, a.config)
 
 	context := a.executor.Start(computers.EmulationLoopHandlers{
@@ -64,8 +64,8 @@ func (a *Application) Run() *common.StepContext {
 	})
 
 	if err := a.tvApp.Run(); err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return context
+	return context, nil
 }
