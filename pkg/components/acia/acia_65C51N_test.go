@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fran150/clementina6502/internal/testutils"
 	"github.com/fran150/clementina6502/pkg/common"
 	"github.com/fran150/clementina6502/pkg/components/buses"
-	"github.com/fran150/clementina6502/pkg/testutils"
 	"github.com/stretchr/testify/assert"
 	"go.bug.st/serial"
 )
