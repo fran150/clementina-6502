@@ -9,6 +9,7 @@ import (
 	"github.com/fran150/clementina6502/pkg/computers/beneater"
 	"github.com/fran150/clementina6502/pkg/terminal"
 	"github.com/spf13/cobra"
+	"go.bug.st/serial"
 )
 
 var (
@@ -36,8 +37,25 @@ func init() {
 }
 
 func runEmulator(cmd *cobra.Command, args []string) {
+	var port serial.Port
+
+	if serialPort != "" {
+		var err error
+
+		port, err = serial.Open(serialPort, &serial.Mode{
+			BaudRate: 19200,
+			DataBits: 8,
+			Parity:   serial.NoParity,
+			StopBits: serial.OneStopBit,
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating port: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
 	// Create the computer instance
-	computer, err := beneater.NewBenEaterComputer(serialPort, emulateModemLines)
+	computer, err := beneater.NewBenEaterComputer(port, emulateModemLines)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
 		os.Exit(1)

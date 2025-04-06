@@ -23,7 +23,7 @@ func NewBreakPointForm() *BreakPointForm {
 
 	form := tview.NewForm().
 		AddInputField("Address", "", 5, validateHexInput, nil).
-		AddButton("Add", breakPointForm.addBreakpointAddress).
+		AddButton("Add", breakPointForm.AddSelectedBreakpointAddress).
 		SetFocus(0)
 
 	form.SetBorder(true).SetTitle("Add a new breakpoint")
@@ -52,9 +52,13 @@ func (d *BreakPointForm) RemoveSelectedItem(context *common.StepContext) {
 
 	current := d.list.GetCurrentItem()
 
-	d.breakpointAddresses = slicesext.SliceRemove(d.breakpointAddresses, current)
+	d.RemoveBreakpointAddress(current)
+}
 
-	d.list.RemoveItem(current)
+func (d *BreakPointForm) RemoveBreakpointAddress(index int) {
+	d.breakpointAddresses = slicesext.SliceRemove(d.breakpointAddresses, index)
+
+	d.list.RemoveItem(index)
 }
 
 func (d *BreakPointForm) CheckBreakpoint(address uint16) bool {
@@ -67,9 +71,7 @@ func (d *BreakPointForm) CheckBreakpoint(address uint16) bool {
 	return false
 }
 
-func (d *BreakPointForm) addBreakpointAddress() {
-	input := d.form.GetFormItemByLabel("Address").(*tview.InputField)
-	text := input.GetText()
+func (d *BreakPointForm) AddBreakpointAddress(text string) {
 	text = strings.ToUpper(text)
 
 	value, err := strconv.ParseUint(text, 16, 16)
@@ -82,6 +84,13 @@ func (d *BreakPointForm) addBreakpointAddress() {
 	text = fmt.Sprintf("$%04s", text)
 
 	d.list.AddItem(text, "", ' ', nil)
+}
+
+func (d *BreakPointForm) AddSelectedBreakpointAddress() {
+	input := d.form.GetFormItemByLabel("Address").(*tview.InputField)
+	text := input.GetText()
+
+	d.AddBreakpointAddress(text)
 
 	input.SetText("")
 }

@@ -56,23 +56,7 @@ type BenEaterComputer struct {
 	step  bool
 }
 
-func NewBenEaterComputer(portName string, emulateModemLines bool) (*BenEaterComputer, error) {
-	var port serial.Port = nil
-
-	if portName != "" {
-		var err error
-
-		port, err = serial.Open(portName, &serial.Mode{
-			BaudRate: 115200,
-			DataBits: 8,
-			Parity:   serial.NoParity,
-			StopBits: serial.OneStopBit,
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-
+func NewBenEaterComputer(port serial.Port, emulateModemLines bool) (*BenEaterComputer, error) {
 	chips := &chips{
 		cpu:  cpu.NewCpu65C02S(),
 		ram:  memory.NewRamWithLessPins(memory.RAM_SIZE_32K, 0x7FFF),

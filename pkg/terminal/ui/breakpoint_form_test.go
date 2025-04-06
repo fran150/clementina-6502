@@ -128,12 +128,12 @@ func TestAddBreakpointAddress(t *testing.T) {
 
 			if tt.shouldPanic {
 				assert.Panics(t, func() {
-					form.addBreakpointAddress()
+					form.AddSelectedBreakpointAddress()
 				}, "Expected panic for invalid hex value")
 				return
 			}
 
-			form.addBreakpointAddress()
+			form.AddSelectedBreakpointAddress()
 
 			// Check if breakpoint was added to the addresses slice
 			lastAddr := form.breakpointAddresses[len(form.breakpointAddresses)-1]
