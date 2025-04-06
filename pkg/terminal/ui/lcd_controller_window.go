@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/fran150/clementina6502/pkg/common"
-	"github.com/fran150/clementina6502/pkg/components"
-	"github.com/fran150/clementina6502/pkg/components/lcd"
+	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components"
+	"github.com/fran150/clementina-6502/pkg/components/lcd"
 	"github.com/rivo/tview"
 )
 

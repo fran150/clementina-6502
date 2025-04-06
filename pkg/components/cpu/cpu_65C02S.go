@@ -3,8 +3,8 @@ package cpu
 import (
 	"slices"
 
-	"github.com/fran150/clementina6502/pkg/common"
-	"github.com/fran150/clementina6502/pkg/components/buses"
+	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components/buses"
 )
 
 var addressModeSet *AddressModeSet = NewAddressModesSet()

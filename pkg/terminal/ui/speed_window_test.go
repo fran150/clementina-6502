@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fran150/clementina6502/pkg/common"
-	"github.com/fran150/clementina6502/pkg/computers"
+	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -3,7 +3,7 @@ package via
 import (
 	"math"
 
-	"github.com/fran150/clementina6502/pkg/components/buses"
+	"github.com/fran150/clementina-6502/pkg/components/buses"
 )
 
 // Contains values that allows to configure the port behavior. This allows to use the same

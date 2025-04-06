@@ -3,7 +3,7 @@ package testutils
 import (
 	"time"
 
-	"github.com/fran150/clementina6502/internal/queue"
+	"github.com/fran150/clementina-6502/internal/queue"
 	"go.bug.st/serial"
 )
 

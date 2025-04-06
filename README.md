@@ -90,7 +90,7 @@ socat -d -d pty,raw,echo=0 pty,raw,echo=0
 For profiling the CPU I'm using
 
 ```
-go test -benchmem -run=^$ -bench ^BenchmarkProcessor$ github.com/fran150/clementina6502/tests -cpuprofile clementina6502.prof
+go test -benchmem -run=^$ -bench ^BenchmarkProcessor$ github.com/fran150/clementina-6502/tests -cpuprofile clementina6502.prof
 ```
 
 and then:

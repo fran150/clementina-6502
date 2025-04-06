@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fran150/clementina6502/pkg/common"
-	"github.com/fran150/clementina6502/pkg/components/buses"
-	"github.com/fran150/clementina6502/pkg/components/lcd"
+	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components/buses"
+	"github.com/fran150/clementina-6502/pkg/components/lcd"
 	"github.com/rivo/tview"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

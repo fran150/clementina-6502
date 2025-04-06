@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fran150/clementina6502/pkg/common"
-	"github.com/fran150/clementina6502/pkg/components/buses"
-	"github.com/fran150/clementina6502/pkg/components/cpu"
-	"github.com/fran150/clementina6502/pkg/components/memory"
+	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components/buses"
+	"github.com/fran150/clementina-6502/pkg/components/cpu"
+	"github.com/fran150/clementina-6502/pkg/components/memory"
 )
 
 /******************************************************************************************************

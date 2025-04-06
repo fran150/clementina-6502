@@ -5,9 +5,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/fran150/clementina6502/pkg/computers"
-	"github.com/fran150/clementina6502/pkg/computers/beneater"
-	"github.com/fran150/clementina6502/pkg/terminal"
+	"github.com/fran150/clementina-6502/pkg/computers"
+	"github.com/fran150/clementina-6502/pkg/computers/beneater"
+	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/spf13/cobra"
 	"go.bug.st/serial"
 )

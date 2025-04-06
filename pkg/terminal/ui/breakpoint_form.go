@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fran150/clementina6502/internal/slicesext"
-	"github.com/fran150/clementina6502/pkg/common"
+	"github.com/fran150/clementina-6502/internal/slicesext"
+	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/rivo/tview"
 )
 

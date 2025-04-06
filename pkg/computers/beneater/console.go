@@ -1,10 +1,10 @@
 package beneater
 
 import (
-	"github.com/fran150/clementina6502/internal/slicesext"
-	"github.com/fran150/clementina6502/pkg/common"
-	"github.com/fran150/clementina6502/pkg/terminal"
-	"github.com/fran150/clementina6502/pkg/terminal/ui"
+	"github.com/fran150/clementina-6502/internal/slicesext"
+	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/terminal"
+	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/rivo/tview"
 )
 

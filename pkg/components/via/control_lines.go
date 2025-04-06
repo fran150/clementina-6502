@@ -1,6 +1,6 @@
 package via
 
-import "github.com/fran150/clementina6502/pkg/components/buses"
+import "github.com/fran150/clementina-6502/pkg/components/buses"
 
 // Mask to use on the PCR (peripheral control register) to configure control lines CA and CB.
 type viaControlLineConfiguration struct {

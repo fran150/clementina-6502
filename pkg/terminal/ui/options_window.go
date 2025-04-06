@@ -3,7 +3,7 @@ package ui
 import (
 	"fmt"
 
-	"github.com/fran150/clementina6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )

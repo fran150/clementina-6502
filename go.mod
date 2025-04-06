@@ -1,4 +1,4 @@
-module github.com/fran150/clementina6502
+module github.com/fran150/clementina-6502
 
 go 1.22.4
 

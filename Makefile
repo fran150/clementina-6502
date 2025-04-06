@@ -15,7 +15,7 @@ LDFLAGS=-ldflags "-X main.Version=${VERSION} -X main.Commit=${COMMIT} -X main.Bu
 COVERAGE_DIR=${TEST_DIR}/coverage
 PROFILES_DIR=${TEST_DIR}/profiles
 BENCH_FILE=${PROFILES_DIR}/clementina6502.prof
-BENCH_PACKAGE=github.com/fran150/clementina6502/tests
+BENCH_PACKAGE=github.com/fran150/clementina-6502/tests
 BENCH_TESTS=^BenchmarkProcessor
 
 

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fran150/clementina6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/stretchr/testify/assert"

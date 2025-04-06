@@ -5,8 +5,8 @@ import (
 	"testing"
 	"unicode"
 
-	"github.com/fran150/clementina6502/pkg/common"
-	"github.com/fran150/clementina6502/pkg/components/memory"
+	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components/memory"
 )
 
 func runInstructionTest(cpu *Cpu65C02S, ram *memory.Ram, cycles uint64) {
