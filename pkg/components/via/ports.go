@@ -50,7 +50,7 @@ func newViaPort(via *Via65C22S, config *viaPortConfiguration) *viaPort {
 	}
 }
 
-// Returns the refernece to the bus connector used to represent the port
+// Returns the reference to the bus connector used to represent the port
 func (port *viaPort) getConnector() *buses.BusConnector[uint8] {
 	return port.connector
 }

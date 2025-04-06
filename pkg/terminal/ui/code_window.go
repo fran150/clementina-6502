@@ -72,7 +72,7 @@ func showCurrentInstruction(programCounter uint16, instruction *cpu.CpuInstructi
 		// Get the operator value
 		value := uint16(potentialOperands[0])
 
-		// If bit 7 is set then we will perform substraction by using 2's component
+		// If bit 7 is set then we will perform subtraction by using 2's component
 		if value&0x80 == 0x80 {
 			value |= 0xFF00
 		}

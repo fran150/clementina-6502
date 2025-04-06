@@ -39,7 +39,7 @@ func newViaControlLines(via *Via65C22S, config *viaControlLineConfiguration) *vi
 	}
 }
 
-// Gets the refernece to the specified line
+// Gets the reference to the specified line
 func (cl *viaControlLines) getLine(num int) *buses.ConnectorEnabledHigh {
 	if num < len(cl.lines) {
 		return cl.lines[num]

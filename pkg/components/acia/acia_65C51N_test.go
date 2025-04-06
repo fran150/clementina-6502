@@ -359,7 +359,7 @@ func TestWriteToControlRegister(t *testing.T) {
 	assert.Equal(t, uint8(0xFF), acia.controlRegister)
 }
 
-// Selected stop bits depends on configuraiton of the stop bits and word length
+// Selected stop bits depends on configuration of the stop bits and word length
 func TestWriteToControlConfiguresCorrectStopBit(t *testing.T) {
 	var step common.StepContext
 

@@ -55,7 +55,7 @@ const (
 	pcrMaskCBOutputMode viaPCROutputMasks = 0xE0 // Mask to control output modes for CB lines
 )
 
-// All the diferent modes that output for control lines can be configured.
+// All the different modes that output for control lines can be configured.
 // This are used with the corresponding viaPCROutputMasks to set the PCR values
 type viaPCROutputModes uint8
 

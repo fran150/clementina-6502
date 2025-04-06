@@ -16,7 +16,7 @@ const (
 	viaShiftInT2        viaShiftRegisterModes = 0x04 // Shift in using timer 2 as clock
 	viaShiftInClock     viaShiftRegisterModes = 0x08 // Shift in using internal clock
 	viaShiftInExternal  viaShiftRegisterModes = 0xC  // Shift in using external clock (signals are received through control lines)
-	viaShiftOutFree     viaShiftRegisterModes = 0x10 // Similar to shift using t2 but keeps shifting continuosly
+	viaShiftOutFree     viaShiftRegisterModes = 0x10 // Similar to shift using t2 but keeps shifting continuously
 	viaShiftOutT2       viaShiftRegisterModes = 0x14 // Shift out using timer 2 as clock
 	viaShiftOutClock    viaShiftRegisterModes = 0x18 // Shift out using internal clock
 	viaShiftOutExternal viaShiftRegisterModes = 0x1C // Shift out using external clock (signals are receive through control lines)
@@ -43,8 +43,8 @@ type viaShifter struct {
 	configuration *viaShifterConfiguration // Configuration of the shift register
 
 	auxiliaryControlRegister *uint8  // Reference to chip's ACR
-	shiftRegister            *uint8  // Referemce to the chip's SR
-	interrupts               *viaIFR // Refernce to the chip's IFR
+	shiftRegister            *uint8  // Reference to the chip's SR
+	interrupts               *viaIFR // Reference to the chip's IFR
 }
 
 // Creates a shifter and attaches it to the specified chip

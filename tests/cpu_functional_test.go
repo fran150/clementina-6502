@@ -99,7 +99,7 @@ func verifyAndCountRepeats(processor *cpu.Cpu65C02S) bool {
 
 // Validates the status of the processor when the test finish and fails the test if required.
 func showFinishCondition(processor *cpu.Cpu65C02S, context *common.StepContext, b *testing.B, elapsed time.Duration) {
-	// If processor is trapped in SUCCESS_PC_VALUE, this means that the tests were completed successfullly
+	// If processor is trapped in SUCCESS_PC_VALUE, this means that the tests were completed successfully
 	// Otherwise this is an error condition and must fail the tests
 	if processor.GetProgramCounter() != successPcValue {
 		b.Errorf("Possible ERROR trap found with PC in %04X", processor.GetProgramCounter())

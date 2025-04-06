@@ -237,7 +237,7 @@ func actionCLV(cpu *Cpu65C02S) {
 // This instruction compares the contents of the accumulator with another memory held value and sets the
 // zero and carry flags as appropriate.
 func actionCMP(cpu *Cpu65C02S) {
-	// We will use the substract instruction to make the comparison and set the appropriate flags
+	// We will use the subtract instruction to make the comparison and set the appropriate flags
 	// before that we store the current status of affected registers and flags.
 	tempA := cpu.accumulatorRegister
 	tempV := cpu.processorStatusRegister.Flag(OverflowFlagBit)

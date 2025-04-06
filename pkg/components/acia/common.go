@@ -1,6 +1,6 @@
 package acia
 
-// Returns if the bit is enabled on the recrod
+// Returns if the bit is enabled on the record
 func isBitSet(register uint8, bit uint8) bool {
 	return (register & bit) == bit
 }

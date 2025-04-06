@@ -45,7 +45,7 @@ const (
 	regT2CH              viaRegisterCode = 0x09 // Timer 2 high counter
 	regSR                viaRegisterCode = 0x0A // Shift Register
 	regACR               viaRegisterCode = 0x0B // Auxiliary control register
-	regPCR               viaRegisterCode = 0x0C // Peripherial control register
+	regPCR               viaRegisterCode = 0x0C // Peripheral control register
 	regIFR               viaRegisterCode = 0x0D // Interrupt Flags Register
 	regIER               viaRegisterCode = 0x0E // Interrupt Enable Register
 	regORAIRANoHandshake viaRegisterCode = 0x0F // Read / Write ORA / IRA without triggering handshake
@@ -272,14 +272,14 @@ func (via *Via65C22S) populateRegisterWriteHandlers() {
 * Pin Getters / Setters
 *************************************************************************************/
 
-// Retuns a reference to the specified peripherial control line A (CA1 and CA2).
+// Returns a reference to the specified peripheral control line A (CA1 and CA2).
 // Line is zero based so CA1 is 0 and CA2 is 1
 // Returns nil if an invalid line number is specified
 func (via *Via65C22S) PeripheralAControlLines(num int) *buses.ConnectorEnabledHigh {
 	return via.controlLinesA.getLine(num)
 }
 
-// Retuns a reference to the specified peripherial control line B (CB1 and CB2).
+// Returns a reference to the specified peripheral control line B (CB1 and CB2).
 // Line is zero based so CB1 is 0 and CB2 is 1
 // Returns nil if an invalid line number is specified
 func (via *Via65C22S) PeripheralBControlLines(num int) *buses.ConnectorEnabledHigh {

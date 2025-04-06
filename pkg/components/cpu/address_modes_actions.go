@@ -21,9 +21,9 @@ type cyclePostAction func(cpu *Cpu65C02S)
 // During the execution of an instruction the CPU signals is internal status through 3 lines
 // that are set on specific cycles of certain combinations of address modes and execution types.
 // The memory lock line is set on the last 3 steps of RMW instructions and can be used to lock
-// memory updates to ensure consitency on the value being updated.
+// memory updates to ensure consistency on the value being updated.
 // The sync line is set when the processor is reading memory looking for the next opCode,
-// it allows to detect the begining of a new instruction.
+// it allows to detect the beginning of a new instruction.
 // The vector pull line is set when the processor is reading the iterrupt vector on $FFFX, this
 // allow external hardware to customize the response and have multiple interrupt handlers depending
 // on the interrput source.
@@ -342,7 +342,7 @@ func intoInstructionRegisterMSB(performAction bool) cyclePostAction {
 
 // Copies the value in the data bus to the processor status register.
 // This is typically used when restoring the status from the stack after
-// an interruption but it can be also triggered manual for exmaple with PLP
+// an interruption but it can be also triggered manual for example with PLP
 func intoStatusRegister() cyclePostAction {
 	return func(cpu *Cpu65C02S) {
 		cpu.processorStatusRegister.SetValue(cpu.dataBus.Read())

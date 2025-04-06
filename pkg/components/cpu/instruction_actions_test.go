@@ -39,7 +39,7 @@ func evaluateAddress(t *testing.T, cpu *Cpu65C02S, ram *memory.Ram, address uint
 		instruction := instructionSet.GetByOpCode(cpu.currentOpCode)
 		addressMode := addressModeSet.GetByName(instruction.addressMode)
 
-		t.Errorf("%s - %s - Current value (%02X) of addres %04X doesnt match the expected value of (%02X)", instruction.Mnemonic(), addressMode.Text(), value, address, expected)
+		t.Errorf("%s - %s - Current value (%02X) of address %04X doesnt match the expected value of (%02X)", instruction.Mnemonic(), addressMode.Text(), value, address, expected)
 	}
 }
 

@@ -18,12 +18,12 @@ const numOfRSLines uint8 = 2
 
 // Status register bits
 const (
-	statusIRQ          uint8 = 0x80 // Interrupt has ocurred (IRQ)
+	statusIRQ          uint8 = 0x80 // Interrupt has occurred (IRQ)
 	statusDSR          uint8 = 0x40 // Data set ready
 	statusDCD          uint8 = 0x20 // Data carrier detect
 	statusTDRE         uint8 = 0x10 // Transmitter data register empty (always 1 in 65C51N)
 	statusRDRF         uint8 = 0x08 // Receiver data register full
-	statusOverrun      uint8 = 0x04 // Overrun has ocurred
+	statusOverrun      uint8 = 0x04 // Overrun has occurred
 	statusFramingError uint8 = 0x02 // Framing error has ocurrer
 	statusParityError  uint8 = 0x01 // Parity error detected
 )
@@ -163,7 +163,7 @@ func NewAcia65C51N(emulateModemLines bool) *Acia65C51N {
 
 // Connects the ACIA chip to the specified serial port.
 // The port must be open and it's mode will be reconfigured according with the register
-// values withing the ACIA chip
+// values within the ACIA chip
 func (acia *Acia65C51N) ConnectToPort(port serial.Port) error {
 	acia.port = port
 
@@ -472,7 +472,7 @@ func (acia *Acia65C51N) getBaudRate() int {
 	return baudRate[(acia.controlRegister & controlBaudMask)]
 }
 
-// Returns the the word lenght (or number of data bits) based on the chip configuration
+// Returns the the word length (or number of data bits) based on the chip configuration
 func (acia *Acia65C51N) getWordLength() int {
 	return int(8 - ((acia.controlRegister & controlWordLengthMask) >> 5))
 }
