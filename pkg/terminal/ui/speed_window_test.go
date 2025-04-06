@@ -144,13 +144,13 @@ func TestSpeedWindow_ShowConfig(t *testing.T) {
 
 	// Test showing config
 	sw.ShowConfig(context)
-	assert.True(t, sw.showConfig)
+	assert.True(t, sw.IsConfigVisible())
 	assert.Equal(t, context.T, sw.showConfigStart)
 
 	// Draw should show target speed
 	sw.Draw(context)
 	// Config should still be shown (less than 3 seconds)
-	assert.True(t, sw.showConfig)
+	assert.True(t, sw.IsConfigVisible())
 
 	// Test config timeout
 	newContext := &common.StepContext{
@@ -159,7 +159,7 @@ func TestSpeedWindow_ShowConfig(t *testing.T) {
 	}
 	sw.Draw(newContext)
 	// Config should be hidden after 3 seconds
-	assert.False(t, sw.showConfig)
+	assert.False(t, sw.IsConfigVisible())
 }
 
 func TestSpeedWindow_DrawModes(t *testing.T) {
@@ -212,9 +212,9 @@ func TestSpeedWindow_DrawModes(t *testing.T) {
 			sw.Draw(context)
 
 			if tt.shouldHide {
-				assert.False(t, sw.showConfig)
+				assert.False(t, sw.IsConfigVisible())
 			} else {
-				assert.Equal(t, tt.showConfig, sw.showConfig)
+				assert.Equal(t, tt.showConfig, sw.IsConfigVisible())
 			}
 		})
 	}

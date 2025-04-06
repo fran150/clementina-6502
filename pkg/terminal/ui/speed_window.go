@@ -34,6 +34,10 @@ func NewSpeedWindow(config *computers.EmulationLoopConfig) *SpeedWindow {
 	}
 }
 
+func (s *SpeedWindow) IsConfigVisible() bool {
+	return s.showConfig
+}
+
 func (s *SpeedWindow) Clear() {
 	s.text.Clear()
 }

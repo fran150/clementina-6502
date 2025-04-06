@@ -40,6 +40,10 @@ func (m *MemoryWindow) SetTitle(title string) {
 	m.text.SetTitle(title)
 }
 
+func (m *MemoryWindow) GetStartAddress() uint16 {
+	return m.start
+}
+
 func (m *MemoryWindow) Clear() {
 	m.text.Clear()
 }

@@ -96,7 +96,7 @@ func TestNewMemoryWindow(t *testing.T) {
 
 	assert.NotNil(t, window)
 	assert.Equal(t, "Memory Explorer", window.GetTitle())
-	assert.Equal(t, uint16(0), window.start)
+	assert.Equal(t, uint16(0), window.GetStartAddress())
 }
 
 func TestMemoryWindowSetTitle(t *testing.T) {
@@ -128,7 +128,7 @@ func TestMemoryWindowScrollDown(t *testing.T) {
 			window.start = tt.start
 
 			window.ScrollDown(tt.lines)
-			assert.Equal(t, tt.expected, window.start)
+			assert.Equal(t, tt.expected, window.GetStartAddress())
 		})
 	}
 }
@@ -154,7 +154,7 @@ func TestMemoryWindowScrollUp(t *testing.T) {
 			window.start = tt.start
 
 			window.ScrollUp(tt.lines)
-			assert.Equal(t, tt.expected, window.start)
+			assert.Equal(t, tt.expected, window.GetStartAddress())
 		})
 	}
 }
