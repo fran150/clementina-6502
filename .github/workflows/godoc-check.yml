@@ -1,0 +1,48 @@
+name: GoDoc Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  godoc:
+    name: Check GoDoc
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Check for undocumented exported symbols
+        run: make check-docs
+      
+      - name: Install godoc
+        run: go install golang.org/x/tools/cmd/godoc@latest
+
+      - name: Generate and check godoc
+        run: |
+          # Start godoc server in background
+          godoc -http=:8080 &
+          PID=$!
+          
+          # Wait for server to start
+          sleep 5
+          
+          # Check if documentation is generated without errors
+          response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/pkg/github.com/fran150/clementina-6502/)
+          
+          # Kill godoc server
+          kill $PID
+          
+          if [ "$response" != "200" ]; then
+            echo "❌ Failed to generate documentation"
+            exit 1
+          else
+            echo "✅ Documentation generated successfully"
+          fi

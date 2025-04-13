@@ -3,6 +3,8 @@ BINARY_NAME=clementina
 MAIN_PACKAGE=./cmd/clementina.go
 GO=go
 
+.PHONY: all build build-all release clean test coverage lint vet fmt bench profile check-docs godoc-serve
+
 # Build variables
 BUILD_DIR=build/bin
 TEST_DIR=tests
@@ -124,6 +126,19 @@ lint: ## Run linter
 		exit 1; \
 	fi
 
+check-docs: ## Check for undocumented exported symbols
+	@echo "Checking documentation..."
+	@./scripts/check-docs.sh
+
+godoc-serve: ## Start a local godoc server
+	@echo "Starting godoc server at http://localhost:6060/pkg/github.com/fran150/clementina-6502/"
+	@if command -v godoc >/dev/null; then \
+		godoc -http=:6060; \
+	else \
+		echo "godoc is not installed. Installing..."; \
+		go install golang.org/x/tools/cmd/godoc@latest; \
+		godoc -http=:6060; \
+	fi
 vet: ## Run go vet
 	@echo "Running go vet..."
 	${GO} vet ./...
