@@ -201,8 +201,11 @@ func evaluateRegister[U uint8 | uint16](cycle int, registerValue U, stepValue U,
 
 // Iterates over the specified steps comparting the status of the CPU with the expected values.
 func runTest(cpu *Cpu65C02S, ram *memory.Ram, steps []addressModeTestData, t *testing.T) {
-	t.Logf("Cycle \t Addr \t Data \t R/W \t PC \t A \t X \t Y \t SP \t Flags \n")
-	t.Logf("---- \t ---- \t ---- \t ---- \t ---- \t -- \t -- \t -- \t -- \t ----- \n")
+	// Only log detailed execution information when verbose testing is enabled
+	if testing.Verbose() {
+		t.Logf("Cycle \t Addr \t Data \t R/W \t PC \t A \t X \t Y \t SP \t Flags \n")
+		t.Logf("---- \t ---- \t ---- \t ---- \t ---- \t -- \t -- \t -- \t -- \t ----- \n")
+	}
 
 	context := common.NewStepContext()
 
@@ -215,7 +218,13 @@ func runTest(cpu *Cpu65C02S, ram *memory.Ram, steps []addressModeTestData, t *te
 
 		cpu.PostTick(&context)
 
-		t.Logf("%v \t %04X \t %02X \t %v \t %04X \t %02X \t %02X \t %02X \t %02X \t %08b \n", cycle, cpu.addressBus.Read(), cpu.dataBus.Read(), cpu.readWrite.GetLine().Status(), cpu.programCounter, cpu.accumulatorRegister, cpu.xRegister, cpu.yRegister, cpu.stackPointer, cpu.processorStatusRegister.ReadValue())
+		// Only log detailed execution information when verbose testing is enabled
+		if testing.Verbose() {
+			t.Logf("%v \t %04X \t %02X \t %v \t %04X \t %02X \t %02X \t %02X \t %02X \t %08b \n", 
+				cycle, cpu.addressBus.Read(), cpu.dataBus.Read(), cpu.readWrite.GetLine().Status(), 
+				cpu.programCounter, cpu.accumulatorRegister, cpu.xRegister, cpu.yRegister, 
+				cpu.stackPointer, cpu.processorStatusRegister.ReadValue())
+		}
 
 		evaluateCycle(cycle, cpu, &step, t)
 
@@ -229,9 +238,11 @@ func runTest(cpu *Cpu65C02S, ram *memory.Ram, steps []addressModeTestData, t *te
 // halts the CPU leaving the address bus in the last status. When the processor halts during WAI and STP
 // instructions, it pulls this line to disable
 func runTestWithInterrupts(cpu *Cpu65C02S, ram *memory.Ram, irqLine *buses.StandaloneLine, nmiLine *buses.StandaloneLine, resetLine *buses.StandaloneLine, readyLine *buses.StandaloneLine, steps []addressModeTestDataWithControlLines, t *testing.T) {
-	t.Logf("Cycle \t Addr \t Data \t R/W \t PC \t A \t X \t Y \t SP \t Flags \n")
-	t.Logf("---- \t ---- \t ---- \t ---- \t ---- \t -- \t -- \t -- \t -- \t ----- \n")
-
+	// Only log detailed execution information when verbose testing is enabled
+	if testing.Verbose() {
+		t.Logf("Cycle \t Addr \t Data \t R/W \t PC \t A \t X \t Y \t SP \t Flags \t IRQ \t NMI \t RST \t RDY \n")
+		t.Logf("---- \t ---- \t ---- \t ---- \t ---- \t -- \t -- \t -- \t -- \t ----- \t --- \t --- \t --- \t --- \n")
+	}
 	context := common.NewStepContext()
 
 	lines := []*buses.StandaloneLine{irqLine, nmiLine, resetLine, readyLine}
@@ -253,7 +264,14 @@ func runTestWithInterrupts(cpu *Cpu65C02S, ram *memory.Ram, irqLine *buses.Stand
 
 		cpu.PostTick(&context)
 
-		t.Logf("%v \t %04X \t %02X \t %v \t %04X \t %02X \t %02X \t %02X \t %02X \t %08b \n", cycle, cpu.addressBus.Read(), cpu.dataBus.Read(), cpu.readWrite.GetLine().Status(), cpu.programCounter, cpu.accumulatorRegister, cpu.xRegister, cpu.yRegister, cpu.stackPointer, cpu.processorStatusRegister.ReadValue())
+		// Only log detailed execution information when verbose testing is enabled
+		if testing.Verbose() {
+			t.Logf("%v \t %04X \t %02X \t %v \t %04X \t %02X \t %02X \t %02X \t %02X \t %08b \t %v \t %v \t %v \t %v \n", 
+				cycle, cpu.addressBus.Read(), cpu.dataBus.Read(), cpu.readWrite.GetLine().Status(), 
+				cpu.programCounter, cpu.accumulatorRegister, cpu.xRegister, cpu.yRegister, 
+				cpu.stackPointer, cpu.processorStatusRegister.ReadValue(),
+				!irqLine.Status(), !nmiLine.Status(), !resetLine.Status(), !readyLine.Status())
+		}
 
 		evaluateCycle(cycle, cpu, &step.addressModeTestData, t)
 

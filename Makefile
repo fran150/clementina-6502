@@ -109,7 +109,13 @@ clean: ## Clean build directory
 
 test: ## Run tests
 	@echo "Running tests..."
-	${GO} test -v ./...
+	${GO} test ./...
+
+# Add a target for verbose testing
+test-verbose:
+	@echo "Running tests in verbose mode..."
+	go test -v ./...
+
 
 coverage: ## Run tests with coverage
 	@echo "Running tests with coverage..."
