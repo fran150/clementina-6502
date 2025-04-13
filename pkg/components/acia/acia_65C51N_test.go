@@ -449,8 +449,8 @@ func TestReadFromRxPollingStatusRegister(t *testing.T) {
 	assert.Equal(t, true, mock.DTR)
 	assert.Equal(t, true, circuit.irq.Status())
 
-	// Set the bauds to 4800
-	writeToAcia(acia, circuit, 0x03, 0x0C, &step)
+	// Set the bauds to 600
+	writeToAcia(acia, circuit, 0x03, 0x07, &step)
 
 	for {
 		// Reads the status record
@@ -509,8 +509,8 @@ func TestReadFromRxUsingIRQ(t *testing.T) {
 	assert.Equal(t, true, mock.DTR)
 	assert.Equal(t, true, circuit.irq.Status())
 
-	// Set the bauds to 4800
-	writeToAcia(acia, circuit, 0x03, 0x0C, &step)
+	// Set the bauds to 600
+	writeToAcia(acia, circuit, 0x03, 0x07, &step)
 
 	for {
 		// If IRQ is triggered
@@ -573,8 +573,8 @@ func TestReadFromRxUsingIRQAndReceiverEchoModeEnabled(t *testing.T) {
 	assert.Equal(t, true, mock.DTR)
 	assert.Equal(t, true, circuit.irq.Status())
 
-	// Set the bauds to 4800
-	writeToAcia(acia, circuit, 0x03, 0x0C, &step)
+	// Set the bauds to 600
+	writeToAcia(acia, circuit, 0x03, 0x07, &step)
 
 	for {
 		// If IRQ is triggered
