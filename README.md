@@ -5,6 +5,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/fran150/clementina-6502)](https://goreportcard.com/report/github.com/fran150/clementina-6502)
 [![Go Version](https://img.shields.io/badge/Go-1.18%2B-blue.svg)](https://golang.org/doc/devel/release.html)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![codecov](https://codecov.io/gh/fran150/clementina-6502/branch/main/graph/badge.svg)](https://codecov.io/gh/fran150/clementina-6502)
 
 ## Overview
 

@@ -109,8 +109,8 @@ test: ## Run tests
 coverage: ## Run tests with coverage
 	@echo "Running tests with coverage..."
 	@mkdir -p ${COVERAGE_DIR}
-	${GO} test -coverprofile=${COVERAGE_DIR}/coverage.out ./...
-	${GO} tool cover -html=${COVERAGE_DIR}/coverage.out -o ${COVERAGE_DIR}/coverage.html
+	${GO} test -coverprofile=coverage.txt -covermode=atomic ./...
+	${GO} tool cover -html=coverage.txt -o ${COVERAGE_DIR}/coverage.html
 
 lint: ## Run linter
 	@echo "Running linter..."
