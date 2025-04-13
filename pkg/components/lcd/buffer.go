@@ -1,9 +1,16 @@
 package lcd
 
-const UPPER_NIBBLE_MASK uint8 = 0xF0 // Mask to get the upper four bits of a byte
-const LOWER_NIBBLE_MASK uint8 = 0x0F // Mask to get the lower four bits of a byte
-const BUFFER_FULL_INDEX uint8 = 2    // Index when buffer is full
-const BUFFER_EMPTY_INDEX uint8 = 0   // Index when buffer is empty
+// UPPER_NIBBLE_MASK is used to extract the upper four bits of a byte.
+const UPPER_NIBBLE_MASK uint8 = 0xF0
+
+// LOWER_NIBBLE_MASK is used to extract the lower four bits of a byte.
+const LOWER_NIBBLE_MASK uint8 = 0x0F
+
+// BUFFER_FULL_INDEX indicates the index value when the buffer is full.
+const BUFFER_FULL_INDEX uint8 = 2
+
+// BUFFER_EMPTY_INDEX indicates the index value when the buffer is empty.
+const BUFFER_EMPTY_INDEX uint8 = 0
 
 // For 4-bit interface data, only four bus lines (DB4 to DB7) are used for transfer. Bus lines DB0 to DB3
 // are disabled. The data transfer between the HD44780U and the MPU is completed after the 4-bit data

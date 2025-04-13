@@ -7,10 +7,14 @@ import (
 	"github.com/rivo/tview"
 )
 
+// ApplicationConfig holds configuration parameters for the terminal application.
+// It extends the EmulationLoopConfig with terminal-specific settings.
 type ApplicationConfig struct {
 	computers.EmulationLoopConfig
 }
 
+// Application represents the main terminal application that manages the UI and emulation.
+// It coordinates the terminal UI, computer emulation, and execution loop.
 type Application struct {
 	tvApp    *tview.Application
 	computer Computer
@@ -18,6 +22,15 @@ type Application struct {
 	config   *ApplicationConfig
 }
 
+// NewApplication creates a new terminal application with the provided computer and configuration.
+// If no configuration is provided, default values are used.
+//
+// Parameters:
+//   - computer: The computer system to emulate
+//   - config: Optional configuration parameters (nil for defaults)
+//
+// Returns:
+//   - A pointer to the initialized Application
 func NewApplication(computer Computer, config *ApplicationConfig) *Application {
 	if config == nil {
 		config = &ApplicationConfig{

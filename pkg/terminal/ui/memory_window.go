@@ -10,6 +10,8 @@ import (
 
 const maxLines = 37
 
+// MemoryWindow represents a UI component that displays the contents of memory.
+// It shows a hexadecimal dump of memory contents with navigation capabilities.
 type MemoryWindow struct {
 	text   *tview.TextView
 	memory components.MemoryChip
@@ -17,6 +19,14 @@ type MemoryWindow struct {
 	start uint16
 }
 
+// NewMemoryWindow creates a new memory display window.
+// It initializes the UI component and connects it to the provided memory chip.
+//
+// Parameters:
+//   - memory: The memory chip to display
+//
+// Returns:
+//   - A pointer to the initialized MemoryWindow
 func NewMemoryWindow(memory components.MemoryChip) *MemoryWindow {
 	text := tview.NewTextView()
 	text.SetTextAlign(tview.AlignLeft).

@@ -1,15 +1,38 @@
 package lcd
 
-const SECOND_LINE_BIT uint8 = 0x40        // Bit 6 of DDRAM can be used to distinguish between the 1st and 2nd lines
-const BUSY_FLAG_BIT uint8 = 0x80          // When reading bit 7 is the busy flag
-const SIX_BIT_ADDRESS_MASK uint8 = 0x3F   // Mask to read a 6 bit address for CGRAM
-const SEVEN_BIT_ADDRESS_MASK uint8 = 0x7F // Mast to read a 7 bit address for DDRAM
-const CGRAM_MIN_ADDR = 0x40               // Min address for CGRAM (for CGRAM bit 6 is always set)
-const CGRAM_MAX_ADDR = 0x7F               // Max address for CGRAM (for CGRAM bit 6 is always set)
-const DDRAM_MIN_ADDR = 0x00               // Min DDRAM address in 1 line mode
-const DDRAM_MAX_ADDR = 0x4F               // Max DDRAM address in 1 line mode
-const DDRAM_2LINE_MIN_ADDR = 0x00         // Min DDRAM address (of 1st line) when configured in 2 line mode
-const DDRAM_2LINE_MAX_ADDR = 0x27         // Max DDRAM address (of 1st line) when configured in 2 line mode
+// SECOND_LINE_BIT is the bit that distinguishes between first and second line in DDRAM.
+// Bit 6 of DDRAM can be used to distinguish between the 1st and 2nd lines.
+const SECOND_LINE_BIT uint8 = 0x40
+
+// BUSY_FLAG_BIT is the bit that indicates when the LCD controller is busy.
+// When reading, bit 7 represents the busy flag.
+const BUSY_FLAG_BIT uint8 = 0x80
+
+// SIX_BIT_ADDRESS_MASK is used to extract a 6-bit address for CGRAM operations.
+const SIX_BIT_ADDRESS_MASK uint8 = 0x3F
+
+// SEVEN_BIT_ADDRESS_MASK is used to extract a 7-bit address for DDRAM operations.
+const SEVEN_BIT_ADDRESS_MASK uint8 = 0x7F
+
+// CGRAM_MIN_ADDR is the minimum address for Character Generator RAM.
+// For CGRAM operations, bit 6 is always set.
+const CGRAM_MIN_ADDR = 0x40
+
+// CGRAM_MAX_ADDR is the maximum address for Character Generator RAM.
+// For CGRAM operations, bit 6 is always set.
+const CGRAM_MAX_ADDR = 0x7F
+
+// DDRAM_MIN_ADDR is the minimum address for Display Data RAM in 1-line mode.
+const DDRAM_MIN_ADDR = 0x00
+
+// DDRAM_MAX_ADDR is the maximum address for Display Data RAM in 1-line mode.
+const DDRAM_MAX_ADDR = 0x4F
+
+// DDRAM_2LINE_MIN_ADDR is the minimum address for the first line in 2-line mode.
+const DDRAM_2LINE_MIN_ADDR = 0x00
+
+// DDRAM_2LINE_MAX_ADDR is the maximum address for the first line in 2-line mode.
+const DDRAM_2LINE_MAX_ADDR = 0x27
 
 // The address counter points to the next instruction that will be written in DDRAM or CGRAM.
 // For every read or write it increments on decrements depending on the register configuration.

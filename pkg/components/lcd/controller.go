@@ -21,9 +21,16 @@ const (
 	instructionBitF           uint8 = 0x04 // F = 1: 5x10 font, 0: 5x8 font
 )
 
-const DDRAM_SIZE uint8 = 80   // DDRAM can store up to 80 characters
-const CGRAM_SIZE uint8 = 64   // CGRAM can store 64 bytes for custome characters
-const SPACE_CHAR uint8 = 0x20 // Value of the space character
+// DDRAM_SIZE defines the total capacity of Display Data RAM.
+// DDRAM can store up to 80 characters.
+const DDRAM_SIZE uint8 = 80
+
+// CGRAM_SIZE defines the total capacity of Character Generator RAM.
+// CGRAM can store 64 bytes for custom characters.
+const CGRAM_SIZE uint8 = 64
+
+// SPACE_CHAR is the ASCII value for the space character.
+const SPACE_CHAR uint8 = 0x20
 
 // The HD44780U dot-matrix liquid crystal display controller and driver LSI displays alphanumerics and symbols.
 // It can be configured to drive a dot-matrix liquid crystal display
@@ -71,6 +78,8 @@ type CursorStatus struct {
 	BlinkStatusShowing bool
 }
 
+// DisplayStatus contains information about the current state of the LCD display.
+// It includes configuration settings and display parameters.
 type DisplayStatus struct {
 	DisplayOn      bool
 	Is2LineDisplay bool

@@ -8,6 +8,8 @@ import (
 	"github.com/rivo/tview"
 )
 
+// OptionsWindow represents a UI component that displays and manages menu options.
+// It provides a hierarchical menu system with keyboard shortcuts for controlling the emulator.
 type OptionsWindow struct {
 	text *tview.TextView
 
@@ -15,6 +17,8 @@ type OptionsWindow struct {
 	active   *OptionsWindowMenuOption
 }
 
+// OptionsWindowMenuOption represents a single menu option in the options window.
+// It defines the key binding, description, and actions associated with a menu item.
 type OptionsWindowMenuOption struct {
 	Key            tcell.Key
 	Rune           rune
@@ -29,6 +33,14 @@ type OptionsWindowMenuOption struct {
 	parent *OptionsWindowMenuOption
 }
 
+// NewOptionsWindow creates a new options menu window with the provided menu structure.
+// It initializes the UI component and sets up the menu hierarchy.
+//
+// Parameters:
+//   - menu: The top-level menu options to display
+//
+// Returns:
+//   - A pointer to the initialized OptionsWindow
 func NewOptionsWindow(menu []*OptionsWindowMenuOption) *OptionsWindow {
 	text := tview.NewTextView()
 	text.SetBorder(true)

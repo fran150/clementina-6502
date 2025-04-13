@@ -13,6 +13,8 @@ import (
 
 const maxLinesOfCode = 30
 
+// CodeWindow represents a UI component that displays the disassembled code being executed.
+// It shows the current instruction and recent execution history with syntax highlighting.
 type CodeWindow struct {
 	text      *tview.TextView
 	lines     *queue.SimpleQueue[string]
@@ -21,6 +23,15 @@ type CodeWindow struct {
 	operandsGetter func(programCounter uint16) [2]uint8
 }
 
+// NewCodeWindow creates a new code display window that shows disassembled instructions.
+// It initializes the UI component and connects it to the provided CPU.
+//
+// Parameters:
+//   - processor: The CPU chip to monitor
+//   - operandsGetter: Function to retrieve potential operands for the current instruction
+//
+// Returns:
+//   - A pointer to the initialized CodeWindow
 func NewCodeWindow(processor components.Cpu6502Chip, operandsGetter func(programCounter uint16) [2]uint8) *CodeWindow {
 	code := tview.NewTextView()
 	code.SetTextAlign(tview.AlignLeft)

@@ -9,11 +9,21 @@ import (
 	"github.com/rivo/tview"
 )
 
+// CpuWindow represents a UI component that displays the current state of the CPU.
+// It shows register values, flags, and the current instruction being executed.
 type CpuWindow struct {
 	text      *tview.TextView
 	processor components.Cpu6502Chip
 }
 
+// NewCpuWindow creates a new CPU state display window.
+// It initializes the UI component and connects it to the provided CPU.
+//
+// Parameters:
+//   - processor: The CPU chip to monitor and display
+//
+// Returns:
+//   - A pointer to the initialized CpuWindow
 func NewCpuWindow(processor components.Cpu6502Chip) *CpuWindow {
 	text := tview.NewTextView()
 	text.SetScrollable(false).

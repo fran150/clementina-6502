@@ -10,6 +10,9 @@ import (
 	"github.com/rivo/tview"
 )
 
+// BreakPointForm represents a UI component for managing breakpoints in the debugger.
+// It provides a form for adding new breakpoints and a list for displaying and removing
+// existing breakpoints.
 type BreakPointForm struct {
 	grid *tview.Grid
 	form *tview.Form
@@ -18,6 +21,11 @@ type BreakPointForm struct {
 	breakpointAddresses []uint16
 }
 
+// NewBreakPointForm creates and initializes a new breakpoint management form.
+// It sets up the UI components for adding, displaying, and removing breakpoints.
+//
+// Returns:
+//   - A pointer to the initialized BreakPointForm
 func NewBreakPointForm() *BreakPointForm {
 	breakPointForm := &BreakPointForm{}
 

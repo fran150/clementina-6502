@@ -15,11 +15,18 @@ type BusInfo struct {
 	bitWidth int // 8 or 16
 }
 
+// BusWindow represents a UI component that displays the status of system buses.
+// It shows the current values on address, data, and control buses in real-time.
 type BusWindow struct {
 	text     *tview.TextView
 	busInfos []BusInfo
 }
 
+// NewBusWindow creates a new bus status display window.
+// It initializes the UI component for monitoring system buses.
+//
+// Returns:
+//   - A pointer to the initialized BusWindow
 func NewBusWindow() *BusWindow {
 	text := tview.NewTextView()
 	text.SetScrollable(false).

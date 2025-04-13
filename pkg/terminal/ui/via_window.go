@@ -8,11 +8,21 @@ import (
 	"github.com/rivo/tview"
 )
 
+// ViaWindow represents a UI component that displays the VIA (Versatile Interface Adapter) state.
+// It shows the current register values, timer status, and I/O port configurations.
 type ViaWindow struct {
 	text *tview.TextView
 	via  components.ViaChip
 }
 
+// NewViaWindow creates a new VIA state display window.
+// It initializes the UI component and connects it to the provided VIA chip.
+//
+// Parameters:
+//   - via: The VIA chip to monitor and display
+//
+// Returns:
+//   - A pointer to the initialized ViaWindow
 func NewViaWindow(via components.ViaChip) *ViaWindow {
 	text := tview.NewTextView()
 	text.SetScrollable(false).

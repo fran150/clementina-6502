@@ -10,11 +10,21 @@ import (
 	"github.com/rivo/tview"
 )
 
+// LcdControllerWindow represents a UI component that displays the LCD controller state.
+// It shows the current content of the LCD display and controller status.
 type LcdControllerWindow struct {
 	text *tview.TextView
 	lcd  components.LCDControllerChip
 }
 
+// NewLcdWindow creates a new LCD controller display window.
+// It initializes the UI component and connects it to the provided LCD controller.
+//
+// Parameters:
+//   - lcd: The LCD controller chip to display
+//
+// Returns:
+//   - A pointer to the initialized LcdControllerWindow
 func NewLcdWindow(lcd components.LCDControllerChip) *LcdControllerWindow {
 	text := tview.NewTextView()
 	text.SetScrollable(false).

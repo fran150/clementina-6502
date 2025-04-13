@@ -7,12 +7,17 @@ import (
 	"github.com/rivo/tview"
 )
 
+// Computer defines the interface for a computer system that can be controlled
+// through the terminal UI. It extends the base Computer interface with UI-specific
+// functionality for initialization and keyboard input handling.
 type Computer interface {
 	computers.Computer
 	Init(app *tview.Application, config *ApplicationConfig)
 	KeyPressed(event *tcell.EventKey, context *common.StepContext) *tcell.EventKey
 }
 
+// Window defines the interface for UI components that can be drawn in the terminal.
+// It provides methods for clearing, drawing, and retrieving the drawable area.
 type Window interface {
 	Clear()
 	Draw(context *common.StepContext)

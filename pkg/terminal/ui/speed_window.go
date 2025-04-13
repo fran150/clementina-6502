@@ -9,6 +9,8 @@ import (
 	"github.com/rivo/tview"
 )
 
+// SpeedWindow represents a UI component that displays the emulation speed metrics.
+// It shows the current execution speed, target speed, and performance statistics.
 type SpeedWindow struct {
 	text            *tview.TextView
 	previousT       int64
@@ -18,6 +20,14 @@ type SpeedWindow struct {
 	showConfigStart int64
 }
 
+// NewSpeedWindow creates a new emulation speed display window.
+// It initializes the UI component and connects it to the provided emulation configuration.
+//
+// Parameters:
+//   - config: The emulation loop configuration to monitor
+//
+// Returns:
+//   - A pointer to the initialized SpeedWindow
 func NewSpeedWindow(config *computers.EmulationLoopConfig) *SpeedWindow {
 	text := tview.NewTextView()
 	text.SetTextAlign(tview.AlignCenter).
