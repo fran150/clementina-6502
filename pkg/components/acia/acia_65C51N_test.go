@@ -253,9 +253,9 @@ func TestWriteToTX(t *testing.T) {
 
 	const data string = "Hello World!!!"
 
-	// Writes to acia at 1000 bauds, default speed for acia is 115200, so this will be well within
+	// Writes to acia at 100 bauds, default speed for acia is 115200, so this will be well within
 	// this speed to avoid overruns. Run 2 extra cycles to allow last written byte to be transmitted
-	processAtBaudRates(1000, 2, func(i int) bool {
+	processAtBaudRates(100, 2, func(i int) bool {
 		writeToAcia(acia, circuit, 0x00, uint8(data[i]), &step)
 		return i < len(data)-1
 	})
@@ -283,9 +283,9 @@ func TestWriteToTXWithCTSDisabled(t *testing.T) {
 	// transmitter is automatically disabled.
 	mock.Status.CTS = false
 
-	// Writes to acia at 1000 bauds, default speed for acia is 115200, so this will be well within
+	// Writes to acia at 100 bauds, default speed for acia is 115200, so this will be well within
 	// this speed to avoid overruns. Run 2 extra cycles to allow last written byte to be transmitted
-	processAtBaudRates(1000, 2, func(i int) bool {
+	processAtBaudRates(100, 2, func(i int) bool {
 		writeToAcia(acia, circuit, 0x00, uint8(data[i]), &step)
 		return i < len(data)-1
 	})
