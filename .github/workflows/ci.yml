@@ -19,7 +19,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.18'
+          go-version: '1.22'
 
       - name: Run tests with coverage
         run: go test -coverprofile=coverage.txt -covermode=atomic ./...
@@ -41,7 +41,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.18'
+          go-version: '1.22'
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
@@ -59,7 +59,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.18'
+          go-version: '1.22'
 
       - name: Build
         run: go build -v ./cmd/clementina.go

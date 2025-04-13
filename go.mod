@@ -1,6 +1,6 @@
 module github.com/fran150/clementina-6502
 
-go 1.22.4
+go 1.22
 
 require (
 	github.com/gdamore/tcell/v2 v2.7.1
