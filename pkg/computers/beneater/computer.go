@@ -44,6 +44,8 @@ type circuit struct {
 	serial     serial.Port
 }
 
+// BenEaterComputer represents a complete emulation of Ben Eater's 6502 computer.
+// It contains all the necessary components and connections to simulate the hardware.
 type BenEaterComputer struct {
 	chips       *chips
 	circuit     *circuit
@@ -56,6 +58,17 @@ type BenEaterComputer struct {
 	step  bool
 }
 
+// NewBenEaterComputer creates and initializes a new instance of the Ben Eater 6502 computer emulation.
+// It sets up all hardware components, connects them according to the original design, and configures
+// the serial port for communication.
+//
+// Parameters:
+//   - port: The serial port to use for ACIA communication
+//   - emulateModemLines: Whether to emulate modem control lines for the serial port
+//
+// Returns:
+//   - A pointer to the initialized BenEaterComputer
+//   - An error if initialization fails
 func NewBenEaterComputer(port serial.Port, emulateModemLines bool) (*BenEaterComputer, error) {
 	chips := &chips{
 		cpu:  cpu.NewCpu65C02S(),

@@ -10,11 +10,21 @@ import (
 	"github.com/rivo/tview"
 )
 
+// Lcd16x2Window represents a UI component that displays the contents of an LCD display.
+// It renders the 16x2 character display used in the Ben Eater computer.
 type Lcd16x2Window struct {
 	text       *tview.TextView
 	controller components.LCDControllerChip
 }
 
+// NewDisplayWindow creates a new LCD display window that shows the contents of the LCD controller.
+// It initializes the UI component and connects it to the provided LCD controller.
+//
+// Parameters:
+//   - lcd: The LCD controller chip to display
+//
+// Returns:
+//   - A pointer to the initialized Lcd16x2Window
 func NewDisplayWindow(lcd components.LCDControllerChip) *Lcd16x2Window {
 	text := tview.NewTextView()
 	text.SetTextAlign(tview.AlignCenter).
