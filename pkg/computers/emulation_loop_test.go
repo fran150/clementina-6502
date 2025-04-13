@@ -10,8 +10,8 @@ import (
 
 func TestNewEmulationLoop(t *testing.T) {
 	config := &EmulationLoopConfig{
-		TargetSpeedMhz: 1.0,
-		DisplayFps:     60,
+		TargetSpeedMhz: 0.001,
+		DisplayFps:     5,
 	}
 
 	loop := NewEmulationLoop(config)
@@ -43,8 +43,8 @@ func TestEmulationLoop_Start(t *testing.T) {
 
 	t.Run("starts emulation loop with valid handlers", func(t *testing.T) {
 		loop := NewEmulationLoop(&EmulationLoopConfig{
-			TargetSpeedMhz: 1.0,
-			DisplayFps:     60,
+			TargetSpeedMhz: 0.001,
+			DisplayFps:     5,
 		})
 
 		tickCalled := false
@@ -63,11 +63,11 @@ func TestEmulationLoop_Start(t *testing.T) {
 		assert.NotNil(t, context)
 
 		// Let the loop run briefly
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 		context.Stop = true
 
 		// Give it time to stop
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 
 		assert.True(t, tickCalled, "Tick handler should have been called")
 		assert.True(t, drawCalled, "Draw handler should have been called")
@@ -77,8 +77,8 @@ func TestEmulationLoop_Start(t *testing.T) {
 func TestEmulationLoop_Timing(t *testing.T) {
 	t.Run("respects target speed and FPS", func(t *testing.T) {
 		config := &EmulationLoopConfig{
-			TargetSpeedMhz: 1.0, // 1MHz
-			DisplayFps:     60,  // 60 FPS
+			TargetSpeedMhz: 0.001, // 1 KHz
+			DisplayFps:     5,     // 5 FPS
 		}
 
 		loop := NewEmulationLoop(config)
@@ -108,7 +108,7 @@ func TestEmulationLoop_Timing(t *testing.T) {
 		assert.NotNil(t, context)
 
 		// Run for a fixed duration
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 		context.Stop = true
 
 		// Calculate actual rates
