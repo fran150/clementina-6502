@@ -100,7 +100,11 @@ cd clementina-v1.0.0-linux-amd64
 # Extract the archive
 unzip clementina-v1.0.0-darwin-amd64.zip
 cd clementina-darwin-amd64
-# Run
+
+# Run the setup script to remove security warnings
+./setup-macos.sh
+
+# Run the application
 ./clementina
 ```
 

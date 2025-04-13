@@ -75,6 +75,8 @@ release: build-all ## Create release packages for all platforms
 		mkdir -p "$$package_dir/assets/images"; \
 		cp "${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-darwin-$$arch" "$$package_dir/${BINARY_NAME}"; \
 		chmod +x "$$package_dir/${BINARY_NAME}"; \
+		cp ./scripts/setup-macos.sh "$$package_dir/"; \
+		chmod +x "$$package_dir/setup-macos.sh"; \
 		cp ./assets/computer/beneater/*.bin "$$package_dir/assets/computer/beneater/" 2>/dev/null || true; \
 		cp ./assets/images/computer.jpeg "$$package_dir/assets/images/" 2>/dev/null || true; \
 		cp ./README.md "$$package_dir/"; \
