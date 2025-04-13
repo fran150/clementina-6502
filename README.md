@@ -99,7 +99,7 @@ cd clementina-v1.0.0-linux-amd64
 ```bash
 # Extract the archive
 unzip clementina-v1.0.0-darwin-amd64.zip
-cd clementina-v1.0.0-darwin-amd64
+cd clementina-darwin-amd64
 # Run
 ./clementina
 ```

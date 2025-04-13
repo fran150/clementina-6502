@@ -70,7 +70,7 @@ release: build-all ## Create release packages for all platforms
 	@# macOS packages
 	@for arch in amd64 arm64; do \
 		echo "Creating package for darwin-$$arch..."; \
-		package_dir="${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-darwin-$$arch"; \
+		package_dir="${BUILD_DIR}/clementina-darwin-$$arch"; \
 		mkdir -p "$$package_dir/assets/computer/beneater"; \
 		mkdir -p "$$package_dir/assets/images"; \
 		cp "${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-darwin-$$arch" "$$package_dir/${BINARY_NAME}"; \
@@ -78,7 +78,8 @@ release: build-all ## Create release packages for all platforms
 		cp ./assets/computer/beneater/*.bin "$$package_dir/assets/computer/beneater/" 2>/dev/null || true; \
 		cp ./assets/images/computer.jpeg "$$package_dir/assets/images/" 2>/dev/null || true; \
 		cp ./README.md "$$package_dir/"; \
-		cd "${BUILD_DIR}" && zip -r "${BINARY_NAME}-v${VERSION}-darwin-$$arch.zip" "${BINARY_NAME}-v${VERSION}-darwin-$$arch" && cd - > /dev/null; \
+		cd "${BUILD_DIR}" && zip -r "${BINARY_NAME}-v${VERSION}-darwin-$$arch.zip" "clementina-darwin-$$arch" && cd - > /dev/null; \
+		rm -rf "$$package_dir"; \
 	done
 	
 	@# Windows packages
