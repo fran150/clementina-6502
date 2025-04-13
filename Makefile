@@ -58,15 +58,18 @@ release: build-all ## Create release packages for all platforms
 	@# Linux packages
 	@for arch in amd64 arm64 386; do \
 		echo "Creating package for linux-$$arch..."; \
-		package_dir="${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-linux-$$arch"; \
+		package_dir="${BUILD_DIR}/clementina-linux-$$arch"; \
 		mkdir -p "$$package_dir/assets/computer/beneater"; \
 		mkdir -p "$$package_dir/assets/images"; \
 		cp "${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-linux-$$arch" "$$package_dir/${BINARY_NAME}"; \
 		chmod +x "$$package_dir/${BINARY_NAME}"; \
+		cp ./scripts/setup-linux.sh "$$package_dir/"; \
+		chmod +x "$$package_dir/setup-linux.sh"; \
 		cp ./assets/computer/beneater/*.bin "$$package_dir/assets/computer/beneater/" 2>/dev/null || true; \
 		cp ./assets/images/computer.jpeg "$$package_dir/assets/images/" 2>/dev/null || true; \
 		cp ./README.md "$$package_dir/"; \
-		cd "${BUILD_DIR}" && zip -r "${BINARY_NAME}-v${VERSION}-linux-$$arch.zip" "${BINARY_NAME}-v${VERSION}-linux-$$arch" && cd - > /dev/null; \
+		cd "${BUILD_DIR}" && zip -r "${BINARY_NAME}-v${VERSION}-linux-$$arch.zip" "clementina-linux-$$arch" && cd - > /dev/null; \
+		rm -rf "$$package_dir"; \
 	done
 	
 	@# macOS packages
