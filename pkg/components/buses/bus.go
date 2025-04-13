@@ -1,6 +1,7 @@
 package buses
 
-// Bus represents an interface for electrical buses that can handle 8-bit or 16-bit values
+// Bus represents an interface for electrical buses that can handle 8-bit or 16-bit values.
+// It provides methods to access individual bus lines and read/write values to the bus.
 type Bus[T uint16 | uint8] interface {
 	// GetBusLine returns a pointer to the specified bus line
 	// number: the index of the bus line to retrieve (0-based)
@@ -24,7 +25,8 @@ type StandaloneBus[T uint16 | uint8] struct {
 	busLines []*BusLine[T] // References to all bus lines
 }
 
-// New8BitStandaloneBus creates and initializes a new 8-bit bus with 8 individual lines
+// New8BitStandaloneBus creates and initializes a new 8-bit bus with 8 individual lines.
+// It's typically used for data buses in 8-bit systems.
 // returns: a Bus interface implementation for 8-bit operations
 func New8BitStandaloneBus() Bus[uint8] {
 	bus := StandaloneBus[uint8]{
@@ -39,7 +41,8 @@ func New8BitStandaloneBus() Bus[uint8] {
 	return &bus
 }
 
-// New16BitStandaloneBus creates and initializes a new 16-bit bus with 16 individual lines
+// New16BitStandaloneBus creates and initializes a new 16-bit bus with 16 individual lines.
+// It's typically used for address buses in 8-bit systems with 16-bit addressing.
 // returns: a Bus interface implementation for 16-bit operations
 func New16BitStandaloneBus() Bus[uint16] {
 	bus := StandaloneBus[uint16]{

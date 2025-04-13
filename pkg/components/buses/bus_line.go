@@ -1,8 +1,8 @@
 package buses
 
-// Represents a Line from a bus. Buses are group of lines that allows
-// chips to communicate between each other. In 6502 architectures
-// data buses tipically have 8 lines and address bus have 16 lines.
+// BusLine represents a single line from a bus. Buses are groups of lines that allow
+// chips to communicate between each other. In 6502 architectures,
+// data buses typically have 8 lines and address buses have 16 lines.
 type BusLine[T uint8 | uint16] struct {
 	busLineNumber uint8
 	bus           Bus[T]

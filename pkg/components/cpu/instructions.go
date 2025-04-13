@@ -1,15 +1,17 @@
 package cpu
 
-// Each instruction and it's different address mode is represented by a number from 0 to 0xFF called OpCode
+// OpCode represents a unique identifier for each instruction and addressing mode combination.
+// Values range from 0x00 to 0xFF (0-255), covering all possible 6502 instructions.
 // See http://www.6502.org/users/obelisk/65C02/reference.html
 type OpCode uint
 
-// Contains information about each instruction.
+// CpuInstructionData contains all information needed to execute a specific CPU instruction.
+// This includes the opcode value, mnemonic representation, execution function, and addressing mode.
 type CpuInstructionData struct {
-	opcode      OpCode
-	mnemonic    Mnemonic
-	action      func(cpu *Cpu65C02S)
-	addressMode AddressMode
+	opcode      OpCode       // The numeric opcode value (0x00-0xFF)
+	mnemonic    Mnemonic     // The assembly language representation
+	action      func(cpu *Cpu65C02S) // Function that implements the instruction's behavior
+	addressMode AddressMode  // The addressing mode used by this instruction
 }
 
 // Returns the OpCode value of this instruction and address mode
@@ -35,13 +37,14 @@ func (data *CpuInstructionData) AddressMode() AddressMode {
 
 // ----------------------------------------------------------------------
 
-// Returns all the instructions available for the CPU
+// CpuInstructionSet contains the complete set of instructions supported by the CPU.
+// It provides lookup capabilities to find instruction data by opcode.
 type CpuInstructionSet struct {
-	opCodeIndex [0x100]*CpuInstructionData
+	opCodeIndex [0x100]*CpuInstructionData // Array indexed by opcode value
 }
 
-// Gets data about the instruction and address mode represented by the specified Opcode.
-// This emulation does not implement invalid op codes, they will be treated as NOP
+// GetByOpCode retrieves instruction data for a specific opcode.
+// This emulation treats invalid opcodes as NOP (No Operation).
 func (instruction *CpuInstructionSet) GetByOpCode(opCode OpCode) *CpuInstructionData {
 	value := instruction.opCodeIndex[opCode]
 	if value != nil {

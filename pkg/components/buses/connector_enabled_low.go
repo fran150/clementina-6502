@@ -1,6 +1,6 @@
 package buses
 
-// Provides a connection point from a chip to a line.
+// ConnectorEnabledLow provides a connection point from a chip to a line.
 // This can be used in chip emulations as the interface between the chip and lines that connect to other chips.
 // For example a line can connect from the CPU R/W to the RAM R/W line. The CPU can set the value of the line controlling if
 // it will read or write the value in memory.
@@ -10,7 +10,8 @@ type ConnectorEnabledLow struct {
 	line Line
 }
 
-// Creates and returns a connector that is enabled when the line is low
+// NewConnectorEnabledLow creates and returns a connector that is enabled when the line is low.
+// This type of connector is typically used for active-low pins like chip select (CS) or output enable (OE).
 func NewConnectorEnabledLow() *ConnectorEnabledLow {
 	return &ConnectorEnabledLow{}
 }

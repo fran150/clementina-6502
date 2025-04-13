@@ -3,13 +3,15 @@ package queue
 
 import "sync"
 
-// SimpleQueue represents a thread-safe generic queue data structure
+// SimpleQueue represents a thread-safe generic queue data structure.
+// It provides basic queue operations with mutex-based synchronization.
 type SimpleQueue[T any] struct {
 	mu     *sync.Mutex
 	values []T
 }
 
-// NewQueue creates and returns a new empty SimpleQueue
+// NewQueue creates and returns a new empty SimpleQueue.
+// The queue is initialized with an empty slice and a mutex for thread safety.
 func NewQueue[T any]() *SimpleQueue[T] {
 	return &SimpleQueue[T]{
 		mu:     &sync.Mutex{},

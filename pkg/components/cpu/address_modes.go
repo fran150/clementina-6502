@@ -1,42 +1,7 @@
 package cpu
 
-// In 6502 family of processors each instruction has different address modes. This type represents the internal name of each
-// address mode. Each address mode has different number of cycles depending on other factors, for this emulation these has been
-// identified with different names.
-//
-//   - Read / Modify / Write: Instructions such as INC or DEC take 3 extra cycles to do the updates. These are marked with the RMW suffix.
-//     For example: AddressModeZeroPageRMW is the RMW version of the Zero Page address mode. The original 6502 made 2 write cycles, one with
-//     the unchaged value (internally modifies the value) and then a write with the updated values. According to the official doc for the 65C02S the
-//     processor does one extra read and one write on effective address.
-//     This is explained in the 65C02 wiki: https://en.wikipedia.org/wiki/WDC_65C02#Bug_fixes
-//   - Write instructions: This emulation uses 2 functions to emulate each cycle, one "tick" function to allow set up the state of the buses and lines
-//     and a second "PostTick" function to allow the compoenent react to these values. In normal "Read" instructions the bus is set to read in the
-//     tick function and the registers updates are performed in the post tick. In "write" instructions such as STA, STX and STY, the bus must be set
-//     on the initial tick to let the ram update the value on the post tick function. These are marked by a W suffix. For example,
-//     AddressModeZeroPageW is the zero page address mode used for STA.
-//   - Specific types: Instructions that handle stack pointer such as PHP, PLA, etc have specific cycles and are handled by different address modes.
-//     The same applies to instructions that handle storing the program counter before jumping to a specific address and returning such as JSR and RTS.
-//     These are marked with specific names for their address modes although in official doc are marked as SP, Absolute modes or similar.
-//   - Relative Extended mode: Although marked as relative address mode in the official doc, the new 65C02's BBS and BBR instructions have an specific
-//     cycle type. See discussions about BBR and BBS correct timing here:
-//     https://www.reddit.com/r/beneater/comments/1cac3ly/clarification_of_65c02_instruction_execution_times/
-//   - Non instructions address modes: Finally, in this emulation we have marked as "address modes" the cycles executed when a RESET, NMI or IRQ
-//     interrupt is triggered.
-//
-// For more information about the cycles for regular 6502 processor see: https://www.atarihq.com/danb/files/64doc.txt
-//
-// Some notes for 65C02 processor differences with respect to regular 6502:
-//   - When performing indexed addressing, if indexing crosses a page boundary all NMOS variants will read from an invalid address before accessing
-//     the correct address. The 65C02 fixed this problem by performing a dummy read of the instruction opcode when indexing crosses a page boundary.
-//     A dummy read is performed on the base address prior to indexing, such that LDA $1200,X will do a dummy read on $1200 prior to the value of X
-//     being added to $1200.
-//   - The original 6502 had a bug with indirect addressing when there was a page boundary crossing. For example, JMP ($12FF) will read the LSB of
-//     the target address from $12FF correctly but will fetch the MSB from $1200. The 65C02 corrected this bug reading from $1300 instead as expected.
-//   - On 6502 RMW instructions execute an extra write of the unmodified value, before writing the updated value in the next cycle. The 65C02 corrected
-//     this problem by replacing the extra write with an extra read. On 6502, these instructions take additional cycle even if there is no page boundary
-//     crossed. In the 65C02 these instructions take 1 less cycle if the target is on the same page.
-//   - When performing indexed addressing, if indexing crosses a page boundary original 6502 will read from an invalid address before accessing the
-//     correct address. For example,
+// AddressMode represents the different addressing modes available in the 6502 processor.
+// Each mode determines how the CPU accesses memory for an instruction.
 type AddressMode int
 
 const (
@@ -85,7 +50,46 @@ const (
 
 // ----------------------------------------------------------------------
 
-// Stores useful data for the different address modes
+// AddressModeData stores useful data for the different address modes including
+// cycle information, formatting details, and memory requirements.
+
+// In 6502 family of processors each instruction has different address modes. This type represents the internal name of each
+// address mode. Each address mode has different number of cycles depending on other factors, for this emulation these has been
+// identified with different names.
+//
+//   - Read / Modify / Write: Instructions such as INC or DEC take 3 extra cycles to do the updates. These are marked with the RMW suffix.
+//     For example: AddressModeZeroPageRMW is the RMW version of the Zero Page address mode. The original 6502 made 2 write cycles, one with
+//     the unchaged value (internally modifies the value) and then a write with the updated values. According to the official doc for the 65C02S the
+//     processor does one extra read and one write on effective address.
+//     This is explained in the 65C02 wiki: https://en.wikipedia.org/wiki/WDC_65C02#Bug_fixes
+//   - Write instructions: This emulation uses 2 functions to emulate each cycle, one "tick" function to allow set up the state of the buses and lines
+//     and a second "PostTick" function to allow the compoenent react to these values. In normal "Read" instructions the bus is set to read in the
+//     tick function and the registers updates are performed in the post tick. In "write" instructions such as STA, STX and STY, the bus must be set
+//     on the initial tick to let the ram update the value on the post tick function. These are marked by a W suffix. For example,
+//     AddressModeZeroPageW is the zero page address mode used for STA.
+//   - Specific types: Instructions that handle stack pointer such as PHP, PLA, etc have specific cycles and are handled by different address modes.
+//     The same applies to instructions that handle storing the program counter before jumping to a specific address and returning such as JSR and RTS.
+//     These are marked with specific names for their address modes although in official doc are marked as SP, Absolute modes or similar.
+//   - Relative Extended mode: Although marked as relative address mode in the official doc, the new 65C02's BBS and BBR instructions have an specific
+//     cycle type. See discussions about BBR and BBS correct timing here:
+//     https://www.reddit.com/r/beneater/comments/1cac3ly/clarification_of_65c02_instruction_execution_times/
+//   - Non instructions address modes: Finally, in this emulation we have marked as "address modes" the cycles executed when a RESET, NMI or IRQ
+//     interrupt is triggered.
+//
+// For more information about the cycles for regular 6502 processor see: https://www.atarihq.com/danb/files/64doc.txt
+//
+// Some notes for 65C02 processor differences with respect to regular 6502:
+//   - When performing indexed addressing, if indexing crosses a page boundary all NMOS variants will read from an invalid address before accessing
+//     the correct address. The 65C02 fixed this problem by performing a dummy read of the instruction opcode when indexing crosses a page boundary.
+//     A dummy read is performed on the base address prior to indexing, such that LDA $1200,X will do a dummy read on $1200 prior to the value of X
+//     being added to $1200.
+//   - The original 6502 had a bug with indirect addressing when there was a page boundary crossing. For example, JMP ($12FF) will read the LSB of
+//     the target address from $12FF correctly but will fetch the MSB from $1200. The 65C02 corrected this bug reading from $1300 instead as expected.
+//   - On 6502 RMW instructions execute an extra write of the unmodified value, before writing the updated value in the next cycle. The 65C02 corrected
+//     this problem by replacing the extra write with an extra read. On 6502, these instructions take additional cycle even if there is no page boundary
+//     crossed. In the 65C02 these instructions take 1 less cycle if the target is on the same page.
+//   - When performing indexed addressing, if indexing crosses a page boundary original 6502 will read from an invalid address before accessing the
+//     correct address.
 type AddressModeData struct {
 	name              AddressMode
 	text              string
@@ -127,17 +131,19 @@ func (data *AddressModeData) MemSize() uint8 {
 
 // ----------------------------------------------------------------------
 
-// Set of address modes supported by the processor.
+// AddressModeSet contains the complete set of address modes supported by the processor.
+// It provides lookup capabilities to find address mode data by name.
 type AddressModeSet struct {
 	nameIndex [40]*AddressModeData
 }
 
-// Gets address mode data of an specific mode by it's name.
+// GetByName retrieves address mode data for a specific mode by its name.
 func (addressModeSet *AddressModeSet) GetByName(name AddressMode) *AddressModeData {
 	return addressModeSet.nameIndex[name]
 }
 
-// Creates and returns the list of address modes supported by this processor.
+// NewAddressModesSet creates and returns the complete set of address modes supported by the 65C02S processor.
+// This includes standard 6502 modes, RMW variants, and special modes for interrupts and stack operations.
 func NewAddressModesSet() *AddressModeSet {
 	addressModeSet := AddressModeSet{
 		nameIndex: [40]*AddressModeData{},
@@ -200,7 +206,8 @@ func NewAddressModesSet() *AddressModeSet {
 	return &addressModeSet
 }
 
-// Returns details about the specified address mode
+// GetAddressMode returns details about the specified address mode from the global address mode set.
+// It provides a convenient way to access address mode data without creating a new set.
 func GetAddressMode(name AddressMode) *AddressModeData {
 	return addressModeSet.GetByName(name)
 }

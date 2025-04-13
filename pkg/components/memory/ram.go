@@ -9,7 +9,8 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 )
 
-// FileReader interface abstracts file operations
+// FileReader interface abstracts file operations for loading binary data into memory.
+// This allows for easier testing by mocking file operations.
 type FileReader interface {
 	Stat() (os.FileInfo, error)
 	Read(p []byte) (n int, err error)
@@ -44,6 +45,7 @@ type Ram struct {
 }
 
 // NewRam creates a new RAM chip with the specified size in bytes.
+// It initializes all the necessary bus connectors and control signals.
 func NewRam(size int) *Ram {
 	return &Ram{
 		values:       make([]uint8, size),
@@ -59,7 +61,7 @@ func NewRam(size int) *Ram {
 
 // NewRamWithLessPins creates a new RAM chip with the specified size and address pin mask.
 // The address pin mask allows emulation of chips with fewer address pins by masking
-// unused address lines.
+// unused address lines. This is useful for emulating smaller memory chips or memory-mapped I/O.
 func NewRamWithLessPins(size int, addressPinsMask uint16) *Ram {
 	return &Ram{
 		values:       make([]uint8, size),

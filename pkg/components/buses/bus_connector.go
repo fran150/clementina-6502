@@ -1,15 +1,16 @@
 package buses
 
-// Provides a connection point from a chip to a bus.
+// BusConnector provides a connection point from a chip to a bus.
 // It can have 8 lines, which allows for values from 0 - 255 (represented by uint8) or
-// it can have 16 lines which allows for values from 0 - 65535 (represented by unit16)
+// it can have 16 lines which allows for values from 0 - 65535 (represented by unit16).
 // This can be used in chip emulations as the interface between the chip and the bus.
 // Typically in 6502 architecture address buses uses 16 lines and data buses uses 8 lines.
 type BusConnector[T uint8 | uint16] struct {
 	bus Bus[T]
 }
 
-// Creates and returns a connector of the specified type
+// NewBusConnector creates and returns a bus connector of the specified type.
+// The type parameter T determines whether this is an 8-bit or 16-bit bus connector.
 func NewBusConnector[T uint8 | uint16]() *BusConnector[T] {
 	return &BusConnector[T]{}
 }

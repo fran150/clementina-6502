@@ -1,6 +1,6 @@
 package buses
 
-// Represents an electrical Line or trace in a circuit that can be used to connect 2
+// StandaloneLine represents an electrical line or trace in a circuit that can be used to connect 
 // chip pins or connectors. For example, a line can be created and then wired
 // to the R/W line of the CPU, RAM and VIA chips. Then whoever drives the line,
 // typically the CPU, will use to signal a read or write operation to the selected chip.
@@ -9,8 +9,8 @@ type StandaloneLine struct {
 	status bool
 }
 
-// Creates an electrical line or trace in a circuit that can be used to connect
-// multiple chips
+// NewStandaloneLine creates an electrical line or trace in a circuit that can be used to connect
+// multiple chips. The status parameter sets the initial state of the line (high=true, low=false).
 func NewStandaloneLine(status bool) *StandaloneLine {
 	return &StandaloneLine{
 		status: status,

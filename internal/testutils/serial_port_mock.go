@@ -21,7 +21,8 @@ const (
 	FailInOther
 )
 
-// Struct that mocks the serial port interface for testing
+// SerialPortMock implements a mock of the serial port interface for testing purposes.
+// It simulates serial port behavior including data transmission, reception, and modem status lines.
 type SerialPortMock struct {
 	Mode   *serial.Mode
 	Status serial.ModemStatusBits
@@ -41,7 +42,8 @@ type SerialPortMock struct {
 	MakeCallsFailFrom failInFunction
 }
 
-// Creates a new mock of the serial port
+// NewPortMock creates a new mock of the serial port with the specified mode.
+// It initializes all buffers and sets default modem status bits.
 func NewPortMock(mode *serial.Mode) *SerialPortMock {
 	return &SerialPortMock{
 		Mode: mode,

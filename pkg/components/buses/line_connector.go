@@ -1,7 +1,7 @@
 package buses
 
-// This allows the chip to connect to a line, it basically represents individual pins
-// in a chip
+// LineConnector represents an individual pin on a chip that can connect to a Line.
+// It handles the connection logic and enables/disables based on the line state.
 type LineConnector interface {
 	// Connect associates this connector with the specified line
 	// The line parameter is the bus line to connect to

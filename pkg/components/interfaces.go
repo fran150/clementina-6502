@@ -8,6 +8,8 @@ import (
 	"go.bug.st/serial"
 )
 
+// Acia6522Chip defines the interface for the 65C51N Asynchronous Communications Interface Adapter.
+// This chip provides serial communication capabilities to the 6502 computer system.
 type Acia6522Chip interface {
 	// Pin connections
 	DataBus() *buses.BusConnector[uint8]
@@ -36,6 +38,8 @@ type Acia6522Chip interface {
 	GetRXRegisterEmpty() bool
 }
 
+// Cpu6502Chip defines the interface for the 65C02S CPU emulation.
+// It provides access to all CPU pins, internal registers, and execution control.
 type Cpu6502Chip interface {
 	// Control Lines
 	AddressBus() *buses.BusConnector[uint16]
@@ -70,6 +74,8 @@ type Cpu6502Chip interface {
 	ForceProgramCounter(value uint16)
 }
 
+// LCDControllerChip defines the interface for the HD44780U LCD controller.
+// This chip manages a character LCD display with cursor control and display settings.
 type LCDControllerChip interface {
 	// Bus connection methods
 	Enable() *buses.ConnectorEnabledHigh
@@ -85,6 +91,8 @@ type LCDControllerChip interface {
 	GetDisplayStatus() lcd.DisplayStatus
 }
 
+// MemoryChip defines the interface for RAM and ROM memory components.
+// It provides access to memory contents and control signals for memory operations.
 type MemoryChip interface {
 	// Bus and control signal connections
 	AddressBus() *buses.BusConnector[uint16]
@@ -104,6 +112,8 @@ type MemoryChip interface {
 	Tick(context *common.StepContext)
 }
 
+// ViaChip defines the interface for the 65C22S Versatile Interface Adapter.
+// This chip provides parallel I/O ports, timers, and shift register functionality.
 type ViaChip interface {
 	// Pin Getters / Setters
 	PeripheralAControlLines(num int) *buses.ConnectorEnabledHigh
@@ -142,6 +152,8 @@ type ViaChip interface {
 	GetInterruptEnabledFlag() uint8
 }
 
+// NANDGatesChip defines the interface for the 74HC00 quad NAND gate chip.
+// This chip contains four independent two-input NAND gates.
 type NANDGatesChip interface {
 	// Returns the connector for pin A at the specified index (0-3)
 	APin(index int) buses.LineConnector

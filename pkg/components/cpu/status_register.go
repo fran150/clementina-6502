@@ -1,25 +1,27 @@
 package cpu
 
-// As instructions are executed a set of processor flags are set or clear to record the results of the operation. T
-// his flags and some additional control flags are held in a special status register. Each flag has a single bit within the register.
+// StatusRegister represents the processor status register in the 6502 CPU.
+// It contains flags that record the results of operations and control CPU behavior.
 // See https://www.6502.org/users/obelisk/6502/registers.html
 type StatusRegister uint8
 
-// Name of the bits in the status register
+// StatusBit defines the bit positions for each flag in the status register.
+// These constants are used to access and modify individual flags.
 type StatusBit uint8
 
 const (
-	CarryFlagBit        StatusBit = 0
-	ZeroFlagBit         StatusBit = 1
-	IrqDisableFlagBit   StatusBit = 2
-	DecimalModeFlagBit  StatusBit = 3
-	BreakCommandFlagBit StatusBit = 4
-	UnusedFlagBit       StatusBit = 5
-	OverflowFlagBit     StatusBit = 6
-	NegativeFlagBit     StatusBit = 7
+	CarryFlagBit        StatusBit = 0 // Carry flag (C)
+	ZeroFlagBit         StatusBit = 1 // Zero flag (Z)
+	IrqDisableFlagBit   StatusBit = 2 // Interrupt disable flag (I)
+	DecimalModeFlagBit  StatusBit = 3 // Decimal mode flag (D)
+	BreakCommandFlagBit StatusBit = 4 // Break command flag (B)
+	UnusedFlagBit       StatusBit = 5 // Unused flag (always set to 1)
+	OverflowFlagBit     StatusBit = 6 // Overflow flag (V)
+	NegativeFlagBit     StatusBit = 7 // Negative flag (N)
 )
 
-// Creates the status register with it's default value. The BRK (B) and unused (U) flag are always set to 1.
+// NewStatusRegister creates a new status register with the specified initial value.
+// The BRK (B) and unused (U) flags are always set to 1, regardless of the input value.
 func NewStatusRegister(value uint8) StatusRegister {
 	return StatusRegister(value | 0x30)
 }
