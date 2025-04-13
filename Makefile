@@ -19,14 +19,82 @@ BENCH_PACKAGE=github.com/fran150/clementina-6502/tests
 BENCH_TESTS=^BenchmarkProcessor
 
 
-.PHONY: all build clean test coverage lint vet fmt bench profile help
+.PHONY: all build clean test coverage lint vet fmt bench profile help build-all release
 
 all: clean build test ## Default target: clean, build and test
 
-build: ## Build the binary
+build: ## Build the binary for current platform
 	@echo "Building ${BINARY_NAME}..."
 	@mkdir -p ${BUILD_DIR}
 	${GO} build ${LDFLAGS} -o ${BUILD_DIR}/${BINARY_NAME} ${MAIN_PACKAGE}
+
+build-all: clean ## Build for all platforms (Linux, macOS, Windows)
+	@echo "Building for all platforms..."
+	@mkdir -p ${BUILD_DIR}
+	
+	@echo "Building for Linux..."
+	GOOS=linux GOARCH=amd64 ${GO} build ${LDFLAGS} -o ${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-linux-amd64 ${MAIN_PACKAGE}
+	GOOS=linux GOARCH=arm64 ${GO} build ${LDFLAGS} -o ${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-linux-arm64 ${MAIN_PACKAGE}
+	GOOS=linux GOARCH=386 ${GO} build ${LDFLAGS} -o ${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-linux-386 ${MAIN_PACKAGE}
+	
+	@echo "Building for macOS..."
+	GOOS=darwin GOARCH=amd64 ${GO} build ${LDFLAGS} -o ${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-darwin-amd64 ${MAIN_PACKAGE}
+	GOOS=darwin GOARCH=arm64 ${GO} build ${LDFLAGS} -o ${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-darwin-arm64 ${MAIN_PACKAGE}
+	
+	@echo "Building for Windows..."
+	GOOS=windows GOARCH=amd64 ${GO} build ${LDFLAGS} -o ${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-windows-amd64.exe ${MAIN_PACKAGE}
+	GOOS=windows GOARCH=386 ${GO} build ${LDFLAGS} -o ${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-windows-386.exe ${MAIN_PACKAGE}
+	
+	@echo "Build complete! Binaries are available in ${BUILD_DIR}"
+
+release: build-all ## Create release packages for all platforms
+	@echo "Creating release packages..."
+	
+	@# Create directories for assets
+	@mkdir -p ${BUILD_DIR}/assets/images
+	
+	@# Linux packages
+	@for arch in amd64 arm64 386; do \
+		echo "Creating package for linux-$$arch..."; \
+		package_dir="${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-linux-$$arch"; \
+		mkdir -p "$$package_dir/assets/computer/beneater"; \
+		mkdir -p "$$package_dir/assets/images"; \
+		cp "${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-linux-$$arch" "$$package_dir/${BINARY_NAME}"; \
+		chmod +x "$$package_dir/${BINARY_NAME}"; \
+		cp ./assets/computer/beneater/*.bin "$$package_dir/assets/computer/beneater/" 2>/dev/null || true; \
+		cp ./assets/images/computer.jpeg "$$package_dir/assets/images/" 2>/dev/null || true; \
+		cp ./README.md "$$package_dir/"; \
+		cd "${BUILD_DIR}" && zip -r "${BINARY_NAME}-v${VERSION}-linux-$$arch.zip" "${BINARY_NAME}-v${VERSION}-linux-$$arch" && cd - > /dev/null; \
+	done
+	
+	@# macOS packages
+	@for arch in amd64 arm64; do \
+		echo "Creating package for darwin-$$arch..."; \
+		package_dir="${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-darwin-$$arch"; \
+		mkdir -p "$$package_dir/assets/computer/beneater"; \
+		mkdir -p "$$package_dir/assets/images"; \
+		cp "${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-darwin-$$arch" "$$package_dir/${BINARY_NAME}"; \
+		chmod +x "$$package_dir/${BINARY_NAME}"; \
+		cp ./assets/computer/beneater/*.bin "$$package_dir/assets/computer/beneater/" 2>/dev/null || true; \
+		cp ./assets/images/computer.jpeg "$$package_dir/assets/images/" 2>/dev/null || true; \
+		cp ./README.md "$$package_dir/"; \
+		cd "${BUILD_DIR}" && zip -r "${BINARY_NAME}-v${VERSION}-darwin-$$arch.zip" "${BINARY_NAME}-v${VERSION}-darwin-$$arch" && cd - > /dev/null; \
+	done
+	
+	@# Windows packages
+	@for arch in amd64 386; do \
+		echo "Creating package for windows-$$arch..."; \
+		package_dir="${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-windows-$$arch"; \
+		mkdir -p "$$package_dir/assets/computer/beneater"; \
+		mkdir -p "$$package_dir/assets/images"; \
+		cp "${BUILD_DIR}/${BINARY_NAME}-v${VERSION}-windows-$$arch.exe" "$$package_dir/${BINARY_NAME}.exe"; \
+		cp ./assets/computer/beneater/*.bin "$$package_dir/assets/computer/beneater/" 2>/dev/null || true; \
+		cp ./assets/images/computer.jpeg "$$package_dir/assets/images/" 2>/dev/null || true; \
+		cp ./README.md "$$package_dir/"; \
+		cd "${BUILD_DIR}" && zip -r "${BINARY_NAME}-v${VERSION}-windows-$$arch.zip" "${BINARY_NAME}-v${VERSION}-windows-$$arch" && cd - > /dev/null; \
+	done
+	
+	@echo "Release packages are available in ${BUILD_DIR}"
 
 clean: ## Clean build directory
 	@echo "Cleaning..."

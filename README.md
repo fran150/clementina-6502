@@ -1,102 +1,222 @@
-![Logo](assets/images/computer.jpeg) 
-# Clementina 6502 - A Feature-Rich 6502 Computer Emulator with Terminal UI
+# Clementina 6502
+
+![Clementina 6502 Logo](assets/images/computer.jpeg)
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/fran150/clementina-6502)](https://goreportcard.com/report/github.com/fran150/clementina-6502)
+[![Go Version](https://img.shields.io/badge/Go-1.18%2B-blue.svg)](https://golang.org/doc/devel/release.html)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-Clementina 6502 is a comprehensive emulator for Ben Eater's 6502 computer that provides cycle-accurate emulation with an interactive terminal-based user interface. It features full emulation of the 65C02S CPU, VIA, ACIA, LCD controller, and memory components with real serial port connectivity.
+## Overview
 
-The emulator offers precise control over execution speed, breakpoint debugging, component state visualization, and serial communication capabilities. Key features include:
-- Cycle-accurate 65C02S CPU emulation with full instruction set support
-- Real-time visualization of CPU registers, memory, buses, and component states
-- Interactive debugging with breakpoints and single-stepping
-- Configurable emulation speed from sub-Hz to MHz
-- Serial port connectivity with optional modem line emulation
-- LCD display emulation with character support
-- VIA and ACIA peripheral emulation
+Clementina 6502 is a cycle-accurate emulator for [Ben Eater's 6502 computer](https://eater.net/6502) with an interactive terminal-based user interface. This project provides a comprehensive emulation environment for learning about and experimenting with 6502-based computer systems.
 
-## Usage Instructions
-### Prerequisites
-- Go 1.18 or later
-- For serial port functionality:
+The emulator reproduces the behavior of the 65C02S CPU and associated components, offering a platform for both educational purposes and retrocomputing enthusiasts.
+
+## Why?
+
+My journey with computers began in the 1980s when my dad brought home a Commodore 64. Those first BASIC programs I wrote sparked a passion for programming that's stuck with me ever since. I've always wanted to build my own computer from scratch, but my electronics skills weren't quite up to the task (I also wanted to create an OS, a programming language, a game...¯\_(ツ)_/¯).
+
+Then one day I discovered Ben Eater's breadboard computer videos. I was completely hooked and couldn't stop watching. While I wanted to build Ben's 6502 computer, I also had ideas about extending it with my own modifications. That's when it clicked - why not create a software emulation instead?
+
+There are already some great implementations out there, like the [Java 6502 Emulator](https://github.com/DylanSpeiser/Java-6502-Emulator), but I wanted to build my own from the ground up. I challenged myself to work primarily from reference documentation, only peeking at existing implementations when absolutely necessary. And why Go instead of a systems language like C or Rust? Simple - this project is my playground for fun and learning, and I just wanted to take Go for a ride!
+
+## Key Features
+
+### Hardware Emulation
+- **Cycle-accurate 65C02S CPU** emulation with complete instruction set support
+- **Full peripheral emulation**:
+  - 65C22S VIA (Versatile Interface Adapter) with timers and I/O ports
+  - 65C51N ACIA (Asynchronous Communications Interface Adapter) for serial communication
+  - HD44780U LCD controller with character display support
+  - 32K RAM and 32K ROM with proper memory mapping
+- **Detailed bus system** with address and data buses, control lines, and interrupts
+
+### Interactive Terminal UI
+- **Multi-window interface** showing different aspects of the system:
+  - CPU state (registers, flags, current instruction)
+  - Memory contents (RAM/ROM)
+  - LCD display output
+  - VIA and ACIA state visualization
+  - Bus status monitoring
+- **Color-coded displays** for better readability and state visualization
+- **Menu-driven operation** with keyboard shortcuts
+
+### Debugging Capabilities
+- **Breakpoint management** for targeted debugging
+- **Single-step execution** for detailed analysis
+- **Real-time state visualization** of all components
+- **Configurable execution speed** from sub-Hz to MHz
+
+### I/O and Connectivity
+- **Real serial port connectivity** for external device communication
+- **Optional modem line emulation** (RTS, CTS, DTR, DSR)
+- **LCD display emulation** with character support
+
+## System Requirements
+
+- **Go 1.18 or later**
+- **Terminal with ANSI color support**
+- **Minimum terminal size**: 80x24 characters
+- **For serial port functionality**:
   - Linux: appropriate permissions for serial port access
   - Windows: COM port drivers
   - macOS: no additional requirements
 
-### Installation
+## Installation
+
+### From Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/clementina6502.git
-cd clementina6502
+git clone https://github.com/fran150/clementina-6502.git
+cd clementina-6502
 
-# Build the project
-go build -o clementina ./cmd/clementina.go
+# Build for your current platform
+make build
+
+# Or build for all platforms
+make build-all VERSION=1.0.0
+
+# Create release packages with assets
+make release VERSION=1.0.0
 ```
 
-### Quick Start
-1. Run the emulator with default settings:
+### Pre-built Binaries
+
+Download the latest release for your platform from the [GitHub Releases page](https://github.com/fran150/clementina-6502/releases).
+
+#### Linux
 ```bash
+# Extract the archive
+unzip clementina-v1.0.0-linux-amd64.zip
+cd clementina-v1.0.0-linux-amd64
+# Run
 ./clementina
 ```
 
-2. Run with a specific ROM file and serial port:
+#### macOS
 ```bash
-./clementina -r path/to/rom.bin -p /dev/ttyUSB0
+# Extract the archive
+unzip clementina-v1.0.0-darwin-amd64.zip
+cd clementina-v1.0.0-darwin-amd64
+# Run
+./clementina
 ```
 
-### More Detailed Examples
-
-1. Configure emulation speed and display refresh rate:
+#### Windows
 ```bash
-./clementina -m 1.2 -f 30  # Run at 1.2 MHz with 30 FPS display updates
+# Extract the archive
+# Using Explorer, right-click the ZIP file and select "Extract All"
+# Navigate to the extracted folder
+# Double-click clementina.exe or run from Command Prompt
 ```
 
-2. Enable modem line emulation for serial ports:
+## Usage
+
+### Basic Operation
+
 ```bash
+# Run with default settings (uses included ROM)
+./clementina
+
+# Run with a specific ROM file
+./clementina -r path/to/rom.bin
+
+# Connect to a serial port
+./clementina -p /dev/ttyUSB0
+
+# Set emulation speed to 1.2 MHz with 30 FPS display updates
+./clementina -m 1.2 -f 30
+
+# Enable modem line emulation for serial ports
 ./clementina -p /dev/ttyUSB0 -e
 ```
 
-### Troubleshooting
+### Command Line Options
 
-Common issues and solutions:
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-r, --rom` | ROM file to load | `./assets/computer/beneater/eater.bin` |
+| `-p, --port` | Serial port to connect to | None |
+| `-m, --mhz` | Target emulation speed in MHz | 1.2 |
+| `-f, --fps` | Target display refresh rate | 15 |
+| `-e, --emulate-modem` | Enable modem lines emulation | false |
 
-1. Serial Port Access Denied
+## Technical Details
+
+The emulator includes the ROM image created by Ben that includes both wozmon and msbasic. See https://github.com/beneater/msbasic for details.
+
+### Serial Communication
+
+The emulator can connect to real serial ports using the port configuration set by Ben in the ROM:
+- 19200 baud rate
+- 8 data bits
+- No parity
+- 1 stop bit
+
+For testing without physical hardware, you can use `socat` to create virtual serial ports:
+
+```bash
+socat -d -d pty,raw,echo=0 pty,raw,echo=0
+```
+
+## Debugging Tips
+
+If you are testing the emulator with your own image, it includes some debugging tools to help you:
+
+1. **Use breakpoints** to pause execution at specific addresses
+2. **Single-step** through code to observe CPU and component behavior
+3. **Monitor the bus window** to see data flow between components
+4. **Adjust emulation speed** for better observation of fast operations
+5. **Check the ACIA window** when debugging serial communication issues
+
+## Troubleshooting
+
+### Serial Port Access Denied
 ```bash
 # Linux: Add user to dialout group
 sudo usermod -a -G dialout $USER
 # Log out and back in for changes to take effect
 ```
 
-2. Emulation Performance Issues
-- Check CPU usage and reduce target speed (-m flag)
-- Lower display refresh rate (-f flag)
+### Emulation Performance Issues
+- Check CPU usage and reduce target speed (`-m` flag)
+- Lower display refresh rate (`-f` flag)
 - Verify ROM file integrity
 - Enable debug logging for detailed diagnostics
 
-3. Display Rendering Issues
+### Display Rendering Issues
 - Verify terminal supports ANSI escape codes
 - Check terminal window size (minimum 80x24 required)
 - Try different terminal emulators
 
-### Port emulation
+## Performance Profiling
 
-In order to test the emulator I use SOCAT to create pseudo interconnected ports.
-Ben's computer operates with 8-N-1, 19200 bps
+For profiling CPU performance:
 
-```
-socat -d -d pty,raw,echo=0 pty,raw,echo=0
-```
-
-### Profiling
-
-For profiling the CPU I'm using
-
-```
+```bash
 go test -benchmem -run=^$ -bench ^BenchmarkProcessor$ github.com/fran150/clementina-6502/tests -cpuprofile clementina6502.prof
+go tool pprof -http :8080 clementina6502.prof
 ```
 
-and then:
+## Contributing
 
-```
-go tool pprof -http :8080  clementina6502.prof
-```
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- [Ben Eater](https://eater.net/) for the [original 6502 computer design](https://eater.net/6502)
+- The Go community for excellent libraries and tools
+- Amazing 6502 reference http://www.6502.org/users/obelisk/65C02/reference.html
+- Very detailed description of 6502 / 6510 processors: https://www.atarihq.com/danb/files/64doc.txt. I used it to read about the intermediate cycles for each instruction.
+- More 6502 references: http://www.6502.org/tutorials/65c02opcodes.html
+- Details about the VIA chip: https://lateblt.tripod.com/bit67.txt
+- 6522 reference: https://web.archive.org/web/20160108173129if_/http://archive.6502.org/datasheets/mos_6522_preliminary_nov_1977.pdf
+- Another 6522 reference: https://swh.princeton.edu/~mae412/TEXT/NTRAK2002/20.pdf
+- LCD Simulator: http://www.dinceraydin.com/djlcdsim/djlcdsim.html I've used it to test the behaviour of certain instructions.
+- Details about HD44780 addressing with different LCDs: https://web.alfredstate.edu/faculty/weimandn/lcd/lcd_addressing/lcd_addressing_index.html
+- Amazing JAVA Emulator for Ben's computer: https://github.com/paulfisher53/Java-6502-Emulator
