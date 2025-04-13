@@ -110,6 +110,11 @@ func (d *CodeWindow) addLineOfCode(programCounter uint16, instruction *cpu.CpuIn
 	}
 }
 
+// Tick processes a CPU cycle and updates the code window if a new instruction is being read.
+// This method is called on each CPU cycle to maintain the execution history.
+//
+// Parameters:
+//   - context: The current step context containing CPU state information
 func (d *CodeWindow) Tick(context *common.StepContext) {
 	pc := d.processor.GetProgramCounter()
 	instruction := d.processor.GetCurrentInstruction()
@@ -119,15 +124,26 @@ func (d *CodeWindow) Tick(context *common.StepContext) {
 	}
 }
 
+// Clear resets the code window, removing all text content and execution history.
 func (d *CodeWindow) Clear() {
 	d.text.Clear()
 }
 
+// Draw updates the code window with the current execution history.
+// It displays the disassembled instructions that have been executed.
+//
+// Parameters:
+//   - context: The current step context containing system state information
 func (d *CodeWindow) Draw(context *common.StepContext) {
 	values := d.lines.GetValues()
 	d.text.SetText(strings.Join(values, ""))
 }
 
+// GetDrawArea returns the primitive that represents this window in the UI.
+// This is used by the layout manager to position and render the window.
+//
+// Returns:
+//   - The tview primitive for this window
 func (d *CodeWindow) GetDrawArea() tview.Primitive {
 	return d.text
 }

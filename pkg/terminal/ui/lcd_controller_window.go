@@ -38,10 +38,16 @@ func NewLcdWindow(lcd components.LCDControllerChip) *LcdControllerWindow {
 	}
 }
 
+// Clear resets the LCD controller window, removing all text content.
 func (d *LcdControllerWindow) Clear() {
 	d.text.Clear()
 }
 
+// Draw updates the LCD controller window with the current LCD state.
+// It displays the LCD memory contents, display status, and control signals.
+//
+// Parameters:
+//   - context: The current step context containing system state information
 func (d *LcdControllerWindow) Draw(context *common.StepContext) {
 	cursorStatus := d.lcd.GetCursorStatus()
 	displayStatus := d.lcd.GetDisplayStatus()
@@ -132,6 +138,11 @@ func drawLcdDDRAM(writer io.Writer, displayStatus lcd.DisplayStatus) {
 	fmt.Fprintf(writer, "┘\n")
 }
 
+// GetDrawArea returns the primitive that represents this window in the UI.
+// This is used by the layout manager to position and render the window.
+//
+// Returns:
+//   - The tview primitive for this window
 func (d *LcdControllerWindow) GetDrawArea() tview.Primitive {
 	return d.text
 }

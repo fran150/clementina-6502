@@ -433,70 +433,138 @@ func (via *Via65C22S) Tick(context *common.StepContext) {
 * Internal Registers Getters
 *************************************************************************************/
 
+// GetOutputRegisterA returns the current value of Output Register A (ORA).
+//
+// Returns:
+//   - The 8-bit value currently in the ORA register
 func (via *Via65C22S) GetOutputRegisterA() uint8 {
 	return via.registers.outputRegisterA
 }
 
+// GetOutputRegisterB returns the current value of Output Register B (ORB).
+//
+// Returns:
+//   - The 8-bit value currently in the ORB register
 func (via *Via65C22S) GetOutputRegisterB() uint8 {
 	return via.registers.outputRegisterB
 }
 
+// GetInputRegisterA returns the current value of Input Register A (IRA).
+//
+// Returns:
+//   - The 8-bit value currently in the IRA register
 func (via *Via65C22S) GetInputRegisterA() uint8 {
 	return via.registers.inputRegisterA
 }
 
+// GetInputRegisterB returns the current value of Input Register B (IRB).
+//
+// Returns:
+//   - The 8-bit value currently in the IRB register
 func (via *Via65C22S) GetInputRegisterB() uint8 {
 	return via.registers.inputRegisterB
 }
 
+// GetDataDirectionRegisterA returns the current value of Data Direction Register A (DDRA).
+//
+// Returns:
+//   - The 8-bit value currently in the DDRA register
 func (via *Via65C22S) GetDataDirectionRegisterA() uint8 {
 	return via.registers.dataDirectionRegisterA
 }
 
+// GetDataDirectionRegisterB returns the current value of Data Direction Register B (DDRB).
+//
+// Returns:
+//   - The 8-bit value currently in the DDRB register
 func (via *Via65C22S) GetDataDirectionRegisterB() uint8 {
 	return via.registers.dataDirectionRegisterB
 }
 
+// GetLowLatches2 returns the current value of the low byte latches for Timer 2.
+//
+// Returns:
+//   - The 8-bit value currently in the Timer 2 low byte latch
 func (via *Via65C22S) GetLowLatches2() uint8 {
 	return via.registers.lowLatches2
 }
 
+// GetLowLatches1 returns the current value of the low byte latches for Timer 1.
+//
+// Returns:
+//   - The 8-bit value currently in the Timer 1 low byte latch
 func (via *Via65C22S) GetLowLatches1() uint8 {
 	return via.registers.lowLatches1
 }
 
+// GetHighLatches2 returns the current value of the high byte latches for Timer 2.
+//
+// Returns:
+//   - The 8-bit value currently in the Timer 2 high byte latch
 func (via *Via65C22S) GetHighLatches2() uint8 {
 	return via.registers.highLatches2
 }
 
+// GetHighLatches1 returns the current value of the high byte latches for Timer 1.
+//
+// Returns:
+//   - The 8-bit value currently in the Timer 1 high byte latch
 func (via *Via65C22S) GetHighLatches1() uint8 {
 	return via.registers.highLatches1
 }
 
+// GetCounter2 returns the current value of Timer 2 counter.
+//
+// Returns:
+//   - The 16-bit value currently in the Timer 2 counter
 func (via *Via65C22S) GetCounter2() uint16 {
 	return via.registers.counter2
 }
 
+// GetCounter1 returns the current value of Timer 1 counter.
+//
+// Returns:
+//   - The 16-bit value currently in the Timer 1 counter
 func (via *Via65C22S) GetCounter1() uint16 {
 	return via.registers.counter1
 }
 
+// GetShiftRegister returns the current value of the Shift Register (SR).
+//
+// Returns:
+//   - The 8-bit value currently in the Shift Register
 func (via *Via65C22S) GetShiftRegister() uint8 {
 	return via.registers.shiftRegister
 }
 
+// GetAuxiliaryControl returns the current value of the Auxiliary Control Register (ACR).
+//
+// Returns:
+//   - The 8-bit value currently in the ACR register
 func (via *Via65C22S) GetAuxiliaryControl() uint8 {
 	return via.registers.auxiliaryControl
 }
 
+// GetPeripheralControl returns the current value of the Peripheral Control Register (PCR).
+//
+// Returns:
+//   - The 8-bit value currently in the PCR register
 func (via *Via65C22S) GetPeripheralControl() uint8 {
 	return via.registers.peripheralControl
 }
 
+// GetInterruptFlagValue returns the current value of the Interrupt Flag Register (IFR).
+//
+// Returns:
+//   - The 8-bit value currently in the IFR register
 func (via *Via65C22S) GetInterruptFlagValue() uint8 {
 	return via.registers.interrupts.getInterruptFlagValue()
 }
 
+// GetInterruptEnabledFlag returns the current value of the Interrupt Enable Register (IER).
+//
+// Returns:
+//   - The 8-bit value currently in the IER register
 func (via *Via65C22S) GetInterruptEnabledFlag() uint8 {
 	return via.registers.interrupts.getInterruptEnabledFlag()
 }

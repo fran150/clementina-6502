@@ -45,10 +45,16 @@ func getFlagStatusColor(status cpu.StatusRegister, bit cpu.StatusBit) string {
 	return "[red]"
 }
 
+// Clear resets the CPU window, removing all text content.
 func (d *CpuWindow) Clear() {
 	d.text.Clear()
 }
 
+// Draw updates the CPU window with the current CPU state.
+// It displays registers, flags, and the current instruction.
+//
+// Parameters:
+//   - context: The current step context containing CPU state information
 func (d *CpuWindow) Draw(context *common.StepContext) {
 	// Create a consistent layout with aligned columns
 	fmt.Fprintf(d.text, "┌────────────────────────┐\n")
@@ -102,6 +108,11 @@ func (d *CpuWindow) Draw(context *common.StepContext) {
 	fmt.Fprintf(d.text, "└────────────────────────┘\n")
 }
 
+// GetDrawArea returns the primitive that represents this window in the UI.
+// This is used by the layout manager to position and render the window.
+//
+// Returns:
+//   - The tview primitive for this window
 func (d *CpuWindow) GetDrawArea() tview.Primitive {
 	return d.text
 }

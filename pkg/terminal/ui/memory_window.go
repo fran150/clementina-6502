@@ -42,22 +42,37 @@ func NewMemoryWindow(memory components.MemoryChip) *MemoryWindow {
 	}
 }
 
+// GetTitle returns the title of the memory window.
 func (m *MemoryWindow) GetTitle() string {
 	return m.text.GetTitle()
 }
 
+// SetTitle sets the title of the memory window.
+//
+// Parameters:
+//   - title: The new title to set
 func (m *MemoryWindow) SetTitle(title string) {
 	m.text.SetTitle(title)
 }
 
+// GetStartAddress returns the current starting address being displayed in the memory window.
+//
+// Returns:
+//   - The 16-bit address where the memory display begins
 func (m *MemoryWindow) GetStartAddress() uint16 {
 	return m.start
 }
 
+// Clear resets the memory window, removing all text content.
 func (m *MemoryWindow) Clear() {
 	m.text.Clear()
 }
 
+// ScrollDown moves the memory display down by the specified number of lines.
+// Each line represents 8 bytes of memory.
+//
+// Parameters:
+//   - lines: Number of lines to scroll down
 func (m *MemoryWindow) ScrollDown(lines uint16) {
 	size := uint16(m.memory.Size())
 
@@ -67,6 +82,11 @@ func (m *MemoryWindow) ScrollDown(lines uint16) {
 	}
 }
 
+// ScrollUp moves the memory display up by the specified number of lines.
+// Each line represents 8 bytes of memory.
+//
+// Parameters:
+//   - lines: Number of lines to scroll up
 func (m *MemoryWindow) ScrollUp(lines uint16) {
 	value := int(m.start) - (int(lines) * 8)
 
@@ -77,6 +97,11 @@ func (m *MemoryWindow) ScrollUp(lines uint16) {
 	}
 }
 
+// Draw updates the memory window with the current memory contents.
+// It displays memory values starting from the current start address.
+//
+// Parameters:
+//   - context: The current step context containing system state information
 func (m *MemoryWindow) Draw(context *common.StepContext) {
 	address := m.start
 
@@ -96,6 +121,11 @@ func (m *MemoryWindow) Draw(context *common.StepContext) {
 	}
 }
 
+// GetDrawArea returns the primitive that represents this window in the UI.
+// This is used by the layout manager to position and render the window.
+//
+// Returns:
+//   - The tview primitive for this window
 func (d *MemoryWindow) GetDrawArea() tview.Primitive {
 	return d.text
 }

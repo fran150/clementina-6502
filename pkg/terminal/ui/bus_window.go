@@ -58,6 +58,7 @@ func (w *BusWindow) AddBus16(name string, bus buses.Bus[uint16]) {
 	})
 }
 
+// Clear resets the bus window, removing all text content.
 func (w *BusWindow) Clear() {
 	w.text.Clear()
 }
@@ -124,6 +125,11 @@ func (w *BusWindow) drawBusStatus(name string, value uint16, bitWidth int) {
 	fmt.Fprint(w.text, "\n\n")
 }
 
+// Draw updates the bus window with the current state of all buses.
+// It displays the values on each bus with visual representation of high/low signals.
+//
+// Parameters:
+//   - context: The current step context containing system state information
 func (w *BusWindow) Draw(context *common.StepContext) {
 	w.Clear()
 
@@ -139,6 +145,11 @@ func (w *BusWindow) Draw(context *common.StepContext) {
 	}
 }
 
+// GetDrawArea returns the primitive that represents this window in the UI.
+// This is used by the layout manager to position and render the window.
+//
+// Returns:
+//   - The tview primitive for this window
 func (w *BusWindow) GetDrawArea() tview.Primitive {
 	return w.text
 }

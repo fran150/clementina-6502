@@ -1,5 +1,5 @@
 #!/bin/bash
-# Improved script to check for undocumented exported symbols in Go code
+# Script to check for undocumented exported symbols in Go code
 
 echo "Checking for undocumented exported symbols..."
 
@@ -9,7 +9,7 @@ go_files=$(find . -name "*.go" | grep -v "_test.go" | grep -v "/vendor/" | grep 
 # Check for exported symbols without documentation
 undocumented=0
 for file in $go_files; do
-  # Get all exported symbols (types, functions, etc.)
+  # Process the file
   while IFS= read -r line; do
     # Skip empty lines
     [ -z "$line" ] && continue
@@ -18,14 +18,36 @@ for file in $go_files; do
     line_num=$(echo "$line" | cut -d':' -f1)
     content=$(echo "$line" | cut -d':' -f2-)
     
-    # Extract symbol name
-    symbol=$(echo "$content" | sed -E 's/^[[:space:]]*(func|type|const|var)[[:space:]]+([A-Z][a-zA-Z0-9_]*).*/\2/')
+    # Check if this is a method or function
+    is_method=0
+    if echo "$content" | grep -q -E "^[[:space:]]*func[[:space:]]*\([[:space:]]*[a-zA-Z0-9_]+[[:space:]]*\*?[[:space:]]*[a-zA-Z0-9_]+"; then
+      is_method=1
+    fi
+    
+    # Skip if it's not an exported symbol (doesn't start with uppercase)
+    if [ $is_method -eq 1 ]; then
+      # For methods, extract the method name
+      method_name=$(echo "$content" | sed -E 's/^[[:space:]]*func[[:space:]]*\([[:space:]]*[a-zA-Z0-9_]+[[:space:]]*\*?[[:space:]]*[a-zA-Z0-9_]+[[:space:]]*\)[[:space:]]*([A-Za-z0-9_]+).*/\1/')
+      
+      # Skip if method name doesn't start with uppercase
+      if ! echo "$method_name" | grep -q -E "^[A-Z]"; then
+        continue
+      fi
+    else
+      # For non-methods, extract the symbol name
+      symbol_name=$(echo "$content" | sed -E 's/^[[:space:]]*(func|type|const|var)[[:space:]]+([A-Za-z0-9_]+).*/\2/')
+      
+      # Skip if symbol name doesn't start with uppercase
+      if ! echo "$symbol_name" | grep -q -E "^[A-Z]"; then
+        continue
+      fi
+    fi
     
     # Check for documentation above the symbol
     has_doc=0
     if [ "$line_num" -gt 1 ]; then
-      # Check up to 5 lines above for comments
-      for i in {1..5}; do
+      # Check up to 10 lines above for comments
+      for i in {1..10}; do
         prev_line=$((line_num - i))
         [ "$prev_line" -lt 1 ] && break
         
@@ -44,11 +66,15 @@ for file in $go_files; do
     fi
     
     if [ $has_doc -eq 0 ]; then
-      echo -e "\033[0;31mMissing documentation in $file:\033[0m"
+      if [ $is_method -eq 1 ]; then
+        echo -e "\033[0;31mMissing documentation for method in $file (line $line_num):\033[0m"
+      else
+        echo -e "\033[0;31mMissing documentation for symbol in $file (line $line_num):\033[0m"
+      fi
       echo "$content"
       undocumented=1
     fi
-  done < <(grep -n -E "^[[:space:]]*(func|type|const|var)[[:space:]]+[A-Z][a-zA-Z0-9_]*" "$file")
+  done < <(grep -n -E "^[[:space:]]*(func|type|const|var)" "$file")
 done
 
 if [ $undocumented -eq 1 ]; then

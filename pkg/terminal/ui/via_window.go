@@ -36,10 +36,16 @@ func NewViaWindow(via components.ViaChip) *ViaWindow {
 	}
 }
 
+// Clear resets the VIA window, removing all text content.
 func (d *ViaWindow) Clear() {
 	d.text.Clear()
 }
 
+// Draw updates the VIA window with the current VIA chip state.
+// It displays register values, timer status, and I/O port configurations.
+//
+// Parameters:
+//   - context: The current step context containing system state information
 func (d *ViaWindow) Draw(context *common.StepContext) {
 	fmt.Fprintf(d.text, "[white]╔══════════════════════════════════╗\n")
 	// Port A Section
@@ -88,6 +94,11 @@ func (d *ViaWindow) Draw(context *common.StepContext) {
 	fmt.Fprintf(d.text, "[white]╚══════════════════════════════════╝\n")
 }
 
+// GetDrawArea returns the primitive that represents this window in the UI.
+// This is used by the layout manager to position and render the window.
+//
+// Returns:
+//   - The tview primitive for this window
 func (d *ViaWindow) GetDrawArea() tview.Primitive {
 	return d.text
 }

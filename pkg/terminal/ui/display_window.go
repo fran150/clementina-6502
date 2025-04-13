@@ -39,10 +39,17 @@ func NewDisplayWindow(lcd components.LCDControllerChip) *Lcd16x2Window {
 	}
 }
 
+// Clear resets the LCD display window, removing all text content.
 func (d *Lcd16x2Window) Clear() {
 	d.text.Clear()
 }
 
+// Draw updates the LCD display window with the current content from the LCD controller.
+// It renders the display based on the current state of the LCD controller,
+// including cursor position and display status.
+//
+// Parameters:
+//   - context: The current step context
 func (d *Lcd16x2Window) Draw(context *common.StepContext) {
 	const line1MinIndex, line1MaxIndex = 0, 40
 	const line2MinIndex, line2MaxIndex = 40, 80
@@ -103,6 +110,11 @@ func drawLcdLine(writer io.Writer, lineStart uint8, displayStatus lcd.DisplaySta
 	}
 }
 
+// GetDrawArea returns the primitive that represents this window in the UI.
+// This is used by the layout manager to position and render the window.
+//
+// Returns:
+//   - The tview primitive for this window
 func (d *Lcd16x2Window) GetDrawArea() tview.Primitive {
 	return d.text
 }

@@ -158,6 +158,8 @@ func (port *SerialPortMock) Break(time.Duration) error {
 	return port.checkError(FailInOther)
 }
 
+// Tick processes the serial port communication for one cycle.
+// It handles the transmission and reception of data based on the configured baud rate.
 func (port *SerialPortMock) Tick() {
 	for !port.stop {
 		// Must be read every cycle to update in case of changes
@@ -185,6 +187,8 @@ func (port *SerialPortMock) Tick() {
 	}
 }
 
+// TerminalReceive retrieves all bytes from the terminal receive buffer.
+// It returns the received bytes and clears the buffer.
 func (port *SerialPortMock) TerminalReceive() []byte {
 	var received []byte
 
@@ -195,6 +199,11 @@ func (port *SerialPortMock) TerminalReceive() []byte {
 	return received
 }
 
+// TerminalSend sends bytes to the terminal transmit buffer.
+// The bytes will be processed during the next Tick operation.
+//
+// Parameters:
+//   - values: The bytes to send to the terminal
 func (port *SerialPortMock) TerminalSend(values []byte) {
 	for _, value := range values {
 		port.TerminalTxBuffer.Queue(value)

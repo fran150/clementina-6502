@@ -94,6 +94,11 @@ func (c *console) SetBreakpointConfigMode(context *common.StepContext) {
 	c.AppendActiveWindow("breakpoint")
 }
 
+// ShowWindow activates the specified window in the console.
+//
+// Parameters:
+//   - windowKey: The key identifying the window to show
+//   - context: The current step context
 func (c *console) ShowWindow(windowKey string, context *common.StepContext) {
 	c.SetActiveWindow(windowKey)
 }
@@ -108,12 +113,23 @@ func (c *console) ScrollUp(context *common.StepContext, step uint16) {
 	}
 }
 
+// ScrollDown scrolls the active memory window down by the specified number of lines.
+// This only has an effect if the active window is a memory window.
+//
+// Parameters:
+//   - context: The current step context
+//   - step: The number of lines to scroll down
 func (c *console) ScrollDown(context *common.StepContext, step uint16) {
 	if explorer, ok := c.windows[c.active].(*ui.MemoryWindow); ok {
 		explorer.ScrollDown(step)
 	}
 }
 
+// ShowEmulationSpeed displays the emulation speed configuration window.
+// This allows the user to view and adjust the current emulation speed.
+//
+// Parameters:
+//   - context: The current step context
 func (c *console) ShowEmulationSpeed(context *common.StepContext) {
 	if speedWindow := GetWindow[ui.SpeedWindow](c, "speed"); speedWindow != nil {
 		speedWindow.ShowConfig(context)
@@ -129,11 +145,21 @@ func (c *console) SetActiveWindow(key string) {
 	c.pages.SwitchToPage(key)
 }
 
+// AppendActiveWindow adds the current active window to the history stack
+// and activates the specified window.
+//
+// Parameters:
+//   - key: The key of the window to activate
 func (c *console) AppendActiveWindow(key string) {
 	c.previous = append(c.previous, c.active)
 	c.SetActiveWindow(key)
 }
 
+// ReturnToPreviousWindow restores the previously active window from the history stack.
+// If there is no previous window in the stack, this method has no effect.
+//
+// Parameters:
+//   - context: The current step context
 func (c *console) ReturnToPreviousWindow(context *common.StepContext) {
 	if c.previous != nil {
 		previous, active := slicesext.SlicePop(c.previous)
@@ -146,6 +172,8 @@ func (c *console) ReturnToPreviousWindow(context *common.StepContext) {
 * Public methods
 *************************************************************************************/
 
+// Draw clears and draws all windows in the console.
+// This method is typically called to refresh the display after changes have been made.
 func (c *console) Draw(context *common.StepContext) {
 	// Clear and draw all windows
 	for _, window := range c.windows {
@@ -154,6 +182,11 @@ func (c *console) Draw(context *common.StepContext) {
 	}
 }
 
+// Tick updates the console components that need to be updated every cycle.
+// Currently, this updates the code window to reflect the current execution state.
+//
+// Parameters:
+//   - context: The current step context
 func (c *console) Tick(context *common.StepContext) {
 	if codeWindow := GetWindow[ui.CodeWindow](c, "code"); codeWindow != nil {
 		codeWindow.Tick(context)

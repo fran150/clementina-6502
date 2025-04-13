@@ -44,14 +44,24 @@ func NewSpeedWindow(config *computers.EmulationLoopConfig) *SpeedWindow {
 	}
 }
 
+// IsConfigVisible returns whether the configuration display is currently visible.
+//
+// Returns:
+//   - true if the configuration is being displayed, false otherwise
 func (s *SpeedWindow) IsConfigVisible() bool {
 	return s.showConfig
 }
 
+// Clear resets the speed window, removing all text content.
 func (s *SpeedWindow) Clear() {
 	s.text.Clear()
 }
 
+// Draw updates the speed window with the current emulation speed metrics.
+// It displays either the configuration or the current performance statistics.
+//
+// Parameters:
+//   - context: The current step context containing timing information
 func (s *SpeedWindow) Draw(context *common.StepContext) {
 	if s.showConfig {
 		if context.T-s.showConfigStart > (int64(time.Second) * 3) {
@@ -74,10 +84,20 @@ func (s *SpeedWindow) Draw(context *common.StepContext) {
 	}
 }
 
+// GetDrawArea returns the primitive that represents this window in the UI.
+// This is used by the layout manager to position and render the window.
+//
+// Returns:
+//   - The tview primitive for this window
 func (d *SpeedWindow) GetDrawArea() tview.Primitive {
 	return d.text
 }
 
+// ShowConfig displays the emulation configuration in the speed window.
+// The configuration will be shown for a few seconds before returning to speed display.
+//
+// Parameters:
+//   - context: The current step context containing timing information
 func (d *SpeedWindow) ShowConfig(context *common.StepContext) {
 	d.showConfig = true
 	d.showConfigStart = context.T

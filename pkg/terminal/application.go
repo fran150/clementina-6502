@@ -49,6 +49,12 @@ func NewApplication(computer Computer, config *ApplicationConfig) *Application {
 	}
 }
 
+// Run starts the terminal application and emulation loop.
+// It initializes the computer, sets up event handlers, and begins the main execution loop.
+//
+// Returns:
+//   - The final step context when the application exits
+//   - Any error that occurred during execution
 func (a *Application) Run() (*common.StepContext, error) {
 	a.computer.Init(a.tvApp, a.config)
 

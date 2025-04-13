@@ -55,14 +55,31 @@ func NewOptionsWindow(menu []*OptionsWindowMenuOption) *OptionsWindow {
 	}
 }
 
+// GetActiveMenu returns the currently active menu option.
+//
+// Returns:
+//   - The currently active menu option, or nil if no menu is active
 func (d *OptionsWindow) GetActiveMenu() *OptionsWindowMenuOption {
 	return d.active
 }
 
+// SetActiveMenu sets the specified menu option as the active one.
+//
+// Parameters:
+//   - menu: The menu option to set as active
 func (d *OptionsWindow) SetActiveMenu(menu *OptionsWindowMenuOption) {
 	d.active = menu
 }
 
+// ProcessKey handles keyboard input for the options window.
+// It processes key events to navigate menus and execute menu actions.
+//
+// Parameters:
+//   - event: The keyboard event to process
+//   - context: The current step context containing system state information
+//
+// Returns:
+//   - The event if it wasn't handled, or nil if the event was consumed
 func (d *OptionsWindow) ProcessKey(event *tcell.EventKey, context *common.StepContext) *tcell.EventKey {
 	active := d.GetActiveMenu()
 	options := d.getActiveOptions()
@@ -98,6 +115,11 @@ func (d *OptionsWindow) ProcessKey(event *tcell.EventKey, context *common.StepCo
 	return event
 }
 
+// Draw updates the options window with the current menu structure.
+// It displays the active menu and available options with their key bindings.
+//
+// Parameters:
+//   - context: The current step context containing system state information
 func (d *OptionsWindow) Draw(context *common.StepContext) {
 	activeMenu := d.GetActiveMenu()
 	options := d.getActiveOptions()
@@ -115,10 +137,16 @@ func (d *OptionsWindow) Draw(context *common.StepContext) {
 	}
 }
 
+// GetDrawArea returns the primitive that represents this window in the UI.
+// This is used by the layout manager to position and render the window.
+//
+// Returns:
+//   - The tview primitive for this window
 func (d *OptionsWindow) GetDrawArea() tview.Primitive {
 	return d.text
 }
 
+// Clear resets the options window, removing all text content.
 func (d *OptionsWindow) Clear() {
 	d.text.Clear()
 }

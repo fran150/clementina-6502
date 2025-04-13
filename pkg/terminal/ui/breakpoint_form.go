@@ -53,6 +53,11 @@ func NewBreakPointForm() *BreakPointForm {
 	return breakPointForm
 }
 
+// RemoveSelectedItem removes the currently selected breakpoint from the list.
+// If the list is empty, this method has no effect.
+//
+// Parameters:
+//   - context: The current step context
 func (d *BreakPointForm) RemoveSelectedItem(context *common.StepContext) {
 	if d.list.GetItemCount() == 0 {
 		return
@@ -63,12 +68,23 @@ func (d *BreakPointForm) RemoveSelectedItem(context *common.StepContext) {
 	d.RemoveBreakpointAddress(current)
 }
 
+// RemoveBreakpointAddress removes a breakpoint at the specified index from the list.
+//
+// Parameters:
+//   - index: The index of the breakpoint to remove
 func (d *BreakPointForm) RemoveBreakpointAddress(index int) {
 	d.breakpointAddresses = slicesext.SliceRemove(d.breakpointAddresses, index)
 
 	d.list.RemoveItem(index)
 }
 
+// CheckBreakpoint checks if a breakpoint exists at the specified address.
+//
+// Parameters:
+//   - address: The address to check
+//
+// Returns:
+//   - true if a breakpoint exists at the address, false otherwise
 func (d *BreakPointForm) CheckBreakpoint(address uint16) bool {
 	for _, value := range d.breakpointAddresses {
 		if value == address {
@@ -79,6 +95,11 @@ func (d *BreakPointForm) CheckBreakpoint(address uint16) bool {
 	return false
 }
 
+// AddBreakpointAddress adds a new breakpoint at the specified hexadecimal address.
+// The address is converted to uppercase and displayed with a "$" prefix.
+//
+// Parameters:
+//   - text: The hexadecimal address as a string
 func (d *BreakPointForm) AddBreakpointAddress(text string) {
 	text = strings.ToUpper(text)
 
@@ -94,6 +115,8 @@ func (d *BreakPointForm) AddBreakpointAddress(text string) {
 	d.list.AddItem(text, "", ' ', nil)
 }
 
+// AddSelectedBreakpointAddress adds the address currently entered in the form
+// as a new breakpoint.
 func (d *BreakPointForm) AddSelectedBreakpointAddress() {
 	input := d.form.GetFormItemByLabel("Address").(*tview.InputField)
 	text := input.GetText()
@@ -113,12 +136,24 @@ func validateHexInput(textToCheck string, lastChar rune) bool {
 	return strings.ContainsRune(allowedChars, lastChar)
 }
 
+// Draw updates the breakpoint form display.
+// This is a placeholder implementation as the form is static.
+//
+// Parameters:
+//   - context: The current step context
 func (d *BreakPointForm) Draw(context *common.StepContext) {
 }
 
+// Clear resets the breakpoint form.
+// This is a placeholder implementation as clearing is handled elsewhere.
 func (d *BreakPointForm) Clear() {
 }
 
+// GetDrawArea returns the primitive that represents this form in the UI.
+// This is used by the layout manager to position and render the form.
+//
+// Returns:
+//   - The tview primitive for this form
 func (d *BreakPointForm) GetDrawArea() tview.Primitive {
 	return d.grid
 }

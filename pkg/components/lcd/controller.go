@@ -140,14 +140,31 @@ func (ctrl *LcdHD44780U) Enable() *buses.ConnectorEnabledHigh {
 	return ctrl.enable
 }
 
+// ReadWrite returns the Read/Write control line connector.
+// When this line is low, the controller is in write mode.
+// When high, it's in read mode.
+//
+// Returns:
+//   - The Read/Write control line connector
 func (ctrl *LcdHD44780U) ReadWrite() *buses.ConnectorEnabledLow {
 	return ctrl.write
 }
 
+// RegisterSelect returns the Register Select control line connector.
+// When this line is high, data transfers are to/from the data register.
+// When low, transfers are to/from the instruction register.
+//
+// Returns:
+//   - The Register Select control line connector
 func (ctrl *LcdHD44780U) RegisterSelect() *buses.ConnectorEnabledHigh {
 	return ctrl.dataRegisterSelected
 }
 
+// DataBus returns the 8-bit data bus connector used for transferring
+// data and commands between the CPU and the LCD controller.
+//
+// Returns:
+//   - The 8-bit data bus connector
 func (ctrl *LcdHD44780U) DataBus() *buses.BusConnector[uint8] {
 	return ctrl.dataBus
 }
@@ -205,6 +222,11 @@ func (ctrl *LcdHD44780U) Tick(context *common.StepContext) {
 	ctrl.previousEnable = ctrl.enable.Enabled()
 }
 
+// GetCursorStatus returns the current status of the cursor.
+// This includes visibility, position, and blinking state.
+//
+// Returns:
+//   - A CursorStatus struct containing cursor information
 func (ctrl *LcdHD44780U) GetCursorStatus() CursorStatus {
 	return CursorStatus{
 		CursorVisible:      ctrl.displayCursor,
@@ -213,6 +235,11 @@ func (ctrl *LcdHD44780U) GetCursorStatus() CursorStatus {
 	}
 }
 
+// GetDisplayStatus returns the current status of the display.
+// This includes whether the display is on and other display-related settings.
+//
+// Returns:
+//   - A DisplayStatus struct containing display information
 func (ctrl *LcdHD44780U) GetDisplayStatus() DisplayStatus {
 	return DisplayStatus{
 		DisplayOn:      ctrl.displayOn,

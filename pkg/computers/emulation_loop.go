@@ -40,10 +40,22 @@ func NewEmulationLoop(config *EmulationLoopConfig) *EmulationLoop {
 	}
 }
 
+// GetConfig returns the current emulation loop configuration.
+// This includes target speed and display refresh rate settings.
 func (e *EmulationLoop) GetConfig() *EmulationLoopConfig {
 	return e.config
 }
 
+// Start begins the emulation loop with the provided handlers.
+// It runs the emulation at the configured speed and manages the timing
+// for both CPU cycles and display updates.
+//
+// Parameters:
+//   - handlers: The callback functions to use during emulation
+//
+// Returns:
+//   - A StepContext that can be used to control and monitor the emulation,
+//     or nil if required handlers are missing
 func (e *EmulationLoop) Start(handlers EmulationLoopHandlers) *common.StepContext {
 	if handlers.Tick == nil || handlers.Draw == nil {
 		return nil

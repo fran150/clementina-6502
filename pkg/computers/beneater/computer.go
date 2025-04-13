@@ -194,6 +194,13 @@ func NewBenEaterComputer(port serial.Port, emulateModemLines bool) (*BenEaterCom
 	}, nil
 }
 
+// LoadRom loads a ROM image from the specified file path into the computer's ROM.
+//
+// Parameters:
+//   - romImagePath: The path to the ROM image file
+//
+// Returns:
+//   - An error if the ROM image could not be loaded, nil otherwise
 func (c *BenEaterComputer) LoadRom(romImagePath string) error {
 	err := c.chips.rom.Load(romImagePath)
 	if err != nil {
@@ -203,6 +210,12 @@ func (c *BenEaterComputer) LoadRom(romImagePath string) error {
 	return nil
 }
 
+// Init initializes the computer with the provided application and configuration.
+// It sets up the console interface and enables mouse and paste functionality.
+//
+// Parameters:
+//   - tvApp: The tview application instance
+//   - appConfig: The application configuration
 func (c *BenEaterComputer) Init(tvApp *tview.Application, appConfig *terminal.ApplicationConfig) {
 	tvApp.EnableMouse(true).EnablePaste(true)
 
@@ -210,6 +223,12 @@ func (c *BenEaterComputer) Init(tvApp *tview.Application, appConfig *terminal.Ap
 	c.console = newMainConsole(c, tvApp)
 }
 
+// Tick advances the computer's state by one cycle.
+// It updates all components if the computer is not paused or if a single step is requested.
+// It also handles breakpoints and resets.
+//
+// Parameters:
+//   - context: The current step context
 func (c *BenEaterComputer) Tick(context *common.StepContext) {
 	if !c.pause || c.step {
 		c.chips.cpu.Tick(context)
@@ -240,31 +259,66 @@ func (c *BenEaterComputer) Tick(context *common.StepContext) {
 	}
 }
 
+// Pause stops the execution of the computer.
+// The computer will remain paused until Resume or Step is called.
+//
+// Parameters:
+//   - context: The current step context
 func (c *BenEaterComputer) Pause(context *common.StepContext) {
 	c.pause = true
 }
 
+// Resume continues the execution of the computer after being paused.
+// It sets the step flag to true to ensure at least one cycle executes.
+//
+// Parameters:
+//   - context: The current step context
 func (c *BenEaterComputer) Resume(context *common.StepContext) {
 	c.pause = false
 	c.step = true
 }
 
+// Step executes a single cycle of the computer while in pause mode.
+// This allows for step-by-step debugging of the computer's operation.
+//
+// Parameters:
+//   - context: The current step context
 func (c *BenEaterComputer) Step(context *common.StepContext) {
 	c.step = true
 }
 
+// Draw renders the computer's UI to the terminal.
+// It delegates the drawing to the console component.
+//
+// Parameters:
+//   - context: The current step context
 func (c *BenEaterComputer) Draw(context *common.StepContext) {
 	c.console.Draw(context)
 }
 
+// Stop signals that the computer should stop execution.
+// This sets the Stop flag in the context to true.
+//
+// Parameters:
+//   - context: The current step context
 func (c *BenEaterComputer) Stop(context *common.StepContext) {
 	context.Stop = true
 }
 
+// Reset signals that the computer should be reset.
+// This sets the mustReset flag which will be processed during the next tick.
+//
+// Parameters:
+//   - context: The current step context
 func (c *BenEaterComputer) Reset(context *common.StepContext) {
 	c.mustReset = true
 }
 
+// SpeedUp increases the emulation speed of the computer.
+// It uses a non-linear scale for speeds below 0.5 MHz and a linear scale above.
+//
+// Parameters:
+//   - context: The current step context
 func (c *BenEaterComputer) SpeedUp(context *common.StepContext) {
 	currentSpeed := c.appConfig.TargetSpeedMhz
 
@@ -283,6 +337,12 @@ func (c *BenEaterComputer) SpeedUp(context *common.StepContext) {
 	}
 }
 
+// SpeedDown decreases the emulation speed of the computer.
+// It uses a linear scale for speeds above 0.5 MHz and a non-linear scale below,
+// ensuring the speed never goes below a minimum threshold.
+//
+// Parameters:
+//   - context: The current step context
 func (c *BenEaterComputer) SpeedDown(context *common.StepContext) {
 	currentSpeed := c.appConfig.TargetSpeedMhz
 
@@ -306,6 +366,16 @@ func (c *BenEaterComputer) SpeedDown(context *common.StepContext) {
 	}
 }
 
+// KeyPressed handles keyboard events for the computer.
+// It processes key presses through the options window if available,
+// or returns the event unchanged.
+//
+// Parameters:
+//   - event: The keyboard event to process
+//   - context: The current step context
+//
+// Returns:
+//   - The processed event or the original event if not handled
 func (c *BenEaterComputer) KeyPressed(event *tcell.EventKey, context *common.StepContext) *tcell.EventKey {
 	if options := GetWindow[ui.OptionsWindow](c.console, "options"); options != nil {
 		return options.ProcessKey(event, context)
@@ -314,6 +384,8 @@ func (c *BenEaterComputer) KeyPressed(event *tcell.EventKey, context *common.Ste
 	return event
 }
 
+// Close performs cleanup operations when shutting down the computer.
+// It ensures that the ACIA component is properly closed to release resources.
 func (c *BenEaterComputer) Close() {
 	c.chips.acia.Close()
 }
