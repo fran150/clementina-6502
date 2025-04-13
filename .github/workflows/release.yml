@@ -5,6 +5,10 @@ on:
     tags:
       - 'v*'
 
+# Add explicit permissions
+permissions:
+  contents: write  # Required for creating releases
+
 jobs:
   build:
     name: Build and Release
@@ -61,5 +65,3 @@ jobs:
             
             ### Windows
             Run the executable by double-clicking or from Command Prompt
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
