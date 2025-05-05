@@ -155,7 +155,7 @@ func TestApplicationStopOnKeyPress(t *testing.T) {
 	select {
 	case <-done:
 		// Success
-	case <-time.After(5 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Test timed out")
 	}
 

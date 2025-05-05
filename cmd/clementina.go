@@ -15,7 +15,7 @@ import (
 var (
 	serialPort        string
 	romFile           string
-	targetMhz         float64
+	delay             int64
 	targetFps         int
 	emulateModemLines bool
 )
@@ -31,7 +31,7 @@ It provides a terminal interface and can connect to real serial ports for I/O.`,
 func init() {
 	rootCmd.Flags().StringVarP(&serialPort, "port", "p", "", "Serial port to connect to (e.g., /dev/ttys004)")
 	rootCmd.Flags().StringVarP(&romFile, "rom", "r", "./assets/computer/beneater/eater.bin", "ROM file to load")
-	rootCmd.Flags().Float64VarP(&targetMhz, "mhz", "m", 1.2, "Target emulation speed in MHz")
+	rootCmd.Flags().Int64VarP(&delay, "skip-cycles", "s", 0, "Number of CPU cycles to skip on every loop")
 	rootCmd.Flags().IntVarP(&targetFps, "fps", "f", 15, "Target display refresh rate")
 	rootCmd.Flags().BoolVarP(&emulateModemLines, "emulate-modem", "e", false, "Enable modem lines emulation for serial port (RTS, CTS, DTR, DSR)")
 }
@@ -72,8 +72,8 @@ func runEmulator(cmd *cobra.Command, args []string) {
 	// Setup configuration
 	config := terminal.ApplicationConfig{
 		EmulationLoopConfig: computers.EmulationLoopConfig{
-			TargetSpeedMhz: targetMhz,
-			DisplayFps:     targetFps,
+			SkipCycles: delay,
+			DisplayFps: targetFps,
 		},
 	}
 

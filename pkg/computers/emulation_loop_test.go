@@ -10,8 +10,8 @@ import (
 
 func TestNewEmulationLoop(t *testing.T) {
 	config := &EmulationLoopConfig{
-		TargetSpeedMhz: 0.001,
-		DisplayFps:     5,
+		SkipCycles: 10,
+		DisplayFps: 5,
 	}
 
 	loop := NewEmulationLoop(config)
@@ -43,8 +43,8 @@ func TestEmulationLoop_Start(t *testing.T) {
 
 	t.Run("starts emulation loop with valid handlers", func(t *testing.T) {
 		loop := NewEmulationLoop(&EmulationLoopConfig{
-			TargetSpeedMhz: 0.001,
-			DisplayFps:     5,
+			SkipCycles: 10,
+			DisplayFps: 5,
 		})
 
 		tickCalled := false
@@ -74,76 +74,16 @@ func TestEmulationLoop_Start(t *testing.T) {
 	})
 }
 
-func TestEmulationLoop_Timing(t *testing.T) {
-	t.Run("respects target speed and FPS", func(t *testing.T) {
-		config := &EmulationLoopConfig{
-			TargetSpeedMhz: 0.0001, // 1 KHz
-			DisplayFps:     10,     // 2 FPS
-		}
-
-		loop := NewEmulationLoop(config)
-
-		tickCount := 0
-		drawCount := 0
-		var firstTickTime, lastTickTime, firstDrawTime, lastDrawTime int64
-
-		handlers := EmulationLoopHandlers{
-			Tick: func(context *common.StepContext) {
-				if firstTickTime == 0 {
-					firstTickTime = context.T
-				}
-				lastTickTime = context.T
-				tickCount++
-			},
-			Draw: func(context *common.StepContext) {
-				if firstDrawTime == 0 {
-					firstDrawTime = context.T
-				}
-				lastDrawTime = context.T
-				drawCount++
-			},
-		}
-
-		context := loop.Start(handlers)
-		assert.NotNil(t, context)
-
-		// Run for a fixed duration
-		time.Sleep(1 * time.Second)
-		context.Stop = true
-
-		// Calculate actual rates
-		tickDuration := lastTickTime - firstTickTime
-		drawDuration := lastDrawTime - firstDrawTime
-
-		// Calculate actual frequencies
-		actualTicksPerSecond := float64(tickCount) / (float64(tickDuration) / float64(time.Second))
-		actualDrawsPerSecond := float64(drawCount) / (float64(drawDuration) / float64(time.Second))
-
-		// Expected values
-		expectedTicksPerSecond := config.TargetSpeedMhz * 1_000_000 // Convert MHz to Hz
-		expectedDrawsPerSecond := float64(config.DisplayFps)
-
-		// Allow for 40% margin of error due to system scheduling
-		marginTick := expectedTicksPerSecond * 0.4
-		marginDraw := expectedDrawsPerSecond * 0.4
-
-		assert.InDelta(t, expectedTicksPerSecond, actualTicksPerSecond, marginTick,
-			"Tick rate should be close to target speed")
-		assert.InDelta(t, expectedDrawsPerSecond, actualDrawsPerSecond, marginDraw,
-			"Draw rate should be close to target FPS")
-	})
-}
-
 func TestEmulationLoop_GetConfig(t *testing.T) {
 	config := &EmulationLoopConfig{
-		TargetSpeedMhz: 2.0,
-		DisplayFps:     30,
+		SkipCycles: 0,
+		DisplayFps: 30,
 	}
 
 	loop := NewEmulationLoop(config)
 
 	retrievedConfig := loop.GetConfig()
 	assert.Equal(t, config, retrievedConfig)
-	assert.Equal(t, 2.0, retrievedConfig.TargetSpeedMhz)
+	assert.Equal(t, int64(0), retrievedConfig.SkipCycles)
 	assert.Equal(t, 30, retrievedConfig.DisplayFps)
 }

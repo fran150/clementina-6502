@@ -68,24 +68,42 @@ func createMenuOptions(computer *BenEaterComputer, console *console) []*ui.Optio
 				{
 					Rune:           's',
 					KeyName:        "S",
-					KeyDescription: "Speed",
+					KeyDescription: "Skip Cycles",
 					SubMenu: []*ui.OptionsWindowMenuOption{
 						{
 							Rune:           '=',
 							KeyName:        "+",
-							KeyDescription: "Speed Up",
+							KeyDescription: "Skip 10 Up",
 							Action: func(context *common.StepContext) {
 								console.ShowEmulationSpeed(context)
-								computer.SpeedUp(context)
+								computer.SkipUp(context, 10)
 							},
 						},
 						{
 							Rune:           '-',
 							KeyName:        "-",
-							KeyDescription: "Speed Down",
+							KeyDescription: "Skip 10 Down",
 							Action: func(context *common.StepContext) {
 								console.ShowEmulationSpeed(context)
-								computer.SpeedDown(context)
+								computer.SkipDown(context, 10)
+							},
+						},
+						{
+							Rune:           '+',
+							KeyName:        "Shft +",
+							KeyDescription: "Skip 100 Up",
+							Action: func(context *common.StepContext) {
+								console.ShowEmulationSpeed(context)
+								computer.SkipUp(context, 100)
+							},
+						},
+						{
+							Rune:           '_',
+							KeyName:        "-",
+							KeyDescription: "Skip 100 Down",
+							Action: func(context *common.StepContext) {
+								console.ShowEmulationSpeed(context)
+								computer.SkipDown(context, 100)
 							},
 						},
 					},
