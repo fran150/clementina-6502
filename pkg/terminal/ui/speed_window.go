@@ -20,6 +20,7 @@ type SpeedWindow struct {
 	config          *computers.EmulationLoopConfig
 	showConfig      bool
 	showConfigStart int64
+	currentSpeed    float64
 }
 
 // NewSpeedWindow creates a new emulation speed display window.
@@ -71,16 +72,16 @@ func (s *SpeedWindow) Draw(context *common.StepContext) {
 		cycles := context.Cycle - s.previousC
 		elapsedMicro := (float64(currentTime) - float64(s.previousT)) / float64(time.Microsecond)
 
-		mhz := (float64(cycles) / elapsedMicro)
+		s.currentSpeed = (float64(cycles) / elapsedMicro)
 
 		if s.showConfig {
 			if currentTime-s.showConfigStart > (int64(time.Second) * 3) {
 				s.showConfig = false
 			}
 
-			fmt.Fprintf(s.text, "[white]%0.4f [yellow]DLY: %07d", mhz, s.config.SkipCycles)
+			fmt.Fprintf(s.text, "[white]%0.4f [yellow]DLY: %07d", s.currentSpeed, s.config.SkipCycles)
 		} else {
-			fmt.Fprintf(s.text, "[white]%0.8f Mhz", mhz)
+			fmt.Fprintf(s.text, "[white]%0.8f Mhz", s.currentSpeed)
 		}
 
 	}

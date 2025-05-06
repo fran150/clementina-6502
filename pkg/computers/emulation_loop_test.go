@@ -18,6 +18,17 @@ func TestNewEmulationLoop(t *testing.T) {
 
 	assert.NotNil(t, loop)
 	assert.Equal(t, config, loop.GetConfig())
+
+	config = &EmulationLoopConfig{
+		SkipCycles: -200,
+		DisplayFps: 5,
+	}
+
+	loop = NewEmulationLoop(config)
+
+	assert.NotNil(t, loop)
+	assert.Equal(t, config, loop.GetConfig())
+	assert.Equal(t, int64(0), loop.GetConfig().SkipCycles)
 }
 
 func TestEmulationLoop_Start(t *testing.T) {
