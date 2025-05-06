@@ -152,7 +152,7 @@ go get github.com/fran150/clementina-6502@latest
 |------|-------------|---------|
 | `-r, --rom` | ROM file to load | `./assets/computer/beneater/eater.bin` |
 | `-p, --port` | Serial port to connect to | None |
-| `-m, --mhz` | Target emulation speed in MHz | 1.2 |
+| `-s, --skip-cycles` | Number of CPU cycles to skip on every loop | 0 |
 | `-f, --fps` | Target display refresh rate | 15 |
 | `-e, --emulate-modem` | Enable modem lines emulation | false |
 
