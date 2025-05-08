@@ -123,7 +123,7 @@ test-verbose:
 coverage: ## Run tests with coverage
 	@echo "Running tests with coverage..."
 	@mkdir -p ${COVERAGE_DIR}
-	${GO} test -coverprofile=coverage.txt -covermode=atomic ./...
+	${GO} test -coverprofile=tests/coverage/coverage.txt -covermode=atomic ./...
 	${GO} tool cover -html=coverage.txt -o ${COVERAGE_DIR}/coverage.html
 
 lint: ## Run linter

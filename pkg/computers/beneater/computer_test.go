@@ -416,19 +416,19 @@ func TestMenuOptions(t *testing.T) {
 	assert.Equal(t, int64(0), computer.appConfig.SkipCycles)
 
 	// Skip Cycles increase by 10
-	simulateKeyPress(computer, context, tcell.KeyRune, '=')
+	simulateKeyPress(computer, context, tcell.KeyUp, ' ')
 	assert.Equal(t, int64(10), computer.appConfig.SkipCycles, "Skipped cycles should increase by 10")
 
 	// Skip Cycles decrease by 10
-	simulateKeyPress(computer, context, tcell.KeyRune, '-')
+	simulateKeyPress(computer, context, tcell.KeyDown, ' ')
 	assert.Equal(t, int64(0), computer.appConfig.SkipCycles, "Skipped cycles should decrease by 10")
 
 	// Skip Cycles increase by 100
-	simulateKeyPress(computer, context, tcell.KeyRune, '+')
+	simulateKeyPress(computer, context, tcell.KeyPgUp, ' ')
 	assert.Equal(t, int64(100), computer.appConfig.SkipCycles, "Skipped cycles should increase by 100")
 
 	// Skip Cycles decrease by 100
-	simulateKeyPress(computer, context, tcell.KeyRune, '_')
+	simulateKeyPress(computer, context, tcell.KeyPgDn, ' ')
 	assert.Equal(t, int64(0), computer.appConfig.SkipCycles, "Skipped cycles should decrease by 100")
 
 	// Speed should not go down more than 0

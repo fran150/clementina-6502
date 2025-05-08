@@ -47,12 +47,12 @@ There are already some great implementations out there, like the [Java 6502 Emul
 - **Breakpoint management** for targeted debugging
 - **Single-step execution** for detailed analysis
 - **Real-time state visualization** of all components
-- **Configurable execution speed** from sub-Hz to MHz
+- **Configurable cycle duration** for running at specific speed
 
 ### I/O and Connectivity
 - **Real serial port connectivity** for external device communication
 - **Optional modem line emulation** (RTS, CTS, DTR, DSR)
-- **LCD display emulation** with character support
+- **Simple LCD display emulation** (no special characters yet!)
 
 ## System Requirements
 
@@ -77,10 +77,10 @@ cd clementina-6502
 make build
 
 # Or build for all platforms
-make build-all VERSION=1.0.0
+make build-all
 
 # Create release packages with assets
-make release VERSION=1.0.0
+make release
 ```
 
 ### Pre-built Binaries
@@ -90,8 +90,8 @@ Download the latest release for your platform from the [GitHub Releases page](ht
 #### Linux
 ```bash
 # Extract the archive
-unzip clementina-v1.0.0-linux-amd64.zip
-cd clementina-v1.0.0-linux-amd64
+unzip clementina-v0.3.0-linux-amd64.zip
+cd clementina-v0.3.0-linux-amd64
 # Run
 ./clementina
 ```
@@ -99,7 +99,7 @@ cd clementina-v1.0.0-linux-amd64
 #### macOS
 ```bash
 # Extract the archive
-unzip clementina-v1.0.0-darwin-amd64.zip
+unzip clementina-v0.3.0-darwin-amd64.zip
 cd clementina-darwin-amd64
 
 # Run the setup script to remove security warnings
@@ -139,8 +139,8 @@ go get github.com/fran150/clementina-6502@latest
 # Connect to a serial port
 ./clementina -p /dev/ttyUSB0
 
-# Set emulation speed to 1.2 MHz with 30 FPS display updates
-./clementina -m 1.2 -f 30
+# Set skip cycles 1500 (execute one emulator cycle and skip 1500 CPU cycles) with 30 FPS display updates
+./clementina -s 1500 -f 30
 
 # Enable modem line emulation for serial ports
 ./clementina -p /dev/ttyUSB0 -e
@@ -179,10 +179,10 @@ socat -d -d pty,raw,echo=0 pty,raw,echo=0
 If you are testing the emulator with your own image, it includes some debugging tools to help you:
 
 1. **Use breakpoints** to pause execution at specific addresses
-2. **Single-step** through code to observe CPU and component behavior
-3. **Monitor the bus window** to see data flow between components
-4. **Adjust emulation speed** for better observation of fast operations
-5. **Check the ACIA window** when debugging serial communication issues
+1. **Single-step** through code to observe CPU and component behavior
+1. **Monitor the bus window** to see data flow between components
+1. **Adjust emulation speed** for better observation of fast operations
+1. **Check the ACIA window** when debugging serial communication issues
 
 ## Troubleshooting
 
@@ -194,7 +194,6 @@ sudo usermod -a -G dialout $USER
 ```
 
 ### Emulation Performance Issues
-- Check CPU usage and reduce target speed (`-m` flag)
 - Lower display refresh rate (`-f` flag)
 - Verify ROM file integrity
 - Enable debug logging for detailed diagnostics
@@ -212,6 +211,13 @@ For profiling CPU performance:
 go test -benchmem -run=^$ -bench ^BenchmarkProcessor$ github.com/fran150/clementina-6502/tests -cpuprofile clementina6502.prof
 go tool pprof -http :8080 clementina6502.prof
 ```
+
+## Known Issues and Limitations
+
+1. Cycle Counter Accuracy: During emulator pause or step-by-step execution, the cycle counter displays inflated values. Normal operation resumes with accurate counting when the emulator is unpaused.
+1. Execution Speed Control: The initial implementation featured automatic execution speed control (configurable in MHz). However, due to timer resolution limitations in Windows, the system now uses cycle skipping instead. Performance improvements are planned for future releases.
+1. Modem Line Emulation: The modem line emulation features have not been tested.
+1. Serial port functionality has been tested using `socat` only, pending verification with a real port and terminal emulator.
 
 ## Contributing
 
