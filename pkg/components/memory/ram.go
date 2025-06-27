@@ -5,79 +5,81 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/fran150/clementina-6502/internal/file_io"
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 )
 
-// FileReader interface abstracts file operations for loading binary data into memory.
-// This allows for easier testing by mocking file operations.
-type FileReader interface {
-	Stat() (os.FileInfo, error)
-	Read(p []byte) (n int, err error)
-	Close() error
-}
+type MemorySize int
 
 // Memory size constants representing common RAM configurations
 const (
-	RAM_SIZE_64K int = 65536 // 64K memory
-	RAM_SIZE_32K int = 32768 // 32K memory
-	RAM_SIZE_16K int = 16384 // 16K memory
-	RAM_SIZE_8K  int = 8192  // 8K memory
-	RAM_SIZE_4K  int = 4096  // 4K memory
-	RAM_SIZE_2K  int = 2048  // 2K memory
-	RAM_SIZE_1K  int = 1024  // 1K memory
+	RAM_SIZE_4G   MemorySize = 4294967296 // 4G memory
+	RAM_SIZE_2G   MemorySize = 2147483648 // 2G memory
+	RAM_SIZE_1G   MemorySize = 1073741824 // 1G memory
+	RAM_SIZE_512M MemorySize = 536870912  // 512M memory
+	RAM_SIZE_256M MemorySize = 268435456  // 256M memory
+	RAM_SIZE_128M MemorySize = 134217728  // 256M memory
+	RAM_SIZE_64M  MemorySize = 67108864   // 64M memory
+	RAM_SIZE_32M  MemorySize = 33554432   // 32M memory
+	RAM_SIZE_16M  MemorySize = 16777216   // 16M memory
+	RAM_SIZE_8M   MemorySize = 8388608    // 8M memory
+	RAM_SIZE_4M   MemorySize = 4194304    // 4M memory
+	RAM_SIZE_2M   MemorySize = 2097152    // 2M memory
+	RAM_SIZE_1M   MemorySize = 1048576    // 1M memory
+	RAM_SIZE_512K MemorySize = 524288     // 512K memory
+	RAM_SIZE_256K MemorySize = 262144     // 256K memory
+	RAM_SIZE_128K MemorySize = 131072     // 128K memory
+	RAM_SIZE_64K  MemorySize = 65536      // 64K memory
+	RAM_SIZE_32K  MemorySize = 32768      // 32K memory
+	RAM_SIZE_16K  MemorySize = 16384      // 16K memory
+	RAM_SIZE_8K   MemorySize = 8192       // 8K memory
+	RAM_SIZE_4K   MemorySize = 4096       // 4K memory
+	RAM_SIZE_2K   MemorySize = 2048       // 2K memory
+	RAM_SIZE_1K   MemorySize = 1024       // 1K memory
 )
-
-// useAllPins represents a mask where all address pins are active
-const useAllPins uint16 = 0xFFFF
 
 // Ram represents a RAM chip emulation with standard control signals.
 // It implements typical RAM chip functionality including read/write operations,
 // chip select, and output enable controls.
 type Ram struct {
 	values          []uint8                     // Memory contents
+	hiAddressBus    *buses.BusConnector[uint16] // Connection to the high address bus
 	addressBus      *buses.BusConnector[uint16] // Connection to the address bus
 	dataBus         *buses.BusConnector[uint8]  // Connection to the data bus
 	writeEnable     *buses.ConnectorEnabledLow  // Write Enable signal (active low)
 	chipSelect      *buses.ConnectorEnabledLow  // Chip Select signal (active low)
 	outputEnable    *buses.ConnectorEnabledLow  // Output Enable signal (active low)
-	addressPinsMask uint16                      // Mask for active address pins
+	addressPinsMask uint32                      // Mask for active address pins
 }
 
 // NewRam creates a new RAM chip with the specified size in bytes.
 // It initializes all the necessary bus connectors and control signals.
-func NewRam(size int) *Ram {
+func NewRam(size MemorySize) *Ram {
+	mask := uint32(size - 1)
+
 	return &Ram{
-		values:       make([]uint8, size),
+		values:       make([]uint8, int(size)),
+		hiAddressBus: buses.NewBusConnector[uint16](),
 		addressBus:   buses.NewBusConnector[uint16](),
 		dataBus:      buses.NewBusConnector[uint8](),
 		writeEnable:  buses.NewConnectorEnabledLow(),
 		chipSelect:   buses.NewConnectorEnabledLow(),
 		outputEnable: buses.NewConnectorEnabledLow(),
 
-		addressPinsMask: useAllPins,
-	}
-}
-
-// NewRamWithLessPins creates a new RAM chip with the specified size and address pin mask.
-// The address pin mask allows emulation of chips with fewer address pins by masking
-// unused address lines. This is useful for emulating smaller memory chips or memory-mapped I/O.
-func NewRamWithLessPins(size int, addressPinsMask uint16) *Ram {
-	return &Ram{
-		values:       make([]uint8, size),
-		addressBus:   buses.NewBusConnector[uint16](),
-		dataBus:      buses.NewBusConnector[uint8](),
-		writeEnable:  buses.NewConnectorEnabledLow(),
-		chipSelect:   buses.NewConnectorEnabledLow(),
-		outputEnable: buses.NewConnectorEnabledLow(),
-
-		addressPinsMask: addressPinsMask,
+		addressPinsMask: mask,
 	}
 }
 
 /************************************************************************************
 * Getters / Setters
 *************************************************************************************/
+
+// HiAddressBus returns the connector to the most significant 16 bits of address bus in large memories.
+// The address bus determines the memory location for read/write operations.
+func (ram *Ram) HiAddressBus() *buses.BusConnector[uint16] {
+	return ram.hiAddressBus
+}
 
 // AddressBus returns the connector to the address bus.
 // The address bus determines the memory location for read/write operations.
@@ -115,7 +117,7 @@ func (ram *Ram) OutputEnable() *buses.ConnectorEnabledLow {
 
 // Peek returns the value at the specified memory address without
 // going through the normal bus operations.
-func (ram *Ram) Peek(address uint16) uint8 {
+func (ram *Ram) Peek(address uint32) uint8 {
 	return ram.values[address]
 }
 
@@ -149,22 +151,29 @@ func (ram *Ram) Size() int {
 
 // getAddress returns the current address from the address bus
 // masked with the active address pins mask.
-func (ram *Ram) getAddress() uint16 {
-	return ram.addressBus.Read() & ram.addressPinsMask
+func (ram *Ram) getAddress() uint32 {
+	hi := ram.hiAddressBus.Read()
+	lo := ram.addressBus.Read()
+
+	value := (uint32(hi) << 16) | uint32(lo)
+
+	return value & ram.addressPinsMask
 }
 
 // read gets the data from the current address and puts it on the data bus.
 func (ram *Ram) read() {
-	ram.dataBus.Write(ram.values[ram.getAddress()])
+	address := ram.getAddress()
+	ram.dataBus.Write(ram.values[address])
 }
 
 // write stores the data from the data bus to the current address.
 func (ram *Ram) write() {
-	ram.values[ram.getAddress()] = ram.dataBus.Read()
+	address := ram.getAddress()
+	ram.values[address] = ram.dataBus.Read()
 }
 
 // LoadFromReader reads binary data from a reader into memory
-func (ram *Ram) loadFromReader(file FileReader, err error) error {
+func (ram *Ram) loadFromReader(file file_io.FileReader, err error) error {
 	if err != nil {
 		return err
 	}

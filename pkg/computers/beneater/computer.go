@@ -72,8 +72,8 @@ type BenEaterComputer struct {
 func NewBenEaterComputer(port serial.Port, emulateModemLines bool) (*BenEaterComputer, error) {
 	chips := &chips{
 		cpu:  cpu.NewCpu65C02S(),
-		ram:  memory.NewRamWithLessPins(memory.RAM_SIZE_32K, 0x7FFF),
-		rom:  memory.NewRamWithLessPins(memory.RAM_SIZE_32K, 0x7FFF),
+		ram:  memory.NewRam(memory.RAM_SIZE_32K),
+		rom:  memory.NewRam(memory.RAM_SIZE_32K),
 		via:  via.NewVia65C22(),
 		lcd:  lcd.NewLCDController(),
 		acia: acia.NewAcia65C51N(emulateModemLines),
@@ -357,7 +357,7 @@ func (c *BenEaterComputer) getPotentialOperators(programCounter uint16) [2]uint8
 	programCounter &= 0x7FFF
 	operand1Address := programCounter & 0x7FFF
 	operand2Address := (programCounter + 1) & 0x7FFF
-	return [2]uint8{rom.Peek(operand1Address), rom.Peek(operand2Address)}
+	return [2]uint8{rom.Peek(uint32(operand1Address)), rom.Peek(uint32(operand2Address))}
 }
 
 func (c *BenEaterComputer) checkReset() {

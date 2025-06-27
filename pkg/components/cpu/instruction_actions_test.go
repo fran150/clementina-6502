@@ -33,7 +33,7 @@ func evaluateRegisterValue(t *testing.T, cpu *Cpu65C02S, name string, value uint
 }
 
 func evaluateAddress(t *testing.T, cpu *Cpu65C02S, ram *memory.Ram, address uint16, expected uint8) {
-	value := ram.Peek(address)
+	value := ram.Peek(uint32(address))
 
 	if value != expected {
 		instruction := instructionSet.GetByOpCode(cpu.currentOpCode)

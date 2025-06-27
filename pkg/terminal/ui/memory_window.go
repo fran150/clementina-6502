@@ -113,7 +113,7 @@ func (m *MemoryWindow) Draw(context *common.StepContext) {
 		fmt.Fprintf(m.text, "[yellow]%04X:[white]", address)
 
 		for i := range uint16(8) {
-			fmt.Fprintf(m.text, " %02X", m.memory.Peek(address+i))
+			fmt.Fprintf(m.text, " %02X", m.memory.Peek(uint32(address+i)))
 		}
 
 		fmt.Fprint(m.text, "\n")

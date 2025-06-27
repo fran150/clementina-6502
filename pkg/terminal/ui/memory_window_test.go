@@ -12,6 +12,7 @@ import (
 type MockMemoryChip struct {
 	size         int
 	data         []uint8
+	hiAddressBus *buses.BusConnector[uint16]
 	addressBus   *buses.BusConnector[uint16]
 	dataBus      *buses.BusConnector[uint8]
 	writeEnable  *buses.ConnectorEnabledLow
@@ -23,6 +24,7 @@ func NewMockMemoryChip(size int) *MockMemoryChip {
 	return &MockMemoryChip{
 		size:         size,
 		data:         make([]uint8, size),
+		hiAddressBus: buses.NewBusConnector[uint16](),
 		addressBus:   buses.NewBusConnector[uint16](),
 		dataBus:      buses.NewBusConnector[uint8](),
 		writeEnable:  buses.NewConnectorEnabledLow(),
@@ -32,6 +34,10 @@ func NewMockMemoryChip(size int) *MockMemoryChip {
 }
 
 // Bus and control signal connections
+func (m *MockMemoryChip) HiAddressBus() *buses.BusConnector[uint16] {
+	return m.hiAddressBus
+}
+
 func (m *MockMemoryChip) AddressBus() *buses.BusConnector[uint16] {
 	return m.addressBus
 }
@@ -53,7 +59,7 @@ func (m *MockMemoryChip) OutputEnable() *buses.ConnectorEnabledLow {
 }
 
 // Utility methods
-func (m *MockMemoryChip) Peek(address uint16) uint8 {
+func (m *MockMemoryChip) Peek(address uint32) uint8 {
 	if int(address) >= m.size {
 		return 0
 	}

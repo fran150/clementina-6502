@@ -14,6 +14,7 @@ const test_directory string = "../../../tests/"
 
 // Circuit to test the RAM
 type testCircuit struct {
+	hiAddressBus buses.Bus[uint16]
 	addressBus   buses.Bus[uint16]
 	dataBus      buses.Bus[uint8]
 	writeEnable  *buses.StandaloneLine
@@ -21,9 +22,10 @@ type testCircuit struct {
 }
 
 // Creates the test circuit and the ram
-func newTestCircuit(size int) (*Ram, *testCircuit) {
+func newTestCircuit(size MemorySize) (*Ram, *testCircuit) {
 	ram := NewRam(size)
 	circuit := &testCircuit{
+		hiAddressBus: buses.New16BitStandaloneBus(),
 		addressBus:   buses.New16BitStandaloneBus(),
 		dataBus:      buses.New8BitStandaloneBus(),
 		writeEnable:  buses.NewStandaloneLine(false),
@@ -35,6 +37,7 @@ func newTestCircuit(size int) (*Ram, *testCircuit) {
 
 // Connects the circuit to the RAM memory
 func (circuit *testCircuit) Wire(ram *Ram) {
+	ram.HiAddressBus().Connect(circuit.hiAddressBus)
 	ram.AddressBus().Connect(circuit.addressBus)
 	ram.DataBus().Connect(circuit.dataBus)
 	ram.WriteEnable().Connect(circuit.writeEnable)
@@ -52,7 +55,7 @@ func (m *MockFileReader) Stat() (os.FileInfo, error) {
 }
 
 func (m *MockFileReader) Read(p []byte) (n int, err error) {
-	return RAM_SIZE_16K, nil
+	return int(RAM_SIZE_16K), nil
 }
 
 func (m *MockFileReader) Close() error {
@@ -67,20 +70,21 @@ func (m *MockFileReader) Close() error {
 func TestRamReadWrite(t *testing.T) {
 	context := common.NewStepContext()
 
-	ram, circuit := newTestCircuit(RAM_SIZE_64K)
+	ram, circuit := newTestCircuit(RAM_SIZE_512K)
 	circuit.Wire(ram)
 
 	// Write Cycle
 	circuit.writeEnable.Set(false)
+	circuit.hiAddressBus.Write(0x0001)
 	circuit.addressBus.Write(0x7FFA)
 	circuit.dataBus.Write(0xFA)
 	ram.Tick(&context)
 	context.NextCycle()
 
-	peek := ram.Peek(0x7FFA)
+	peek := ram.Peek(0x17FFA)
 
 	if peek != 0xFA {
-		t.Errorf("Error, expected to have 0xFA in memory 0x7FFA after write cycle but got %x", peek)
+		t.Errorf("Error, expected to have 0xFA in memory 0x17FFA after write cycle but got %x", peek)
 	}
 
 	// Clear databus
@@ -156,7 +160,7 @@ func TestPeekAndPokeReadsAndWritesValuesDirectly(t *testing.T) {
 	}
 
 	for i := range RAM_SIZE_1K {
-		value := ram.Peek(uint16(i))
+		value := ram.Peek(uint32(i))
 
 		assert.Equal(t, uint8(i), value)
 	}
@@ -180,10 +184,8 @@ func TestNewRamWithLessPinsMasksAddressCorrectly(t *testing.T) {
 
 	context := common.NewStepContext()
 
-	// Create a RAM with only lower 10 bits active (1024 addresses)
-	addressMask := uint16(0x03FF) // Binary: 0000001111111111
-	_, circuit := newTestCircuit(RAM_SIZE_2K)
-	ram = NewRamWithLessPins(RAM_SIZE_2K, addressMask)
+	_, circuit := newTestCircuit(RAM_SIZE_1K)
+	ram = NewRam(RAM_SIZE_1K)
 	circuit.Wire(ram)
 
 	// Test writing to an address above the mask
@@ -242,7 +244,7 @@ func TestNewRamWithLessPinsMasksAddressCorrectly(t *testing.T) {
 // TestRamSizeReporting verifies that the Size method correctly reports the RAM size
 func TestRamSizeReporting(t *testing.T) {
 	testCases := []struct {
-		size     int
+		size     MemorySize
 		expected int
 	}{
 		{RAM_SIZE_64K, 65536},
@@ -263,13 +265,6 @@ func TestRamSizeReporting(t *testing.T) {
 				t.Errorf("RAM size mismatch: got %d bytes, expected %d bytes", actualSize, tc.expected)
 			}
 		})
-	}
-
-	// Test custom size
-	customSize := 512
-	ram, _ := newTestCircuit(customSize)
-	if ram.Size() != customSize {
-		t.Errorf("Custom RAM size mismatch: got %d bytes, expected %d bytes", ram.Size(), customSize)
 	}
 }
 
