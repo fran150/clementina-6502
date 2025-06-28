@@ -10,11 +10,11 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 )
 
-type MemorySize int
+// MemorySize represents the size of the RAM in bytes.
+type MemorySize uint32
 
 // Memory size constants representing common RAM configurations
 const (
-	RAM_SIZE_4G   MemorySize = 4294967296 // 4G memory
 	RAM_SIZE_2G   MemorySize = 2147483648 // 2G memory
 	RAM_SIZE_1G   MemorySize = 1073741824 // 1G memory
 	RAM_SIZE_512M MemorySize = 536870912  // 512M memory

@@ -9,55 +9,55 @@ import (
 func new8To16Mapped() (Bus[uint16], Bus[uint8]) {
 	bus := New16BitStandaloneBus()
 
-	return bus, New8BitMappedBus(bus,
-		func(value uint8) uint16 {
-			return uint16(value) << 8
+	return bus, New8BitMappedBus([]Bus[uint16]{bus},
+		func(value uint8, current []uint16) []uint16 {
+			return []uint16{uint16(value) << 8}
 		},
-		func(value uint16) uint8 {
-			return uint8(value >> 8)
+		func(value []uint16) uint8 {
+			return uint8(value[0] >> 8)
 		})
 }
 
 func new8To8Mapped() (Bus[uint8], Bus[uint8]) {
 	bus := New8BitStandaloneBus()
 
-	return bus, New8BitMappedBus(bus,
-		func(value uint8) uint8 {
-			return value << 4
+	return bus, New8BitMappedBus([]Bus[uint8]{bus},
+		func(value uint8, current []uint8) []uint8 {
+			return []uint8{value << 4}
 		},
-		func(value uint8) uint8 {
-			return value >> 4
+		func(value []uint8) uint8 {
+			return value[0] >> 4
 		})
 }
 
 func new16To8Mapped() (Bus[uint8], Bus[uint16]) {
 	bus := New8BitStandaloneBus()
 
-	return bus, New16BitMappedBus(bus,
-		func(value uint16) uint8 {
-			return uint8(value)
+	return bus, New16BitMappedBus([]Bus[uint8]{bus},
+		func(value uint16, current []uint8) []uint8 {
+			return []uint8{uint8(value)}
 		},
-		func(value uint8) uint16 {
-			return uint16(value)
+		func(value []uint8) uint16 {
+			return uint16(value[0])
 		})
 }
 
 func new16To16Mapped() (Bus[uint16], Bus[uint16]) {
 	bus := New16BitStandaloneBus()
 
-	return bus, New16BitMappedBus(bus,
-		func(value uint16) uint16 {
+	return bus, New16BitMappedBus([]Bus[uint16]{bus},
+		func(value uint16, current []uint16) []uint16 {
 			msb := value & 0xFF00
 			lsb := value & 0x00FF
 
 			msb = msb >> 8
 			lsb = lsb << 8
 
-			return msb | lsb
+			return []uint16{msb | lsb}
 		},
-		func(value uint16) uint16 {
-			msb := value & 0xFF00
-			lsb := value & 0x00FF
+		func(value []uint16) uint16 {
+			msb := value[0] & 0xFF00
+			lsb := value[0] & 0x00FF
 
 			msb = msb >> 8
 			lsb = lsb << 8

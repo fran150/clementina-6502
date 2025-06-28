@@ -82,13 +82,13 @@ func NewBenEaterComputer(port serial.Port, emulateModemLines bool) (*BenEaterCom
 
 	portABus := buses.New8BitStandaloneBus()
 	portBBus := buses.New8BitStandaloneBus()
-	mapPortBBusToLcdBus := func(value uint8) uint8 {
-		value &= 0x0F
-		return value << 4
+	mapPortBBusToLcdBus := func(value []uint8) uint8 {
+		value[0] &= 0x0F
+		return value[0] << 4
 	}
-	mapLcdBusToPortBBus := func(value uint8) uint8 {
+	mapLcdBusToPortBBus := func(value uint8, current []uint8) []uint8 {
 		value &= 0xF0
-		return value >> 4
+		return []uint8{value >> 4}
 	}
 
 	circuit := &circuit{
@@ -104,7 +104,7 @@ func NewBenEaterComputer(port serial.Port, emulateModemLines bool) (*BenEaterCom
 		ground:     buses.NewStandaloneLine(false),
 		portABus:   portABus,
 		portBBus:   portBBus,
-		lcdBus:     buses.New8BitMappedBus(portBBus, mapLcdBusToPortBBus, mapPortBBusToLcdBus),
+		lcdBus:     buses.New8BitMappedBus([]buses.Bus[uint8]{portBBus}, mapLcdBusToPortBBus, mapPortBBusToLcdBus),
 		serial:     port,
 	}
 

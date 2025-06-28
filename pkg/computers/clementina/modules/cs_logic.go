@@ -20,9 +20,9 @@ type ClementinaCSLogic struct {
 	picoHiRAME buses.LineConnector    // Allows Pico to enable / disable high RAM
 
 	// Exposed lines
-	ioOE   *buses.BusConnector[uint8] // I/O output enable
-	exRAME buses.LineConnector        // External RAM enable (512 KB banked in 16 KB windows)
-	hiRAME buses.LineConnector        // High RAM enable (32 KB banked in 8 KB windows)
+	ioOE   buses.Bus[uint8] // I/O output enable
+	exRAME buses.Line       // External RAM enable (512 KB banked in 16 KB windows)
+	hiRAME buses.Line       // High RAM enable (32 KB banked in 8 KB windows)
 
 	// Internal components
 	addressDecoder *decoders.Decoder74HC138 // Address decoder to slice RAM space in 16 KB windows
@@ -76,10 +76,14 @@ func NewClementinaCSLogic() *ClementinaCSLogic {
 	// Complete remaining connections on io decoder
 	csLogic.ioDecoder.EPin(2).Connect(csLogic.vcc)
 
-	// Expose output lines
-	csLogic.ioOE = csLogic.ioDecoder.YPin()
-	csLogic.exRAME = csLogic.andGate.YPin(0)
-	csLogic.hiRAME = csLogic.orGate.YPin(0)
+	csLogic.ioOE = buses.New8BitStandaloneBus()
+	csLogic.exRAME = buses.NewStandaloneLine(true)
+	csLogic.hiRAME = buses.NewStandaloneLine(true)
+
+	// Connect output lines
+	csLogic.ioDecoder.YPin().Connect(csLogic.ioOE)
+	csLogic.andGate.YPin(0).Connect(csLogic.exRAME)
+	csLogic.orGate.YPin(0).Connect(csLogic.hiRAME)
 
 	return csLogic
 }
@@ -108,20 +112,20 @@ func (circuit *ClementinaCSLogic) PicoHiRAME() buses.LineConnector {
 // IOOE returns the connector for the I/O output enable bus
 // Each line can be used to map a device in one of the 8 I/O slots
 // Each device will have 1K of available address space
-func (circuit *ClementinaCSLogic) IOOE() *buses.BusConnector[uint8] {
+func (circuit *ClementinaCSLogic) IOOE() buses.Bus[uint8] {
 	return circuit.ioOE
 }
 
 // ExRAME returns the connector for the external RAM enable line
 // The extended RAM maps to a 512 KB space banked in 16 KB windows
-func (circuit *ClementinaCSLogic) ExRAME() buses.LineConnector {
+func (circuit *ClementinaCSLogic) ExRAME() buses.Line {
 	return circuit.exRAME
 }
 
 // HiRAME returns the connector for the high RAM enable line
 // This line is used to enable or disable the high RAM.
 // Hi RAM maps to a 32 KB space banked in 8 KB windows.
-func (circuit *ClementinaCSLogic) HiRAME() buses.LineConnector {
+func (circuit *ClementinaCSLogic) HiRAME() buses.Line {
 	return circuit.hiRAME
 }
 

@@ -12,9 +12,6 @@ type csLogicTestCircuit struct {
 	addressBus buses.Bus[uint16]
 
 	picoHiRAME buses.Line
-	ioOE       buses.Bus[uint8]
-	exRAME     buses.Line
-	hiRAME     buses.Line
 
 	csLogic *ClementinaCSLogic
 }
@@ -31,15 +28,7 @@ func newCSLogicTestCircuit() *csLogicTestCircuit {
 
 	circuit.picoHiRAME = buses.NewStandaloneLine(false)
 
-	circuit.ioOE = buses.New8BitStandaloneBus()
-	circuit.exRAME = buses.NewStandaloneLine(false)
-	circuit.hiRAME = buses.NewStandaloneLine(false)
-
 	circuit.csLogic.PicoHiRAME().Connect(circuit.picoHiRAME)
-
-	circuit.csLogic.IOOE().Connect(circuit.ioOE)
-	circuit.csLogic.ExRAME().Connect(circuit.exRAME)
-	circuit.csLogic.HiRAME().Connect(circuit.hiRAME)
 
 	return circuit
 }
@@ -59,16 +48,16 @@ func (tc *csLogicTestCase) test(t *testing.T, circuit *csLogicTestCircuit, step 
 
 	circuit.csLogic.Tick(step)
 
-	if circuit.ioOE.Read() != tc.expectedIOOE {
-		t.Errorf("For adddess $%04X expected IOOE to be %02X, got %02X", tc.inputValue, tc.expectedIOOE, circuit.ioOE.Read())
+	if circuit.csLogic.IOOE().Read() != tc.expectedIOOE {
+		t.Errorf("For adddess $%04X expected IOOE to be %02X, got %02X", tc.inputValue, tc.expectedIOOE, circuit.csLogic.IOOE().Read())
 	}
 
-	if circuit.exRAME.Status() != tc.expectedExRAME {
-		t.Errorf("For adddess $%04X expected ExRAME to be %t, got %t", tc.inputValue, tc.expectedExRAME, circuit.exRAME.Status())
+	if circuit.csLogic.ExRAME().Status() != tc.expectedExRAME {
+		t.Errorf("For adddess $%04X expected ExRAME to be %t, got %t", tc.inputValue, tc.expectedExRAME, circuit.csLogic.ExRAME().Status())
 	}
 
-	if circuit.hiRAME.Status() != tc.expectedHiRAME {
-		t.Errorf("For adddess $%04X expected HiRAME to be %t, got %t", tc.inputValue, tc.expectedHiRAME, circuit.hiRAME.Status())
+	if circuit.csLogic.HiRAME().Status() != tc.expectedHiRAME {
+		t.Errorf("For adddess $%04X expected HiRAME to be %t, got %t", tc.inputValue, tc.expectedHiRAME, circuit.csLogic.HiRAME().Status())
 	}
 }
 
