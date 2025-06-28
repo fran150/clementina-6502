@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func new8To16Mapper() (Bus[uint16], Bus[uint8]) {
+func new8To16Mapped() (Bus[uint16], Bus[uint8]) {
 	bus := New16BitStandaloneBus()
 
 	return bus, New8BitMappedBus(bus,
@@ -18,7 +18,7 @@ func new8To16Mapper() (Bus[uint16], Bus[uint8]) {
 		})
 }
 
-func new8To8Mapper() (Bus[uint8], Bus[uint8]) {
+func new8To8Mapped() (Bus[uint8], Bus[uint8]) {
 	bus := New8BitStandaloneBus()
 
 	return bus, New8BitMappedBus(bus,
@@ -30,7 +30,7 @@ func new8To8Mapper() (Bus[uint8], Bus[uint8]) {
 		})
 }
 
-func new16To8Mapper() (Bus[uint8], Bus[uint16]) {
+func new16To8Mapped() (Bus[uint8], Bus[uint16]) {
 	bus := New8BitStandaloneBus()
 
 	return bus, New16BitMappedBus(bus,
@@ -42,7 +42,7 @@ func new16To8Mapper() (Bus[uint8], Bus[uint16]) {
 		})
 }
 
-func new16To16Mapper() (Bus[uint16], Bus[uint16]) {
+func new16To16Mapped() (Bus[uint16], Bus[uint16]) {
 	bus := New16BitStandaloneBus()
 
 	return bus, New16BitMappedBus(bus,
@@ -66,9 +66,9 @@ func new16To16Mapper() (Bus[uint16], Bus[uint16]) {
 		})
 }
 
-func TestBusMapper8To16(t *testing.T) {
+func TestBusMapped8To16(t *testing.T) {
 	t.Run("8 to 16 bit mapping", func(t *testing.T) {
-		sourceBus, mappedBus := new8To16Mapper()
+		sourceBus, mappedBus := new8To16Mapped()
 
 		// Test writing to mapped bus
 		mappedBus.Write(0x12)
@@ -82,9 +82,9 @@ func TestBusMapper8To16(t *testing.T) {
 	})
 }
 
-func TestBusMapper8To8(t *testing.T) {
+func TestBusMapped8To8(t *testing.T) {
 	t.Run("8 to 8 bit mapping", func(t *testing.T) {
-		sourceBus, mappedBus := new8To8Mapper()
+		sourceBus, mappedBus := new8To8Mapped()
 
 		// Test writing to mapped bus
 		mappedBus.Write(uint8(0x12))
@@ -98,9 +98,9 @@ func TestBusMapper8To8(t *testing.T) {
 	})
 }
 
-func TestBusMapper16To8(t *testing.T) {
+func TestBusMapped16To8(t *testing.T) {
 	t.Run("16 to 8 bit mapping", func(t *testing.T) {
-		sourceBus, mappedBus := new16To8Mapper()
+		sourceBus, mappedBus := new16To8Mapped()
 
 		// Test writing to mapped bus
 		mappedBus.Write(uint16(0x1234))
@@ -114,9 +114,9 @@ func TestBusMapper16To8(t *testing.T) {
 	})
 }
 
-func TestBusMapper16To16(t *testing.T) {
+func TestBusMapped16To16(t *testing.T) {
 	t.Run("16 to 16 bit mapping", func(t *testing.T) {
-		sourceBus, mappedBus := new16To16Mapper()
+		sourceBus, mappedBus := new16To16Mapped()
 
 		// Test writing to mapped bus
 		mappedBus.Write(uint16(0x1234))
@@ -130,21 +130,21 @@ func TestBusMapper16To16(t *testing.T) {
 	})
 }
 
-func TestBusMapperEdgeCases(t *testing.T) {
+func TestBusMappedEdgeCases(t *testing.T) {
 	t.Run("8 to 16 zero value", func(t *testing.T) {
-		sourceBus, mappedBus := new8To16Mapper()
+		sourceBus, mappedBus := new8To16Mapped()
 		mappedBus.Write(0x00)
 		assert.Equal(t, uint16(0x0000), sourceBus.Read())
 	})
 
 	t.Run("16 to 16 zero value", func(t *testing.T) {
-		sourceBus, mappedBus := new16To16Mapper()
+		sourceBus, mappedBus := new16To16Mapped()
 		mappedBus.Write(0x0000)
 		assert.Equal(t, uint16(0x0000), sourceBus.Read())
 	})
 
 	t.Run("8 to 8 max value", func(t *testing.T) {
-		sourceBus, mappedBus := new8To8Mapper()
+		sourceBus, mappedBus := new8To8Mapped()
 		mappedBus.Write(0xFF)
 		assert.Equal(t, uint8(0xF0), sourceBus.Read())
 	})
