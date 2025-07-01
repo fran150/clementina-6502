@@ -14,6 +14,18 @@ import (
 	"github.com/rivo/tview"
 )
 
+type mapperFunctions[T uint8 | uint16, S uint8 | uint16] struct {
+	MapToSource   func(value T, current []S) []S
+	MapFromSource func(value []S) T
+}
+
+type mappers struct {
+	portA   mapperFunctions[uint16, uint8]
+	hiRam   mapperFunctions[uint16, uint16]
+	exRam   mapperFunctions[uint16, uint16]
+	exRamHi mapperFunctions[uint16, uint16]
+}
+
 type chips struct {
 	cpu      components.Cpu6502Chip
 	baseram  components.MemoryChip
@@ -54,6 +66,8 @@ type ClementinaComputer struct {
 	resetCycles uint8
 	appConfig   *terminal.ApplicationConfig
 
+	mappers mappers
+
 	pause bool
 	step  bool
 }
@@ -75,92 +89,104 @@ func NewClementinaComputer() (*ClementinaComputer, error) {
 		oeRWSync: modules.NewClementinaOERWPHISync(),
 	}
 
+	// Create the address bus and via's port A and B buses
 	addressBus := buses.New16BitStandaloneBus()
 	portABus := buses.New8BitStandaloneBus()
 	portBBus := buses.New8BitStandaloneBus()
 
-	// Transform port A in a 16-bit bus
-	portAToBigPortA := func(value []uint8) uint16 {
-		return uint16(value[0])
+	mappers := mappers{
+		// Mapped only to convert portA from 8 bit to 16 bit
+		portA: mapperFunctions[uint16, uint8]{
+			MapToSource: func(value uint16, current []uint8) []uint8 {
+				return []uint8{uint8(value)}
+			},
+			MapFromSource: func(value []uint8) uint16 {
+				return uint16(value[0])
+			},
+		},
+		// HiRAM mapped bus uses A0 - A11 from the address bus
+		// and A12 - A14 is mapped to PORTA 5 - 7
+		hiRam: mapperFunctions[uint16, uint16]{
+			MapToSource: func(value uint16, current []uint16) []uint16 {
+				address := (current[0] & 0xF000) | (value & 0x0FFF)  // Replace A0 - A11
+				portA := (current[1] & 0x1F) | ((value & 0xE0) >> 8) // Replace A5 - A7
+
+				return []uint16{address, portA}
+			},
+			MapFromSource: func(value []uint16) uint16 {
+				address := value[0]
+				portA := value[1]
+
+				address &= 0x0FFF // Remove A12 - A15
+				portA &= 0xE0     // Keep only PA5 - PA7
+
+				return (portA << 8) | address // PA5 - PA7 | A11 - A0
+			},
+		},
+		// ExRAM mapped bus uses A0 - A13 from the address bus
+		// and A14 - A15 is mapped to PORTA 0 - 2
+		exRam: mapperFunctions[uint16, uint16]{
+			MapToSource: func(value uint16, current []uint16) []uint16 {
+				address := (current[0] & 0xC000) | (value & 0x3FFF)   // Replace A0 - A13
+				portA := (current[1] & 0xFC) | ((value & 0x03) >> 14) // Replace A0 - A1
+
+				return []uint16{address, portA}
+			},
+
+			MapFromSource: func(value []uint16) uint16 {
+				address := value[0]
+				portA := value[1]
+
+				address &= 0x3FFF // Remove A14 - A15
+				portA &= 0x03     // Keep only PA0 - PA1
+
+				return (portA << 14) | address // PA0 - PA1 | A13 - A0
+			},
+		},
+		// ExRAMHi uses PORTA 2 - 4 on the pins A0 - A2
+		exRamHi: mapperFunctions[uint16, uint16]{
+			MapToSource: func(value uint16, current []uint16) []uint16 {
+				portA := (current[0] & 0xE3) | (value << 2) // Replace A0 - A2 with PA2 - PA4
+				return []uint16{portA}
+			},
+			MapFromSource: func(value []uint16) uint16 {
+				portA := value[0] & 0x1C // Keep only PA2 - PA4
+				return portA >> 2        // Shift PA2 - PA4 to A0 - A2
+			},
+		},
 	}
 
-	bigPortAtoPortA := func(value uint16, current []uint8) []uint8 {
-		return []uint8{uint8(value)}
-	}
-
-	// HiRAM mapped bus uses A0 - A11 from the address bus
-	// and A12 - A14 is mapped to PORTA 5 - 7
-	sourcesToHiRamBus := func(value []uint16) uint16 {
-		address := value[0]
-		portA := value[1]
-
-		address &= 0x0FFF // Remove A12 - A15
-		portA &= 0xE0     // Keep only PA5 - PA7
-
-		return (portA << 8) | address // PA5 - PA7 | A11 - A0
-	}
-
-	hiRamToSourceBuses := func(value uint16, current []uint16) []uint16 {
-		address := (current[0] & 0xF000) | (value & 0x0FFF)  // Replace A0 - A11
-		portA := (current[1] & 0x1F) | ((value & 0xE0) >> 8) // Replace A5 - A7
-
-		return []uint16{address, portA}
-	}
-
-	// ExRAM mapped bus uses A0 - A13 from the address bus
-	// and A14 - A15 is mapped to PORTA 0 - 2
-	sourcesToExRamBus := func(value []uint16) uint16 {
-		address := value[0]
-		portA := value[1]
-
-		address &= 0x3FFF // Remove A14 - A15
-		portA &= 0x03     // Keep only PA0 - PA1
-
-		return (portA << 14) | address // PA0 - PA1 | A13 - A0
-	}
-
-	exRamToSourceBuses := func(value uint16, current []uint16) []uint16 {
-		address := (current[0] & 0xC000) | (value & 0x3FFF)   // Replace A0 - A13
-		portA := (current[1] & 0xFC) | ((value & 0x03) >> 14) // Replace A0 - A1
-
-		return []uint16{address, portA}
-	}
-
-	// ExRAMHi uses PORTA 2 - 4 on the pins A0 - A2
-	sourcesToExRamBusHigh := func(value []uint16) uint16 {
-		portA := value[0] & 0x1C // Keep only PA2 - PA4
-		return portA >> 2        // Shift PA2 - PA4 to A0 - A2
-	}
-
-	exRamHiToSourceBuses := func(value uint16, current []uint16) []uint16 {
-		portA := (current[0] & 0xE3) | (value << 2) // Replace A0 - A2 with PA2 - PA4
-		return []uint16{portA}
-	}
-
+	// Create the big port A bus which is a 16-bit bus mapped to port A
+	// This is only used to be able to interface with the HiRAM and ExRAM buses
+	// As currently we can only connect buses with the same size
 	bigPortABus := buses.New16BitMappedBus(
 		[]buses.Bus[uint8]{portABus},
-		bigPortAtoPortA,
-		portAToBigPortA,
+		mappers.portA.MapToSource,
+		mappers.portA.MapFromSource,
 	)
 
+	// Create the bus for the HiRAM
 	hiRamBus := buses.New16BitMappedBus(
 		[]buses.Bus[uint16]{addressBus, bigPortABus},
-		hiRamToSourceBuses,
-		sourcesToHiRamBus,
+		mappers.hiRam.MapToSource,
+		mappers.hiRam.MapFromSource,
 	)
 
+	// Create the bus for the ExRAM (connects to pins 0 to 15 of the chip)
 	exRamBus := buses.New16BitMappedBus(
 		[]buses.Bus[uint16]{addressBus, bigPortABus},
-		exRamToSourceBuses,
-		sourcesToExRamBus,
+		mappers.exRam.MapToSource,
+		mappers.exRam.MapFromSource,
 	)
 
+	// Create the bus for the ExRAMHigh (connects to pins 16 to 18 of the chip)
 	exRamBusHigh := buses.New16BitMappedBus(
 		[]buses.Bus[uint16]{bigPortABus},
-		exRamHiToSourceBuses,
-		sourcesToExRamBusHigh,
+		mappers.exRamHi.MapToSource,
+		mappers.exRamHi.MapFromSource,
 	)
 
+	// Create the circuit which contains all the buses and lines
 	circuit := &circuit{
 		addressBus:   addressBus,
 		dataBus:      buses.New8BitStandaloneBus(),
@@ -177,6 +203,8 @@ func NewClementinaComputer() (*ClementinaComputer, error) {
 		ground:       buses.NewStandaloneLine(false),
 	}
 
+	// Get references to the specific address bus lines
+	// we will use these to connect the CPU and other components
 	addressBus15 := circuit.addressBus.GetBusLine(15)
 	addressBus14 := circuit.addressBus.GetBusLine(14)
 	addressBus13 := circuit.addressBus.GetBusLine(13)
@@ -251,6 +279,7 @@ func NewClementinaComputer() (*ClementinaComputer, error) {
 		circuit:     circuit,
 		mustReset:   false,
 		resetCycles: 0,
+		mappers:     mappers,
 	}, nil
 }
 
@@ -415,12 +444,38 @@ func (c *ClementinaComputer) Close() {
 }
 
 func (c *ClementinaComputer) getPotentialOperators(programCounter uint16) [2]uint8 {
-	// TODO: Fix to use correct mapping
-	rom := c.chips.baseram
-	programCounter &= 0x7FFF
-	operand1Address := programCounter & 0x7FFF
-	operand2Address := (programCounter + 1) & 0x7FFF
-	return [2]uint8{rom.Peek(uint32(operand1Address)), rom.Peek(uint32(operand2Address))}
+	var chip components.MemoryChip
+	var address uint32
+
+	switch {
+	case programCounter < 0x8000:
+		address = uint32(programCounter & 0x7FFF)
+		chip = c.chips.baseram
+
+	case programCounter >= 0x8000 && programCounter < 0xC000:
+		portA := c.circuit.portABus.Read()
+		portA16Bits := c.mappers.portA.MapFromSource([]uint8{portA})
+		addressLow := c.mappers.exRam.MapFromSource([]uint16{programCounter, portA16Bits})
+		addressHi := c.mappers.exRamHi.MapFromSource([]uint16{portA16Bits})
+
+		address = uint32(addressLow) | (uint32(addressHi) << 16)
+
+		chip = c.chips.exram
+	case programCounter >= 0xE000:
+		portA := c.circuit.portABus.Read()
+		portA16Bits := c.mappers.portA.MapFromSource([]uint8{portA})
+
+		address = uint32(c.mappers.hiRam.MapFromSource([]uint16{programCounter, portA16Bits}))
+
+		chip = c.chips.hiram
+
+		// TODO: Add logic for reading when PICO is enabled
+	}
+
+	op1 := chip.Peek(address)
+	op2 := chip.Peek(address + 1)
+
+	return [2]uint8{op1, op2}
 }
 
 func (c *ClementinaComputer) checkReset() {
