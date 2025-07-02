@@ -16,7 +16,7 @@ type MemoryWindow struct {
 	text   *tview.TextView
 	memory components.MemoryChip
 
-	start uint16
+	start uint32
 }
 
 // NewMemoryWindow creates a new memory display window.
@@ -59,7 +59,7 @@ func (m *MemoryWindow) SetTitle(title string) {
 //
 // Returns:
 //   - The 16-bit address where the memory display begins
-func (m *MemoryWindow) GetStartAddress() uint16 {
+func (m *MemoryWindow) GetStartAddress() uint32 {
 	return m.start
 }
 
@@ -73,8 +73,8 @@ func (m *MemoryWindow) Clear() {
 //
 // Parameters:
 //   - lines: Number of lines to scroll down
-func (m *MemoryWindow) ScrollDown(lines uint16) {
-	size := uint16(m.memory.Size())
+func (m *MemoryWindow) ScrollDown(lines uint32) {
+	size := uint32(m.memory.Size())
 
 	m.start += lines * 8
 	if m.start > size {
@@ -87,13 +87,13 @@ func (m *MemoryWindow) ScrollDown(lines uint16) {
 //
 // Parameters:
 //   - lines: Number of lines to scroll up
-func (m *MemoryWindow) ScrollUp(lines uint16) {
+func (m *MemoryWindow) ScrollUp(lines uint32) {
 	value := int(m.start) - (int(lines) * 8)
 
 	if value < 0 {
 		m.start = 0
 	} else {
-		m.start = uint16(value)
+		m.start = uint32(value)
 	}
 }
 
@@ -106,14 +106,14 @@ func (m *MemoryWindow) Draw(context *common.StepContext) {
 	address := m.start
 
 	for range maxLines {
-		if address >= uint16(m.memory.Size()) {
+		if address >= uint32(m.memory.Size()) {
 			break
 		}
 
 		fmt.Fprintf(m.text, "[yellow]%04X:[white]", address)
 
-		for i := range uint16(8) {
-			fmt.Fprintf(m.text, " %02X", m.memory.Peek(uint32(address+i)))
+		for i := range uint32(8) {
+			fmt.Fprintf(m.text, " %02X", m.memory.Peek(address+i))
 		}
 
 		fmt.Fprint(m.text, "\n")

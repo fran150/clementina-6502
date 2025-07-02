@@ -7,12 +7,21 @@ import (
 
 	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/computers/beneater"
+	"github.com/fran150/clementina-6502/pkg/computers/clementina"
 	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/spf13/cobra"
 	"go.bug.st/serial"
 )
 
+type computerModel string
+
+const (
+	clementinaModel computerModel = "clementina"
+	beneaterModel   computerModel = "beneater"
+)
+
 var (
+	model             computerModel
 	serialPort        string
 	romFile           string
 	delay             int64
@@ -23,17 +32,20 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "clementina",
 	Short: "Clementina 6502 - A 6502 computer emulator",
-	Long: `Clementina 6502 is an emulator for the Ben Eater's 6502 computer.
-It provides a terminal interface and can connect to real serial ports for I/O.`,
-	Run: runEmulator,
+	Long:  `Clementina 6502 is an emulator for the Clementina 6502 or Ben Eater's 6502 computer.`,
+	Run:   runEmulator,
 }
 
 func init() {
+	var strModel string
+	rootCmd.Flags().StringVarP(&strModel, "model", "m", "clementina", "Computer model to emulate (clementina / beneater)")
 	rootCmd.Flags().StringVarP(&serialPort, "port", "p", "", "Serial port to connect to (e.g., /dev/ttys004)")
 	rootCmd.Flags().StringVarP(&romFile, "rom", "r", "./assets/computer/beneater/eater.bin", "ROM file to load")
 	rootCmd.Flags().Int64VarP(&delay, "skip-cycles", "s", 0, "Number of CPU cycles to skip on every loop")
 	rootCmd.Flags().IntVarP(&targetFps, "fps", "f", 15, "Target display refresh rate")
 	rootCmd.Flags().BoolVarP(&emulateModemLines, "emulate-modem", "e", false, "Enable modem lines emulation for serial port (RTS, CTS, DTR, DSR)")
+
+	model = computerModel(strModel)
 }
 
 func runEmulator(cmd *cobra.Command, args []string) {
@@ -55,18 +67,41 @@ func runEmulator(cmd *cobra.Command, args []string) {
 	}
 
 	// Create the computer instance
-	computer, err := beneater.NewBenEaterComputer(port, emulateModemLines)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
-		os.Exit(1)
-	}
+	var computer terminal.Computer
+	if model == beneaterModel {
+		beneater, err := beneater.NewBenEaterComputer(port, emulateModemLines)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
+			os.Exit(1)
+		}
 
-	defer computer.Close()
+		defer beneater.Close()
 
-	// Try to load the ROM file
-	if err := computer.LoadRom(romFile); err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading ROM file: %v\n", err)
-		os.Exit(1)
+		// Try to load the ROM file
+		if err := beneater.LoadRom(romFile); err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading ROM file: %v\n", err)
+			os.Exit(1)
+		}
+
+		computer = beneater
+	} else {
+		clementina, err := clementina.NewClementinaComputer()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
+			os.Exit(1)
+		}
+
+		clementina.HiRamPoke(0xFFFC, 0x00, 0x00) // Set $E100 in the reset vector
+		clementina.HiRamPoke(0xFFFD, 0x00, 0xE1)
+
+		clementina.HiRamPoke(0xE100, 0x00, 0xA9) // LDA #$01
+		clementina.HiRamPoke(0xE101, 0x00, 0x01)
+		clementina.HiRamPoke(0xE102, 0x00, 0x1A) // INC A
+		clementina.HiRamPoke(0xE103, 0x00, 0x4C) // JMP $E102
+		clementina.HiRamPoke(0xE104, 0x00, 0x02)
+		clementina.HiRamPoke(0xE105, 0x00, 0xE1)
+
+		computer = clementina
 	}
 
 	// Setup configuration

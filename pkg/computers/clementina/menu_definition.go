@@ -134,26 +134,35 @@ func createMenuOptions(computer *ClementinaComputer, console *console) []*ui.Opt
 					},
 				},
 				{
+					Key:            tcell.KeyF3,
+					KeyName:        "F3",
+					KeyDescription: "Base RAM",
+					Action: func(context *common.StepContext) {
+						console.ShowWindow("baseram", context)
+					},
+					SubMenu: createMemoryWindowSubMenu(console),
+				},
+				{
+					Key:            tcell.KeyF4,
+					KeyName:        "F4",
+					KeyDescription: "Ext. RAM",
+					Action: func(context *common.StepContext) {
+						console.ShowWindow("exram", context)
+					},
+					SubMenu: createMemoryWindowSubMenu(console),
+				},
+				{
 					Key:            tcell.KeyF5,
 					KeyName:        "F5",
-					KeyDescription: "ROM",
+					KeyDescription: "Hi RAM",
 					Action: func(context *common.StepContext) {
-						console.ShowWindow("rom", context)
+						console.ShowWindow("hiram", context)
 					},
 					SubMenu: createMemoryWindowSubMenu(console),
 				},
 				{
 					Key:            tcell.KeyF6,
 					KeyName:        "F6",
-					KeyDescription: "RAM",
-					Action: func(context *common.StepContext) {
-						console.ShowWindow("ram", context)
-					},
-					SubMenu: createMemoryWindowSubMenu(console),
-				},
-				{
-					Key:            tcell.KeyF7,
-					KeyName:        "F7",
 					KeyDescription: "Buses",
 					Action: func(context *common.StepContext) {
 						console.ShowWindow("bus", context)

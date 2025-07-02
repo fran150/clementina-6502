@@ -117,8 +117,8 @@ func TestMemoryWindowScrollDown(t *testing.T) {
 	tests := []struct {
 		name     string
 		memSize  int
-		lines    uint16
-		start    uint16
+		lines    uint32
+		start    uint32
 		expected uint16
 	}{
 		{"normal scroll", 0x0400, 1, 0x0000, 0x0008},
@@ -143,8 +143,8 @@ func TestMemoryWindowScrollUp(t *testing.T) {
 	tests := []struct {
 		name     string
 		memSize  int
-		lines    uint16
-		start    uint16
+		lines    uint32
+		start    uint32
 		expected uint16
 	}{
 		{"normal scroll", 0x1000, 1, 0x0010, 0x0008},

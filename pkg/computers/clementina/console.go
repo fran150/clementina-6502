@@ -32,6 +32,9 @@ func newMainConsole(computer *ClementinaComputer, tvApp *tview.Application) *con
 	console.windows["speed"] = ui.NewSpeedWindow(&computer.appConfig.EmulationLoopConfig)
 	console.windows["cpu"] = ui.NewCpuWindow(computer.chips.cpu)
 	console.windows["via"] = ui.NewViaWindow(computer.chips.via)
+	console.windows["baseram"] = ui.NewMemoryWindow(computer.chips.baseram)
+	console.windows["exram"] = ui.NewMemoryWindow(computer.chips.exram)
+	console.windows["hiram"] = ui.NewMemoryWindow(computer.chips.hiram)
 	busWindow := ui.NewBusWindow()
 	console.windows["bus"] = busWindow
 	console.windows["breakpoint"] = ui.NewBreakPointForm()
@@ -57,10 +60,10 @@ func newMainConsole(computer *ClementinaComputer, tvApp *tview.Application) *con
 *************************************************************************************/
 
 func (c *console) initializeMainGrid(tvApp *tview.Application) {
-	c.grid.SetRows(4, 3, 0, 3).
+	c.grid.SetRows(3, 0, 3).
 		SetColumns(25, 0).
 		SetBorder(true).
-		SetTitle("Ben Eater 6502 Computer")
+		SetTitle("Clementina 6502 Computer")
 
 	tvApp.SetRoot(c.grid, true)
 }
@@ -74,11 +77,10 @@ func initializeBusWindow(computer *ClementinaComputer, busWindow *ui.BusWindow) 
 
 func (c *console) initializeLayout() {
 	// Setup initial grid layout
-	c.grid.AddItem(c.windows["lcd"].GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
-		AddItem(c.windows["speed"].GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
-		AddItem(c.windows["code"].GetDrawArea(), 2, 0, 1, 1, 0, 0, false).
-		AddItem(c.windows["options"].GetDrawArea(), 3, 0, 1, 2, 0, 0, false).
-		AddItem(c.pages, 0, 1, 3, 1, 0, 0, true)
+	c.grid.AddItem(c.windows["speed"].GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
+		AddItem(c.windows["code"].GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
+		AddItem(c.windows["options"].GetDrawArea(), 2, 0, 1, 2, 0, 0, false).
+		AddItem(c.pages, 0, 1, 2, 1, 0, 0, true)
 }
 
 /************************************************************************************
@@ -102,7 +104,7 @@ func (c *console) ShowWindow(windowKey string, context *common.StepContext) {
 * Menu methods
 *************************************************************************************/
 
-func (c *console) ScrollUp(context *common.StepContext, step uint16) {
+func (c *console) ScrollUp(context *common.StepContext, step uint32) {
 	if explorer, ok := c.windows[c.active].(*ui.MemoryWindow); ok {
 		explorer.ScrollUp(step)
 	}
@@ -114,7 +116,7 @@ func (c *console) ScrollUp(context *common.StepContext, step uint16) {
 // Parameters:
 //   - context: The current step context
 //   - step: The number of lines to scroll down
-func (c *console) ScrollDown(context *common.StepContext, step uint16) {
+func (c *console) ScrollDown(context *common.StepContext, step uint32) {
 	if explorer, ok := c.windows[c.active].(*ui.MemoryWindow); ok {
 		explorer.ScrollDown(step)
 	}

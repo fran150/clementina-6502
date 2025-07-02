@@ -107,7 +107,7 @@ func (c *console) ShowWindow(windowKey string, context *common.StepContext) {
 * Menu methods
 *************************************************************************************/
 
-func (c *console) ScrollUp(context *common.StepContext, step uint16) {
+func (c *console) ScrollUp(context *common.StepContext, step uint32) {
 	if explorer, ok := c.windows[c.active].(*ui.MemoryWindow); ok {
 		explorer.ScrollUp(step)
 	}
@@ -119,7 +119,7 @@ func (c *console) ScrollUp(context *common.StepContext, step uint16) {
 // Parameters:
 //   - context: The current step context
 //   - step: The number of lines to scroll down
-func (c *console) ScrollDown(context *common.StepContext, step uint16) {
+func (c *console) ScrollDown(context *common.StepContext, step uint32) {
 	if explorer, ok := c.windows[c.active].(*ui.MemoryWindow); ok {
 		explorer.ScrollDown(step)
 	}

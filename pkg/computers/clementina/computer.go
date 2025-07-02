@@ -192,13 +192,14 @@ func NewClementinaComputer() (*ClementinaComputer, error) {
 		dataBus:      buses.New8BitStandaloneBus(),
 		cpuIRQ:       buses.NewStandaloneLine(true),
 		cpuReset:     buses.NewStandaloneLine(true),
+		cpuRW:        buses.NewStandaloneLine(true),
 		hiramBus:     hiRamBus,
 		exramBus:     exRamBus,
 		exramBusHigh: exRamBusHigh,
 		portABus:     portABus,
 		bigPortA:     bigPortABus,
 		portBBus:     portBBus,
-		picoHiRAME:   buses.NewStandaloneLine(true),
+		picoHiRAME:   buses.NewStandaloneLine(false), // TODO: Must default to true
 		vcc:          buses.NewStandaloneLine(true),
 		ground:       buses.NewStandaloneLine(false),
 	}
@@ -281,22 +282,6 @@ func NewClementinaComputer() (*ClementinaComputer, error) {
 		resetCycles: 0,
 		mappers:     mappers,
 	}, nil
-}
-
-// LoadRom loads a ROM image from the specified file path into the computer's base RAM.
-//
-// Parameters:
-//   - romImagePath: The path to the ROM image file
-//
-// Returns:
-//   - An error if the ROM image could not be loaded, nil otherwise
-func (c *ClementinaComputer) LoadRom(romImagePath string) error {
-	err := c.chips.baseram.Load(romImagePath)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // Init initializes the computer with the provided application and configuration.
@@ -489,4 +474,20 @@ func (c *ClementinaComputer) checkReset() {
 	} else {
 		c.circuit.cpuReset.Set(true)
 	}
+}
+
+func (c *ClementinaComputer) BaseRamPoke(address uint16, value uint8) {
+	c.chips.baseram.Poke(address, value)
+}
+
+func (c *ClementinaComputer) ExRamPoke(address uint16, bank uint8, value uint8) {
+	bank = bank & 0x1F
+	mapped := c.mappers.exRam.MapFromSource([]uint16{address, uint16(bank)})
+	c.chips.exram.Poke(mapped, value)
+}
+
+func (c *ClementinaComputer) HiRamPoke(address uint16, bank uint8, value uint8) {
+	bank = (bank & 0x07) << 5
+	mapped := c.mappers.hiRam.MapFromSource([]uint16{address, uint16(bank)})
+	c.chips.hiram.Poke(mapped, value)
 }
