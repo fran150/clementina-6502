@@ -403,13 +403,6 @@ func TestMenuOptions(t *testing.T) {
 	})
 }
 
-func simulateKeyPress(computer *ClementinaComputer, context *common.StepContext, key tcell.Key, ch rune) {
-	event := tcell.NewEventKey(key, ch, tcell.ModNone)
-	computer.KeyPressed(event, context)
-	computer.Tick(context)
-	computer.Draw(context)
-}
-
 func TestMenuNavigation(t *testing.T) {
 	computer, context := createComputer(t)
 	defer computer.Close()
