@@ -638,7 +638,7 @@ func actionTYA(cpu *Cpu65C02S) {
 // This a actually a set of 8 instructions. Each tests a specific bit of a byte held on zero page and causes a branch of the bit is resest (0).
 // They are 3 bytes long: OPCODE ZEROPAGE, BRANCH, for example BBR7 $10, $1A (Check if byte 7 of $0010 is reset and add $1A to PC)
 func actionBBR(cpu *Cpu65C02S) {
-	var bit uint8 = (uint8(cpu.currentOpCode) / 0x10)
+	bit := (uint8(cpu.currentOpCode) / 0x10)
 	var mask uint8 = 0x01 << bit
 
 	if (cpu.dataRegister & mask) == 0 {
@@ -649,7 +649,7 @@ func actionBBR(cpu *Cpu65C02S) {
 // This a actually a set of 8 instructions. Each tests a specific bit of a byte held on zero page and causes a branch of the bit is set (1).
 // They are 3 bytes long: OPCODE ZEROPAGE, BRANCH, for example BBS2 $70, $10 (Check if byte 2 of $0070 is set and add $10 to PC)
 func actionBBS(cpu *Cpu65C02S) {
-	var bit uint8 = (uint8(cpu.currentOpCode) / 0x10) - 8
+	bit := (uint8(cpu.currentOpCode) / 0x10) - 8
 	var mask uint8 = 0x01 << bit
 
 	if (cpu.dataRegister & mask) > 0 {
@@ -699,7 +699,7 @@ func actionSTZ(cpu *Cpu65C02S) {
 // This a actually a set of 8 instructions. Each resets a specific bit of a byte held on zero page.
 // For example RMB0 $10 (resets bit 0 of value in $0010)
 func actionRMB(cpu *Cpu65C02S) {
-	var bit uint8 = (uint8(cpu.currentOpCode) / 0x10)
+	bit := (uint8(cpu.currentOpCode) / 0x10)
 	var mask uint8 = 0x01 << bit
 	mask = ^mask
 
@@ -710,7 +710,7 @@ func actionRMB(cpu *Cpu65C02S) {
 // This a actually a set of 8 instructions. Each sets a specific bit of a byte held on zero page.
 // For example SMB2 $20 (sets bit 2 of value in $0020)
 func actionSMB(cpu *Cpu65C02S) {
-	var bit uint8 = (uint8(cpu.currentOpCode) / 0x10) - 8
+	bit := (uint8(cpu.currentOpCode) / 0x10) - 8
 	var mask uint8 = 0x01 << bit
 
 	cpu.dataRegister = cpu.dataRegister | mask

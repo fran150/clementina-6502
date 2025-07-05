@@ -49,7 +49,7 @@ func NewCodeWindow(processor components.Cpu6502Chip, operandsGetter func(program
 }
 
 func showCurrentInstruction(programCounter uint16, instruction *cpu.CpuInstructionData, potentialOperands [2]uint8) string {
-	var sb strings.Builder = strings.Builder{}
+	sb := strings.Builder{}
 
 	addressMode := instruction.AddressMode()
 	addressModeDetails := cpu.GetAddressMode(addressMode)

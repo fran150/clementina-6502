@@ -84,7 +84,7 @@ func drawLcdLineOff(writer io.Writer) {
 
 func drawLcdLine(writer io.Writer, lineStart uint8, displayStatus lcd.DisplayStatus, cursorStatus lcd.CursorStatus, min uint8, max uint8) {
 	var count uint8 = 0
-	var index uint8 = lineStart
+	index := lineStart
 
 	fmt.Fprintf(writer, "[black:green]")
 

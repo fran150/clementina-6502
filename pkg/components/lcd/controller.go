@@ -298,7 +298,7 @@ func (ctrl *LcdHD44780U) cursorBlink(context *common.StepContext) {
 
 // Processes the specified instruction
 func (ctrl *LcdHD44780U) processInstruction(context *common.StepContext) {
-	var mask uint8 = addressForInstructionMask
+	mask := addressForInstructionMask
 	i := 7
 
 	for mask > 0 {

@@ -382,7 +382,7 @@ func (via *Via65C22S) Tick(context *common.StepContext) {
 	via.latchesA.latchPort()
 	via.latchesB.latchPort()
 
-	var pbLine6Status bool = false
+	pbLine6Status := false
 	pbLine6 := via.peripheralPortB.connector.GetLine(6)
 	if pbLine6 != nil {
 		pbLine6Status = pbLine6.Status()

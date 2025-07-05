@@ -184,7 +184,7 @@ func (ram *Ram) loadFromReader(file file_io.FileReader, err error) error {
 		return statsErr
 	}
 
-	var size int64 = stats.Size()
+	size := stats.Size()
 	if size <= int64(len(ram.values)) {
 		if _, err := file.Read(ram.values[:]); err != nil {
 			return err

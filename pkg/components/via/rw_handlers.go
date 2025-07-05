@@ -149,7 +149,7 @@ func writeInterruptEnableHandler(via *Via65C22S) {
 // low order latch to the counter initiating countdown.
 func writeT1HighOrderCounter(via *Via65C22S) {
 	// MSB value for the current value in the bus
-	var high uint16 = uint16(via.dataBus.Read()) << 8
+	high := uint16(via.dataBus.Read()) << 8
 
 	// Write into high order latch
 	via.registers.highLatches1 = via.dataBus.Read()
@@ -201,7 +201,7 @@ func readT1HighOrderCounter(via *Via65C22S) {
 // low order latch to the counter initiating countdown.
 func writeT2HighOrderCounter(via *Via65C22S) {
 	// MSB value for the current value in the bus
-	var high uint16 = uint16(via.dataBus.Read()) << 8
+	high := uint16(via.dataBus.Read()) << 8
 
 	// Write into high order latch
 	via.registers.highLatches2 = via.dataBus.Read()

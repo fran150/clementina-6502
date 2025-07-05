@@ -1,0 +1,24 @@
+version: "2"
+
+linters:
+  settings:
+    errcheck:
+      exclude-functions:
+        - fmt.Print
+        - fmt.Printf
+        - fmt.Println
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - os.Remove
+
+  exclusions:
+    rules:
+      # Exclude errcheck for Close() methods in defer statements
+      - linters:
+          - errcheck
+        text: "Error return value of `.*\\.Close` is not checked"
+      # Exclude errcheck for mock.Close() in tests
+      - linters:
+          - errcheck
+        text: "Error return value of `mock\\.Close` is not checked"
