@@ -30,7 +30,7 @@ func NewBreakPointForm() *BreakPointForm {
 	breakPointForm := &BreakPointForm{}
 
 	form := tview.NewForm().
-		AddInputField("Address", "", 5, validateHexInput, nil).
+		AddInputField("Address", "", 5, breakPointForm.validateHexInput, nil).
 		AddButton("Add", breakPointForm.AddSelectedBreakpointAddress).
 		SetFocus(0)
 
@@ -126,7 +126,7 @@ func (d *BreakPointForm) AddSelectedBreakpointAddress() {
 	input.SetText("")
 }
 
-func validateHexInput(textToCheck string, lastChar rune) bool {
+func (d *BreakPointForm) validateHexInput(textToCheck string, lastChar rune) bool {
 	const allowedChars string = "0123456789ABCDEFabcdef"
 
 	if len(textToCheck) >= 5 {

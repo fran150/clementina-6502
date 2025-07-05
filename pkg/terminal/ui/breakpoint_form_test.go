@@ -18,6 +18,8 @@ func TestNewBreakPointForm(t *testing.T) {
 }
 
 func TestValidateHexInput(t *testing.T) {
+	form := NewBreakPointForm()
+
 	tests := []struct {
 		name     string
 		text     string
@@ -34,7 +36,7 @@ func TestValidateHexInput(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := validateHexInput(tt.text, tt.lastChar)
+			result := form.validateHexInput(tt.text, tt.lastChar)
 			assert.Equal(t, tt.want, result)
 		})
 	}

@@ -108,7 +108,7 @@ func (c *console) ShowWindow(windowKey string, context *common.StepContext) {
 *************************************************************************************/
 
 func (c *console) ScrollUp(context *common.StepContext, step uint32) {
-	if explorer, ok := c.windows[c.active].(*ui.MemoryWindow); ok {
+	if explorer := GetWindow[ui.MemoryWindow](c, c.active); explorer != nil {
 		explorer.ScrollUp(step)
 	}
 }
@@ -120,7 +120,7 @@ func (c *console) ScrollUp(context *common.StepContext, step uint32) {
 //   - context: The current step context
 //   - step: The number of lines to scroll down
 func (c *console) ScrollDown(context *common.StepContext, step uint32) {
-	if explorer, ok := c.windows[c.active].(*ui.MemoryWindow); ok {
+	if explorer := GetWindow[ui.MemoryWindow](c, c.active); explorer != nil {
 		explorer.ScrollDown(step)
 	}
 }

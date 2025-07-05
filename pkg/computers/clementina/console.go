@@ -35,6 +35,7 @@ func newMainConsole(computer *ClementinaComputer, tvApp *tview.Application) *con
 	console.windows["baseram"] = ui.NewMemoryWindow(computer.chips.baseram)
 	console.windows["exram"] = ui.NewMemoryWindow(computer.chips.exram)
 	console.windows["hiram"] = ui.NewMemoryWindow(computer.chips.hiram)
+	console.windows["goto"] = ui.NewMemoryWindowGoToForm()
 	busWindow := ui.NewBusWindow()
 	console.windows["bus"] = busWindow
 	console.windows["breakpoint"] = ui.NewBreakPointForm()
@@ -87,6 +88,7 @@ func (c *console) initializeLayout() {
 * Window switching methods
 *************************************************************************************/
 
+// Shows the breakpoint configuration form allowing to navigate back
 func (c *console) SetBreakpointConfigMode(context *common.StepContext) {
 	c.AppendActiveWindow("breakpoint")
 }
@@ -100,12 +102,24 @@ func (c *console) ShowWindow(windowKey string, context *common.StepContext) {
 	c.SetActiveWindow(windowKey)
 }
 
+// Shows the go to form for memory navigation allowing to navigate back
+func (c *console) ShowGotoForm(context *common.StepContext) {
+	if memoryWin := GetWindow[ui.MemoryWindow](c, c.active); memoryWin != nil {
+		if form := GetWindow[ui.MemoryWindowGoToForm](c, "goto"); form != nil {
+			if options := GetWindow[ui.OptionsWindow](c, "options"); options != nil {
+				form.InitForm(memoryWin, func() { options.GoToPreviousMenu(context) })
+				c.AppendActiveWindow("goto")
+			}
+		}
+	}
+}
+
 /************************************************************************************
 * Menu methods
 *************************************************************************************/
 
 func (c *console) ScrollUp(context *common.StepContext, step uint32) {
-	if explorer, ok := c.windows[c.active].(*ui.MemoryWindow); ok {
+	if explorer := GetWindow[ui.MemoryWindow](c, c.active); explorer != nil {
 		explorer.ScrollUp(step)
 	}
 }
@@ -117,7 +131,7 @@ func (c *console) ScrollUp(context *common.StepContext, step uint32) {
 //   - context: The current step context
 //   - step: The number of lines to scroll down
 func (c *console) ScrollDown(context *common.StepContext, step uint32) {
-	if explorer, ok := c.windows[c.active].(*ui.MemoryWindow); ok {
+	if explorer := GetWindow[ui.MemoryWindow](c, c.active); explorer != nil {
 		explorer.ScrollDown(step)
 	}
 }

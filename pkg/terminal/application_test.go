@@ -149,6 +149,9 @@ func TestApplicationStopOnKeyPress(t *testing.T) {
 
 		// Simulate a key press - this should trigger the stop condition
 		screen.InjectKey(tcell.KeyRune, 'a', tcell.ModNone)
+
+		// Small delay to ensure key press is processed
+		time.Sleep(500 * time.Millisecond)
 	}()
 
 	// Wait for the application to stop with timeout

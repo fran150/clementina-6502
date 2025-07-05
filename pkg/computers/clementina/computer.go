@@ -104,12 +104,13 @@ func NewClementinaComputer() (*ClementinaComputer, error) {
 				return uint16(value[0])
 			},
 		},
-		// HiRAM mapped bus uses A0 - A11 from the address bus
-		// and A12 - A14 is mapped to PORTA 5 - 7
+
+		// HiRAM mapped bus uses A0 - A12 from the address bus
+		// and A13 - A14 is mapped to PORTA 5 - 6
 		hiRam: mapperFunctions[uint16, uint16]{
 			MapToSource: func(value uint16, current []uint16) []uint16 {
-				address := (current[0] & 0xF000) | (value & 0x0FFF)  // Replace A0 - A11
-				portA := (current[1] & 0x1F) | ((value & 0xE0) >> 8) // Replace A5 - A7
+				address := (current[0] & 0xE000) | (value & 0x1FFF)  // Replace A0 - A12
+				portA := (current[1] & 0x9F) | ((value & 0x60) >> 8) // Replace A5 - A6
 
 				return []uint16{address, portA}
 			},
@@ -117,10 +118,10 @@ func NewClementinaComputer() (*ClementinaComputer, error) {
 				address := value[0]
 				portA := value[1]
 
-				address &= 0x0FFF // Remove A12 - A15
-				portA &= 0xE0     // Keep only PA5 - PA7
+				address &= 0x1FFF // Remove A13 - A15
+				portA &= 0x60     // Keep only PA5 - PA6
 
-				return (portA << 8) | address // PA5 - PA7 | A11 - A0
+				return (portA << 8) | address // PA5 - PA6 | A12 - A0
 			},
 		},
 		// ExRAM mapped bus uses A0 - A13 from the address bus
@@ -476,18 +477,38 @@ func (c *ClementinaComputer) checkReset() {
 	}
 }
 
+// BaseRamPoke writes a value directly to the base RAM at the specified address.
+// This bypasses normal CPU memory access and is used for debugging or initialization.
+//
+// Parameters:
+//   - address: The 16-bit address in base RAM to write to
+//   - value: The 8-bit value to write
 func (c *ClementinaComputer) BaseRamPoke(address uint16, value uint8) {
 	c.chips.baseram.Poke(address, value)
 }
 
+// ExRamPoke writes a value directly to the extended RAM at the specified address and bank.
+// This bypasses normal CPU memory access and is used for debugging or initialization.
+//
+// Parameters:
+//   - address: The 16-bit address in extended RAM to write to
+//   - bank: The bank number (32 banks of 16K)
+//   - value: The 8-bit value to write
 func (c *ClementinaComputer) ExRamPoke(address uint16, bank uint8, value uint8) {
 	bank = bank & 0x1F
 	mapped := c.mappers.exRam.MapFromSource([]uint16{address, uint16(bank)})
 	c.chips.exram.Poke(mapped, value)
 }
 
+// HiRamPoke writes a value directly to the high RAM at the specified address and bank.
+// This bypasses normal CPU memory access and is used for debugging or initialization.
+//
+// Parameters:
+//   - address: The 16-bit address in high RAM to write to
+//   - bank: The bank number (4 banks of 8K)
+//   - value: The 8-bit value to write
 func (c *ClementinaComputer) HiRamPoke(address uint16, bank uint8, value uint8) {
-	bank = (bank & 0x07) << 5
+	bank = (bank & 0x03) << 5
 	mapped := c.mappers.hiRam.MapFromSource([]uint16{address, uint16(bank)})
 	c.chips.hiram.Poke(mapped, value)
 }

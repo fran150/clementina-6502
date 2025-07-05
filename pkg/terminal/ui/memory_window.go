@@ -63,6 +63,21 @@ func (m *MemoryWindow) GetStartAddress() uint32 {
 	return m.start
 }
 
+// SetStartAddress sets the starting address for the memory display.
+// If the address exceeds memory size, it's adjusted to show the last valid page.
+//
+// Parameters:
+//   - start: The 32-bit address to start displaying from
+func (m *MemoryWindow) SetStartAddress(start uint32) {
+	size := uint32(m.memory.Size())
+
+	if start >= size {
+		m.start = size - 8
+	} else {
+		m.start = start
+	}
+}
+
 // Clear resets the memory window, removing all text content.
 func (m *MemoryWindow) Clear() {
 	m.text.Clear()
@@ -74,12 +89,9 @@ func (m *MemoryWindow) Clear() {
 // Parameters:
 //   - lines: Number of lines to scroll down
 func (m *MemoryWindow) ScrollDown(lines uint32) {
-	size := uint32(m.memory.Size())
+	start := m.start + lines*8
 
-	m.start += lines * 8
-	if m.start > size {
-		m.start = size - 8
-	}
+	m.SetStartAddress(start)
 }
 
 // ScrollUp moves the memory display up by the specified number of lines.
@@ -88,13 +100,13 @@ func (m *MemoryWindow) ScrollDown(lines uint32) {
 // Parameters:
 //   - lines: Number of lines to scroll up
 func (m *MemoryWindow) ScrollUp(lines uint32) {
-	value := int(m.start) - (int(lines) * 8)
+	value := int64(m.start) - (int64(lines) * 8)
 
 	if value < 0 {
-		m.start = 0
-	} else {
-		m.start = uint32(value)
+		value = 0
 	}
+
+	m.SetStartAddress(uint32(value))
 }
 
 // Draw updates the memory window with the current memory contents.
@@ -119,6 +131,14 @@ func (m *MemoryWindow) Draw(context *common.StepContext) {
 		fmt.Fprint(m.text, "\n")
 		address += 8
 	}
+}
+
+// Size returns the total size of the memory chip being displayed.
+//
+// Returns:
+//   - The size of the memory in bytes
+func (d *MemoryWindow) Size() int {
+	return d.memory.Size()
 }
 
 // GetDrawArea returns the primitive that represents this window in the UI.

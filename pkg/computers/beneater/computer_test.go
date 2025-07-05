@@ -342,19 +342,19 @@ func simulateKeyPress(computer *BenEaterComputer, context *common.StepContext, k
 }
 
 func validateMemoryWindow(t *testing.T, computer *BenEaterComputer, context *common.StepContext, memoryWindow *ui.MemoryWindow) {
-	assert.Equal(t, uint16(0x0000), memoryWindow.GetStartAddress(), "Window should start at address 0x0000")
+	assert.Equal(t, uint32(0x0000), memoryWindow.GetStartAddress(), "Window should start at address 0x0000")
 
 	simulateKeyPress(computer, context, tcell.KeyDown, ' ')
-	assert.Equal(t, uint16(0x0008), memoryWindow.GetStartAddress(), "Window should scroll down to address 0x0008")
+	assert.Equal(t, uint32(0x0008), memoryWindow.GetStartAddress(), "Window should scroll down to address 0x0008")
 
 	simulateKeyPress(computer, context, tcell.KeyUp, ' ')
-	assert.Equal(t, uint16(0x0000), memoryWindow.GetStartAddress(), "Window should scroll up to address 0x0000")
+	assert.Equal(t, uint32(0x0000), memoryWindow.GetStartAddress(), "Window should scroll up to address 0x0000")
 
 	simulateKeyPress(computer, context, tcell.KeyPgDn, ' ')
-	assert.Equal(t, uint16(0x00A0), memoryWindow.GetStartAddress(), "Window should scroll down to address 0x00A0")
+	assert.Equal(t, uint32(0x00A0), memoryWindow.GetStartAddress(), "Window should scroll down to address 0x00A0")
 
 	simulateKeyPress(computer, context, tcell.KeyPgUp, ' ')
-	assert.Equal(t, uint16(0x0000), memoryWindow.GetStartAddress(), "Window should scroll up to address 0x0000")
+	assert.Equal(t, uint32(0x0000), memoryWindow.GetStartAddress(), "Window should scroll up to address 0x0000")
 }
 
 func TestMenuOptions(t *testing.T) {

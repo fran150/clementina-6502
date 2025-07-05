@@ -102,7 +102,7 @@ func TestNewMemoryWindow(t *testing.T) {
 
 	assert.NotNil(t, window)
 	assert.Equal(t, "Memory Explorer", window.GetTitle())
-	assert.Equal(t, uint16(0), window.GetStartAddress())
+	assert.Equal(t, uint32(0), window.GetStartAddress())
 }
 
 func TestMemoryWindowSetTitle(t *testing.T) {
@@ -119,10 +119,10 @@ func TestMemoryWindowScrollDown(t *testing.T) {
 		memSize  int
 		lines    uint32
 		start    uint32
-		expected uint16
+		expected uint32
 	}{
 		{"normal scroll", 0x0400, 1, 0x0000, 0x0008},
-		{"scroll near end", 0x0400, 1, 0x03F8, 0x0400},
+		{"scroll near end", 0x0400, 1, 0x03F8, 0x03F8},
 		{"scroll past end", 0x0400, 1, 0x0400, 0x03F8},
 		{"multiple lines", 0x0400, 2, 0x0000, 0x0010},
 	}
@@ -145,7 +145,7 @@ func TestMemoryWindowScrollUp(t *testing.T) {
 		memSize  int
 		lines    uint32
 		start    uint32
-		expected uint16
+		expected uint32
 	}{
 		{"normal scroll", 0x1000, 1, 0x0010, 0x0008},
 		{"scroll near start", 0x1000, 1, 0x0008, 0x0000},

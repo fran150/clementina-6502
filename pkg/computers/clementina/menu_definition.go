@@ -203,18 +203,26 @@ func createMemoryWindowSubMenu(console *console) []*ui.OptionsWindowMenuOption {
 		{
 			Key:            tcell.KeyPgUp,
 			KeyName:        "Pg Up",
-			KeyDescription: "Scroll Up Fast",
+			KeyDescription: "S. Up Fast",
 			Action: func(context *common.StepContext) {
-				console.ScrollUp(context, 20)
+				console.ScrollUp(context, 64)
 			},
 		},
 		{
 			Key:            tcell.KeyPgDn,
 			KeyName:        "Pg Dn",
-			KeyDescription: "Scroll Down Fast",
+			KeyDescription: "S. Down Fast",
 			Action: func(context *common.StepContext) {
-				console.ScrollDown(context, 20)
+				console.ScrollDown(context, 64)
 			},
+		},
+		{
+			Rune:           'g',
+			KeyName:        "G",
+			KeyDescription: "Go To",
+			Action:         console.ShowGotoForm,
+			BackAction:     console.ReturnToPreviousWindow,
+			SubMenu:        []*ui.OptionsWindowMenuOption{},
 		},
 	}
 }

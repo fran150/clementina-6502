@@ -81,16 +81,11 @@ func (d *OptionsWindow) SetActiveMenu(menu *OptionsWindowMenuOption) {
 // Returns:
 //   - The event if it wasn't handled, or nil if the event was consumed
 func (d *OptionsWindow) ProcessKey(event *tcell.EventKey, context *common.StepContext) *tcell.EventKey {
-	active := d.GetActiveMenu()
+
 	options := d.getActiveOptions()
 
 	if event.Key() == tcell.KeyESC {
-		if active != nil {
-			if active.BackAction != nil {
-				active.BackAction(context)
-			}
-			d.SetActiveMenu(active.parent)
-		}
+		d.GoToPreviousMenu(context)
 		return event
 	}
 
@@ -113,6 +108,19 @@ func (d *OptionsWindow) ProcessKey(event *tcell.EventKey, context *common.StepCo
 	}
 
 	return event
+}
+
+// GoToPreviousMenu navigates one level up in the menu tree.
+// Parameters:
+//   - context: The current step context containing system state information
+func (d *OptionsWindow) GoToPreviousMenu(context *common.StepContext) {
+	active := d.GetActiveMenu()
+	if active != nil {
+		if active.BackAction != nil {
+			active.BackAction(context)
+		}
+		d.SetActiveMenu(active.parent)
+	}
 }
 
 // Draw updates the options window with the current menu structure.
