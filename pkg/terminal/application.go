@@ -1,6 +1,9 @@
 package terminal
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/gdamore/tcell/v2"
@@ -49,6 +52,15 @@ func NewApplication(computer Computer, config *ApplicationConfig) *Application {
 	}
 }
 
+// handlePanic recovers from panics and properly restores terminal state
+func (a *Application) handlePanic(panicType string) {
+	if r := recover(); r != nil {
+		a.tvApp.Stop()
+		fmt.Fprintf(os.Stderr, "%s panic: %v\n", panicType, r)
+		panic(r)
+	}
+}
+
 // Run starts the terminal application and emulation loop.
 // It initializes the computer, sets up event handlers, and begins the main execution loop.
 //
@@ -56,10 +68,13 @@ func NewApplication(computer Computer, config *ApplicationConfig) *Application {
 //   - The final step context when the application exits
 //   - Any error that occurred during execution
 func (a *Application) Run() (*common.StepContext, error) {
+	defer a.handlePanic("Application")
+
 	a.computer.Init(a.tvApp, a.config)
 
 	context := a.executor.Start(computers.EmulationLoopHandlers{
 		Tick: func(context *common.StepContext) {
+			defer a.handlePanic("Tick")
 			a.computer.Tick(context)
 
 			if context.Stop {
@@ -67,6 +82,7 @@ func (a *Application) Run() (*common.StepContext, error) {
 			}
 		},
 		Draw: func(context *common.StepContext) {
+			defer a.handlePanic("Draw")
 			a.computer.Draw(context)
 			a.tvApp.Draw()
 		},

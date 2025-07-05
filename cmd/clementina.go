@@ -13,15 +13,13 @@ import (
 	"go.bug.st/serial"
 )
 
-type computerModel string
-
 const (
-	clementinaModel computerModel = "clementina"
-	beneaterModel   computerModel = "beneater"
+	clementinaModel string = "clementina"
+	beneaterModel   string = "beneater"
 )
 
 var (
-	model             computerModel
+	model             string
 	serialPort        string
 	romFile           string
 	delay             int64
@@ -37,38 +35,36 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	var strModel string
-	rootCmd.Flags().StringVarP(&strModel, "model", "m", "clementina", "Computer model to emulate (clementina / beneater)")
+	rootCmd.Flags().StringVarP(&model, "model", "m", "clementina", "Computer model to emulate (clementina / beneater)")
 	rootCmd.Flags().StringVarP(&serialPort, "port", "p", "", "Serial port to connect to (e.g., /dev/ttys004)")
 	rootCmd.Flags().StringVarP(&romFile, "rom", "r", "./assets/computer/beneater/eater.bin", "ROM file to load")
 	rootCmd.Flags().Int64VarP(&delay, "skip-cycles", "s", 0, "Number of CPU cycles to skip on every loop")
 	rootCmd.Flags().IntVarP(&targetFps, "fps", "f", 15, "Target display refresh rate")
 	rootCmd.Flags().BoolVarP(&emulateModemLines, "emulate-modem", "e", false, "Enable modem lines emulation for serial port (RTS, CTS, DTR, DSR)")
-
-	model = computerModel(strModel)
 }
 
 func runEmulator(cmd *cobra.Command, args []string) {
-	var port serial.Port
-
-	if serialPort != "" {
-		var err error
-
-		port, err = serial.Open(serialPort, &serial.Mode{
-			BaudRate: 19200,
-			DataBits: 8,
-			Parity:   serial.NoParity,
-			StopBits: serial.OneStopBit,
-		})
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating port: %v\n", err)
-			os.Exit(1)
-		}
-	}
-
 	// Create the computer instance
 	var computer terminal.Computer
+
 	if model == beneaterModel {
+		var port serial.Port
+
+		if serialPort != "" {
+			var err error
+
+			port, err = serial.Open(serialPort, &serial.Mode{
+				BaudRate: 19200,
+				DataBits: 8,
+				Parity:   serial.NoParity,
+				StopBits: serial.OneStopBit,
+			})
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error creating port: %v\n", err)
+				os.Exit(1)
+			}
+		}
+
 		beneater, err := beneater.NewBenEaterComputer(port, emulateModemLines)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)

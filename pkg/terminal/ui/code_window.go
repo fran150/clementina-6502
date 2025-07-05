@@ -136,6 +136,11 @@ func (d *CodeWindow) Clear() {
 //   - context: The current step context containing system state information
 func (d *CodeWindow) Draw(context *common.StepContext) {
 	values := d.lines.GetValues()
+
+	if values == nil {
+		values = []string{}
+	}
+
 	d.text.SetText(strings.Join(values, ""))
 }
 
