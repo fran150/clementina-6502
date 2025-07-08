@@ -135,13 +135,10 @@ func (d *CodeWindow) Clear() {
 // Parameters:
 //   - context: The current step context containing system state information
 func (d *CodeWindow) Draw(context *common.StepContext) {
-	values := d.lines.GetValues()
-
-	if values == nil {
-		values = []string{}
+	if !d.lines.IsEmpty() {
+		values := d.lines.GetValues()
+		d.text.SetText(strings.Join(values, ""))
 	}
-
-	d.text.SetText(strings.Join(values, ""))
 }
 
 // GetDrawArea returns the primitive that represents this window in the UI.

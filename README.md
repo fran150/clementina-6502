@@ -171,7 +171,7 @@ The emulator can connect to real serial ports using the port configuration set b
 For testing without physical hardware, you can use `socat` to create virtual serial ports:
 
 ```bash
-socat -d -d pty,raw,echo=0 pty,raw,echo=0
+socat -d -d pty,raw,echo=0,link=/tmp/ttyComputer pty,raw,echo=0,link=/tmp/ttyTerminal
 ```
 
 ## Debugging Tips
