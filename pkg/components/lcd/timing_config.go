@@ -1,8 +1,10 @@
 package lcd
 
+import "time"
+
 type lcdTimingConfig struct {
-	clearDisplayMicro int64
-	returnHomeMicro   int64
-	instructionMicro  int64
-	blinkingMicro     int64
+	clearDisplayMicro time.Duration
+	returnHomeMicro   time.Duration
+	instructionMicro  time.Duration
+	blinkingMicro     time.Duration
 }

@@ -9,7 +9,7 @@ import (
 
 // EmulationLoopConfig contains settings that control the emulation speed and display refresh rate.
 type EmulationLoopConfig struct {
-	SkipCycles int64
+	TargetSpeedMhz float64
 
 	// DisplayFps specifies the target frames per second for display updates
 	DisplayFps int
@@ -36,11 +36,6 @@ type EmulationLoop struct {
 
 // NewEmulationLoop creates a new emulation loop with the specified configuration.
 func NewEmulationLoop(config *EmulationLoopConfig) *EmulationLoop {
-	// TODO: This might not be the best way to validate this
-	if config.SkipCycles < 0 {
-		config.SkipCycles = 0
-	}
-
 	return &EmulationLoop{
 		config:        config,
 		skippedCycles: 0,
@@ -78,13 +73,14 @@ func (e *EmulationLoop) Start(handlers EmulationLoopHandlers) *common.StepContex
 }
 
 func (e *EmulationLoop) executeLoop(context *common.StepContext, handlers EmulationLoopHandlers) {
-	for !context.Stop {
-		if e.config.SkipCycles > 0 && e.skippedCycles < e.config.SkipCycles && context.Cycle != 0 {
-			e.skippedCycles++
-			continue
-		}
+	// Time of each frame in microseconds
+	frameTime := e.config.TargetSpeedMhz
 
-		e.skippedCycles = 0
+	ticker := time.NewTicker(time.Duration(frameTime) * time.Nanosecond)
+	defer ticker.Stop()
+
+	for !context.Stop {
+		<-ticker.C
 		handlers.Tick(context)
 		context.NextCycle()
 	}

@@ -314,17 +314,15 @@ func (c *BenEaterComputer) Reset(context *common.StepContext) {
 	c.mustReset = true
 }
 
-// SkipUp increases the number of cycles to skip during execution
-func (c *BenEaterComputer) SkipUp(context *common.StepContext, size int64) {
-	c.appConfig.SkipCycles += size
+func (c *BenEaterComputer) SpeedUp(context *common.StepContext) {
+	c.appConfig.TargetSpeedMhz += 0.1
 }
 
-// SkipDown decreases the number of cycles to skip during execution.
-func (c *BenEaterComputer) SkipDown(context *common.StepContext, size int64) {
-	c.appConfig.SkipCycles -= size
+func (c *BenEaterComputer) SpeedDown(context *common.StepContext) {
+	c.appConfig.TargetSpeedMhz -= 0.1
 
-	if c.appConfig.SkipCycles < 0 {
-		c.appConfig.SkipCycles = 0
+	if c.appConfig.TargetSpeedMhz < 0 {
+		c.appConfig.TargetSpeedMhz = 0
 	}
 }
 

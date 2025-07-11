@@ -364,8 +364,8 @@ func TestMenuOptions(t *testing.T) {
 	app := tview.NewApplication()
 	appConfig := &terminal.ApplicationConfig{
 		EmulationLoopConfig: computers.EmulationLoopConfig{
-			SkipCycles: 0,
-			DisplayFps: 10,
+			TargetSpeedMhz: 1.1,
+			DisplayFps:     10,
 		},
 	}
 
@@ -413,27 +413,20 @@ func TestMenuOptions(t *testing.T) {
 	// Go to speed menu
 	simulateKeyPress(computer, context, tcell.KeyRune, 's')
 
-	assert.Equal(t, int64(0), computer.appConfig.SkipCycles)
+	assert.Equal(t, 1.1, computer.appConfig.TargetSpeedMhz)
 
 	// Skip Cycles increase by 10
 	simulateKeyPress(computer, context, tcell.KeyUp, ' ')
-	assert.Equal(t, int64(10), computer.appConfig.SkipCycles, "Skipped cycles should increase by 10")
+	assert.Equal(t, 1.2, computer.appConfig.TargetSpeedMhz, "Skipped cycles should increase by 0.1")
 
 	// Skip Cycles decrease by 10
 	simulateKeyPress(computer, context, tcell.KeyDown, ' ')
-	assert.Equal(t, int64(0), computer.appConfig.SkipCycles, "Skipped cycles should decrease by 10")
-
-	// Skip Cycles increase by 100
-	simulateKeyPress(computer, context, tcell.KeyPgUp, ' ')
-	assert.Equal(t, int64(100), computer.appConfig.SkipCycles, "Skipped cycles should increase by 100")
-
-	// Skip Cycles decrease by 100
-	simulateKeyPress(computer, context, tcell.KeyPgDn, ' ')
-	assert.Equal(t, int64(0), computer.appConfig.SkipCycles, "Skipped cycles should decrease by 100")
+	assert.Equal(t, 1.1, computer.appConfig.TargetSpeedMhz, "Skipped cycles should decrease by 10")
 
 	// Speed should not go down more than 0
-	simulateKeyPress(computer, context, tcell.KeyRune, '-')
-	assert.Equal(t, int64(0), computer.appConfig.SkipCycles, "Speed should not decrease below 0")
+	computer.appConfig.TargetSpeedMhz = 0.0
+	simulateKeyPress(computer, context, tcell.KeyDown, ' ')
+	assert.Equal(t, 0.0, computer.appConfig.TargetSpeedMhz, "Speed should not decrease below 0")
 
 	if speedWindow := GetWindow[ui.SpeedWindow](computer.console, "speed"); speedWindow != nil {
 		assert.True(t, speedWindow.IsConfigVisible(), "Speed window should be in config mode")

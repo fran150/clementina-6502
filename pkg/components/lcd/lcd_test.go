@@ -757,7 +757,7 @@ func TestBusyFlag(t *testing.T) {
 		isBusy = (value & 0x80) == 0x80
 	}
 
-	elapsed := context.T - ti
+	elapsed := context.T.Sub(ti)
 	assert.GreaterOrEqual(t, elapsed, lcd.timingConfig.clearDisplayMicro)
 
 	// Send return home instruction
@@ -773,7 +773,7 @@ func TestBusyFlag(t *testing.T) {
 		isBusy = (value & 0x80) == 0x80
 	}
 
-	elapsed = context.T - ti
+	elapsed = context.T.Sub(ti)
 	assert.GreaterOrEqual(t, elapsed, lcd.timingConfig.clearDisplayMicro)
 
 	// Regular instruction timing test
@@ -789,7 +789,7 @@ func TestBusyFlag(t *testing.T) {
 		isBusy = (value & 0x80) == 0x80
 	}
 
-	elapsed = context.T - ti
+	elapsed = context.T.Sub(ti)
 	assert.GreaterOrEqual(t, elapsed, lcd.timingConfig.clearDisplayMicro)
 }
 
@@ -812,7 +812,7 @@ func TestCursorBlinking(t *testing.T) {
 		context.NextCycle()
 	}
 
-	elapsed := context.T - ti
+	elapsed := context.T.Sub(ti)
 	assert.GreaterOrEqual(t, elapsed, lcd.timingConfig.blinkingMicro*2)
 }
 

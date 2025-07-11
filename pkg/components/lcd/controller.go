@@ -61,14 +61,14 @@ type LcdHD44780U struct {
 
 	timingConfig lcdTimingConfig // Allows to configure different value for the timing of the device operation
 
-	isBusy       bool  // The LCD is busy
-	busyStart    int64 // Timestamp when the busy period started
-	busyDuration int64 // Duration of the busy period
+	isBusy       bool          // The LCD is busy
+	busyStart    time.Time     // Timestamp when the busy period started
+	busyDuration time.Duration // Duration of the busy period
 
-	blinkingVisible bool  // When blinking enabled this is true when the cursor must be shown. (Used to make cursor blinks)
-	blinkingStart   int64 // Time when the blinking period started
+	blinkingVisible bool      // When blinking enabled this is true when the cursor must be shown. (Used to make cursor blinks)
+	blinkingStart   time.Time // Time when the blinking period started
 
-	instructions [8]func(int64) // Handlers for the different instructions that can be specified to the chip
+	instructions [8]func(time.Time) // Handlers for the different instructions that can be specified to the chip
 }
 
 // Returns the data needed to display the cursor on the LCD
@@ -118,7 +118,7 @@ func NewLCDController() *LcdHD44780U {
 
 	lcd.addressCounter = newLCDAddressCounter(&lcd)
 
-	lcd.instructions = [8]func(int64){
+	lcd.instructions = [8]func(time.Time){
 		lcd.clearDisplay,
 		lcd.returnHome,
 		lcd.entryModeSet,
@@ -259,7 +259,7 @@ func (ctrl *LcdHD44780U) GetDisplayStatus() DisplayStatus {
 
 // Puts the chip in "busy" state for the specified duration. While in busy state the chip will not
 // respond to instructions or read / write requests
-func (ctrl *LcdHD44780U) setBusy(duration int64, busyStart int64) {
+func (ctrl *LcdHD44780U) setBusy(duration time.Duration, busyStart time.Time) {
 	ctrl.isBusy = true
 	ctrl.busyStart = busyStart
 	ctrl.busyDuration = duration
@@ -268,7 +268,7 @@ func (ctrl *LcdHD44780U) setBusy(duration int64, busyStart int64) {
 // Checks if the busy period completed and if so, lowers the "busy" flag
 func (ctrl *LcdHD44780U) checkBusy(context *common.StepContext) {
 	if ctrl.isBusy {
-		elapsed := (context.T - ctrl.blinkingStart) / int64(time.Microsecond)
+		elapsed := context.T.Sub(ctrl.blinkingStart)
 
 		if elapsed >= ctrl.busyDuration {
 			ctrl.isBusy = false
@@ -280,14 +280,14 @@ func (ctrl *LcdHD44780U) checkBusy(context *common.StepContext) {
 // configured blinking period
 func (ctrl *LcdHD44780U) cursorBlink(context *common.StepContext) {
 	if ctrl.characterBlink {
-		if ctrl.blinkingStart == 0 {
+		if ctrl.blinkingStart.IsZero() {
 			ctrl.blinkingStart = context.T
 		}
 
-		elapsed := (context.T - ctrl.blinkingStart) / int64(time.Microsecond)
+		elapsed := context.T.Sub(ctrl.blinkingStart)
 
 		if elapsed >= ctrl.timingConfig.blinkingMicro {
-			ctrl.blinkingStart = (ctrl.timingConfig.blinkingMicro * int64(time.Microsecond)) + ctrl.blinkingStart
+			ctrl.blinkingStart = ctrl.blinkingStart.Add(ctrl.timingConfig.blinkingMicro)
 
 			ctrl.blinkingVisible = !ctrl.blinkingVisible
 		}
@@ -325,7 +325,7 @@ its original status if it was shifted. In other words, the display disappears an
 the left edge of the display (in the first line if 2 lines are displayed). It also sets I/D to 1 (increment mode)
 in entry mode. S of entry mode does not change.
 */
-func (ctrl *LcdHD44780U) clearDisplay(t int64) {
+func (ctrl *LcdHD44780U) clearDisplay(t time.Time) {
 	ctrl.setBusy(ctrl.timingConfig.clearDisplayMicro, t)
 
 	for i := range DDRAM_SIZE {
@@ -340,7 +340,7 @@ func (ctrl *LcdHD44780U) clearDisplay(t int64) {
 // Return home sets DDRAM address 0 into the address counter, and returns the display to its original status
 // if it was shifted. The DDRAM contents do not change.
 // The cursor or blinking go to the left edge of the display (in the first line if 2 lines are displayed).
-func (ctrl *LcdHD44780U) returnHome(t int64) {
+func (ctrl *LcdHD44780U) returnHome(t time.Time) {
 	ctrl.setBusy(ctrl.timingConfig.returnHomeMicro, t)
 
 	ctrl.addressCounter.value = 0x00
@@ -356,7 +356,7 @@ func (ctrl *LcdHD44780U) returnHome(t int64) {
 // not shift if S is 0.
 // If S is 1, it will seem as if the cursor does not move but the display does. The display does not shift when
 // reading from DDRAM. Also, writing into or reading out from CGRAM does not shift the display.
-func (ctrl *LcdHD44780U) entryModeSet(t int64) {
+func (ctrl *LcdHD44780U) entryModeSet(t time.Time) {
 	ctrl.setBusy(ctrl.timingConfig.instructionMicro, t)
 
 	// I/D = 1: Increment, 0: Decrement
@@ -370,7 +370,7 @@ func (ctrl *LcdHD44780U) entryModeSet(t int64) {
 // C: The cursor is displayed when C is 1 and not displayed when C is 0. Even if the cursor disappears, the
 // function of I/D or other specifications will not change during display data write.
 // B: The character indicated by the cursor blinks when B is 1
-func (ctrl *LcdHD44780U) displayOnOff(t int64) {
+func (ctrl *LcdHD44780U) displayOnOff(t time.Time) {
 	ctrl.setBusy(ctrl.timingConfig.instructionMicro, t)
 
 	// D = 1: Display On, 0: Display off
@@ -388,7 +388,7 @@ func (ctrl *LcdHD44780U) displayOnOff(t int64) {
 // When the displayed data is shifted repeatedly each line moves only horizontally. The second line display
 // does not shift into the first line position.
 // The address counter (AC) contents will not change if the only action performed is a display shift.
-func (ctrl *LcdHD44780U) cursorDisplayShift(t int64) {
+func (ctrl *LcdHD44780U) cursorDisplayShift(t time.Time) {
 	ctrl.setBusy(ctrl.timingConfig.instructionMicro, t)
 
 	displayShift := checkBit(ctrl.instructionRegister, instructionBitSC)
@@ -417,7 +417,7 @@ func (ctrl *LcdHD44780U) cursorDisplayShift(t int64) {
 // Note: Perform the function at the head of the program before executing any instructions (except for the
 // read busy flag and address instruction). From this point, the function set instruction cannot be
 // executed unless the interface data length is changed.
-func (ctrl *LcdHD44780U) functionSet(t int64) {
+func (ctrl *LcdHD44780U) functionSet(t time.Time) {
 	ctrl.setBusy(ctrl.timingConfig.instructionMicro, t)
 
 	ctrl.buffer.is8BitMode = checkBit(ctrl.instructionRegister, instructionBitDL)
@@ -426,14 +426,14 @@ func (ctrl *LcdHD44780U) functionSet(t int64) {
 }
 
 // Sets the CGRAM address based on the value in the instruction register
-func (ctrl *LcdHD44780U) setCGRAMAddress(t int64) {
+func (ctrl *LcdHD44780U) setCGRAMAddress(t time.Time) {
 	ctrl.setBusy(ctrl.timingConfig.instructionMicro, t)
 
 	ctrl.addressCounter.setCGRAMAddress()
 }
 
 // Sets the DDRAM address based on the value in the instruction register
-func (ctrl *LcdHD44780U) setDDRAMAddress(t int64) {
+func (ctrl *LcdHD44780U) setDDRAMAddress(t time.Time) {
 	ctrl.setBusy(ctrl.timingConfig.instructionMicro, t)
 
 	ctrl.addressCounter.setDDRAMAddress()

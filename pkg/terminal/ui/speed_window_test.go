@@ -12,8 +12,8 @@ import (
 
 func TestNewSpeedWindow(t *testing.T) {
 	config := &computers.EmulationLoopConfig{
-		SkipCycles: 1.0,
-		DisplayFps: 10,
+		TargetSpeedMhz: 1.1,
+		DisplayFps:     10,
 	}
 
 	sw := NewSpeedWindow(config)
@@ -26,8 +26,8 @@ func TestNewSpeedWindow(t *testing.T) {
 
 func TestSpeedWindowDraw(t *testing.T) {
 	config := &computers.EmulationLoopConfig{
-		SkipCycles: 0,
-		DisplayFps: 10,
+		TargetSpeedMhz: 0,
+		DisplayFps:     10,
 	}
 
 	// Create a new SpeedWindow instance
@@ -55,7 +55,7 @@ func TestSpeedWindowDraw(t *testing.T) {
 	// Simulate a frame and validate that now the test is showing the config along with current speed
 	sw.Draw(&context)
 	text = sw.text.GetText(false)
-	assert.Equal(t, fmt.Sprintf("[white]%0.4f [yellow]DLY: %07d", sw.currentSpeed, sw.config.SkipCycles), text)
+	assert.Equal(t, fmt.Sprintf("[yellow] TGT %0.4f", sw.config.TargetSpeedMhz), text)
 
 	// Wait for 3 seconds to hide the config
 	time.Sleep(3 * time.Second)
@@ -74,8 +74,8 @@ func TestSpeedWindowDraw(t *testing.T) {
 
 func TestSpeedWindow_Clear(t *testing.T) {
 	config := &computers.EmulationLoopConfig{
-		SkipCycles: 1.0,
-		DisplayFps: 10,
+		TargetSpeedMhz: 1.0,
+		DisplayFps:     10,
 	}
 
 	sw := NewSpeedWindow(config)
@@ -91,8 +91,8 @@ func TestSpeedWindow_Clear(t *testing.T) {
 
 func TestSpeedWindow_GetDrawArea(t *testing.T) {
 	config := &computers.EmulationLoopConfig{
-		SkipCycles: 1.0,
-		DisplayFps: 10,
+		TargetSpeedMhz: 1.0,
+		DisplayFps:     10,
 	}
 
 	sw := NewSpeedWindow(config)

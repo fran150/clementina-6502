@@ -10,8 +10,8 @@ import (
 
 func TestNewEmulationLoop(t *testing.T) {
 	config := &EmulationLoopConfig{
-		SkipCycles: 10,
-		DisplayFps: 5,
+		TargetSpeedMhz: 1.1,
+		DisplayFps:     5,
 	}
 
 	loop := NewEmulationLoop(config)
@@ -20,15 +20,15 @@ func TestNewEmulationLoop(t *testing.T) {
 	assert.Equal(t, config, loop.GetConfig())
 
 	config = &EmulationLoopConfig{
-		SkipCycles: -200,
-		DisplayFps: 5,
+		TargetSpeedMhz: -200,
+		DisplayFps:     5,
 	}
 
 	loop = NewEmulationLoop(config)
 
 	assert.NotNil(t, loop)
 	assert.Equal(t, config, loop.GetConfig())
-	assert.Equal(t, int64(0), loop.GetConfig().SkipCycles)
+	assert.Equal(t, 0.0, loop.GetConfig().TargetSpeedMhz)
 }
 
 func TestEmulationLoop_Start(t *testing.T) {
@@ -54,8 +54,8 @@ func TestEmulationLoop_Start(t *testing.T) {
 
 	t.Run("starts emulation loop with valid handlers", func(t *testing.T) {
 		loop := NewEmulationLoop(&EmulationLoopConfig{
-			SkipCycles: 10,
-			DisplayFps: 5,
+			TargetSpeedMhz: 1.1,
+			DisplayFps:     5,
 		})
 
 		tickCalled := false
@@ -87,14 +87,14 @@ func TestEmulationLoop_Start(t *testing.T) {
 
 func TestEmulationLoop_GetConfig(t *testing.T) {
 	config := &EmulationLoopConfig{
-		SkipCycles: 0,
-		DisplayFps: 30,
+		TargetSpeedMhz: 1.1,
+		DisplayFps:     30,
 	}
 
 	loop := NewEmulationLoop(config)
 
 	retrievedConfig := loop.GetConfig()
 	assert.Equal(t, config, retrievedConfig)
-	assert.Equal(t, int64(0), retrievedConfig.SkipCycles)
+	assert.Equal(t, 1.1, retrievedConfig.TargetSpeedMhz)
 	assert.Equal(t, 30, retrievedConfig.DisplayFps)
 }

@@ -6,66 +6,67 @@ import (
 )
 
 func TestNewStepContext(t *testing.T) {
-	ctx := NewStepContext()
+	context := NewStepContext()
 
-	if ctx.Cycle != 0 {
-		t.Errorf("Expected initial Cycle to be 0, got %d", ctx.Cycle)
+	if context.Cycle != 0 {
+		t.Errorf("Expected Cycle to be 0, got %d", context.Cycle)
 	}
 
-	if ctx.Stop {
-		t.Error("Expected initial Stop to be false")
-	}
-}
-
-func TestStepContext_NextCycle(t *testing.T) {
-	ctx := NewStepContext()
-	initialCycle := ctx.Cycle
-	initialT := ctx.T
-
-	// Wait a tiny bit to ensure time difference
-	time.Sleep(time.Nanosecond)
-
-	ctx.NextCycle()
-
-	if ctx.Cycle != initialCycle+1 {
-		t.Errorf("Expected Cycle to increment by 1, got %d", ctx.Cycle)
+	if context.Stop != false {
+		t.Errorf("Expected Stop to be false, got %t", context.Stop)
 	}
 
-	if ctx.T <= initialT {
-		t.Errorf("Expected T to increase, initial: %d, current: %d", initialT, ctx.T)
+	if context.B.IsZero() {
+		t.Error("Expected B to be set to current time")
+	}
+
+	if context.T.IsZero() {
+		t.Error("Expected T to be set to current time")
+	}
+
+	if !context.B.Equal(context.T) {
+		t.Error("Expected B and T to be equal on initialization")
 	}
 }
 
-func TestStepContext_TimeProgression(t *testing.T) {
-	ctx := NewStepContext()
-	var times []int64
+func TestNextCycle(t *testing.T) {
+	context := NewStepContext()
+	initialCycle := context.Cycle
+	initialTime := context.T
 
-	// Collect multiple timestamps
-	for i := 0; i < 3; i++ {
-		times = append(times, ctx.T)
-		time.Sleep(time.Millisecond) // Wait to ensure time difference
-		ctx.NextCycle()
+	time.Sleep(1 * time.Millisecond)
+	context.NextCycle()
+
+	if context.Cycle != initialCycle+1 {
+		t.Errorf("Expected Cycle to increment from %d to %d, got %d", initialCycle, initialCycle+1, context.Cycle)
 	}
 
-	// Verify timestamps are monotonically increasing
-	for i := 1; i < len(times); i++ {
-		if times[i] <= times[i-1] {
-			t.Errorf("Time should strictly increase: time[%d]=%d, time[%d]=%d",
-				i-1, times[i-1], i, times[i])
+	if !context.T.After(initialTime) {
+		t.Error("Expected T to be updated to a later time after NextCycle")
+	}
+}
+
+func TestMultipleNextCycle(t *testing.T) {
+	context := NewStepContext()
+
+	for i := uint64(1); i <= 5; i++ {
+		context.NextCycle()
+		if context.Cycle != i {
+			t.Errorf("Expected Cycle to be %d, got %d", i, context.Cycle)
 		}
 	}
 }
 
-func TestStepContext_Stop(t *testing.T) {
-	ctx := NewStepContext()
-
-	if ctx.Stop {
-		t.Error("Stop should be initially false")
+func TestStopFlag(t *testing.T) {
+	context := NewStepContext()
+	
+	context.Stop = true
+	if !context.Stop {
+		t.Error("Expected Stop flag to be settable to true")
 	}
 
-	ctx.Stop = true
-
-	if !ctx.Stop {
-		t.Error("Stop should be settable to true")
+	context.Stop = false
+	if context.Stop {
+		t.Error("Expected Stop flag to be settable to false")
 	}
 }

@@ -209,28 +209,28 @@ func TestReset(t *testing.T) {
 }
 
 func TestSkipCycles(t *testing.T) {
-	t.Run("Skip up increases cycles", func(t *testing.T) {
+	t.Run("Speed up increases cycles", func(t *testing.T) {
 		computer, context := createComputer(t)
-		computer.appConfig.SkipCycles = 0
+		computer.appConfig.TargetSpeedMhz = 1.1
 
-		computer.SkipUp(context, 10)
-		assert.Equal(t, int64(10), computer.appConfig.SkipCycles, "Skip cycles should increase by 10")
+		computer.SpeedUp(context)
+		assert.Equal(t, 1.2, computer.appConfig.TargetSpeedMhz, "Speed should increase by 0.1")
 	})
 
-	t.Run("Skip down decreases cycles", func(t *testing.T) {
+	t.Run("Speed down decreases cycles", func(t *testing.T) {
 		computer, context := createComputer(t)
-		computer.appConfig.SkipCycles = 20
+		computer.appConfig.TargetSpeedMhz = 1.1
 
-		computer.SkipDown(context, 10)
-		assert.Equal(t, int64(10), computer.appConfig.SkipCycles, "Skip cycles should decrease by 10")
+		computer.SpeedDown(context)
+		assert.Equal(t, 1.0, computer.appConfig.TargetSpeedMhz, "Speed should decrease by 0.1")
 	})
 
-	t.Run("Skip down cannot go below zero", func(t *testing.T) {
+	t.Run("Speed down cannot go below zero", func(t *testing.T) {
 		computer, context := createComputer(t)
-		computer.appConfig.SkipCycles = 5
+		computer.appConfig.TargetSpeedMhz = 0.0
 
-		computer.SkipDown(context, 10)
-		assert.Equal(t, int64(0), computer.appConfig.SkipCycles, "Skip cycles should not go below 0")
+		computer.SpeedDown(context)
+		assert.Equal(t, 0.0, computer.appConfig.TargetSpeedMhz, "Speed should not go below 0")
 	})
 }
 
@@ -410,8 +410,8 @@ func TestMenuNavigation(t *testing.T) {
 	app := tview.NewApplication()
 	appConfig := &terminal.ApplicationConfig{
 		EmulationLoopConfig: computers.EmulationLoopConfig{
-			SkipCycles: 0,
-			DisplayFps: 10,
+			TargetSpeedMhz: 1.1,
+			DisplayFps:     10,
 		},
 	}
 
@@ -434,19 +434,4 @@ func TestMenuNavigation(t *testing.T) {
 
 	computer.console.ShowWindow("bus", context)
 	assert.Equal(t, "bus", computer.console.active, "Should show Buses")
-
-	// Test skip cycles functionality
-	assert.Equal(t, int64(0), computer.appConfig.SkipCycles)
-
-	computer.SkipUp(context, 10)
-	assert.Equal(t, int64(10), computer.appConfig.SkipCycles, "Should increase skip cycles by 10")
-
-	computer.SkipDown(context, 10)
-	assert.Equal(t, int64(0), computer.appConfig.SkipCycles, "Should decrease skip cycles by 10")
-
-	computer.SkipUp(context, 100)
-	assert.Equal(t, int64(100), computer.appConfig.SkipCycles, "Should increase skip cycles by 100")
-
-	computer.SkipDown(context, 100)
-	assert.Equal(t, int64(0), computer.appConfig.SkipCycles, "Should decrease skip cycles by 100")
 }

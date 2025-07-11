@@ -392,17 +392,15 @@ func (c *ClementinaComputer) Reset(context *common.StepContext) {
 	c.mustReset = true
 }
 
-// SkipUp increases the number of cycles to skip during execution
-func (c *ClementinaComputer) SkipUp(context *common.StepContext, size int64) {
-	c.appConfig.SkipCycles += size
+func (c *ClementinaComputer) SpeedUp(context *common.StepContext) {
+	c.appConfig.TargetSpeedMhz += 0.1
 }
 
-// SkipDown decreases the number of cycles to skip during execution.
-func (c *ClementinaComputer) SkipDown(context *common.StepContext, size int64) {
-	c.appConfig.SkipCycles -= size
+func (c *ClementinaComputer) SpeedDown(context *common.StepContext) {
+	c.appConfig.TargetSpeedMhz -= 0.1
 
-	if c.appConfig.SkipCycles < 0 {
-		c.appConfig.SkipCycles = 0
+	if c.appConfig.TargetSpeedMhz < 0 {
+		c.appConfig.TargetSpeedMhz = 0
 	}
 }
 

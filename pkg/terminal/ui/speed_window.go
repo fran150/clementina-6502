@@ -79,7 +79,7 @@ func (s *SpeedWindow) Draw(context *common.StepContext) {
 				s.showConfig = false
 			}
 
-			fmt.Fprintf(s.text, "[white]%0.4f [yellow]DLY: %07d", s.currentSpeed, s.config.SkipCycles)
+			fmt.Fprintf(s.text, "[Yellow] TGT %0.4f", s.config.TargetSpeedMhz)
 		} else {
 			fmt.Fprintf(s.text, "[white]%0.8f Mhz", s.currentSpeed)
 		}
