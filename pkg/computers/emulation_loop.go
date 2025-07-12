@@ -9,7 +9,11 @@ import (
 
 // EmulationLoopConfig contains settings that control the emulation speed and display refresh rate.
 type EmulationLoopConfig struct {
-	SkipCycles int64
+	// TargetSpeedMhz specifies the target CPU speed in MHz
+	TargetSpeedMhz float64
+
+	// SpeedEvalIntervalSec specifies the interval in seconds for speed evaluation
+	SpeedEvalIntervalSec int
 
 	// DisplayFps specifies the target frames per second for display updates
 	DisplayFps int
@@ -31,19 +35,21 @@ type EmulationLoop struct {
 	config  *EmulationLoopConfig
 	context *common.StepContext
 
-	skippedCycles int64
+	cycleCount     uint64
+	lastEvalTime   time.Time
+	actualSpeedMhz float64
 }
 
 // NewEmulationLoop creates a new emulation loop with the specified configuration.
 func NewEmulationLoop(config *EmulationLoopConfig) *EmulationLoop {
-	// TODO: This might not be the best way to validate this
-	if config.SkipCycles < 0 {
-		config.SkipCycles = 0
+	if config.SpeedEvalIntervalSec == 0 {
+		config.SpeedEvalIntervalSec = 5 // Default to 5 seconds if not specified
 	}
 
 	return &EmulationLoop{
-		config:        config,
-		skippedCycles: 0,
+		config:       config,
+		cycleCount:   0,
+		lastEvalTime: time.Now(),
 	}
 }
 
@@ -78,23 +84,45 @@ func (e *EmulationLoop) Start(handlers EmulationLoopHandlers) *common.StepContex
 }
 
 func (e *EmulationLoop) executeLoop(context *common.StepContext, handlers EmulationLoopHandlers) {
+	var lastTPSExecuted, targetTPSNano int64
+
+	// Initialize speed evaluation
+	e.lastEvalTime = time.Now()
+	e.cycleCount = 0
+	evalInterval := time.Duration(e.config.SpeedEvalIntervalSec) * time.Second
+
 	for !context.Stop {
-		if e.config.SkipCycles > 0 && e.skippedCycles < e.config.SkipCycles && context.Cycle != 0 {
-			e.skippedCycles++
-			continue
+		targetTPSNano = int64(float64(time.Microsecond) / e.config.TargetSpeedMhz)
+
+		now := time.Now()
+
+		// Evaluate speed periodically
+		if now.Sub(e.lastEvalTime) >= evalInterval {
+			elapsedSeconds := now.Sub(e.lastEvalTime).Seconds()
+			cyclesDelta := context.Cycle - e.cycleCount
+
+			// Calculate actual speed in MHz
+			e.actualSpeedMhz = float64(cyclesDelta) / (elapsedSeconds * 1_000_000)
+
+			// Reset counters
+			e.lastEvalTime = now
+			e.cycleCount = context.Cycle
 		}
 
-		e.skippedCycles = 0
-		handlers.Tick(context)
-		context.NextCycle()
+		if (context.T - lastTPSExecuted) > targetTPSNano {
+			lastTPSExecuted = context.T
+			handlers.Tick(context)
+			context.NextCycle()
+		}
+
+		context.SkipCycle()
 	}
 }
 
 // This function is called to update the display at the specified FPS rate.
 // By calling hanldlers.Draw
 func (e *EmulationLoop) executeDraw(context *common.StepContext, handlers EmulationLoopHandlers) {
-	frameTime := 1000 / e.config.DisplayFps
-	ticker := time.NewTicker(time.Duration(frameTime) * time.Millisecond)
+	ticker := time.NewTicker(time.Second / time.Duration(e.config.DisplayFps))
 	defer ticker.Stop()
 
 	for !context.Stop {

@@ -15,6 +15,10 @@ func TestNewStepContext(t *testing.T) {
 	if ctx.Stop {
 		t.Error("Expected initial Stop to be false")
 	}
+
+	if ctx.T <= 0 {
+		t.Errorf("Expected T to be greater than 0, got %d", ctx.T)
+	}
 }
 
 func TestStepContext_NextCycle(t *testing.T) {
@@ -29,6 +33,25 @@ func TestStepContext_NextCycle(t *testing.T) {
 
 	if ctx.Cycle != initialCycle+1 {
 		t.Errorf("Expected Cycle to increment by 1, got %d", ctx.Cycle)
+	}
+
+	if ctx.T <= initialT {
+		t.Errorf("Expected T to increase, initial: %d, current: %d", initialT, ctx.T)
+	}
+}
+
+func TestStepContext_SkipCycle(t *testing.T) {
+	ctx := NewStepContext()
+	initialCycle := ctx.Cycle
+	initialT := ctx.T
+
+	// Wait a tiny bit to ensure time difference
+	time.Sleep(time.Nanosecond)
+
+	ctx.SkipCycle()
+
+	if ctx.Cycle != initialCycle {
+		t.Errorf("Expected Cycle to remain unchanged, got %d", ctx.Cycle)
 	}
 
 	if ctx.T <= initialT {

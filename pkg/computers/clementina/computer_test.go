@@ -208,29 +208,83 @@ func TestReset(t *testing.T) {
 	})
 }
 
-func TestSkipCycles(t *testing.T) {
-	t.Run("Skip up increases cycles", func(t *testing.T) {
+func TestSpeedUp(t *testing.T) {
+	t.Run("Speed up from below 0.5 MHz", func(t *testing.T) {
 		computer, context := createComputer(t)
-		computer.appConfig.SkipCycles = 0
+		computer.appConfig.TargetSpeedMhz = 0.1
+		initialSpeed := computer.appConfig.TargetSpeedMhz
 
-		computer.SkipUp(context, 10)
-		assert.Equal(t, int64(10), computer.appConfig.SkipCycles, "Skip cycles should increase by 10")
+		computer.SpeedUp(context)
+
+		expectedIncrease := initialSpeed * 0.2
+		assert.Equal(t, initialSpeed+expectedIncrease, computer.appConfig.TargetSpeedMhz,
+			"Speed should increase by 20% when below 0.5 MHz")
 	})
 
-	t.Run("Skip down decreases cycles", func(t *testing.T) {
+	t.Run("Speed up from very low speed", func(t *testing.T) {
 		computer, context := createComputer(t)
-		computer.appConfig.SkipCycles = 20
+		computer.appConfig.TargetSpeedMhz = 0.000000001
 
-		computer.SkipDown(context, 10)
-		assert.Equal(t, int64(10), computer.appConfig.SkipCycles, "Skip cycles should decrease by 10")
+		computer.SpeedUp(context)
+
+		assert.Equal(t, 0.000001001, computer.appConfig.TargetSpeedMhz,
+			"Speed should increase by minimum increment when very low")
 	})
 
-	t.Run("Skip down cannot go below zero", func(t *testing.T) {
+	t.Run("Speed up above 0.5 MHz", func(t *testing.T) {
 		computer, context := createComputer(t)
-		computer.appConfig.SkipCycles = 5
+		computer.appConfig.TargetSpeedMhz = 1.0
+		initialSpeed := computer.appConfig.TargetSpeedMhz
 
-		computer.SkipDown(context, 10)
-		assert.Equal(t, int64(0), computer.appConfig.SkipCycles, "Skip cycles should not go below 0")
+		computer.SpeedUp(context)
+
+		assert.Equal(t, initialSpeed+0.1, computer.appConfig.TargetSpeedMhz,
+			"Speed should increase linearly by 0.1 MHz when above 0.5 MHz")
+	})
+}
+
+func TestSpeedDown(t *testing.T) {
+	t.Run("Speed down from above 0.5 MHz", func(t *testing.T) {
+		computer, context := createComputer(t)
+		computer.appConfig.TargetSpeedMhz = 1.0
+		initialSpeed := computer.appConfig.TargetSpeedMhz
+
+		computer.SpeedDown(context)
+
+		assert.Equal(t, initialSpeed-0.1, computer.appConfig.TargetSpeedMhz,
+			"Speed should decrease linearly by 0.1 MHz when above 0.5 MHz")
+	})
+
+	t.Run("Speed down from below 0.5 MHz", func(t *testing.T) {
+		computer, context := createComputer(t)
+		computer.appConfig.TargetSpeedMhz = 0.1
+		initialSpeed := computer.appConfig.TargetSpeedMhz
+
+		computer.SpeedDown(context)
+
+		expectedReduction := initialSpeed * 0.2
+		assert.Equal(t, initialSpeed-expectedReduction, computer.appConfig.TargetSpeedMhz,
+			"Speed should decrease by 20% when below 0.5 MHz")
+	})
+
+	t.Run("Speed down from very low speed", func(t *testing.T) {
+		computer, context := createComputer(t)
+		computer.appConfig.TargetSpeedMhz = 0.000002
+
+		computer.SpeedDown(context)
+
+		assert.Equal(t, 0.000001, computer.appConfig.TargetSpeedMhz,
+			"Speed should not go below minimum threshold")
+	})
+
+	t.Run("Speed down at minimum threshold", func(t *testing.T) {
+		computer, context := createComputer(t)
+		computer.appConfig.TargetSpeedMhz = 0.000001
+
+		computer.SpeedDown(context)
+
+		assert.Equal(t, 0.000001, computer.appConfig.TargetSpeedMhz,
+			"Speed should not go below minimum threshold")
 	})
 }
 
@@ -410,8 +464,8 @@ func TestMenuNavigation(t *testing.T) {
 	app := tview.NewApplication()
 	appConfig := &terminal.ApplicationConfig{
 		EmulationLoopConfig: computers.EmulationLoopConfig{
-			SkipCycles: 0,
-			DisplayFps: 10,
+			TargetSpeedMhz: 1.1,
+			DisplayFps:     10,
 		},
 	}
 
@@ -435,18 +489,6 @@ func TestMenuNavigation(t *testing.T) {
 	computer.console.ShowWindow("bus", context)
 	assert.Equal(t, "bus", computer.console.active, "Should show Buses")
 
-	// Test skip cycles functionality
-	assert.Equal(t, int64(0), computer.appConfig.SkipCycles)
-
-	computer.SkipUp(context, 10)
-	assert.Equal(t, int64(10), computer.appConfig.SkipCycles, "Should increase skip cycles by 10")
-
-	computer.SkipDown(context, 10)
-	assert.Equal(t, int64(0), computer.appConfig.SkipCycles, "Should decrease skip cycles by 10")
-
-	computer.SkipUp(context, 100)
-	assert.Equal(t, int64(100), computer.appConfig.SkipCycles, "Should increase skip cycles by 100")
-
-	computer.SkipDown(context, 100)
-	assert.Equal(t, int64(0), computer.appConfig.SkipCycles, "Should decrease skip cycles by 100")
+	// Speed
+	assert.Equal(t, 1.1, computer.appConfig.TargetSpeedMhz)
 }

@@ -9,8 +9,6 @@ import (
 	"github.com/rivo/tview"
 )
 
-var beginning = time.Now()
-
 // SpeedWindow represents a UI component that displays the emulation speed metrics.
 // It shows the current execution speed, target speed, and performance statistics.
 type SpeedWindow struct {
@@ -20,7 +18,6 @@ type SpeedWindow struct {
 	config          *computers.EmulationLoopConfig
 	showConfig      bool
 	showConfigStart int64
-	currentSpeed    float64
 }
 
 // NewSpeedWindow creates a new emulation speed display window.
@@ -66,28 +63,25 @@ func (s *SpeedWindow) Clear() {
 // Parameters:
 //   - context: The current step context containing timing information
 func (s *SpeedWindow) Draw(context *common.StepContext) {
-	currentTime := int64(time.Since(beginning))
-
-	if s.previousT != 0 {
-		cycles := context.Cycle - s.previousC
-		elapsedMicro := (float64(currentTime) - float64(s.previousT)) / float64(time.Microsecond)
-
-		s.currentSpeed = (float64(cycles) / elapsedMicro)
-
-		if s.showConfig {
-			if currentTime-s.showConfigStart > (int64(time.Second) * 3) {
-				s.showConfig = false
-			}
-
-			fmt.Fprintf(s.text, "[white]%0.4f [yellow]DLY: %07d", s.currentSpeed, s.config.SkipCycles)
-		} else {
-			fmt.Fprintf(s.text, "[white]%0.8f Mhz", s.currentSpeed)
+	if s.showConfig {
+		if context.T-s.showConfigStart > (int64(time.Second) * 3) {
+			s.showConfig = false
 		}
 
-	}
+		fmt.Fprintf(s.text, "[yellow]TGT: %0.8f Mhz", s.config.TargetSpeedMhz)
+	} else {
+		if s.previousT != 0 {
+			cycles := context.Cycle - s.previousC
+			elapsedMicro := (float64(context.T) - float64(s.previousT)) / float64(time.Microsecond)
 
-	s.previousT = currentTime
-	s.previousC = context.Cycle
+			mhz := (float64(cycles) / elapsedMicro)
+
+			fmt.Fprintf(s.text, "[white]%0.8f Mhz", mhz)
+		}
+
+		s.previousT = context.T
+		s.previousC = context.Cycle
+	}
 }
 
 // GetDrawArea returns the primitive that represents this window in the UI.
@@ -106,5 +100,5 @@ func (d *SpeedWindow) GetDrawArea() tview.Primitive {
 //   - context: The current step context containing timing information
 func (d *SpeedWindow) ShowConfig(context *common.StepContext) {
 	d.showConfig = true
-	d.showConfigStart = int64(time.Since(beginning))
+	d.showConfigStart = context.T
 }

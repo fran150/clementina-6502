@@ -278,6 +278,86 @@ func TestReset(t *testing.T) {
 	})
 }
 
+func TestSpeedUp(t *testing.T) {
+	t.Run("Speed up from below 0.5 MHz", func(t *testing.T) {
+		computer, context := createComputer(t)
+		computer.appConfig.TargetSpeedMhz = 0.1
+		initialSpeed := computer.appConfig.TargetSpeedMhz
+
+		computer.SpeedUp(context)
+
+		expectedIncrease := initialSpeed * 0.2
+		assert.Equal(t, initialSpeed+expectedIncrease, computer.appConfig.TargetSpeedMhz,
+			"Speed should increase by 20% when below 0.5 MHz")
+	})
+
+	t.Run("Speed up from very low speed", func(t *testing.T) {
+		computer, context := createComputer(t)
+		computer.appConfig.TargetSpeedMhz = 0.000000001
+
+		computer.SpeedUp(context)
+
+		assert.Equal(t, 0.000001001, computer.appConfig.TargetSpeedMhz,
+			"Speed should increase by minimum increment when very low")
+	})
+
+	t.Run("Speed up above 0.5 MHz", func(t *testing.T) {
+		computer, context := createComputer(t)
+		computer.appConfig.TargetSpeedMhz = 1.0
+		initialSpeed := computer.appConfig.TargetSpeedMhz
+
+		computer.SpeedUp(context)
+
+		assert.Equal(t, initialSpeed+0.1, computer.appConfig.TargetSpeedMhz,
+			"Speed should increase linearly by 0.1 MHz when above 0.5 MHz")
+	})
+}
+
+func TestSpeedDown(t *testing.T) {
+	t.Run("Speed down from above 0.5 MHz", func(t *testing.T) {
+		computer, context := createComputer(t)
+		computer.appConfig.TargetSpeedMhz = 1.0
+		initialSpeed := computer.appConfig.TargetSpeedMhz
+
+		computer.SpeedDown(context)
+
+		assert.Equal(t, initialSpeed-0.1, computer.appConfig.TargetSpeedMhz,
+			"Speed should decrease linearly by 0.1 MHz when above 0.5 MHz")
+	})
+
+	t.Run("Speed down from below 0.5 MHz", func(t *testing.T) {
+		computer, context := createComputer(t)
+		computer.appConfig.TargetSpeedMhz = 0.1
+		initialSpeed := computer.appConfig.TargetSpeedMhz
+
+		computer.SpeedDown(context)
+
+		expectedReduction := initialSpeed * 0.2
+		assert.Equal(t, initialSpeed-expectedReduction, computer.appConfig.TargetSpeedMhz,
+			"Speed should decrease by 20% when below 0.5 MHz")
+	})
+
+	t.Run("Speed down from very low speed", func(t *testing.T) {
+		computer, context := createComputer(t)
+		computer.appConfig.TargetSpeedMhz = 0.000002
+
+		computer.SpeedDown(context)
+
+		assert.Equal(t, 0.000001, computer.appConfig.TargetSpeedMhz,
+			"Speed should not go below minimum threshold")
+	})
+
+	t.Run("Speed down at minimum threshold", func(t *testing.T) {
+		computer, context := createComputer(t)
+		computer.appConfig.TargetSpeedMhz = 0.000001
+
+		computer.SpeedDown(context)
+
+		assert.Equal(t, 0.000001, computer.appConfig.TargetSpeedMhz,
+			"Speed should not go below minimum threshold")
+	})
+}
+
 func TestKeyPressed(t *testing.T) {
 	t.Run("Test select VIA window using key strokes", func(t *testing.T) {
 		computer, context := createComputer(t)
@@ -364,8 +444,8 @@ func TestMenuOptions(t *testing.T) {
 	app := tview.NewApplication()
 	appConfig := &terminal.ApplicationConfig{
 		EmulationLoopConfig: computers.EmulationLoopConfig{
-			SkipCycles: 0,
-			DisplayFps: 10,
+			TargetSpeedMhz: 1.1,
+			DisplayFps:     10,
 		},
 	}
 
@@ -413,27 +493,16 @@ func TestMenuOptions(t *testing.T) {
 	// Go to speed menu
 	simulateKeyPress(computer, context, tcell.KeyRune, 's')
 
-	assert.Equal(t, int64(0), computer.appConfig.SkipCycles)
+	// Speed
+	assert.Equal(t, 1.1, computer.appConfig.TargetSpeedMhz)
 
-	// Skip Cycles increase by 10
+	// Speed up
 	simulateKeyPress(computer, context, tcell.KeyUp, ' ')
-	assert.Equal(t, int64(10), computer.appConfig.SkipCycles, "Skipped cycles should increase by 10")
+	assert.InDelta(t, 1.2, 0.001, computer.appConfig.TargetSpeedMhz, "Speed should increase")
 
-	// Skip Cycles decrease by 10
+	// Speed Down
 	simulateKeyPress(computer, context, tcell.KeyDown, ' ')
-	assert.Equal(t, int64(0), computer.appConfig.SkipCycles, "Skipped cycles should decrease by 10")
-
-	// Skip Cycles increase by 100
-	simulateKeyPress(computer, context, tcell.KeyPgUp, ' ')
-	assert.Equal(t, int64(100), computer.appConfig.SkipCycles, "Skipped cycles should increase by 100")
-
-	// Skip Cycles decrease by 100
-	simulateKeyPress(computer, context, tcell.KeyPgDn, ' ')
-	assert.Equal(t, int64(0), computer.appConfig.SkipCycles, "Skipped cycles should decrease by 100")
-
-	// Speed should not go down more than 0
-	simulateKeyPress(computer, context, tcell.KeyRune, '-')
-	assert.Equal(t, int64(0), computer.appConfig.SkipCycles, "Speed should not decrease below 0")
+	assert.InDelta(t, 1.1, 0.001, computer.appConfig.TargetSpeedMhz, "Speed should decrease")
 
 	if speedWindow := GetWindow[ui.SpeedWindow](computer.console, "speed"); speedWindow != nil {
 		assert.True(t, speedWindow.IsConfigVisible(), "Speed window should be in config mode")

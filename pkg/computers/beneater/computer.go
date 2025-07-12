@@ -314,17 +314,50 @@ func (c *BenEaterComputer) Reset(context *common.StepContext) {
 	c.mustReset = true
 }
 
-// SkipUp increases the number of cycles to skip during execution
-func (c *BenEaterComputer) SkipUp(context *common.StepContext, size int64) {
-	c.appConfig.SkipCycles += size
+// SpeedUp increases the emulation speed of the computer.
+// It uses a non-linear scale for speeds below 0.5 MHz and a linear scale above.
+//
+// Parameters:
+//   - context: The current step context
+func (c *BenEaterComputer) SpeedUp(context *common.StepContext) {
+	currentSpeed := c.appConfig.TargetSpeedMhz
+
+	if currentSpeed < 0.5 {
+		// Non-linear increase below 0.5 MHz
+		// Increase by 20% of current speed
+		increase := currentSpeed * 0.2
+		if increase < 0.000001 {
+			// Ensure minimum increase to avoid tiny increments
+			increase = 0.000001
+		}
+		c.appConfig.TargetSpeedMhz += increase
+	} else {
+		// Linear increase above 0.5 MHz
+		c.appConfig.TargetSpeedMhz += 0.1
+	}
 }
 
-// SkipDown decreases the number of cycles to skip during execution.
-func (c *BenEaterComputer) SkipDown(context *common.StepContext, size int64) {
-	c.appConfig.SkipCycles -= size
+// SpeedDown decreases the emulation speed of the computer.
+// It uses a linear scale for speeds above 0.5 MHz and a non-linear scale below,
+// ensuring the speed never goes below a minimum threshold.
+//
+// Parameters:
+//   - context: The current step context
+func (c *BenEaterComputer) SpeedDown(context *common.StepContext) {
+	currentSpeed := c.appConfig.TargetSpeedMhz
 
-	if c.appConfig.SkipCycles < 0 {
-		c.appConfig.SkipCycles = 0
+	if currentSpeed > 0.5 {
+		// Linear reduction above 0.5 MHz
+		c.appConfig.TargetSpeedMhz -= 0.1
+	} else {
+		// Non-linear reduction below 0.5 MHz to avoid reaching 0
+		// This will reduce by a fraction of the current speed
+		reduction := currentSpeed * 0.2
+		if reduction < 0.000001 {
+			// Ensure minimum reduction to avoid tiny decrements
+			reduction = 0.000001
+		}
+		c.appConfig.TargetSpeedMhz -= reduction
 	}
 }
 

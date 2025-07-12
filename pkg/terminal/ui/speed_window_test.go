@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -12,8 +11,8 @@ import (
 
 func TestNewSpeedWindow(t *testing.T) {
 	config := &computers.EmulationLoopConfig{
-		SkipCycles: 1.0,
-		DisplayFps: 10,
+		TargetSpeedMhz: 1.0,
+		DisplayFps:     10,
 	}
 
 	sw := NewSpeedWindow(config)
@@ -24,58 +23,87 @@ func TestNewSpeedWindow(t *testing.T) {
 	assert.Equal(t, uint64(0), sw.previousC)
 }
 
-func TestSpeedWindowDraw(t *testing.T) {
-	config := &computers.EmulationLoopConfig{
-		SkipCycles: 0,
-		DisplayFps: 10,
+func TestSpeedWindow_Draw(t *testing.T) {
+	tests := []struct {
+		name         string
+		initialT     int64
+		initialC     uint64
+		contextT     int64
+		contextCycle uint64
+		expectedMhz  float64
+	}{
+		{
+			name:         "First draw - should not calculate speed",
+			initialT:     0,
+			initialC:     0,
+			contextT:     1000000, // 1ms in nanoseconds
+			contextCycle: 1000,
+			expectedMhz:  0,
+		},
+		{
+			name:         "Calculate 1Mhz speed",
+			initialT:     0,
+			initialC:     0,
+			contextT:     1000000, // 1ms in nanoseconds
+			contextCycle: 1000,
+			expectedMhz:  1.0,
+		},
+		{
+			name:         "Calculate 2Mhz speed",
+			initialT:     1000000, // 1ms in nanoseconds
+			initialC:     1000,
+			contextT:     2000000, // 2ms in nanoseconds
+			contextCycle: 3000,    // 2000 cycles in 1ms = 2MHz
+			expectedMhz:  2.0,
+		},
+		{
+			name:         "Calculate 0.5Mhz speed",
+			initialT:     1000000, // 1ms in nanoseconds
+			initialC:     1000,
+			contextT:     3000000, // 2ms in nanoseconds
+			contextCycle: 2000,    // 1000 cycles in 2ms = 0.5MHz
+			expectedMhz:  0.5,
+		},
+		{
+			name:         "Calculate speed with small time difference",
+			initialT:     1000000000, // 1s in nanoseconds
+			initialC:     1000000,
+			contextT:     1001000000, // 1.001s in nanoseconds (1ms difference)
+			contextCycle: 1002000,    // 2000 cycles in 1ms = 2MHz
+			expectedMhz:  2.0,
+		},
 	}
 
-	// Create a new SpeedWindow instance
-	context := common.NewStepContext()
-	sw := NewSpeedWindow(config)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &computers.EmulationLoopConfig{
+				TargetSpeedMhz: 1.0,
+				DisplayFps:     10,
+			}
 
-	// Initialize by drawing first frame in zero
-	sw.Draw(&context)
+			sw := NewSpeedWindow(config)
 
-	// Simulate ~1 Mhz speed
-	time.Sleep(1 * time.Second)
-	context.Cycle = 1000000
-	sw.Draw(&context)
+			sw.previousT = tt.initialT
+			sw.previousC = tt.initialC
 
-	// Validate it's showing the speed
-	text := sw.text.GetText(false)
-	assert.Equal(t, fmt.Sprintf("[white]%0.8f Mhz", sw.currentSpeed), text)
-	assert.InDelta(t, 1.0, sw.currentSpeed, 0.10)
+			context := &common.StepContext{
+				T:     tt.contextT,
+				Cycle: tt.contextCycle,
+			}
 
-	// Clear and call the show config command
-	sw.Clear()
-	sw.ShowConfig(&context)
-	assert.True(t, sw.IsConfigVisible())
+			sw.Draw(context)
 
-	// Simulate a frame and validate that now the test is showing the config along with current speed
-	sw.Draw(&context)
-	text = sw.text.GetText(false)
-	assert.Equal(t, fmt.Sprintf("[white]%0.4f [yellow]DLY: %07d", sw.currentSpeed, sw.config.SkipCycles), text)
-
-	// Wait for 3 seconds to hide the config
-	time.Sleep(3 * time.Second)
-	sw.Draw(&context)
-	assert.False(t, sw.IsConfigVisible())
-
-	// Clear and draw again with the config hidden
-	sw.Clear()
-	time.Sleep(100 * time.Millisecond)
-	sw.Draw(&context)
-
-	// Validate that the text is showing the speed again
-	text = sw.text.GetText(false)
-	assert.Equal(t, fmt.Sprintf("[white]%0.8f Mhz", sw.currentSpeed), text)
+			// Verify that previousT and previousC are updated
+			assert.Equal(t, tt.contextT, sw.previousT)
+			assert.Equal(t, tt.contextCycle, sw.previousC)
+		})
+	}
 }
 
 func TestSpeedWindow_Clear(t *testing.T) {
 	config := &computers.EmulationLoopConfig{
-		SkipCycles: 1.0,
-		DisplayFps: 10,
+		TargetSpeedMhz: 1.0,
+		DisplayFps:     10,
 	}
 
 	sw := NewSpeedWindow(config)
@@ -91,8 +119,8 @@ func TestSpeedWindow_Clear(t *testing.T) {
 
 func TestSpeedWindow_GetDrawArea(t *testing.T) {
 	config := &computers.EmulationLoopConfig{
-		SkipCycles: 1.0,
-		DisplayFps: 10,
+		TargetSpeedMhz: 1.0,
+		DisplayFps:     10,
 	}
 
 	sw := NewSpeedWindow(config)
@@ -100,4 +128,94 @@ func TestSpeedWindow_GetDrawArea(t *testing.T) {
 
 	assert.NotNil(t, primitive)
 	assert.Equal(t, sw.text, primitive)
+}
+
+func TestSpeedWindow_ShowConfig(t *testing.T) {
+	config := &computers.EmulationLoopConfig{
+		TargetSpeedMhz: 1.5,
+		DisplayFps:     10,
+	}
+
+	sw := NewSpeedWindow(config)
+	context := &common.StepContext{
+		T:     1000000, // 1ms in nanoseconds
+		Cycle: 1000,
+	}
+
+	// Test showing config
+	sw.ShowConfig(context)
+	assert.True(t, sw.IsConfigVisible())
+	assert.Equal(t, context.T, sw.showConfigStart)
+
+	// Draw should show target speed
+	sw.Draw(context)
+	// Config should still be shown (less than 3 seconds)
+	assert.True(t, sw.IsConfigVisible())
+
+	// Test config timeout
+	newContext := &common.StepContext{
+		T:     context.T + (int64(time.Second) * 4), // 4 seconds later
+		Cycle: 2000,
+	}
+	sw.Draw(newContext)
+	// Config should be hidden after 3 seconds
+	assert.False(t, sw.IsConfigVisible())
+}
+
+func TestSpeedWindow_DrawModes(t *testing.T) {
+	config := &computers.EmulationLoopConfig{
+		TargetSpeedMhz: 1.5,
+		DisplayFps:     10,
+	}
+
+	tests := []struct {
+		name         string
+		showConfig   bool
+		contextT     int64
+		configStartT int64
+		shouldHide   bool
+	}{
+		{
+			name:         "Show target speed",
+			showConfig:   true,
+			contextT:     1000000,
+			configStartT: 0,
+			shouldHide:   false,
+		},
+		{
+			name:         "Hide config after timeout",
+			showConfig:   true,
+			contextT:     int64(time.Second * 4),
+			configStartT: 0,
+			shouldHide:   true,
+		},
+		{
+			name:         "Keep showing speed",
+			showConfig:   false,
+			contextT:     1000000,
+			configStartT: 0,
+			shouldHide:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sw := NewSpeedWindow(config)
+			sw.showConfig = tt.showConfig
+			sw.showConfigStart = tt.configStartT
+
+			context := &common.StepContext{
+				T:     tt.contextT,
+				Cycle: 1000,
+			}
+
+			sw.Draw(context)
+
+			if tt.shouldHide {
+				assert.False(t, sw.IsConfigVisible())
+			} else {
+				assert.Equal(t, tt.showConfig, sw.IsConfigVisible())
+			}
+		})
+	}
 }

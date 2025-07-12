@@ -22,7 +22,7 @@ var (
 	model             string
 	serialPort        string
 	romFile           string
-	delay             int64
+	targetMhz         float64
 	targetFps         int
 	emulateModemLines bool
 )
@@ -38,7 +38,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&model, "model", "m", "clementina", "Computer model to emulate (clementina / beneater)")
 	rootCmd.Flags().StringVarP(&serialPort, "port", "p", "", "Serial port to connect to (e.g., /dev/ttys004)")
 	rootCmd.Flags().StringVarP(&romFile, "rom", "r", "./assets/computer/beneater/eater.bin", "ROM file to load")
-	rootCmd.Flags().Int64VarP(&delay, "skip-cycles", "s", 0, "Number of CPU cycles to skip on every loop")
+	rootCmd.Flags().Float64VarP(&targetMhz, "speed", "s", 1.2, "Target emulation speed in MHz")
 	rootCmd.Flags().IntVarP(&targetFps, "fps", "f", 15, "Target display refresh rate")
 	rootCmd.Flags().BoolVarP(&emulateModemLines, "emulate-modem", "e", false, "Enable modem lines emulation for serial port (RTS, CTS, DTR, DSR)")
 }
@@ -103,8 +103,8 @@ func runEmulator(cmd *cobra.Command, args []string) {
 	// Setup configuration
 	config := terminal.ApplicationConfig{
 		EmulationLoopConfig: computers.EmulationLoopConfig{
-			SkipCycles: delay,
-			DisplayFps: targetFps,
+			TargetSpeedMhz: targetMhz,
+			DisplayFps:     targetFps,
 		},
 	}
 

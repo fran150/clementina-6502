@@ -38,8 +38,8 @@ func NewApplication(computer Computer, config *ApplicationConfig) *Application {
 	if config == nil {
 		config = &ApplicationConfig{
 			computers.EmulationLoopConfig{
-				SkipCycles: 100,
-				DisplayFps: 10,
+				TargetSpeedMhz: 1.05,
+				DisplayFps:     10,
 			},
 		}
 	}

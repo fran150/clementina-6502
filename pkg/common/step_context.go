@@ -16,6 +16,8 @@ Usage:
 */
 package common
 
+import "time"
+
 // StepContext holds the state for a single emulation step.
 // It is passed to all Tick functions to maintain synchronization
 // and timing across the emulated system.
@@ -33,21 +35,28 @@ type StepContext struct {
 	// Stop is a control flag that can be set to true to halt the emulation.
 	// Components should check this flag and respect it by stopping their execution.
 	Stop bool
-
-	// Step Size in nanoseconds.
-	StepSize int64
 }
+
+// beginning stores the timestamp when the emulation started.
+// It is used as a reference point for all timing calculations.
+var beginning = time.Now()
 
 // NewStepContext creates and initializes a new StepContext with default values.
 // The Cycle is set to 0, T is set to the current time since emulation start,
 // and Stop is set to false.
 func NewStepContext() StepContext {
 	return StepContext{
-		Cycle:    0,
-		T:        0,
-		Stop:     false,
-		StepSize: 1000,
+		Cycle: 0,
+		T:     0,
+		Stop:  false,
 	}
+}
+
+// SkipCycle updates the timing information without incrementing the cycle counter.
+// This is used by the emulation when skipping emulation cycles. It shouldn't be called by any components
+// as it used directly by the EmulationLoop in the computers package.
+func (context *StepContext) SkipCycle() {
+	context.T = now()
 }
 
 // NextCycle advances the emulation by one cycle and updates the timing information.
@@ -55,5 +64,11 @@ func NewStepContext() StepContext {
 // as it used directly by the EmulationLoop in the computers package.
 func (context *StepContext) NextCycle() {
 	context.Cycle++
-	context.T += context.StepSize
+	context.T = now()
+}
+
+// now returns the number of nanoseconds that have elapsed since the emulation started.
+// It is used internally to maintain accurate timing information.
+func now() int64 {
+	return int64(time.Since(beginning))
 }
