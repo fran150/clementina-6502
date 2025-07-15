@@ -26,6 +26,11 @@ type StepContext struct {
 	// It starts at 0 and increments with each cycle.
 	Cycle uint64
 
+	// CycleT represents the current time in nanoseconds of the last time a cycle
+	// was executed. Components can compare the current value of T with CycleT
+	// to check how much time passed between the last time a cycle was executed
+	CycleT int64
+
 	// T represents the current time in nanoseconds since the emulation started.
 	// This is used for timing and synchronization purposes.
 	// Components can store previous cycle T and compare it with the current one
@@ -46,9 +51,10 @@ var beginning = time.Now()
 // and Stop is set to false.
 func NewStepContext() StepContext {
 	return StepContext{
-		Cycle: 0,
-		T:     0,
-		Stop:  false,
+		Cycle:  0,
+		CycleT: 0,
+		T:      0,
+		Stop:   false,
 	}
 }
 
@@ -65,6 +71,7 @@ func (context *StepContext) SkipCycle() {
 func (context *StepContext) NextCycle() {
 	context.Cycle++
 	context.T = now()
+	context.CycleT = context.T
 }
 
 // now returns the number of nanoseconds that have elapsed since the emulation started.

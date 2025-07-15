@@ -12,9 +12,6 @@ type EmulationLoopConfig struct {
 	// TargetSpeedMhz specifies the target CPU speed in MHz
 	TargetSpeedMhz float64
 
-	// SpeedEvalIntervalSec specifies the interval in seconds for speed evaluation
-	SpeedEvalIntervalSec int
-
 	// DisplayFps specifies the target frames per second for display updates
 	DisplayFps int
 }
@@ -34,22 +31,12 @@ type EmulationLoopHandlers struct {
 type EmulationLoop struct {
 	config  *EmulationLoopConfig
 	context *common.StepContext
-
-	cycleCount     uint64
-	lastEvalTime   time.Time
-	actualSpeedMhz float64
 }
 
 // NewEmulationLoop creates a new emulation loop with the specified configuration.
 func NewEmulationLoop(config *EmulationLoopConfig) *EmulationLoop {
-	if config.SpeedEvalIntervalSec == 0 {
-		config.SpeedEvalIntervalSec = 5 // Default to 5 seconds if not specified
-	}
-
 	return &EmulationLoop{
-		config:       config,
-		cycleCount:   0,
-		lastEvalTime: time.Now(),
+		config: config,
 	}
 }
 
@@ -86,36 +73,16 @@ func (e *EmulationLoop) Start(handlers EmulationLoopHandlers) *common.StepContex
 func (e *EmulationLoop) executeLoop(context *common.StepContext, handlers EmulationLoopHandlers) {
 	var lastTPSExecuted, targetTPSNano int64
 
-	// Initialize speed evaluation
-	e.lastEvalTime = time.Now()
-	e.cycleCount = 0
-	evalInterval := time.Duration(e.config.SpeedEvalIntervalSec) * time.Second
-
 	for !context.Stop {
 		targetTPSNano = int64(float64(time.Microsecond) / e.config.TargetSpeedMhz)
-
-		now := time.Now()
-
-		// Evaluate speed periodically
-		if now.Sub(e.lastEvalTime) >= evalInterval {
-			elapsedSeconds := now.Sub(e.lastEvalTime).Seconds()
-			cyclesDelta := context.Cycle - e.cycleCount
-
-			// Calculate actual speed in MHz
-			e.actualSpeedMhz = float64(cyclesDelta) / (elapsedSeconds * 1_000_000)
-
-			// Reset counters
-			e.lastEvalTime = now
-			e.cycleCount = context.Cycle
-		}
 
 		if (context.T - lastTPSExecuted) > targetTPSNano {
 			lastTPSExecuted = context.T
 			handlers.Tick(context)
 			context.NextCycle()
+		} else {
+			context.SkipCycle()
 		}
-
-		context.SkipCycle()
 	}
 }
 
