@@ -2,24 +2,36 @@ package terminal
 
 import (
 	"github.com/fran150/clementina-6502/pkg/common"
-	"github.com/fran150/clementina-6502/pkg/computers"
-	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
-
-// Computer defines the interface for a computer system that can be controlled
-// through the terminal UI. It extends the base Computer interface with UI-specific
-// functionality for initialization and keyboard input handling.
-type Computer interface {
-	computers.Computer
-	Init(app *tview.Application, config *ApplicationConfig)
-	KeyPressed(event *tcell.EventKey, context *common.StepContext) *tcell.EventKey
-}
 
 // Window defines the interface for UI components that can be drawn in the terminal.
 // It provides methods for clearing, drawing, and retrieving the drawable area.
 type Window interface {
+	// Clear resets the window content.
 	Clear()
+
+	// Draw updates the window display with current state.
+	//
+	// Parameters:
+	//   - context: The current step context for the emulation cycle
 	Draw(context *common.StepContext)
+
+	// GetDrawArea returns the primitive that represents this window in the UI.
+	//
+	// Returns:
+	//   - The tview primitive for this window
 	GetDrawArea() tview.Primitive
+}
+
+// TickerWindow extends the Window interface with tick functionality.
+// It represents windows that need to be updated every emulation cycle.
+type TickerWindow interface {
+	Window
+
+	// Tick updates the window state for each emulation cycle.
+	//
+	// Parameters:
+	//   - context: The current step context for the emulation cycle
+	Tick(context *common.StepContext)
 }

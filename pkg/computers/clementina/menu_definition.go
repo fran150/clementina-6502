@@ -1,13 +1,20 @@
 package clementina
 
 import (
-	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/gdamore/tcell/v2"
 )
 
-// E Execution / W Windows / Q Quit
-
+// createMenuOptions creates the main menu structure for the Clementina computer console.
+// It defines all available menu options including emulation controls, view options, and quit functionality.
+//
+// Parameters:
+//   - computer: The ClementinaComputer instance to control
+//   - console: The console instance for UI operations
+//
+// Returns:
+//   - A slice of menu options for the options window
 func createMenuOptions(computer *ClementinaComputer, console *console) []*ui.OptionsWindowMenuOption {
 	return []*ui.OptionsWindowMenuOption{
 		{
@@ -55,9 +62,9 @@ func createMenuOptions(computer *ClementinaComputer, console *console) []*ui.Opt
 									Rune:           'r',
 									KeyName:        "R",
 									KeyDescription: "Remove Selected Breakpoint",
-									Action: func(context *common.StepContext) {
-										if breakpointForm := GetWindow[ui.BreakPointForm](console, "breakpoint"); breakpointForm != nil {
-											breakpointForm.RemoveSelectedItem(context)
+									Action: func() {
+										if breakpointForm := computers.GetWindow[ui.BreakPointForm](&console.BaseConsole, "breakpoint"); breakpointForm != nil {
+											breakpointForm.RemoveSelectedItem()
 										}
 									},
 								},
@@ -74,9 +81,9 @@ func createMenuOptions(computer *ClementinaComputer, console *console) []*ui.Opt
 							Key:            tcell.KeyUp,
 							KeyName:        "Up",
 							KeyDescription: "Speed Up",
-							Action: func(context *common.StepContext) {
-								console.ShowEmulationSpeed(context)
-								computer.SpeedUp(context)
+							Action: func() {
+								console.ShowEmulationSpeed()
+								computer.SpeedUp()
 							},
 							DoNotForward: true,
 						},
@@ -84,9 +91,9 @@ func createMenuOptions(computer *ClementinaComputer, console *console) []*ui.Opt
 							Key:            tcell.KeyDown,
 							KeyName:        "Dn",
 							KeyDescription: "Speed Down",
-							Action: func(context *common.StepContext) {
-								console.ShowEmulationSpeed(context)
-								computer.SpeedDown(context)
+							Action: func() {
+								console.ShowEmulationSpeed()
+								computer.SpeedDown()
 							},
 							DoNotForward: true,
 						},
@@ -103,24 +110,24 @@ func createMenuOptions(computer *ClementinaComputer, console *console) []*ui.Opt
 					Key:            tcell.KeyF1,
 					KeyName:        "F1",
 					KeyDescription: "CPU",
-					Action: func(context *common.StepContext) {
-						console.ShowWindow("cpu", context)
+					Action: func() {
+						console.ShowWindow("cpu")
 					},
 				},
 				{
 					Key:            tcell.KeyF2,
 					KeyName:        "F2",
 					KeyDescription: "VIA",
-					Action: func(context *common.StepContext) {
-						console.ShowWindow("via", context)
+					Action: func() {
+						console.ShowWindow("via")
 					},
 				},
 				{
 					Key:            tcell.KeyF3,
 					KeyName:        "F3",
 					KeyDescription: "Base RAM",
-					Action: func(context *common.StepContext) {
-						console.ShowWindow("baseram", context)
+					Action: func() {
+						console.ShowWindow("baseram")
 					},
 					SubMenu: createMemoryWindowSubMenu(console),
 				},
@@ -128,8 +135,8 @@ func createMenuOptions(computer *ClementinaComputer, console *console) []*ui.Opt
 					Key:            tcell.KeyF4,
 					KeyName:        "F4",
 					KeyDescription: "Ext. RAM",
-					Action: func(context *common.StepContext) {
-						console.ShowWindow("exram", context)
+					Action: func() {
+						console.ShowWindow("exram")
 					},
 					SubMenu: createMemoryWindowSubMenu(console),
 				},
@@ -137,8 +144,8 @@ func createMenuOptions(computer *ClementinaComputer, console *console) []*ui.Opt
 					Key:            tcell.KeyF5,
 					KeyName:        "F5",
 					KeyDescription: "Hi RAM",
-					Action: func(context *common.StepContext) {
-						console.ShowWindow("hiram", context)
+					Action: func() {
+						console.ShowWindow("hiram")
 					},
 					SubMenu: createMemoryWindowSubMenu(console),
 				},
@@ -146,8 +153,8 @@ func createMenuOptions(computer *ClementinaComputer, console *console) []*ui.Opt
 					Key:            tcell.KeyF6,
 					KeyName:        "F6",
 					KeyDescription: "Buses",
-					Action: func(context *common.StepContext) {
-						console.ShowWindow("bus", context)
+					Action: func() {
+						console.ShowWindow("bus")
 					},
 				},
 			},
@@ -161,15 +168,22 @@ func createMenuOptions(computer *ClementinaComputer, console *console) []*ui.Opt
 	}
 }
 
-// Helper function to create memory window navigation submenu
+// createMemoryWindowSubMenu creates navigation options for memory windows.
+// It provides scrolling functionality and go-to navigation for memory views.
+//
+// Parameters:
+//   - console: The console instance for navigation operations
+//
+// Returns:
+//   - A slice of menu options for memory window navigation
 func createMemoryWindowSubMenu(console *console) []*ui.OptionsWindowMenuOption {
 	return []*ui.OptionsWindowMenuOption{
 		{
 			Key:            tcell.KeyUp,
 			KeyName:        "Up",
 			KeyDescription: "Scroll Up",
-			Action: func(context *common.StepContext) {
-				console.ScrollUp(context, 1)
+			Action: func() {
+				console.ScrollUp(1)
 			},
 			DoNotForward: true,
 		},
@@ -177,8 +191,8 @@ func createMemoryWindowSubMenu(console *console) []*ui.OptionsWindowMenuOption {
 			Key:            tcell.KeyDown,
 			KeyName:        "Dn",
 			KeyDescription: "Scroll Down",
-			Action: func(context *common.StepContext) {
-				console.ScrollDown(context, 1)
+			Action: func() {
+				console.ScrollDown(1)
 			},
 			DoNotForward: true,
 		},
@@ -186,16 +200,16 @@ func createMemoryWindowSubMenu(console *console) []*ui.OptionsWindowMenuOption {
 			Key:            tcell.KeyPgUp,
 			KeyName:        "Pg Up",
 			KeyDescription: "S. Up Fast",
-			Action: func(context *common.StepContext) {
-				console.ScrollUp(context, 64)
+			Action: func() {
+				console.ScrollUp(64)
 			},
 		},
 		{
 			Key:            tcell.KeyPgDn,
 			KeyName:        "Pg Dn",
 			KeyDescription: "S. Down Fast",
-			Action: func(context *common.StepContext) {
-				console.ScrollDown(context, 64)
+			Action: func() {
+				console.ScrollDown(64)
 			},
 		},
 		{

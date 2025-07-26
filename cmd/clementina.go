@@ -8,7 +8,6 @@ import (
 	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/computers/beneater"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina"
-	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/spf13/cobra"
 	"go.bug.st/serial"
 )
@@ -45,7 +44,12 @@ func init() {
 
 func runEmulator(cmd *cobra.Command, args []string) {
 	// Create the computer instance
-	var computer terminal.Computer
+	var computer computers.Computer
+
+	loopConfig := computers.EmulationLoopConfig{
+		TargetSpeedMhz: targetMhz,
+		DisplayFps:     targetFps,
+	}
 
 	if model == beneaterModel {
 		var port serial.Port
@@ -65,7 +69,13 @@ func runEmulator(cmd *cobra.Command, args []string) {
 			}
 		}
 
-		beneater, err := beneater.NewBenEaterComputer(port, emulateModemLines)
+		config := beneater.BenEaterComputerConfig{
+			Port:                port,
+			EmulateModemLines:   emulateModemLines,
+			EmulationLoopConfig: loopConfig,
+		}
+
+		beneater, err := beneater.NewBenEaterComputer(&config)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
 			os.Exit(1)
@@ -81,7 +91,7 @@ func runEmulator(cmd *cobra.Command, args []string) {
 
 		computer = beneater
 	} else {
-		clementina, err := clementina.NewClementinaComputer()
+		clementina, err := clementina.NewClementinaComputer(&loopConfig)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
 			os.Exit(1)
@@ -100,19 +110,9 @@ func runEmulator(cmd *cobra.Command, args []string) {
 		computer = clementina
 	}
 
-	// Setup configuration
-	config := terminal.ApplicationConfig{
-		EmulationLoopConfig: computers.EmulationLoopConfig{
-			TargetSpeedMhz: targetMhz,
-			DisplayFps:     targetFps,
-		},
-	}
-
-	// Create and run the application
-	app := terminal.NewApplication(computer, &config)
 	t := time.Now()
 
-	context, err := app.Run()
+	context, err := computer.Run()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error running application: %v\n", err)
 		os.Exit(1)

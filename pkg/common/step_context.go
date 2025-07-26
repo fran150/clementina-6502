@@ -36,10 +36,6 @@ type StepContext struct {
 	// Components can store previous cycle T and compare it with the current one
 	// to calculate the time passed between both cycles.
 	T int64
-
-	// Stop is a control flag that can be set to true to halt the emulation.
-	// Components should check this flag and respect it by stopping their execution.
-	Stop bool
 }
 
 // beginning stores the timestamp when the emulation started.
@@ -47,27 +43,25 @@ type StepContext struct {
 var beginning = time.Now()
 
 // NewStepContext creates and initializes a new StepContext with default values.
-// The Cycle is set to 0, T is set to the current time since emulation start,
-// and Stop is set to false.
+// The Cycle is set to 0, T and CycleT are set to 0.
 func NewStepContext() StepContext {
 	return StepContext{
 		Cycle:  0,
 		CycleT: 0,
 		T:      0,
-		Stop:   false,
 	}
 }
 
 // SkipCycle updates the timing information without incrementing the cycle counter.
 // This is used by the emulation when skipping emulation cycles. It shouldn't be called by any components
-// as it used directly by the EmulationLoop in the computers package.
+// as it is used directly by the EmulationLoop in the computers package.
 func (context *StepContext) SkipCycle() {
 	context.T = now()
 }
 
 // NextCycle advances the emulation by one cycle and updates the timing information.
 // This is used by the emulation when completing an emulation cycle. It shouldn't be called by any components
-// as it used directly by the EmulationLoop in the computers package.
+// as it is used directly by the EmulationLoop in the computers package.
 func (context *StepContext) NextCycle() {
 	context.Cycle++
 	context.T = now()

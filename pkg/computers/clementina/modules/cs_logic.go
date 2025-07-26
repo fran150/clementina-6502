@@ -35,7 +35,7 @@ type ClementinaCSLogic struct {
 	ground               buses.Line // Lines connected to ground (will always be low)
 }
 
-// Creates a new Clementina CS Logic component
+// NewClementinaCSLogic creates a new Clementina CS Logic component.
 func NewClementinaCSLogic() *ClementinaCSLogic {
 	csLogic := &ClementinaCSLogic{}
 
@@ -88,7 +88,13 @@ func NewClementinaCSLogic() *ClementinaCSLogic {
 	return csLogic
 }
 
-// A1 returns the connector for the specified address line (A10 to A15)
+// A1 returns the connector for the specified address line (A10 to A15).
+//
+// Parameters:
+//   - index: The address line index (0-5 corresponding to A10-A15)
+//
+// Returns:
+//   - The line connector for the specified address line, or nil if index is out of range
 func (circuit *ClementinaCSLogic) A1(index int) buses.LineConnector {
 	if index >= 0 && index < len(circuit.a1) {
 		return circuit.a1[index]
@@ -96,8 +102,8 @@ func (circuit *ClementinaCSLogic) A1(index int) buses.LineConnector {
 	return nil
 }
 
-// PicoHiRAME returns the connector for the Pico HiRAM enable line
-// This line is used by the Pico to enable or disable the high RAM
+// PicoHiRAME returns the connector for the Pico HiRAM enable line.
+// This line is used by the Pico to enable or disable the high RAM.
 // If the line is low the pico is enabling the high RAM.
 // When the clementina computer starts the Pico will respond to requests
 // in high RAM space and keep this line high disabling access to HiRAM.
@@ -109,27 +115,30 @@ func (circuit *ClementinaCSLogic) PicoHiRAME() buses.LineConnector {
 	return circuit.picoHiRAME
 }
 
-// IOOE returns the connector for the I/O output enable bus
-// Each line can be used to map a device in one of the 8 I/O slots
-// Each device will have 1K of available address space
+// IOOE returns the connector for the I/O output enable bus.
+// Each line can be used to map a device in one of the 8 I/O slots.
+// Each device will have 1K of available address space.
 func (circuit *ClementinaCSLogic) IOOE() buses.Bus[uint8] {
 	return circuit.ioOE
 }
 
-// ExRAME returns the connector for the external RAM enable line
-// The extended RAM maps to a 512 KB space banked in 16 KB windows
+// ExRAME returns the connector for the external RAM enable line.
+// The extended RAM maps to a 512 KB space banked in 16 KB windows.
 func (circuit *ClementinaCSLogic) ExRAME() buses.Line {
 	return circuit.exRAME
 }
 
-// HiRAME returns the connector for the high RAM enable line
+// HiRAME returns the connector for the high RAM enable line.
 // This line is used to enable or disable the high RAM.
 // Hi RAM maps to a 32 KB space banked in 8 KB windows.
 func (circuit *ClementinaCSLogic) HiRAME() buses.Line {
 	return circuit.hiRAME
 }
 
-// Tick executes one emulation step
+// Tick executes one emulation step.
+//
+// Parameters:
+//   - stepContext: The current step context for the emulation cycle
 func (circuit *ClementinaCSLogic) Tick(stepContext *common.StepContext) {
 	circuit.addressDecoder.Tick(stepContext)
 	circuit.andGate.Tick(stepContext)

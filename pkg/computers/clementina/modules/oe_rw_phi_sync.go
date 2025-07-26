@@ -41,6 +41,9 @@ func (sync *ClementinaOERWPHISync) RW() buses.Line {
 
 // Tick updates the OE and RW lines based on the current state of the CPU's RW line.
 // It should be called once per emulation step.
+//
+// Parameters:
+//   - stepContext: The current step context for the emulation cycle
 func (sync *ClementinaOERWPHISync) Tick(stepContext *common.StepContext) {
 	cpuRWLow := sync.cpuRW.Enabled()
 

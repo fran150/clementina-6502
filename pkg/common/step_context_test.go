@@ -12,12 +12,8 @@ func TestNewStepContext(t *testing.T) {
 		t.Errorf("Expected initial Cycle to be 0, got %d", ctx.Cycle)
 	}
 
-	if ctx.Stop {
-		t.Error("Expected initial Stop to be false")
-	}
-
-	if ctx.T <= 0 {
-		t.Errorf("Expected T to be greater than 0, got %d", ctx.T)
+	if ctx.T != 0 {
+		t.Errorf("Expected T to be 0, got %d", ctx.T)
 	}
 }
 
@@ -76,19 +72,5 @@ func TestStepContext_TimeProgression(t *testing.T) {
 			t.Errorf("Time should strictly increase: time[%d]=%d, time[%d]=%d",
 				i-1, times[i-1], i, times[i])
 		}
-	}
-}
-
-func TestStepContext_Stop(t *testing.T) {
-	ctx := NewStepContext()
-
-	if ctx.Stop {
-		t.Error("Stop should be initially false")
-	}
-
-	ctx.Stop = true
-
-	if !ctx.Stop {
-		t.Error("Stop should be settable to true")
 	}
 }

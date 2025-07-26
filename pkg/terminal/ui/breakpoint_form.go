@@ -55,10 +55,7 @@ func NewBreakPointForm() *BreakPointForm {
 
 // RemoveSelectedItem removes the currently selected breakpoint from the list.
 // If the list is empty, this method has no effect.
-//
-// Parameters:
-//   - context: The current step context
-func (d *BreakPointForm) RemoveSelectedItem(context *common.StepContext) {
+func (d *BreakPointForm) RemoveSelectedItem() {
 	if d.list.GetItemCount() == 0 {
 		return
 	}
@@ -126,6 +123,15 @@ func (d *BreakPointForm) AddSelectedBreakpointAddress() {
 	input.SetText("")
 }
 
+// validateHexInput returns true if adding the lastChar value to the input string
+// results in a valid hex number.
+//
+// Parameters:
+//   - textToCheck: The current text in the input field
+//   - lastChar: The character being added to the input
+//
+// Returns:
+//   - true if the resulting text would be valid hexadecimal, false otherwise
 func (d *BreakPointForm) validateHexInput(textToCheck string, lastChar rune) bool {
 	const allowedChars string = "0123456789ABCDEFabcdef"
 
@@ -137,7 +143,6 @@ func (d *BreakPointForm) validateHexInput(textToCheck string, lastChar rune) boo
 }
 
 // Draw updates the breakpoint form display.
-// This is a placeholder implementation as the form is static.
 //
 // Parameters:
 //   - context: The current step context
@@ -145,7 +150,6 @@ func (d *BreakPointForm) Draw(context *common.StepContext) {
 }
 
 // Clear resets the breakpoint form.
-// This is a placeholder implementation as clearing is handled elsewhere.
 func (d *BreakPointForm) Clear() {
 }
 

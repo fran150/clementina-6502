@@ -46,10 +46,10 @@ func TestOptionsWindow_ProcessKey(t *testing.T) {
 			Key:            tcell.KeyF1,
 			KeyName:        "F1",
 			KeyDescription: "Test Option",
-			Action: func(context *common.StepContext) {
+			Action: func() {
 				actionCalled = true
 			},
-			BackAction: func(context *common.StepContext) {
+			BackAction: func() {
 				backActionCalled = true
 			},
 			SubMenu: []*OptionsWindowMenuOption{
@@ -63,27 +63,26 @@ func TestOptionsWindow_ProcessKey(t *testing.T) {
 	}
 
 	window := NewOptionsWindow(menu)
-	context := &common.StepContext{}
 
 	// Test main menu action
 	event := tcell.NewEventKey(tcell.KeyF1, 0, tcell.ModNone)
-	window.ProcessKey(event, context)
+	window.ProcessKey(event)
 	assert.True(t, actionCalled)
 	assert.Equal(t, menu[0], window.active)
 
 	// Test submenu action with rune
 	event = tcell.NewEventKey(tcell.KeyRune, 'a', tcell.ModNone)
-	window.ProcessKey(event, context)
+	window.ProcessKey(event)
 
 	// Test back action
 	event = tcell.NewEventKey(tcell.KeyESC, 0, tcell.ModNone)
-	window.ProcessKey(event, context)
+	window.ProcessKey(event)
 	assert.True(t, backActionCalled)
 	assert.Nil(t, window.active)
 
 	// Unexpected Key
 	event = tcell.NewEventKey(tcell.KeyRune, 'q', tcell.ModNone)
-	window.ProcessKey(event, context)
+	window.ProcessKey(event)
 	assert.Nil(t, window.active)
 
 	// Add new test cases for DoNotForward
@@ -104,16 +103,15 @@ func TestOptionsWindow_ProcessKey(t *testing.T) {
 		}
 
 		window := NewOptionsWindow(menu)
-		context := &common.StepContext{}
 
 		// Test non-forwarding option
 		event := tcell.NewEventKey(tcell.KeyF1, 0, tcell.ModNone)
-		result := window.ProcessKey(event, context)
+		result := window.ProcessKey(event)
 		assert.Nil(t, result, "Event should not be forwarded when DoNotForward is true")
 
 		// Test forwarding option
 		event = tcell.NewEventKey(tcell.KeyF2, 0, tcell.ModNone)
-		result = window.ProcessKey(event, context)
+		result = window.ProcessKey(event)
 		assert.Equal(t, event, result, "Event should be forwarded when DoNotForward is false")
 	})
 }

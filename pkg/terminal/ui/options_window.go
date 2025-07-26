@@ -24,8 +24,8 @@ type OptionsWindowMenuOption struct {
 	Rune           rune
 	KeyName        string
 	KeyDescription string
-	Action         func(context *common.StepContext)
-	BackAction     func(context *common.StepContext)
+	Action         func()
+	BackAction     func()
 	DoNotForward   bool
 
 	SubMenu []*OptionsWindowMenuOption
@@ -76,16 +76,15 @@ func (d *OptionsWindow) SetActiveMenu(menu *OptionsWindowMenuOption) {
 //
 // Parameters:
 //   - event: The keyboard event to process
-//   - context: The current step context containing system state information
 //
 // Returns:
 //   - The event if it wasn't handled, or nil if the event was consumed
-func (d *OptionsWindow) ProcessKey(event *tcell.EventKey, context *common.StepContext) *tcell.EventKey {
+func (d *OptionsWindow) ProcessKey(event *tcell.EventKey) *tcell.EventKey {
 
 	options := d.getActiveOptions()
 
 	if event.Key() == tcell.KeyESC {
-		d.GoToPreviousMenu(context)
+		d.GoToPreviousMenu()
 		return event
 	}
 
@@ -93,7 +92,7 @@ func (d *OptionsWindow) ProcessKey(event *tcell.EventKey, context *common.StepCo
 		if (event.Key() == tcell.KeyRune && option.Rune == event.Rune()) ||
 			(event.Key() != tcell.KeyRune && option.Key == event.Key()) {
 			if option.Action != nil {
-				option.Action(context)
+				option.Action()
 			}
 			if option.SubMenu != nil {
 				d.SetActiveMenu(option)
@@ -111,13 +110,11 @@ func (d *OptionsWindow) ProcessKey(event *tcell.EventKey, context *common.StepCo
 }
 
 // GoToPreviousMenu navigates one level up in the menu tree.
-// Parameters:
-//   - context: The current step context containing system state information
-func (d *OptionsWindow) GoToPreviousMenu(context *common.StepContext) {
+func (d *OptionsWindow) GoToPreviousMenu() {
 	active := d.GetActiveMenu()
 	if active != nil {
 		if active.BackAction != nil {
-			active.BackAction(context)
+			active.BackAction()
 		}
 		d.SetActiveMenu(active.parent)
 	}
@@ -159,6 +156,10 @@ func (d *OptionsWindow) Clear() {
 	d.text.Clear()
 }
 
+// getActiveOptions returns the menu options that should be displayed based on the current active menu.
+//
+// Returns:
+//   - The main menu if no submenu is active, otherwise the active submenu options
 func (d *OptionsWindow) getActiveOptions() []*OptionsWindowMenuOption {
 	activeMenu := d.GetActiveMenu()
 
@@ -169,6 +170,11 @@ func (d *OptionsWindow) getActiveOptions() []*OptionsWindowMenuOption {
 	}
 }
 
+// setParents recursively sets the parent reference for all menu options in the hierarchy.
+//
+// Parameters:
+//   - parent: The parent menu option to assign to the menu items
+//   - menu: The slice of menu options to process
 func setParents(parent *OptionsWindowMenuOption, menu []*OptionsWindowMenuOption) {
 	if menu == nil {
 		return

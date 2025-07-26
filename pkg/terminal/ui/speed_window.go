@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/fran150/clementina-6502/pkg/common"
-	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/rivo/tview"
 )
 
@@ -15,20 +14,20 @@ type SpeedWindow struct {
 	text            *tview.TextView
 	previousT       int64
 	previousC       uint64
-	config          *computers.EmulationLoopConfig
+	targetSpeed     *float64
 	showConfig      bool
 	showConfigStart int64
 }
 
 // NewSpeedWindow creates a new emulation speed display window.
-// It initializes the UI component and connects it to the provided emulation configuration.
+// It initializes the UI component and connects it to the provided speed reference.
 //
 // Parameters:
-//   - config: The emulation loop configuration to monitor
+//   - currentSpeed: Pointer to the current target speed value to monitor
 //
 // Returns:
 //   - A pointer to the initialized SpeedWindow
-func NewSpeedWindow(config *computers.EmulationLoopConfig) *SpeedWindow {
+func NewSpeedWindow(currentSpeed *float64) *SpeedWindow {
 	text := tview.NewTextView()
 	text.SetTextAlign(tview.AlignCenter).
 		SetScrollable(false).
@@ -38,7 +37,7 @@ func NewSpeedWindow(config *computers.EmulationLoopConfig) *SpeedWindow {
 
 	return &SpeedWindow{
 		text:            text,
-		config:          config,
+		targetSpeed:     currentSpeed,
 		showConfig:      false,
 		showConfigStart: 0,
 	}
@@ -64,11 +63,16 @@ func (s *SpeedWindow) Clear() {
 //   - context: The current step context containing timing information
 func (s *SpeedWindow) Draw(context *common.StepContext) {
 	if s.showConfig {
-		if context.T-s.showConfigStart > (int64(time.Second) * 3) {
-			s.showConfig = false
+		if s.showConfigStart == 0 {
+			s.showConfigStart = context.T
 		}
 
-		fmt.Fprintf(s.text, "[yellow]TGT: %0.8f Mhz", s.config.TargetSpeedMhz)
+		if context.T-s.showConfigStart > (int64(time.Second) * 3) {
+			s.showConfig = false
+			s.showConfigStart = 0
+		}
+
+		fmt.Fprintf(s.text, "[yellow]TGT: %0.8f Mhz", *s.targetSpeed)
 	} else {
 		if s.previousT != 0 {
 			cycles := context.Cycle - s.previousC
@@ -95,10 +99,6 @@ func (d *SpeedWindow) GetDrawArea() tview.Primitive {
 
 // ShowConfig displays the emulation configuration in the speed window.
 // The configuration will be shown for a few seconds before returning to speed display.
-//
-// Parameters:
-//   - context: The current step context containing timing information
-func (d *SpeedWindow) ShowConfig(context *common.StepContext) {
+func (d *SpeedWindow) ShowConfig() {
 	d.showConfig = true
-	d.showConfigStart = context.T
 }

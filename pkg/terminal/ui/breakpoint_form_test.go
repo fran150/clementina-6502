@@ -69,11 +69,10 @@ func TestRemoveSelectedItem(t *testing.T) {
 
 	// Test empty list case first
 	t.Run("Remove from empty list", func(t *testing.T) {
-		context := &common.StepContext{}
 		// List should be empty by default after initialization
 		assert.Equal(t, 0, form.list.GetItemCount())
 		// This should not panic or modify anything
-		form.RemoveSelectedItem(context)
+		form.RemoveSelectedItem()
 		// Verify it's still empty
 		assert.Equal(t, 0, form.list.GetItemCount())
 		assert.Empty(t, form.breakpointAddresses)
@@ -99,8 +98,7 @@ func TestRemoveSelectedItem(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			context := &common.StepContext{}
-			form.RemoveSelectedItem(context)
+			form.RemoveSelectedItem()
 			assert.Equal(t, tt.expectedLen, len(form.breakpointAddresses))
 			assert.Equal(t, tt.expectedLen, form.list.GetItemCount())
 		})
