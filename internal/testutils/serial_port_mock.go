@@ -40,6 +40,8 @@ type SerialPortMock struct {
 	stop bool
 
 	MakeCallsFailFrom failInFunction
+
+	readTimeout time.Duration
 }
 
 // NewPortMock creates a new mock of the serial port with the specified mode.
@@ -86,7 +88,14 @@ func (port *SerialPortMock) SetMode(mode *serial.Mode) error {
 // The Read function blocks until (at least) one byte is received from
 // the serial port or an error occurs.
 func (port *SerialPortMock) Read(p []byte) (n int, err error) {
+	t := time.Now()
+
 	for port.PortRxBuffer.IsEmpty() && !port.stop {
+		if port.readTimeout > 0 && time.Since(t) > port.readTimeout {
+			break
+		}
+
+		time.Sleep(10 * time.Millisecond) // Simulate waiting for data
 	}
 
 	i := 0
@@ -144,6 +153,7 @@ func (port *SerialPortMock) GetModemStatusBits() (*serial.ModemStatusBits, error
 // SetReadTimeout sets the timeout for the Read operation or use serial.NoTimeout
 // to disable read timeout.
 func (port *SerialPortMock) SetReadTimeout(t time.Duration) error {
+	port.readTimeout = t
 	return port.checkError(FailInSetReadTimeout)
 }
 

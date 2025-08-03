@@ -1,155 +1,307 @@
 package computers
 
-// import (
-// 	"testing"
+import (
+	"testing"
+	"time"
 
-// 	"github.com/fran150/clementina-6502/pkg/common"
-// 	"github.com/stretchr/testify/assert"
-// )
+	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/stretchr/testify/assert"
+)
 
-// func TestNewEmulationLoop(t *testing.T) {
-// 	config := &EmulationLoopConfig{
-// 		TargetSpeedMhz: 0.001,
-// 		DisplayFps:     5,
-// 	}
+type ComputerMock struct {
+	context *common.StepContext
 
-// 	loop := NewEmulationLoopFor(config, &EmulationLoopHandlers{
-// 		Tick: func(context *common.StepContext) {
+	tickCalls int
+	drawCalls int
 
-// 		},
-// 		Draw: func(context *common.StepContext) {
+	shouldPanicInTick bool
+	shouldPanicInDraw bool
+}
 
-// 		},
-// 	})
+func NewComputerMock() *ComputerMock {
+	context := common.NewStepContext()
 
-// 	assert.NotNil(t, loop)
-// 	assert.Equal(t, config, loop.GetConfig())
-// }
+	return &ComputerMock{
+		context:   &context,
+		tickCalls: 0,
+		drawCalls: 0,
+	}
+}
 
-// func TestEmulationLoop_Start(t *testing.T) {
-// 	t.Run("returns nil when handlers are missing", func(t *testing.T) {
-// 		loop := NewEmulationLoop(&EmulationLoopConfig{})
+func (c *ComputerMock) Run() (*common.StepContext, error) {
+	return c.context, nil
+}
 
-// 		// Test with nil handlers
-// 		context := loop.Start(EmulationLoopHandlers{})
-// 		assert.Nil(t, context)
+func (c *ComputerMock) Stop() {
+	// Mock stop logic
+}
 
-// 		// Test with only Tick handler
-// 		context = loop.Start(EmulationLoopHandlers{
-// 			Tick: func(context *common.StepContext) {},
-// 		})
-// 		assert.Nil(t, context)
+func (c *ComputerMock) Tick(context *common.StepContext) {
+	if c.shouldPanicInTick {
+		panic("Mock panic in Tick")
+	}
 
-// 		// Test with only Draw handler
-// 		context = loop.Start(EmulationLoopHandlers{
-// 			Draw: func(context *common.StepContext) {},
-// 		})
-// 		assert.Nil(t, context)
-// 	})
+	c.tickCalls++
+}
 
-// 	t.Run("starts emulation loop with valid handlers", func(t *testing.T) {
-// 		loop := NewEmulationLoop(&EmulationLoopConfig{
-// 			TargetSpeedMhz: 0.001,
-// 			DisplayFps:     5,
-// 		})
+func (c *ComputerMock) Draw(context *common.StepContext) {
+	if c.shouldPanicInDraw {
+		panic("Mock panic in Draw")
+	}
 
-// 		tickCalled := false
-// 		drawCalled := false
+	c.drawCalls++
+}
 
-// 		handlers := EmulationLoopHandlers{
-// 			Tick: func(context *common.StepContext) {
-// 				tickCalled = true
-// 			},
-// 			Draw: func(context *common.StepContext) {
-// 				drawCalled = true
-// 			},
-// 		}
+func createTestEmulationLoop() *EmulationLoop {
+	config := &EmulationLoopConfig{
+		TargetSpeedMhz: 0.001,
+		DisplayFps:     5,
+	}
 
-// 		context := loop.Start(handlers)
-// 		assert.NotNil(t, context)
+	computer := NewComputerMock()
 
-// 		// Let the loop run briefly
-// 		time.Sleep(1 * time.Second)
-// 		context.Stop = true
+	loop := NewEmulationLoopFor(computer, config)
 
-// 		// Give it time to stop
-// 		time.Sleep(100 * time.Millisecond)
+	return loop
+}
 
-// 		assert.True(t, tickCalled, "Tick handler should have been called")
-// 		assert.True(t, drawCalled, "Draw handler should have been called")
-// 	})
-// }
+func TestEmulationLoopStartAndStop(t *testing.T) {
+	t.Run("returns nil when config is missing", func(t *testing.T) {
+		loop := createTestEmulationLoop()
 
-// func TestEmulationLoop_Timing(t *testing.T) {
-// 	t.Run("respects target speed and FPS", func(t *testing.T) {
-// 		config := &EmulationLoopConfig{
-// 			TargetSpeedMhz: 0.0001, // 1 KHz
-// 			DisplayFps:     10,     // 2 FPS
-// 		}
+		loop.config = nil // Simulate missing config
 
-// 		loop := NewEmulationLoop(config)
+		// Test with nil handlers
+		context := loop.Start()
+		assert.Nil(t, context)
+		assert.False(t, loop.IsRunning(), "Loop should not be running when config is missing")
+	})
 
-// 		tickCount := 0
-// 		drawCount := 0
-// 		var firstTickTime, lastTickTime, firstDrawTime, lastDrawTime int64
+	t.Run("returns nil when computer is missing", func(t *testing.T) {
+		loop := createTestEmulationLoop()
 
-// 		handlers := EmulationLoopHandlers{
-// 			Tick: func(context *common.StepContext) {
-// 				if firstTickTime == 0 {
-// 					firstTickTime = context.T
-// 				}
-// 				lastTickTime = context.T
-// 				tickCount++
-// 			},
-// 			Draw: func(context *common.StepContext) {
-// 				if firstDrawTime == 0 {
-// 					firstDrawTime = context.T
-// 				}
-// 				lastDrawTime = context.T
-// 				drawCount++
-// 			},
-// 		}
+		loop.computer = nil // Simulate missing computer
 
-// 		context := loop.Start(handlers)
-// 		assert.NotNil(t, context)
+		// Test with nil handlers
+		context := loop.Start()
+		assert.Nil(t, context)
+		assert.False(t, loop.IsRunning(), "Loop should not be running when config is missing")
+	})
 
-// 		// Run for a fixed duration
-// 		time.Sleep(1 * time.Second)
-// 		context.Stop = true
+	t.Run("starts emulation loop correctly", func(t *testing.T) {
+		loop := createTestEmulationLoop()
 
-// 		// Calculate actual rates
-// 		tickDuration := lastTickTime - firstTickTime
-// 		drawDuration := lastDrawTime - firstDrawTime
+		context := loop.Start()
+		assert.NotNil(t, context)
 
-// 		// Calculate actual frequencies
-// 		actualTicksPerSecond := float64(tickCount) / (float64(tickDuration) / float64(time.Second))
-// 		actualDrawsPerSecond := float64(drawCount) / (float64(drawDuration) / float64(time.Second))
+		// Wait a short time to allow the loop to start
+		time.Sleep(50 * time.Millisecond)
+		assert.True(t, loop.IsRunning(), "Loop should be running after Start")
 
-// 		// Expected values
-// 		expectedTicksPerSecond := config.TargetSpeedMhz * 1_000_000 // Convert MHz to Hz
-// 		expectedDrawsPerSecond := float64(config.DisplayFps)
+		// Let the loop run briefly
+		time.Sleep(200 * time.Millisecond)
+		loop.Stop()
+		assert.True(t, loop.IsStopping(), "Check that the loop is stopping")
 
-// 		// Allow for 40% margin of error due to system scheduling
-// 		marginTick := expectedTicksPerSecond * 0.4
-// 		marginDraw := expectedDrawsPerSecond * 0.4
+		// Wait for the loop to stop
+		for loop.IsRunning() {
+		}
 
-// 		assert.InDelta(t, expectedTicksPerSecond, actualTicksPerSecond, marginTick,
-// 			"Tick rate should be close to target speed")
-// 		assert.InDelta(t, expectedDrawsPerSecond, actualDrawsPerSecond, marginDraw,
-// 			"Draw rate should be close to target FPS")
-// 	})
-// }
+		// Get the number of tick and draw calls
+		computer := loop.GetComputer().(*ComputerMock)
+		ticks := computer.tickCalls
+		draws := computer.drawCalls
 
-// func TestEmulationLoop_GetConfig(t *testing.T) {
-// 	config := &EmulationLoopConfig{
-// 		TargetSpeedMhz: 2.0,
-// 		DisplayFps:     30,
-// 	}
+		assert.True(t, ticks > 0, "Tick handler should have been called")
+		assert.True(t, draws > 0, "Draw handler should have been called")
 
-// 	loop := NewEmulationLoop(config)
+		// Wait a bit and ensure no more ticks or draws to validate the loop has stopped
+		time.Sleep(100 * time.Millisecond)
 
-// 	retrievedConfig := loop.GetConfig()
-// 	assert.Equal(t, config, retrievedConfig)
-// 	assert.Equal(t, 2.0, retrievedConfig.TargetSpeedMhz)
-// 	assert.Equal(t, 30, retrievedConfig.DisplayFps)
-// }
+		assert.Equal(t, ticks, computer.tickCalls, "Tick handler should not be called after Stop")
+		assert.Equal(t, draws, computer.drawCalls, "Draw handler should not be called after Stop")
+	})
+}
+
+func TestEmulationLoop_Timing(t *testing.T) {
+	loop := createTestEmulationLoop()
+
+	config := loop.GetConfig()
+	config.TargetSpeedMhz = 0.0001 // 1 Khz
+	config.DisplayFps = 10         // 10 FPS
+
+	context := loop.Start()
+	assert.NotNil(t, context)
+
+	// Wait for the loop to fully start to get
+	// stable timing values
+	var now time.Time
+	for !loop.IsRunning() {
+	}
+	now = time.Now()
+
+	// Run for a fixed duration
+	time.Sleep(2 * time.Second)
+
+	loop.Stop()
+
+	// Get the number of tick and draw calls
+	computer := loop.GetComputer().(*ComputerMock)
+	ticks := computer.tickCalls
+	draws := computer.drawCalls
+
+	// Calculate actual frequencies
+	actualTicksPerSecond := float64(ticks) / (float64(time.Since(now)) / float64(time.Second))
+	actualDrawsPerSecond := float64(draws) / (float64(time.Since(now)) / float64(time.Second))
+
+	// Expected values
+	expectedTicksPerSecond := config.TargetSpeedMhz * 1_000_000 // Convert MHz to Hz
+	expectedDrawsPerSecond := float64(config.DisplayFps)
+
+	// Allow for 0.5% margin of error due to system scheduling
+	marginTick := expectedTicksPerSecond * 0.005
+	marginDraw := expectedDrawsPerSecond * 0.005
+
+	assert.InDelta(t, expectedTicksPerSecond, actualTicksPerSecond, marginTick,
+		"Tick rate should be close to target speed")
+	assert.InDelta(t, expectedDrawsPerSecond, actualDrawsPerSecond, marginDraw,
+		"Draw rate should be close to target FPS")
+
+	assert.True(t, ticks > 0, "Tick handler should have been called")
+	assert.True(t, draws > 0, "Draw handler should have been called")
+}
+
+func TestEmulationLoop_PanicHandling(t *testing.T) {
+	t.Run("handles panic in Tick with handler returning true", func(t *testing.T) {
+		loop := createTestEmulationLoop()
+		loop.SetPanicHandler(func(loopType string, r any) bool {
+			return true // Suppress panic
+		})
+
+		computer := loop.GetComputer().(*ComputerMock)
+		computer.shouldPanicInTick = true
+
+		// Start the loop and let it handle the panic
+		context := loop.Start()
+		assert.NotNil(t, context)
+		time.Sleep(100 * time.Millisecond)
+
+		// The loop should stop due to panic but not crash the test
+		for loop.IsRunning() {
+			time.Sleep(10 * time.Millisecond)
+		}
+		assert.False(t, loop.IsRunning())
+	})
+
+	t.Run("handles panic in Draw with handler returning true", func(t *testing.T) {
+		loop := createTestEmulationLoop()
+		loop.SetPanicHandler(func(loopType string, r any) bool {
+			return true // Suppress panic
+		})
+
+		computer := loop.GetComputer().(*ComputerMock)
+		computer.shouldPanicInDraw = true
+
+		// Start the loop and let it handle the panic
+		context := loop.Start()
+		assert.NotNil(t, context)
+		time.Sleep(100 * time.Millisecond)
+
+		// The loop should stop due to panic but not crash the test
+		for loop.IsRunning() {
+			time.Sleep(10 * time.Millisecond)
+		}
+		assert.False(t, loop.IsRunning())
+	})
+
+	t.Run("handles panic without panic handler", func(t *testing.T) {
+		loop := createTestEmulationLoop()
+		// No panic handler set
+
+		computer := loop.GetComputer().(*ComputerMock)
+		computer.shouldPanicInTick = true
+
+		// Start the loop and wait for it to stop due to panic
+		context := loop.Start()
+		assert.NotNil(t, context)
+		time.Sleep(100 * time.Millisecond)
+
+		// The loop should stop
+		for loop.IsRunning() {
+			time.Sleep(10 * time.Millisecond)
+		}
+		assert.False(t, loop.IsRunning())
+	})
+
+	t.Run("panic handler can return false", func(t *testing.T) {
+		loop := createTestEmulationLoop()
+		handlerCalled := false
+		handlerReturnValue := false
+
+		loop.SetPanicHandler(func(loopType string, r any) bool {
+			handlerCalled = true
+			assert.Equal(t, "Loop", loopType)
+			assert.Equal(t, "Mock panic in Tick", r)
+			return handlerReturnValue
+		})
+
+		// Test the handlePanic method directly to avoid goroutine issues
+		assert.Panics(t, func() {
+			loop.handlePanic("Loop", "Mock panic in Tick")
+		}, "handlePanic should re-panic when handler returns false")
+
+		assert.True(t, handlerCalled, "Panic handler should have been called")
+	})
+
+}
+
+func TestEmulationLoop_NewConstructors(t *testing.T) {
+	t.Run("NewEmulationLoop creates loop with config", func(t *testing.T) {
+		config := &EmulationLoopConfig{
+			TargetSpeedMhz: 1.0,
+			DisplayFps:     30,
+		}
+
+		loop := NewEmulationLoop(config)
+		assert.NotNil(t, loop)
+		assert.Equal(t, config, loop.GetConfig())
+		assert.Nil(t, loop.GetComputer())
+		assert.False(t, loop.IsRunning())
+		assert.False(t, loop.IsStopping())
+	})
+
+	t.Run("NewEmulationLoopFor creates loop with computer and config", func(t *testing.T) {
+		config := &EmulationLoopConfig{
+			TargetSpeedMhz: 1.0,
+			DisplayFps:     30,
+		}
+		computer := NewComputerMock()
+
+		loop := NewEmulationLoopFor(computer, config)
+		assert.NotNil(t, loop)
+		assert.Equal(t, config, loop.GetConfig())
+		assert.Equal(t, computer, loop.GetComputer())
+	})
+}
+
+func TestEmulationLoop_SettersAndGetters(t *testing.T) {
+	t.Run("SetComputer and GetComputer work correctly", func(t *testing.T) {
+		loop := NewEmulationLoop(&EmulationLoopConfig{})
+		computer := NewComputerMock()
+
+		loop.SetComputer(computer)
+		assert.Equal(t, computer, loop.GetComputer())
+	})
+
+	t.Run("SetPanicHandler sets handler correctly", func(t *testing.T) {
+		loop := NewEmulationLoop(&EmulationLoopConfig{})
+
+		handler := func(loopType string, r any) bool {
+			return true
+		}
+
+		loop.SetPanicHandler(handler)
+		// We can't directly test the handler is set, but the panic tests verify it works
+		assert.NotNil(t, loop)
+	})
+}

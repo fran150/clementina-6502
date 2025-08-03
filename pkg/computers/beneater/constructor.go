@@ -12,8 +12,6 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components/other/gates"
 	"github.com/fran150/clementina-6502/pkg/components/via"
 	"github.com/fran150/clementina-6502/pkg/computers"
-	"github.com/fran150/clementina-6502/pkg/terminal/ui"
-	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -155,13 +153,7 @@ func NewBenEaterComputer(config *BenEaterComputerConfig) (*BenEaterComputer, err
 		tview.NewApplication().
 			EnableMouse(true).
 			EnablePaste(true).
-			SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-				if options := computers.GetWindow[ui.OptionsWindow](&computer.console.BaseConsole, "options"); options != nil {
-					return options.ProcessKey(event)
-				}
-
-				return event
-			}),
+			SetInputCapture(computer.KeyPressed),
 	)
 
 	computer.console = newMainConsole(computer)

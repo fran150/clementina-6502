@@ -6,6 +6,7 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
+	"github.com/gdamore/tcell/v2"
 	"go.bug.st/serial"
 )
 
@@ -105,6 +106,11 @@ func (c *BenEaterComputer) Tick(context *common.StepContext) {
 func (c *BenEaterComputer) Draw(context *common.StepContext) {
 	c.console.Draw(context)
 	c.ConsoleApp().Draw()
+}
+
+func (c *BenEaterComputer) KeyPressed(event *tcell.EventKey) *tcell.EventKey {
+	options := computers.GetWindow[ui.OptionsWindow](&c.console.BaseConsole, "options")
+	return options.ProcessKey(event)
 }
 
 /*******************************************************************************************
