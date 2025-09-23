@@ -2,7 +2,6 @@ package computers
 
 import (
 	"github.com/fran150/clementina-6502/pkg/common"
-	"github.com/rivo/tview"
 )
 
 // BaseComputer is the base structure for a computer emulation based on the 6502
@@ -14,8 +13,7 @@ type BaseComputer struct {
 	step        bool // Indicates if the computer is stepping through cycles
 	isResetting bool // Indicates if the computer is in the process of resetting
 
-	loop  *EmulationLoop     // The emulation loop that manages the execution of the computer
-	tvApp *tview.Application // The tview application used for the console interface
+	loop *EmulationLoop
 }
 
 // NewBaseComputer creates a new instance of BaseComputer with the provided
@@ -27,31 +25,25 @@ type BaseComputer struct {
 //
 // Returns:
 //   - A pointer to the initialized BaseComputer
-func NewBaseComputer(loop *EmulationLoop, tvApp *tview.Application) *BaseComputer {
+func NewBaseComputer(loop *EmulationLoop) *BaseComputer {
 	return &BaseComputer{
 		pause:       false,
 		step:        false,
 		isResetting: false,
 		loop:        loop,
-		tvApp:       tvApp,
 	}
 }
 
-// Run starts the emulation loop and runs the console application.
-func (c *BaseComputer) Run() (*common.StepContext, error) {
+// Run starts the emulation loop
+func (c *BaseComputer) Run() *common.StepContext {
 	context := c.loop.Start()
 
-	if err := c.tvApp.Run(); err != nil {
-		return context, err
-	}
-
-	return context, nil
+	return context
 }
 
-// Stop stops computer execution and finishes the console application.
+// Stop stops computer execution
 func (c *BaseComputer) Stop() {
 	c.loop.Stop()
-	c.tvApp.Stop()
 }
 
 // Pause stops the execution of the computer.
@@ -139,11 +131,6 @@ func (c *BaseComputer) SpeedDown() {
 // Loop returns the current emulation loop.
 func (c *BaseComputer) Loop() *EmulationLoop {
 	return c.loop
-}
-
-// ConsoleApp returns the tview application used for the console.
-func (c *BaseComputer) ConsoleApp() *tview.Application {
-	return c.tvApp
 }
 
 // IsPaused checks if the computer is currently paused.

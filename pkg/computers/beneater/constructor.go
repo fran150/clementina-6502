@@ -150,13 +150,9 @@ func NewBenEaterComputer(config *BenEaterComputerConfig) (*BenEaterComputer, err
 
 	computer.BaseComputer = *computers.NewBaseComputer(
 		computers.NewEmulationLoopFor(computer, &config.EmulationLoopConfig),
-		tview.NewApplication().
-			EnableMouse(true).
-			EnablePaste(true).
-			SetInputCapture(computer.KeyPressed),
 	)
 
-	computer.console = newMainConsole(computer)
+	computer.console = newMainConsole(computer, tview.NewApplication())
 
 	computer.Loop().SetPanicHandler(func(loopType string, panicData any) bool {
 		fmt.Fprintf(os.Stderr, "%s panic: %v\n", loopType, panicData)

@@ -13,13 +13,13 @@ type console struct {
 }
 
 // newMainConsole creates and initializes a new console for the Ben Eater computer.
-func newMainConsole(computer *BenEaterComputer) *console {
+func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *console {
 	console := &console{
 		grid:        tview.NewGrid(),
-		BaseConsole: *computers.NewBaseConsole(),
+		BaseConsole: *computers.NewBaseConsole(tvApp),
 	}
 
-	console.initializeMainGrid(computer.ConsoleApp())
+	console.initializeMainGrid()
 
 	menuOptions := createMenuOptions(computer, console)
 
@@ -53,13 +53,13 @@ func newMainConsole(computer *BenEaterComputer) *console {
 *************************************************************************************/
 
 // initializeMainGrid sets up the main grid layout for the console.
-func (c *console) initializeMainGrid(tvApp *tview.Application) {
+func (c *console) initializeMainGrid() {
 	c.grid.SetRows(4, 3, 0, 3).
 		SetColumns(25, 0).
 		SetBorder(true).
 		SetTitle("Ben Eater 6502 Computer")
 
-	tvApp.SetRoot(c.grid, true)
+	c.ConsoleApp().SetRoot(c.grid, true)
 }
 
 // initializeBusWindow configures the bus window with the computer's buses.

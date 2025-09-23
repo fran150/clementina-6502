@@ -327,7 +327,7 @@ func TestLineIsHeldLowWhenResetting(t *testing.T) {
 
 func simulateKeyPress(computer *BenEaterComputer, context *common.StepContext, key tcell.Key, ch rune) {
 	event := tcell.NewEventKey(key, ch, tcell.ModNone)
-	computer.KeyPressed(event)
+	computer.console.KeyPressed(event)
 	computer.Tick(context)
 }
 

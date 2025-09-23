@@ -68,6 +68,24 @@ type ClementinaComputer struct {
 * Computer Interface methods
 ********************************************************************************************/
 
+// Run starts the emulation loop and runs the console application.
+func (c *ClementinaComputer) Run() (*common.StepContext, error) {
+	context := c.BaseComputer.Run()
+
+	if err := c.console.Run(); err != nil {
+		c.BaseComputer.Stop()
+		return nil, err
+	}
+
+	return context, nil
+}
+
+// Stop stops computer execution and finishes the console application.
+func (c *ClementinaComputer) Stop() {
+	c.BaseComputer.Stop()
+	c.console.Stop()
+}
+
 // Tick advances the computer's state by one cycle.
 // It updates all components if the computer is not paused or if a single step is requested.
 // It also handles breakpoints and resets.
@@ -114,7 +132,6 @@ func (c *ClementinaComputer) Tick(context *common.StepContext) {
 //   - context: The current step context
 func (c *ClementinaComputer) Draw(context *common.StepContext) {
 	c.console.Draw(context)
-	c.ConsoleApp().Draw()
 }
 
 // Close performs cleanup operations when shutting down the computer.

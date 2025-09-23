@@ -5,6 +5,7 @@ import (
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -16,19 +17,46 @@ type BaseConsole struct {
 	tickers  map[string]terminal.TickerWindow
 	active   string
 	previous []string
+	tvApp    *tview.Application
 }
 
 // NewBaseConsole creates a new instance of BaseConsole with initialized components.
 //
 // Returns:
 //   - A pointer to the initialized BaseConsole
-func NewBaseConsole() *BaseConsole {
-	return &BaseConsole{
+func NewBaseConsole(tvApp *tview.Application) *BaseConsole {
+	console := &BaseConsole{
 		pages:    tview.NewPages(),
 		windows:  make(map[string]terminal.Window),
 		tickers:  make(map[string]terminal.TickerWindow),
 		previous: make([]string, 2),
+		tvApp:    tvApp,
 	}
+
+	tvApp.SetInputCapture(console.KeyPressed).
+		EnableMouse(true).
+		EnablePaste(true)
+
+	return console
+
+}
+
+/************************************************************************************
+* General methods
+*************************************************************************************/
+// Get the tview application used for the console.
+func (c *BaseConsole) ConsoleApp() *tview.Application {
+	return c.tvApp
+}
+
+// Runs the console application.
+func (c *BaseConsole) Run() error {
+	return c.tvApp.Run()
+}
+
+// Finishes the console application.
+func (c *BaseConsole) Stop() {
+	c.tvApp.Stop()
 }
 
 /************************************************************************************
@@ -80,7 +108,6 @@ func (c *BaseConsole) DeleteWindow(key string) {
 /************************************************************************************
 * Window switching methods
 *************************************************************************************/
-
 // SetBreakpointConfigMode activates the breakpoint configuration window.
 func (c *BaseConsole) SetBreakpointConfigMode() {
 	c.AppendActiveWindow("breakpoint")
@@ -97,6 +124,11 @@ func (c *BaseConsole) ShowWindow(windowKey string) {
 /************************************************************************************
 * Menu methods
 *************************************************************************************/
+// KeyPressed handles key press events and routes them to the appropriate window.
+func (c *BaseConsole) KeyPressed(event *tcell.EventKey) *tcell.EventKey {
+	options := GetWindow[ui.OptionsWindow](c, "options")
+	return options.ProcessKey(event)
+}
 
 // ScrollUp scrolls the active memory window up by the specified number of lines.
 // This only has an effect if the active window is a memory window.
@@ -190,6 +222,8 @@ func (c *BaseConsole) Draw(context *common.StepContext) {
 		window.Clear()
 		window.Draw(context)
 	}
+
+	c.tvApp.Draw()
 }
 
 // Tick updates the console components that need to be updated every cycle.

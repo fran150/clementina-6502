@@ -1,9 +1,5 @@
 package computers
 
-import (
-	"github.com/rivo/tview"
-)
-
 func createBaseComputer() *BaseComputer {
 	config := &EmulationLoopConfig{
 		TargetSpeedMhz: 1.0,
@@ -11,7 +7,6 @@ func createBaseComputer() *BaseComputer {
 	}
 
 	loop := NewEmulationLoop(config)
-	tvApp := tview.NewApplication()
 
-	return NewBaseComputer(loop, tvApp)
+	return NewBaseComputer(loop)
 }

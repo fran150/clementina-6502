@@ -10,8 +10,6 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components/via"
 	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina/modules"
-	"github.com/fran150/clementina-6502/pkg/terminal/ui"
-	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -231,19 +229,9 @@ func NewClementinaComputer(config *computers.EmulationLoopConfig) (*ClementinaCo
 
 	computer.BaseComputer = *computers.NewBaseComputer(
 		computers.NewEmulationLoopFor(computer, config),
-		tview.NewApplication().
-			EnableMouse(true).
-			EnablePaste(true).
-			SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-				if options := computers.GetWindow[ui.OptionsWindow](&computer.console.BaseConsole, "options"); options != nil {
-					return options.ProcessKey(event)
-				}
-
-				return event
-			}),
 	)
 
-	computer.console = newMainConsole(computer)
+	computer.console = newMainConsole(computer, tview.NewApplication())
 
 	computer.Loop().SetPanicHandler(func(loopType string, panicData any) bool {
 		fmt.Fprintf(os.Stderr, "%s panic: %v\n", loopType, panicData)

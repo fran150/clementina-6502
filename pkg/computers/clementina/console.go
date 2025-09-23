@@ -19,13 +19,13 @@ type console struct {
 //
 // Returns:
 //   - A configured console ready for use
-func newMainConsole(computer *ClementinaComputer) *console {
+func newMainConsole(computer *ClementinaComputer, tvApp *tview.Application) *console {
 	console := &console{
 		grid:        tview.NewGrid(),
-		BaseConsole: *computers.NewBaseConsole(),
+		BaseConsole: *computers.NewBaseConsole(tvApp),
 	}
 
-	console.initializeMainGrid(computer.ConsoleApp())
+	console.initializeMainGrid()
 
 	menuOptions := createMenuOptions(computer, console)
 
@@ -58,16 +58,13 @@ func newMainConsole(computer *ClementinaComputer) *console {
 *************************************************************************************/
 
 // initializeMainGrid sets up the main grid layout for the console.
-//
-// Parameters:
-//   - tvApp: The tview application to set the root for
-func (c *console) initializeMainGrid(tvApp *tview.Application) {
+func (c *console) initializeMainGrid() {
 	c.grid.SetRows(3, 0, 3).
 		SetColumns(25, 0).
 		SetBorder(true).
 		SetTitle("Clementina 6502 Computer")
 
-	tvApp.SetRoot(c.grid, true)
+	c.ConsoleApp().SetRoot(c.grid, true)
 }
 
 // initializeBusWindow configures the bus window with the computer's buses.

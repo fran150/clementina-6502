@@ -6,7 +6,6 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
-	"github.com/gdamore/tcell/v2"
 	"go.bug.st/serial"
 )
 
@@ -62,6 +61,24 @@ type BenEaterComputerConfig struct {
 * Computer Interface methods
 ********************************************************************************************/
 
+// Run starts the emulation loop and runs the console application.
+func (c *BenEaterComputer) Run() (*common.StepContext, error) {
+	context := c.BaseComputer.Run()
+
+	if err := c.console.Run(); err != nil {
+		c.BaseComputer.Stop()
+		return nil, err
+	}
+
+	return context, nil
+}
+
+// Stop stops computer execution and finishes the console application.
+func (c *BenEaterComputer) Stop() {
+	c.BaseComputer.Stop()
+	c.console.Stop()
+}
+
 // Tick advances the computer's state by one cycle.
 // It updates all components if the computer is not paused or if a single step is requested.
 // It also handles breakpoints and resets.
@@ -105,12 +122,6 @@ func (c *BenEaterComputer) Tick(context *common.StepContext) {
 //   - context: The current step context
 func (c *BenEaterComputer) Draw(context *common.StepContext) {
 	c.console.Draw(context)
-	c.ConsoleApp().Draw()
-}
-
-func (c *BenEaterComputer) KeyPressed(event *tcell.EventKey) *tcell.EventKey {
-	options := computers.GetWindow[ui.OptionsWindow](&c.console.BaseConsole, "options")
-	return options.ProcessKey(event)
 }
 
 /*******************************************************************************************
