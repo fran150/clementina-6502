@@ -1,7 +1,6 @@
 package beneater
 
 import (
-	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/gdamore/tcell/v2"
 )
@@ -63,8 +62,8 @@ func createMenuOptions(computer *BenEaterComputer, console *console) []*ui.Optio
 									KeyName:        "R",
 									KeyDescription: "Remove Selected Breakpoint",
 									Action: func() {
-										if breakpointForm := computers.GetWindow[ui.BreakPointForm](&console.BaseConsole, "breakpoint"); breakpointForm != nil {
-											breakpointForm.RemoveSelectedItem()
+										if breakpointController := console.GetConsole().GetBreakpointController("breakpoint"); breakpointController != nil {
+											breakpointController.GetWindow().RemoveSelectedItem()
 										}
 									},
 								},

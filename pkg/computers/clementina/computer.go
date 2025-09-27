@@ -6,7 +6,6 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina/modules"
-	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 )
 
 type mapperFunctions[T uint8 | uint16, S uint8 | uint16] struct {
@@ -54,26 +53,32 @@ type circuit struct {
 // Clementina represents a complete emulation of Clementina 6502 computer.
 // It contains all the necessary components and connections to simulate the hardware.
 type ClementinaComputer struct {
-	computers.BaseComputer
-
+	system      *computers.ComputerSystem
 	chips       *chips
 	circuit     *circuit
 	console     *console
 	resetCycles uint8
 
 	mappers mappers
+
+	// Performance optimization: cache frequently accessed state
+	stateManager        *computers.StateManager
+	lastBreakpointCheck uint64
 }
 
 /*******************************************************************************************
-* Computer Interface methods
+* ComputerCore Interface methods (Emulator + Renderer)
 ********************************************************************************************/
 
 // Run starts the emulation loop and runs the console application.
 func (c *ClementinaComputer) Run() (*common.StepContext, error) {
-	context := c.BaseComputer.Run()
+	context, err := c.system.Start()
+	if err != nil {
+		return nil, err
+	}
 
 	if err := c.console.Run(); err != nil {
-		c.BaseComputer.Stop()
+		c.system.Stop()
 		return nil, err
 	}
 
@@ -82,7 +87,7 @@ func (c *ClementinaComputer) Run() (*common.StepContext, error) {
 
 // Stop stops computer execution and finishes the console application.
 func (c *ClementinaComputer) Stop() {
-	c.BaseComputer.Stop()
+	c.system.Stop()
 	c.console.Stop()
 }
 
@@ -93,7 +98,13 @@ func (c *ClementinaComputer) Stop() {
 // Parameters:
 //   - context: The current step context
 func (c *ClementinaComputer) Tick(context *common.StepContext) {
-	if !c.IsPaused() || c.IsStepping() {
+	// Cache state manager for performance
+	if c.stateManager == nil {
+		c.stateManager = c.system.GetStateManager()
+	}
+
+	if !c.stateManager.IsPaused() || c.stateManager.IsStepping() {
+		// Core emulation - keep this tight for performance
 		c.chips.cpu.Tick(context)
 
 		c.chips.csLogic.Tick(context)
@@ -106,21 +117,26 @@ func (c *ClementinaComputer) Tick(context *common.StepContext) {
 		c.chips.exram.Tick(context)
 
 		c.chips.cpu.PostTick(context)
-
 		c.checkReset()
 
-		if c.console != nil {
-			c.console.Tick(context)
+		// Clear stepping state
+		if c.stateManager.IsStepping() {
+			c.stateManager.ClearStepping()
 		}
 
-		c.ClearStepping()
-
-		if c.chips.cpu.IsReadingOpcode() {
-			if breakpointForm := computers.GetWindow[ui.BreakPointForm](&c.console.BaseConsole, "breakpoint"); breakpointForm != nil {
-				if breakpointForm.CheckBreakpoint(c.chips.cpu.GetProgramCounter() - 1) {
-					c.Pause()
+		// Only check breakpoints every 100 cycles for performance
+		if c.chips.cpu.IsReadingOpcode() && (context.Cycle-c.lastBreakpointCheck) > 100 {
+			c.lastBreakpointCheck = context.Cycle
+			if breakpointController := c.console.GetConsole().GetBreakpointController("breakpoint"); breakpointController != nil {
+				if breakpointController.CheckBreakpoint(c.chips.cpu.GetProgramCounter() - 1) {
+					c.stateManager.Pause()
 				}
 			}
+		}
+
+		// Console tick is expensive, do it less frequently
+		if (context.Cycle%10) == 0 && c.console != nil {
+			c.console.Tick(context)
 		}
 	}
 }
@@ -184,16 +200,75 @@ func (c *ClementinaComputer) getPotentialOperators(programCounter uint16) [2]uin
 // checkReset handles the reset signal timing for the CPU.
 // On 6502 systems the reset signal must be held low for a certain number of cycles
 func (c *ClementinaComputer) checkReset() {
-	if c.IsResetting() {
+	if c.stateManager.IsResetting() {
 		c.circuit.cpuReset.Set(false)
 		c.resetCycles++
 		if c.resetCycles > 5 {
-			c.Unreset()
+			c.stateManager.Unreset()
 			c.resetCycles = 0
 		}
 	} else {
 		c.circuit.cpuReset.Set(true)
 	}
+}
+
+/*******************************************************************************************
+* Controller Interface methods (delegated to system)
+********************************************************************************************/
+
+// Pause stops the execution of the computer.
+func (c *ClementinaComputer) Pause() {
+	c.system.Pause()
+}
+
+// Resume continues the execution of the computer after being paused.
+func (c *ClementinaComputer) Resume() {
+	c.system.Resume()
+}
+
+// Reset triggers a reset of the computer.
+func (c *ClementinaComputer) Reset() {
+	c.system.Reset()
+}
+
+// Step signals that the computer should step through one cycle.
+func (c *ClementinaComputer) Step() {
+	c.system.Step()
+}
+
+// SpeedUp increases the emulation speed.
+func (c *ClementinaComputer) SpeedUp() {
+	c.system.SpeedUp()
+}
+
+// SpeedDown decreases the emulation speed.
+func (c *ClementinaComputer) SpeedDown() {
+	c.system.SpeedDown()
+}
+
+// IsRunning checks if the computer is currently running.
+func (c *ClementinaComputer) IsRunning() bool {
+	return c.system.IsRunning()
+}
+
+// IsPaused checks if the computer is currently paused.
+func (c *ClementinaComputer) IsPaused() bool {
+	return c.system.IsPaused()
+}
+
+// GetTargetSpeed returns the current target speed in MHz.
+func (c *ClementinaComputer) GetTargetSpeed() float64 {
+	return c.system.GetTargetSpeed()
+}
+
+// GetTargetSpeedPtr returns a pointer to the current target speed in MHz.
+func (c *ClementinaComputer) GetTargetSpeedPtr() *float64 {
+	return c.system.GetTargetSpeedPtr()
+}
+
+// GetSpeedController returns the speed controller for direct access.
+func (c *ClementinaComputer) GetSpeedController() computers.SpeedController {
+	return c.system.GetSpeedController()
 }
 
 // BaseRamPoke writes a value directly to the base RAM at the specified address.

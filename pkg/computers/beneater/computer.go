@@ -5,7 +5,6 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/computers"
-	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"go.bug.st/serial"
 )
 
@@ -43,30 +42,36 @@ type circuit struct {
 // BenEaterComputer represents a complete emulation of Ben Eater's 6502 computer.
 // It contains all the necessary components and connections to simulate the hardware.
 type BenEaterComputer struct {
-	computers.BaseComputer
-
+	system      *computers.ComputerSystem
 	chips       *chips
 	circuit     *circuit
 	console     *console
 	resetCycles uint8
+
+	// Performance optimization: cache frequently accessed state
+	stateManager        *computers.StateManager
+	lastBreakpointCheck uint64
 }
 
 type BenEaterComputerConfig struct {
-	computers.EmulationLoopConfig
+	DisplayFps        int
 	Port              serial.Port
 	EmulateModemLines bool
 }
 
 /*******************************************************************************************
-* Computer Interface methods
+* ComputerCore Interface methods (Emulator + Renderer)
 ********************************************************************************************/
 
 // Run starts the emulation loop and runs the console application.
 func (c *BenEaterComputer) Run() (*common.StepContext, error) {
-	context := c.BaseComputer.Run()
+	context, err := c.system.Start()
+	if err != nil {
+		return nil, err
+	}
 
 	if err := c.console.Run(); err != nil {
-		c.BaseComputer.Stop()
+		c.system.Stop()
 		return nil, err
 	}
 
@@ -75,7 +80,7 @@ func (c *BenEaterComputer) Run() (*common.StepContext, error) {
 
 // Stop stops computer execution and finishes the console application.
 func (c *BenEaterComputer) Stop() {
-	c.BaseComputer.Stop()
+	c.system.Stop()
 	c.console.Stop()
 }
 
@@ -86,7 +91,13 @@ func (c *BenEaterComputer) Stop() {
 // Parameters:
 //   - context: The current step context
 func (c *BenEaterComputer) Tick(context *common.StepContext) {
-	if !c.IsPaused() || c.IsStepping() {
+	// Cache state manager for performance
+	if c.stateManager == nil {
+		c.stateManager = c.system.GetStateManager()
+	}
+
+	if !c.stateManager.IsPaused() || c.stateManager.IsStepping() {
+		// Core emulation - keep this tight for performance
 		c.chips.cpu.Tick(context)
 		c.chips.nand.Tick(context)
 		c.chips.ram.Tick(context)
@@ -96,21 +107,26 @@ func (c *BenEaterComputer) Tick(context *common.StepContext) {
 		c.chips.acia.Tick(context)
 
 		c.chips.cpu.PostTick(context)
-
 		c.checkReset()
 
-		if c.console != nil {
-			c.console.Tick(context)
+		// Clear stepping state
+		if c.stateManager.IsStepping() {
+			c.stateManager.ClearStepping()
 		}
 
-		c.ClearStepping()
-
-		if c.chips.cpu.IsReadingOpcode() {
-			if breakpointForm := computers.GetWindow[ui.BreakPointForm](&c.console.BaseConsole, "breakpoint"); breakpointForm != nil {
-				if breakpointForm.CheckBreakpoint(c.chips.cpu.GetProgramCounter() - 1) {
-					c.Pause()
+		// Only check breakpoints every 100 cycles for performance
+		if c.chips.cpu.IsReadingOpcode() && (context.Cycle-c.lastBreakpointCheck) > 100 {
+			c.lastBreakpointCheck = context.Cycle
+			if breakpointController := c.console.GetBreakpointController("breakpoint"); breakpointController != nil {
+				if breakpointController.CheckBreakpoint(c.chips.cpu.GetProgramCounter() - 1) {
+					c.stateManager.Pause()
 				}
 			}
+		}
+
+		// Console tick is expensive, do it less frequently
+		if (context.Cycle%10) == 0 && c.console != nil {
+			c.console.Tick(context)
 		}
 	}
 }
@@ -162,14 +178,73 @@ func (c *BenEaterComputer) getPotentialOperators(programCounter uint16) [2]uint8
 // checkReset handles the reset signal timing for the CPU.
 // In order to reset the CPU, it must be held low for a certain number of cycles.
 func (c *BenEaterComputer) checkReset() {
-	if c.IsResetting() {
+	if c.stateManager.IsResetting() {
 		c.circuit.cpuReset.Set(false)
 		c.resetCycles++
 		if c.resetCycles > 5 {
-			c.Unreset()
+			c.stateManager.Unreset()
 			c.resetCycles = 0
 		}
 	} else {
 		c.circuit.cpuReset.Set(true)
 	}
+}
+
+/*******************************************************************************************
+* Controller Interface methods (delegated to system)
+********************************************************************************************/
+
+// Pause stops the execution of the computer.
+func (c *BenEaterComputer) Pause() {
+	c.system.Pause()
+}
+
+// Resume continues the execution of the computer after being paused.
+func (c *BenEaterComputer) Resume() {
+	c.system.Resume()
+}
+
+// Reset triggers a reset of the computer.
+func (c *BenEaterComputer) Reset() {
+	c.system.Reset()
+}
+
+// Step signals that the computer should step through one cycle.
+func (c *BenEaterComputer) Step() {
+	c.system.Step()
+}
+
+// SpeedUp increases the emulation speed.
+func (c *BenEaterComputer) SpeedUp() {
+	c.system.SpeedUp()
+}
+
+// SpeedDown decreases the emulation speed.
+func (c *BenEaterComputer) SpeedDown() {
+	c.system.SpeedDown()
+}
+
+// IsRunning checks if the computer is currently running.
+func (c *BenEaterComputer) IsRunning() bool {
+	return c.system.IsRunning()
+}
+
+// IsPaused checks if the computer is currently paused.
+func (c *BenEaterComputer) IsPaused() bool {
+	return c.system.IsPaused()
+}
+
+// GetTargetSpeed returns the current target speed in MHz.
+func (c *BenEaterComputer) GetTargetSpeed() float64 {
+	return c.system.GetTargetSpeed()
+}
+
+// GetTargetSpeedPtr returns a pointer to the current target speed in MHz.
+func (c *BenEaterComputer) GetTargetSpeedPtr() *float64 {
+	return c.system.GetTargetSpeedPtr()
+}
+
+// GetSpeedController returns the speed controller for direct access.
+func (c *BenEaterComputer) GetSpeedController() computers.SpeedController {
+	return c.system.GetSpeedController()
 }

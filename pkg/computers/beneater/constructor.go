@@ -12,7 +12,6 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components/other/gates"
 	"github.com/fran150/clementina-6502/pkg/components/via"
 	"github.com/fran150/clementina-6502/pkg/computers"
-	"github.com/rivo/tview"
 )
 
 // NewBenEaterComputer creates and initializes a new instance of the Ben Eater 6502 computer emulation.
@@ -148,13 +147,17 @@ func NewBenEaterComputer(config *BenEaterComputerConfig) (*BenEaterComputer, err
 		resetCycles: 0,
 	}
 
-	computer.BaseComputer = *computers.NewBaseComputer(
-		computers.NewEmulationLoopFor(computer, &config.EmulationLoopConfig),
-	)
+	// Create the computer system using the new architecture
+	speedController := computers.NewSpeedController(1.0) // Default 1 MHz
+	loopConfig := &computers.EmulationLoopConfig{
+		DisplayFps: config.DisplayFps,
+	}
 
-	computer.console = newMainConsole(computer, tview.NewApplication())
+	computer.system = computers.NewComputerSystem(computer, speedController, loopConfig)
 
-	computer.Loop().SetPanicHandler(func(loopType string, panicData any) bool {
+	computer.console = newMainConsole(computer)
+
+	computer.system.GetEmulationLoop().SetPanicHandler(func(loopType string, panicData any) bool {
 		fmt.Fprintf(os.Stderr, "%s panic: %v\n", loopType, panicData)
 		computer.Stop()
 		return false

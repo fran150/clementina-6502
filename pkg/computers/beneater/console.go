@@ -7,16 +7,15 @@ import (
 )
 
 type console struct {
-	computers.BaseConsole
-
+	*computers.TViewConsole
 	grid *tview.Grid
 }
 
 // newMainConsole creates and initializes a new console for the Ben Eater computer.
-func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *console {
+func newMainConsole(computer *BenEaterComputer) *console {
 	console := &console{
-		grid:        tview.NewGrid(),
-		BaseConsole: *computers.NewBaseConsole(tvApp),
+		TViewConsole: computers.NewTViewConsole(),
+		grid:         tview.NewGrid(),
 	}
 
 	console.initializeMainGrid()
@@ -26,7 +25,7 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 	// Initialize all windows
 	console.AddWindow("lcd", ui.NewDisplayWindow(computer.chips.lcd))
 	console.AddWindow("code", ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators))
-	console.AddWindow("speed", ui.NewSpeedWindow(&computer.Loop().GetConfig().TargetSpeedMhz))
+	console.AddWindow("speed", ui.NewSpeedWindow(computer.GetTargetSpeedPtr()))
 	console.AddWindow("cpu", ui.NewCpuWindow(computer.chips.cpu))
 	console.AddWindow("via", ui.NewViaWindow(computer.chips.via))
 	console.AddWindow("lcd_controller", ui.NewLcdWindow(computer.chips.lcd))
@@ -43,7 +42,7 @@ func newMainConsole(computer *BenEaterComputer, tvApp *tview.Application) *conso
 	console.initializeLayout()
 
 	// Set initial active window
-	console.SetActiveWindow("cpu")
+	console.ShowWindow("cpu")
 
 	return console
 }
@@ -59,7 +58,8 @@ func (c *console) initializeMainGrid() {
 		SetBorder(true).
 		SetTitle("Ben Eater 6502 Computer")
 
-	c.ConsoleApp().SetRoot(c.grid, true)
+	// Get the tview app from the framework and set the grid as root
+	c.TViewConsole.GetFramework().GetApp().SetRoot(c.grid, true)
 }
 
 // initializeBusWindow configures the bus window with the computer's buses.
@@ -78,4 +78,13 @@ func (c *console) initializeLayout() {
 		AddItem(c.GetWindow("code").GetDrawArea(), 2, 0, 1, 1, 0, 0, false).
 		AddItem(c.GetWindow("options").GetDrawArea(), 3, 0, 1, 2, 0, 0, false).
 		AddItem(c.GetPages(), 0, 1, 3, 1, 0, 0, true)
+}
+
+/************************************************************************************
+* Convenience methods to access underlying console functionality
+*************************************************************************************/
+
+// GetBreakpointController returns the breakpoint controller for the specified key.
+func (c *console) GetBreakpointController(key string) *computers.BreakpointWindowController {
+	return c.GetConsole().GetBreakpointController(key)
 }

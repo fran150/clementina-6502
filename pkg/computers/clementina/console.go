@@ -7,8 +7,7 @@ import (
 )
 
 type console struct {
-	computers.BaseConsole
-
+	*computers.TViewConsole
 	grid *tview.Grid
 }
 
@@ -19,10 +18,10 @@ type console struct {
 //
 // Returns:
 //   - A configured console ready for use
-func newMainConsole(computer *ClementinaComputer, tvApp *tview.Application) *console {
+func newMainConsole(computer *ClementinaComputer) *console {
 	console := &console{
-		grid:        tview.NewGrid(),
-		BaseConsole: *computers.NewBaseConsole(tvApp),
+		TViewConsole: computers.NewTViewConsole(),
+		grid:         tview.NewGrid(),
 	}
 
 	console.initializeMainGrid()
@@ -31,7 +30,7 @@ func newMainConsole(computer *ClementinaComputer, tvApp *tview.Application) *con
 
 	// Initialize all windows
 	console.AddWindow("code", ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators))
-	console.AddWindow("speed", ui.NewSpeedWindow(&computer.Loop().GetConfig().TargetSpeedMhz))
+	console.AddWindow("speed", ui.NewSpeedWindow(computer.GetTargetSpeedPtr()))
 	console.AddWindow("cpu", ui.NewCpuWindow(computer.chips.cpu))
 	console.AddWindow("via", ui.NewViaWindow(computer.chips.via))
 	console.AddWindow("baseram", ui.NewMemoryWindow(computer.chips.baseram))
@@ -48,7 +47,7 @@ func newMainConsole(computer *ClementinaComputer, tvApp *tview.Application) *con
 	console.initializeLayout()
 
 	// Set initial active window
-	console.SetActiveWindow("cpu")
+	console.ShowWindow("cpu")
 
 	return console
 }
@@ -64,7 +63,8 @@ func (c *console) initializeMainGrid() {
 		SetBorder(true).
 		SetTitle("Clementina 6502 Computer")
 
-	c.ConsoleApp().SetRoot(c.grid, true)
+	// Get the tview app from the framework and set the grid as root
+	c.TViewConsole.GetFramework().GetApp().SetRoot(c.grid, true)
 }
 
 // initializeBusWindow configures the bus window with the computer's buses.
@@ -82,9 +82,9 @@ func initializeBusWindow(computer *ClementinaComputer, busWindow *ui.BusWindow) 
 // initializeLayout sets up the initial layout of console windows.
 func (c *console) initializeLayout() {
 	// Setup initial grid layout
-	c.grid.AddItem(c.GetWindow("speed").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
-		AddItem(c.GetWindow("code").GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
-		AddItem(c.GetWindow("options").GetDrawArea(), 2, 0, 1, 2, 0, 0, false).
+	c.grid.AddItem(c.TViewConsole.GetWindow("speed").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
+		AddItem(c.TViewConsole.GetWindow("code").GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
+		AddItem(c.TViewConsole.GetWindow("options").GetDrawArea(), 2, 0, 1, 2, 0, 0, false).
 		AddItem(c.GetPages(), 0, 1, 2, 1, 0, 0, true)
 }
 
@@ -94,12 +94,24 @@ func (c *console) initializeLayout() {
 
 // ShowGotoForm shows the go to form for memory navigation allowing to navigate back.
 func (c *console) ShowGotoForm() {
-	if memoryWin := computers.GetWindow[ui.MemoryWindow](&c.BaseConsole, c.GetActiveWindow()); memoryWin != nil {
-		if form := computers.GetWindow[ui.MemoryWindowGoToForm](&c.BaseConsole, "goto"); form != nil {
-			if options := computers.GetWindow[ui.OptionsWindow](&c.BaseConsole, "options"); options != nil {
-				form.InitForm(memoryWin, func() { options.GoToPreviousMenu() })
-				c.AppendActiveWindow("goto")
+	activeKey := c.GetActiveWindow()
+	if memoryController := c.GetConsole().GetMemoryController(activeKey); memoryController != nil {
+		if gotoWindow, ok := c.TViewConsole.GetWindow("goto").(*ui.MemoryWindowGoToForm); ok {
+			if optionsController := c.GetConsole().GetOptionsController("options"); optionsController != nil {
+				gotoWindow.InitForm(memoryController.GetWindow(), func() {
+					optionsController.GetWindow().GoToPreviousMenu()
+				})
+				c.SetBreakpointConfigMode() // Navigate to goto form
 			}
 		}
 	}
+}
+
+/************************************************************************************
+* Convenience methods to access underlying console functionality
+*************************************************************************************/
+
+// GetBreakpointController returns the breakpoint controller for the specified key.
+func (c *console) GetBreakpointController(key string) *computers.BreakpointWindowController {
+	return c.GetConsole().GetBreakpointController(key)
 }

@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/fran150/clementina-6502/pkg/computers"
+	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/computers/beneater"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina"
 	"github.com/spf13/cobra"
@@ -42,14 +42,14 @@ func init() {
 	rootCmd.Flags().BoolVarP(&emulateModemLines, "emulate-modem", "e", false, "Enable modem lines emulation for serial port (RTS, CTS, DTR, DSR)")
 }
 
-func runEmulator(cmd *cobra.Command, args []string) {
-	// Create the computer instance
-	var computer computers.Computer
+// ComputerRunner defines the interface for running computers in the CLI
+type ComputerRunner interface {
+	Run() (*common.StepContext, error)
+	Stop()
+}
 
-	loopConfig := computers.EmulationLoopConfig{
-		TargetSpeedMhz: targetMhz,
-		DisplayFps:     targetFps,
-	}
+func runEmulator(cmd *cobra.Command, args []string) {
+	var computer ComputerRunner
 
 	if model == beneaterModel {
 		var port serial.Port
@@ -69,45 +69,55 @@ func runEmulator(cmd *cobra.Command, args []string) {
 			}
 		}
 
-		config := beneater.BenEaterComputerConfig{
-			Port:                port,
-			EmulateModemLines:   emulateModemLines,
-			EmulationLoopConfig: loopConfig,
+		config := &beneater.BenEaterComputerConfig{
+			DisplayFps:        targetFps,
+			Port:              port,
+			EmulateModemLines: emulateModemLines,
 		}
 
-		beneater, err := beneater.NewBenEaterComputer(&config)
+		benEaterComputer, err := beneater.NewBenEaterComputer(config)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
 			os.Exit(1)
 		}
 
-		defer beneater.Close()
+		defer benEaterComputer.Close()
+
+		// Set the initial speed
+		benEaterComputer.GetSpeedController().SetTargetSpeed(targetMhz)
 
 		// Try to load the ROM file
-		if err := beneater.LoadRom(romFile); err != nil {
+		if err := benEaterComputer.LoadRom(romFile); err != nil {
 			fmt.Fprintf(os.Stderr, "Error loading ROM file: %v\n", err)
 			os.Exit(1)
 		}
 
-		computer = beneater
+		computer = benEaterComputer
 	} else {
-		clementina, err := clementina.NewClementinaComputer(&loopConfig)
+		config := &clementina.ClementinaComputerConfig{
+			DisplayFps: targetFps,
+		}
+
+		clementinaComputer, err := clementina.NewClementinaComputer(config)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
 			os.Exit(1)
 		}
 
-		clementina.HiRamPoke(0xFFFC, 0x00, 0x00) // Set $E100 in the reset vector
-		clementina.HiRamPoke(0xFFFD, 0x00, 0xE1)
+		// Set the initial speed
+		clementinaComputer.GetSpeedController().SetTargetSpeed(targetMhz)
 
-		clementina.HiRamPoke(0xE100, 0x00, 0xA9) // LDA #$01
-		clementina.HiRamPoke(0xE101, 0x00, 0x01)
-		clementina.HiRamPoke(0xE102, 0x00, 0x1A) // INC A
-		clementina.HiRamPoke(0xE103, 0x00, 0x4C) // JMP $E102
-		clementina.HiRamPoke(0xE104, 0x00, 0x02)
-		clementina.HiRamPoke(0xE105, 0x00, 0xE1)
+		clementinaComputer.HiRamPoke(0xFFFC, 0x00, 0x00) // Set $E100 in the reset vector
+		clementinaComputer.HiRamPoke(0xFFFD, 0x00, 0xE1)
 
-		computer = clementina
+		clementinaComputer.HiRamPoke(0xE100, 0x00, 0xA9) // LDA #$01
+		clementinaComputer.HiRamPoke(0xE101, 0x00, 0x01)
+		clementinaComputer.HiRamPoke(0xE102, 0x00, 0x1A) // INC A
+		clementinaComputer.HiRamPoke(0xE103, 0x00, 0x4C) // JMP $E102
+		clementinaComputer.HiRamPoke(0xE104, 0x00, 0x02)
+		clementinaComputer.HiRamPoke(0xE105, 0x00, 0xE1)
+
+		computer = clementinaComputer
 	}
 
 	t := time.Now()

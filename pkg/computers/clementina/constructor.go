@@ -10,19 +10,23 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components/via"
 	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina/modules"
-	"github.com/rivo/tview"
 )
+
+// ClementinaComputerConfig contains configuration for the Clementina computer.
+type ClementinaComputerConfig struct {
+	DisplayFps int
+}
 
 // NewClementinaComputer creates and initializes a new instance of the Clementina 6502 computer emulation.
 // It sets up all hardware components and connects them according to the design.
 //
 // Parameters:
-//   - config: Configuration for the emulation loop settings
+//   - config: Configuration for the computer settings
 //
 // Returns:
 //   - A pointer to the initialized ClementinaComputer
 //   - An error if initialization fails
-func NewClementinaComputer(config *computers.EmulationLoopConfig) (*ClementinaComputer, error) {
+func NewClementinaComputer(config *ClementinaComputerConfig) (*ClementinaComputer, error) {
 	chips := &chips{
 		cpu:      cpu.NewCpu65C02S(),
 		baseram:  memory.NewRam(memory.RAM_SIZE_32K),
@@ -227,13 +231,17 @@ func NewClementinaComputer(config *computers.EmulationLoopConfig) (*ClementinaCo
 		resetCycles: 0,
 	}
 
-	computer.BaseComputer = *computers.NewBaseComputer(
-		computers.NewEmulationLoopFor(computer, config),
-	)
+	// Create the computer system using the new architecture
+	speedController := computers.NewSpeedController(1.0) // Default 1 MHz
+	loopConfig := &computers.EmulationLoopConfig{
+		DisplayFps: config.DisplayFps,
+	}
 
-	computer.console = newMainConsole(computer, tview.NewApplication())
+	computer.system = computers.NewComputerSystem(computer, speedController, loopConfig)
 
-	computer.Loop().SetPanicHandler(func(loopType string, panicData any) bool {
+	computer.console = newMainConsole(computer)
+
+	computer.system.GetEmulationLoop().SetPanicHandler(func(loopType string, panicData any) bool {
 		fmt.Fprintf(os.Stderr, "%s panic: %v\n", loopType, panicData)
 		return false
 	})

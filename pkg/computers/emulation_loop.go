@@ -1,4 +1,3 @@
-// Package computers provides computer system implementations and emulation control.
 package computers
 
 import (
@@ -7,11 +6,8 @@ import (
 	"github.com/fran150/clementina-6502/pkg/common"
 )
 
-// EmulationLoopConfig contains settings that control the emulation speed and display refresh rate.
+// EmulationLoopConfig contains settings that control the display refresh rate.
 type EmulationLoopConfig struct {
-	// TargetSpeedMhz specifies the target CPU speed in MHz
-	TargetSpeedMhz float64
-
 	// DisplayFps specifies the target frames per second for display updates
 	DisplayFps int
 }
@@ -20,8 +16,10 @@ type EmulationLoopConfig struct {
 // It ensures the emulation runs at the specified speed and handles the
 // separation between processing cycles and display updates.
 type EmulationLoop struct {
-	computer Computer
-	config   *EmulationLoopConfig
+	emulator        Emulator
+	renderer        Renderer
+	speedController SpeedController
+	config          *EmulationLoopConfig
 
 	panicHandler func(loopType string, panicData any) bool
 
@@ -31,50 +29,27 @@ type EmulationLoop struct {
 	stop bool
 }
 
-// NewEmulationLoopFor creates a new emulation loop with the specified configuration.
+// NewEmulationLoop creates a new emulation loop with the specified components.
 //
 // Parameters:
+//   - emulator: The emulator to run
+//   - renderer: The renderer for display updates
+//   - speedController: The speed controller for timing
 //   - config: Configuration settings for the emulation loop
 //
 // Returns:
 //   - A pointer to the initialized EmulationLoop
-func NewEmulationLoop(config *EmulationLoopConfig) *EmulationLoop {
+func NewEmulationLoop(emulator Emulator, renderer Renderer, speedController SpeedController, config *EmulationLoopConfig) *EmulationLoop {
 	return &EmulationLoop{
+		emulator:        emulator,
+		renderer:        renderer,
+		speedController: speedController,
 		config:          config,
 		panicHandler:    nil,
 		stop:            true,
 		tickLoopRunning: false,
 		drawLoopRunning: false,
 	}
-}
-
-// NewEmulationLoopFor creates a new emulation loop with the specified configuration and computer.
-//
-// Parameters:
-//   - computer: The computer instance to emulate
-//   - config: Configuration settings for the emulation loop
-//
-// Returns:
-//   - A pointer to the initialized EmulationLoop
-func NewEmulationLoopFor(computer Computer, config *EmulationLoopConfig) *EmulationLoop {
-	loop := NewEmulationLoop(config)
-	loop.SetComputer(computer)
-	return loop
-}
-
-// SetComputer sets the computer instance for the emulation loop.
-// Parameters:
-//   - computer: The computer instance to emulate
-func (e *EmulationLoop) SetComputer(computer Computer) {
-	e.computer = computer
-}
-
-// GetComputer returns the computer instance associated with the emulation loop.
-//
-// Returns:
-//   - The computer instance being emulated
-func (e *EmulationLoop) GetComputer() Computer {
-	return e.computer
 }
 
 // GetConfig returns the current emulation loop configuration.
@@ -107,16 +82,9 @@ func (e *EmulationLoop) IsStopping() bool {
 // It runs the emulation at the configured speed and manages the timing
 // for both CPU cycles and display updates.
 //
-// If the computer or config is not set, it returns nil.
-//
 // Returns:
-//   - A StepContext that can be used to control and monitor the emulation or
-//     nil if the computer or config is not set.
+//   - A StepContext that can be used to control and monitor the emulation
 func (e *EmulationLoop) Start() *common.StepContext {
-	if e.computer == nil || e.config == nil {
-		return nil
-	}
-
 	context := common.NewStepContext()
 
 	e.stop = false
@@ -159,15 +127,34 @@ func (e *EmulationLoop) executeLoop(context *common.StepContext) {
 	}()
 
 	var lastTPSExecuted, targetTPSNano int64
+	var lastSpeedCheck uint64
+	var currentSpeed float64 = e.speedController.GetTargetSpeed()
 
 	e.tickLoopRunning = true
 
+	// Try to cast to DefaultSpeedController for performance optimization
+	var defaultSpeedController *DefaultSpeedController
+	if dsc, ok := e.speedController.(*DefaultSpeedController); ok {
+		defaultSpeedController = dsc
+	}
+
 	for !e.stop {
-		targetTPSNano = int64(float64(time.Microsecond) / e.config.TargetSpeedMhz)
+		// Only check speed every 1000 cycles to reduce overhead
+		if (context.Cycle - lastSpeedCheck) > 1000 {
+			if defaultSpeedController != nil {
+				// Use cached nanoseconds per cycle for better performance
+				targetTPSNano = int64(defaultSpeedController.GetNanosPerCycle())
+			} else {
+				// Fallback to interface method
+				currentSpeed = e.speedController.GetTargetSpeed()
+				targetTPSNano = int64(float64(time.Microsecond) / currentSpeed)
+			}
+			lastSpeedCheck = context.Cycle
+		}
 
 		if (context.T - lastTPSExecuted) > targetTPSNano {
 			lastTPSExecuted = context.T
-			e.computer.Tick(context)
+			e.emulator.Tick(context)
 			context.NextCycle()
 		} else {
 			context.SkipCycle()
@@ -194,6 +181,6 @@ func (e *EmulationLoop) executeDraw(context *common.StepContext) {
 
 	for !e.stop {
 		<-ticker.C
-		e.computer.Draw(context)
+		e.renderer.Draw(context)
 	}
 }
