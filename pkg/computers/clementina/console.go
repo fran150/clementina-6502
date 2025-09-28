@@ -64,7 +64,7 @@ func (c *console) initializeMainGrid() {
 		SetTitle("Clementina 6502 Computer")
 
 	// Get the tview app from the framework and set the grid as root
-	c.TViewConsole.GetFramework().GetApp().SetRoot(c.grid, true)
+	c.TViewConsole.SetRoot(c.grid)
 }
 
 // initializeBusWindow configures the bus window with the computer's buses.

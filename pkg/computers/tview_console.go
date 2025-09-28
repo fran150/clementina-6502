@@ -11,10 +11,10 @@ import (
 // TViewConsole provides a tview-based console implementation.
 type TViewConsole struct {
 	console       *Console
-	framework     *TViewFramework
 	pages         *tview.Pages
 	inputHandler  InputHandler
 	windowManager WindowManager
+	app           *tview.Application
 }
 
 // NewTViewConsole creates a new tview-based console.
@@ -25,13 +25,13 @@ func NewTViewConsole() *TViewConsole {
 	windowManager := NewWindowManager()
 	navigationManager := NewNavigationManager()
 	console := NewConsole(windowManager, navigationManager)
-	framework := NewTViewFramework()
+	app := tview.NewApplication()
 
 	tviewConsole := &TViewConsole{
 		console:       console,
-		framework:     framework,
 		pages:         tview.NewPages(),
 		windowManager: windowManager,
+		app:           app,
 	}
 
 	// Create input handler that delegates to the console
@@ -41,18 +41,22 @@ func NewTViewConsole() *TViewConsole {
 	}
 
 	// Configure the framework
-	framework.SetInputCapture(tviewConsole.inputHandler.HandleKey)
-	framework.EnableMouse(true)
-	framework.EnablePaste(true)
+	app.SetInputCapture(tviewConsole.inputHandler.HandleKey)
+	app.EnableMouse(true)
+	app.EnablePaste(true)
 
 	// Set the pages as the root of the tview app
-	framework.GetApp().SetRoot(tviewConsole.pages, true)
+	app.SetRoot(tviewConsole.pages, true)
 
 	return tviewConsole
 }
 
 func (tc *TViewConsole) GetWindowManager() WindowManager {
 	return tc.windowManager
+}
+
+func (tc *TViewConsole) SetRoot(root tview.Primitive) {
+	tc.app.SetRoot(root, true)
 }
 
 // AddWindow adds a new window to the console.
@@ -132,12 +136,12 @@ func (tc *TViewConsole) ShowEmulationSpeed() {
 // Returns:
 //   - An error if the application fails to start
 func (tc *TViewConsole) Run() error {
-	return tc.framework.Run()
+	return tc.app.Run()
 }
 
 // Stop stops the console application.
 func (tc *TViewConsole) Stop() {
-	tc.framework.Stop()
+	tc.app.Stop()
 }
 
 // Draw clears and draws all windows in the console.
@@ -146,7 +150,7 @@ func (tc *TViewConsole) Stop() {
 //   - context: The current step context
 func (tc *TViewConsole) Draw(context *common.StepContext) {
 	tc.console.Draw(context)
-	tc.framework.Draw()
+	tc.app.Draw()
 }
 
 // Tick updates the console components that need to be updated every cycle.
@@ -179,14 +183,6 @@ func (tc *TViewConsole) GetPages() *tview.Pages {
 //   - The Console instance
 func (tc *TViewConsole) GetConsole() *Console {
 	return tc.console
-}
-
-// GetFramework returns the underlying UI framework for direct access.
-//
-// Returns:
-//   - The TViewFramework instance
-func (tc *TViewConsole) GetFramework() *TViewFramework {
-	return tc.framework
 }
 
 // DefaultInputHandler provides default input handling for the console.
