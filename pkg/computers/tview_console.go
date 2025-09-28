@@ -3,16 +3,18 @@ package computers
 import (
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/terminal"
+	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
 // TViewConsole provides a tview-based console implementation.
 type TViewConsole struct {
-	console      *Console
-	framework    *TViewFramework
-	pages        *tview.Pages
-	inputHandler InputHandler
+	console       *Console
+	framework     *TViewFramework
+	pages         *tview.Pages
+	inputHandler  InputHandler
+	windowManager WindowManager
 }
 
 // NewTViewConsole creates a new tview-based console.
@@ -26,14 +28,16 @@ func NewTViewConsole() *TViewConsole {
 	framework := NewTViewFramework()
 
 	tviewConsole := &TViewConsole{
-		console:   console,
-		framework: framework,
-		pages:     tview.NewPages(),
+		console:       console,
+		framework:     framework,
+		pages:         tview.NewPages(),
+		windowManager: windowManager,
 	}
 
 	// Create input handler that delegates to the console
 	tviewConsole.inputHandler = &DefaultInputHandler{
-		console: tviewConsole,
+		windowManager: windowManager,
+		console:       tviewConsole,
 	}
 
 	// Configure the framework
@@ -45,6 +49,10 @@ func NewTViewConsole() *TViewConsole {
 	framework.GetApp().SetRoot(tviewConsole.pages, true)
 
 	return tviewConsole
+}
+
+func (tc *TViewConsole) GetWindowManager() WindowManager {
+	return tc.windowManager
 }
 
 // AddWindow adds a new window to the console.
@@ -183,7 +191,8 @@ func (tc *TViewConsole) GetFramework() *TViewFramework {
 
 // DefaultInputHandler provides default input handling for the console.
 type DefaultInputHandler struct {
-	console *TViewConsole
+	windowManager WindowManager
+	console       *TViewConsole
 }
 
 // HandleKey processes a key event and returns the modified event or nil.
@@ -196,8 +205,10 @@ type DefaultInputHandler struct {
 func (dih *DefaultInputHandler) HandleKey(event *tcell.EventKey) *tcell.EventKey {
 	// Delegate to the options window if it exists
 	// This maintains compatibility with the original implementation
-	if optionsController := dih.console.console.GetOptionsController("options"); optionsController != nil {
-		return optionsController.GetWindow().ProcessKey(event)
+
+	if window := GetWindow[ui.OptionsWindow](dih.windowManager, "options"); window != nil {
+		window.ProcessKey(event)
 	}
+
 	return event
 }

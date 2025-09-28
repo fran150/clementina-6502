@@ -79,12 +79,3 @@ func (c *console) initializeLayout() {
 		AddItem(c.GetWindow("options").GetDrawArea(), 3, 0, 1, 2, 0, 0, false).
 		AddItem(c.GetPages(), 0, 1, 3, 1, 0, 0, true)
 }
-
-/************************************************************************************
-* Convenience methods to access underlying console functionality
-*************************************************************************************/
-
-// GetBreakpointController returns the breakpoint controller for the specified key.
-func (c *console) GetBreakpointController(key string) *computers.BreakpointWindowController {
-	return c.GetConsole().GetBreakpointController(key)
-}

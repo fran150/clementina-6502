@@ -86,3 +86,21 @@ func (wm *DefaultWindowManager) GetTickers() map[string]terminal.TickerWindow {
 	}
 	return result
 }
+
+// GetWindow is a generic function that retrieves and type-casts a window from the console's window map.
+//
+// Parameters:
+//   - c: The BaseConsole instance to search in
+//   - key: The unique identifier of the window to retrieve
+//
+// Returns:
+//   - A pointer to the typed window, or nil if not found or type mismatch
+func GetWindow[T any](wm WindowManager, key string) *T {
+	if window := wm.GetWindow(key); window != nil {
+		if typed, ok := any(window).(*T); ok {
+			return typed
+		}
+	}
+
+	return nil
+}

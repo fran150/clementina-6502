@@ -95,23 +95,16 @@ func (c *console) initializeLayout() {
 // ShowGotoForm shows the go to form for memory navigation allowing to navigate back.
 func (c *console) ShowGotoForm() {
 	activeKey := c.GetActiveWindow()
-	if memoryController := c.GetConsole().GetMemoryController(activeKey); memoryController != nil {
-		if gotoWindow, ok := c.TViewConsole.GetWindow("goto").(*ui.MemoryWindowGoToForm); ok {
-			if optionsController := c.GetConsole().GetOptionsController("options"); optionsController != nil {
-				gotoWindow.InitForm(memoryController.GetWindow(), func() {
-					optionsController.GetWindow().GoToPreviousMenu()
+
+	if memoryWindow := computers.GetWindow[ui.MemoryWindow](c.GetWindowManager(), activeKey); memoryWindow != nil {
+		if gotoWindow := computers.GetWindow[ui.MemoryWindowGoToForm](c.GetWindowManager(), "goto"); memoryWindow != nil {
+			if optionsWindow := computers.GetWindow[ui.OptionsWindow](c.GetWindowManager(), "options"); memoryWindow != nil {
+				gotoWindow.InitForm(memoryWindow, func() {
+					optionsWindow.GoToPreviousMenu()
 				})
-				c.SetBreakpointConfigMode() // Navigate to goto form
+
+				c.SetBreakpointConfigMode()
 			}
 		}
 	}
-}
-
-/************************************************************************************
-* Convenience methods to access underlying console functionality
-*************************************************************************************/
-
-// GetBreakpointController returns the breakpoint controller for the specified key.
-func (c *console) GetBreakpointController(key string) *computers.BreakpointWindowController {
-	return c.GetConsole().GetBreakpointController(key)
 }
