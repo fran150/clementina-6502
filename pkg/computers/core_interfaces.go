@@ -34,31 +34,6 @@ type ComputerCore interface {
 	Renderer
 }
 
-// ComputerController defines the interface for controlling computer lifecycle.
-// This handles starting, stopping, and state management.
-type ComputerController interface {
-	// Start begins computer execution and returns the execution context.
-	Start() (*common.StepContext, error)
-
-	// Stop stops the computer system execution.
-	Stop()
-
-	// Pause stops the execution of the computer.
-	Pause()
-
-	// Resume continues the execution of the computer after being paused.
-	Resume()
-
-	// Reset triggers a reset of the computer.
-	Reset()
-
-	// IsRunning checks if the computer is currently running.
-	IsRunning() bool
-
-	// IsPaused checks if the computer is currently paused.
-	IsPaused() bool
-}
-
 // SpeedController defines the interface for managing emulation speed.
 type SpeedController interface {
 	// SpeedUp increases the emulation speed.

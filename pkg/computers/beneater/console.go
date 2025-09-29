@@ -7,15 +7,25 @@ import (
 )
 
 type console struct {
-	*computers.TViewConsole
+	*computers.Console
 	grid *tview.Grid
 }
 
 // newMainConsole creates and initializes a new console for the Ben Eater computer.
 func newMainConsole(computer *BenEaterComputer) *console {
+	wm := computers.NewWindowManager()
+
+	config := &computers.ConsoleBuildConfig{
+		WindowManager:     wm,
+		NavigationManager: computers.NewNavigationManager(),
+		InputHandler:      computers.NewDefaultInputHandler(wm),
+		Pages:             tview.NewPages(),
+		App:               tview.NewApplication(),
+	}
+
 	console := &console{
-		TViewConsole: computers.NewTViewConsole(),
-		grid:         tview.NewGrid(),
+		Console: computers.NewConsole(config),
+		grid:    tview.NewGrid(),
 	}
 
 	console.initializeMainGrid()
@@ -59,7 +69,7 @@ func (c *console) initializeMainGrid() {
 		SetTitle("Ben Eater 6502 Computer")
 
 	// Get the tview app from the framework and set the grid as root
-	c.TViewConsole.SetRoot(c.grid)
+	c.SetRoot(c.grid)
 }
 
 // initializeBusWindow configures the bus window with the computer's buses.

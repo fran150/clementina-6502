@@ -4,12 +4,25 @@ import (
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
+	"github.com/rivo/tview"
 )
 
 // Console provides the core console functionality without UI framework dependencies.
 type Console struct {
 	windowManager     WindowManager
 	navigationManager NavigationManager
+	inputHandler      InputHandler
+	pages             *tview.Pages
+	app               *tview.Application
+}
+
+// Objects required to build the console
+type ConsoleBuildConfig struct {
+	WindowManager     WindowManager
+	NavigationManager NavigationManager
+	InputHandler      InputHandler
+	Pages             *tview.Pages
+	App               *tview.Application
 }
 
 // NewConsole creates a new console with the specified managers.
@@ -20,11 +33,24 @@ type Console struct {
 //
 // Returns:
 //   - A pointer to the initialized Console
-func NewConsole(windowManager WindowManager, navigationManager NavigationManager) *Console {
-	return &Console{
-		windowManager:     windowManager,
-		navigationManager: navigationManager,
+func NewConsole(config *ConsoleBuildConfig) *Console {
+	console := &Console{
+		windowManager:     config.WindowManager,
+		navigationManager: config.NavigationManager,
+		inputHandler:      config.InputHandler,
+		pages:             config.Pages,
+		app:               config.App,
 	}
+
+	// Configure the framework
+	console.app.SetInputCapture(console.inputHandler.HandleKey)
+	console.app.EnableMouse(true)
+	console.app.EnablePaste(true)
+
+	// Set the pages as the root of the tview app
+	console.app.SetRoot(console.pages, true)
+
+	return console
 }
 
 // AddWindow adds a new window to the console.
@@ -34,6 +60,8 @@ func NewConsole(windowManager WindowManager, navigationManager NavigationManager
 //   - window: The window instance to add
 func (c *Console) AddWindow(key string, window terminal.Window) {
 	c.windowManager.AddWindow(key, window)
+	c.pages.AddPage(key, window.GetDrawArea(), true, true)
+
 }
 
 // GetWindow retrieves a window by its key.
@@ -53,6 +81,7 @@ func (c *Console) GetWindow(key string) terminal.Window {
 //   - key: The unique identifier of the window to remove
 func (c *Console) RemoveWindow(key string) {
 	c.windowManager.RemoveWindow(key)
+	c.pages.RemovePage(key)
 }
 
 // ShowWindow activates the specified window.
@@ -61,16 +90,19 @@ func (c *Console) RemoveWindow(key string) {
 //   - windowKey: The key identifying the window to show
 func (c *Console) ShowWindow(windowKey string) {
 	c.navigationManager.NavigateTo(windowKey)
+	c.pages.SwitchToPage(windowKey)
 }
 
 // SetBreakpointConfigMode activates the breakpoint configuration window.
 func (c *Console) SetBreakpointConfigMode() {
 	c.navigationManager.PushToHistory("breakpoint")
+	c.pages.SwitchToPage("breakpoint")
 }
 
 // ReturnToPreviousWindow returns to the previous window.
 func (c *Console) ReturnToPreviousWindow() {
 	c.navigationManager.GoBack()
+	c.pages.SwitchToPage(c.GetActiveWindow())
 }
 
 // ScrollUp scrolls the active memory window up by the specified number of lines.
@@ -127,6 +159,8 @@ func (c *Console) Draw(context *common.StepContext) {
 		window.Clear()
 		window.Draw(context)
 	}
+
+	c.app.Draw()
 }
 
 // Tick updates the console components that need to be updated every cycle.
@@ -137,4 +171,31 @@ func (c *Console) Tick(context *common.StepContext) {
 	for _, ticker := range c.windowManager.GetTickers() {
 		ticker.Tick(context)
 	}
+}
+
+// Run starts the console application.
+//
+// Returns:
+//   - An error if the application fails to start
+func (c *Console) Run() error {
+	return c.app.Run()
+}
+
+// Stop stops the console application.
+func (c *Console) Stop() {
+	c.app.Stop()
+}
+
+// GetWindowManager returns the window manager asociated to this object
+func (c *Console) GetWindowManager() WindowManager {
+	return c.windowManager
+}
+
+// GetPages returns the window manager asociated to this object
+func (c *Console) GetPages() *tview.Pages {
+	return c.pages
+}
+
+func (c *Console) SetRoot(root tview.Primitive) {
+	c.app.SetRoot(root, true)
 }

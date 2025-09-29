@@ -62,7 +62,7 @@ func createMenuOptions(computer *ClementinaComputer, console *console) []*ui.Opt
 									KeyName:        "R",
 									KeyDescription: "Remove Selected Breakpoint",
 									Action: func() {
-										console.GetConsole().RemoveSelectedItem()
+										console.RemoveSelectedItem()
 									},
 								},
 							},

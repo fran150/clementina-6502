@@ -7,7 +7,7 @@ import (
 )
 
 type console struct {
-	*computers.TViewConsole
+	*computers.Console
 	grid *tview.Grid
 }
 
@@ -19,9 +19,19 @@ type console struct {
 // Returns:
 //   - A configured console ready for use
 func newMainConsole(computer *ClementinaComputer) *console {
+	wm := computers.NewWindowManager()
+
+	config := &computers.ConsoleBuildConfig{
+		WindowManager:     wm,
+		NavigationManager: computers.NewNavigationManager(),
+		InputHandler:      computers.NewDefaultInputHandler(wm),
+		Pages:             tview.NewPages(),
+		App:               tview.NewApplication(),
+	}
+
 	console := &console{
-		TViewConsole: computers.NewTViewConsole(),
-		grid:         tview.NewGrid(),
+		Console: computers.NewConsole(config),
+		grid:    tview.NewGrid(),
 	}
 
 	console.initializeMainGrid()
@@ -64,7 +74,7 @@ func (c *console) initializeMainGrid() {
 		SetTitle("Clementina 6502 Computer")
 
 	// Get the tview app from the framework and set the grid as root
-	c.TViewConsole.SetRoot(c.grid)
+	c.SetRoot(c.grid)
 }
 
 // initializeBusWindow configures the bus window with the computer's buses.
@@ -82,9 +92,9 @@ func initializeBusWindow(computer *ClementinaComputer, busWindow *ui.BusWindow) 
 // initializeLayout sets up the initial layout of console windows.
 func (c *console) initializeLayout() {
 	// Setup initial grid layout
-	c.grid.AddItem(c.TViewConsole.GetWindow("speed").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
-		AddItem(c.TViewConsole.GetWindow("code").GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
-		AddItem(c.TViewConsole.GetWindow("options").GetDrawArea(), 2, 0, 1, 2, 0, 0, false).
+	c.grid.AddItem(c.GetWindow("speed").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
+		AddItem(c.GetWindow("code").GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
+		AddItem(c.GetWindow("options").GetDrawArea(), 2, 0, 1, 2, 0, 0, false).
 		AddItem(c.GetPages(), 0, 1, 2, 1, 0, 0, true)
 }
 
