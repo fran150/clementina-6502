@@ -242,11 +242,6 @@ func (c *BenEaterComputer) GetTargetSpeed() float64 {
 	return c.system.GetTargetSpeed()
 }
 
-// GetTargetSpeedPtr returns a pointer to the current target speed in MHz.
-func (c *BenEaterComputer) GetTargetSpeedPtr() *float64 {
-	return c.system.GetTargetSpeedPtr()
-}
-
 // GetSpeedController returns the speed controller for direct access.
 func (c *BenEaterComputer) GetSpeedController() interfaces.SpeedController {
 	return c.system.GetSpeedController()

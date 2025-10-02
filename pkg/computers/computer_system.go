@@ -125,11 +125,6 @@ func (cs *ComputerSystem) GetSpeedController() interfaces.SpeedController {
 	return cs.speedController
 }
 
-// GetTargetSpeedPtr returns a pointer to the current target speed in MHz.
-func (cs *ComputerSystem) GetTargetSpeedPtr() *float64 {
-	return cs.speedController.GetTargetSpeedPtr()
-}
-
 // GetEmulationLoop returns the emulation loop for direct access if needed.
 func (cs *ComputerSystem) GetEmulationLoop() *EmulationLoop {
 	return cs.loop

@@ -41,7 +41,7 @@ func newMainConsole(computer *ClementinaComputer) *console {
 
 	// Initialize all windows
 	console.AddWindow("code", ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators))
-	console.AddWindow("speed", ui.NewSpeedWindow(computer.GetTargetSpeedPtr()))
+	console.AddWindow("speed", ui.NewSpeedWindow(computer.GetSpeedController()))
 	console.AddWindow("cpu", ui.NewCpuWindow(computer.chips.cpu))
 	console.AddWindow("via", ui.NewViaWindow(computer.chips.via))
 	console.AddWindow("baseram", ui.NewMemoryWindow(computer.chips.baseram))

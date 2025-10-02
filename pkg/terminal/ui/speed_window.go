@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/core/interfaces"
 	"github.com/rivo/tview"
 )
 
@@ -14,20 +15,20 @@ type SpeedWindow struct {
 	text            *tview.TextView
 	previousT       int64
 	previousC       uint64
-	targetSpeed     *float64
+	speedController interfaces.SpeedController
 	showConfig      bool
 	showConfigStart int64
 }
 
 // NewSpeedWindow creates a new emulation speed display window.
-// It initializes the UI component and connects it to the provided speed reference.
+// It initializes the UI component and connects it to the provided speed controller.
 //
 // Parameters:
-//   - currentSpeed: Pointer to the current target speed value to monitor
+//   - speedController: The speed controller interface for managing emulation speed
 //
 // Returns:
 //   - A pointer to the initialized SpeedWindow
-func NewSpeedWindow(currentSpeed *float64) *SpeedWindow {
+func NewSpeedWindow(speedController interfaces.SpeedController) *SpeedWindow {
 	text := tview.NewTextView()
 	text.SetTextAlign(tview.AlignCenter).
 		SetScrollable(false).
@@ -37,7 +38,7 @@ func NewSpeedWindow(currentSpeed *float64) *SpeedWindow {
 
 	return &SpeedWindow{
 		text:            text,
-		targetSpeed:     currentSpeed,
+		speedController: speedController,
 		showConfig:      false,
 		showConfigStart: 0,
 	}
@@ -72,7 +73,7 @@ func (s *SpeedWindow) Draw(context *common.StepContext) {
 			s.showConfigStart = 0
 		}
 
-		fmt.Fprintf(s.text, "[yellow]TGT: %0.8f Mhz", *s.targetSpeed)
+		fmt.Fprintf(s.text, "[yellow]TGT: %0.8f Mhz", s.speedController.GetTargetSpeed())
 	} else {
 		if s.previousT != 0 {
 			cycles := context.Cycle - s.previousC

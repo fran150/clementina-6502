@@ -36,7 +36,7 @@ func newMainConsole(computer *BenEaterComputer) *console {
 	// Initialize all windows
 	console.AddWindow("lcd", ui.NewDisplayWindow(computer.chips.lcd))
 	console.AddWindow("code", ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators))
-	console.AddWindow("speed", ui.NewSpeedWindow(computer.GetTargetSpeedPtr()))
+	console.AddWindow("speed", ui.NewSpeedWindow(computer.GetSpeedController()))
 	console.AddWindow("cpu", ui.NewCpuWindow(computer.chips.cpu))
 	console.AddWindow("via", ui.NewViaWindow(computer.chips.via))
 	console.AddWindow("lcd_controller", ui.NewLcdWindow(computer.chips.lcd))

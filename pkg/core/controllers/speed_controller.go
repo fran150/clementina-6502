@@ -79,12 +79,6 @@ func (s *DefaultSpeedController) SetTargetSpeed(speedMhz float64) {
 	}
 }
 
-// GetTargetSpeedPtr returns a pointer to the current target speed in MHz.
-// This is useful for UI components that need to monitor speed changes.
-func (s *DefaultSpeedController) GetTargetSpeedPtr() *float64 {
-	return &s.targetSpeedMhz
-}
-
 // updateCache updates the cached nanoseconds per cycle calculation
 func (s *DefaultSpeedController) updateCache() {
 	if s.targetSpeedMhz > 0 {

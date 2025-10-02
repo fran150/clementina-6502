@@ -5,13 +5,15 @@ import (
 	"time"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/core/controllers"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNewSpeedWindow(t *testing.T) {
 	targetSpeedMhz := 1.0
 
-	sw := NewSpeedWindow(&targetSpeedMhz)
+	controller := controllers.NewSpeedController(targetSpeedMhz)
+	sw := NewSpeedWindow(controller)
 
 	assert.NotNil(t, sw)
 	assert.NotNil(t, sw.text)
@@ -74,7 +76,8 @@ func TestSpeedWindow_Draw(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			targetSpeedMhz := 1.0
 
-			sw := NewSpeedWindow(&targetSpeedMhz)
+			controller := controllers.NewSpeedController(targetSpeedMhz)
+			sw := NewSpeedWindow(controller)
 
 			sw.previousT = tt.initialT
 			sw.previousC = tt.initialC
@@ -96,7 +99,8 @@ func TestSpeedWindow_Draw(t *testing.T) {
 func TestSpeedWindow_Clear(t *testing.T) {
 	targetSpeedMhz := 1.0
 
-	sw := NewSpeedWindow(&targetSpeedMhz)
+	controller := controllers.NewSpeedController(targetSpeedMhz)
+	sw := NewSpeedWindow(controller)
 
 	// Set some initial values
 	sw.previousT = 1000
@@ -111,7 +115,9 @@ func TestSpeedWindow_Clear(t *testing.T) {
 func TestSpeedWindow_GetDrawArea(t *testing.T) {
 	targetSpeedMhz := 1.0
 
-	sw := NewSpeedWindow(&targetSpeedMhz)
+	controller := controllers.NewSpeedController(targetSpeedMhz)
+	sw := NewSpeedWindow(controller)
+
 	primitive := sw.GetDrawArea()
 
 	assert.NotNil(t, primitive)
@@ -121,7 +127,9 @@ func TestSpeedWindow_GetDrawArea(t *testing.T) {
 func TestSpeedWindow_ShowConfig(t *testing.T) {
 	targetSpeedMhz := 1.5
 
-	sw := NewSpeedWindow(&targetSpeedMhz)
+	controller := controllers.NewSpeedController(targetSpeedMhz)
+	sw := NewSpeedWindow(controller)
+
 	context := &common.StepContext{
 		T:     1000000, // 1ms in nanoseconds
 		Cycle: 1000,
