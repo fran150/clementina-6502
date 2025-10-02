@@ -10,6 +10,7 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components/via"
 	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina/modules"
+	"github.com/fran150/clementina-6502/pkg/core/controllers"
 )
 
 // ClementinaComputerConfig contains configuration for the Clementina computer.
@@ -232,7 +233,7 @@ func NewClementinaComputer(config *ClementinaComputerConfig) (*ClementinaCompute
 	}
 
 	// Create the computer system using the new architecture
-	speedController := computers.NewSpeedController(1.0) // Default 1 MHz
+	speedController := controllers.NewSpeedController(1.0) // Default 1 MHz
 	loopConfig := &computers.EmulationLoopConfig{
 		DisplayFps: config.DisplayFps,
 	}

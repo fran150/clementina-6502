@@ -2,6 +2,7 @@ package clementina
 
 import (
 	"github.com/fran150/clementina-6502/pkg/computers"
+	"github.com/fran150/clementina-6502/pkg/core/managers"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/rivo/tview"
 )
@@ -19,11 +20,11 @@ type console struct {
 // Returns:
 //   - A configured console ready for use
 func newMainConsole(computer *ClementinaComputer) *console {
-	wm := computers.NewWindowManager()
+	wm := managers.NewWindowManager()
 
 	config := &computers.ConsoleBuildConfig{
 		WindowManager:     wm,
-		NavigationManager: computers.NewNavigationManager(),
+		NavigationManager: managers.NewNavigationManager(),
 		InputHandler:      computers.NewDefaultInputHandler(wm),
 		Pages:             tview.NewPages(),
 		App:               tview.NewApplication(),
@@ -106,9 +107,9 @@ func (c *console) initializeLayout() {
 func (c *console) ShowGotoForm() {
 	activeKey := c.GetActiveWindow()
 
-	if memoryWindow := computers.GetWindow[ui.MemoryWindow](c.GetWindowManager(), activeKey); memoryWindow != nil {
-		if gotoWindow := computers.GetWindow[ui.MemoryWindowGoToForm](c.GetWindowManager(), "goto"); memoryWindow != nil {
-			if optionsWindow := computers.GetWindow[ui.OptionsWindow](c.GetWindowManager(), "options"); memoryWindow != nil {
+	if memoryWindow := managers.GetWindow[ui.MemoryWindow](c.GetWindowManager(), activeKey); memoryWindow != nil {
+		if gotoWindow := managers.GetWindow[ui.MemoryWindowGoToForm](c.GetWindowManager(), "goto"); memoryWindow != nil {
+			if optionsWindow := managers.GetWindow[ui.OptionsWindow](c.GetWindowManager(), "options"); memoryWindow != nil {
 				gotoWindow.InitForm(memoryWindow, func() {
 					optionsWindow.GoToPreviousMenu()
 				})

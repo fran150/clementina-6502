@@ -2,6 +2,7 @@ package beneater
 
 import (
 	"github.com/fran150/clementina-6502/pkg/computers"
+	"github.com/fran150/clementina-6502/pkg/core/managers"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/rivo/tview"
 )
@@ -13,11 +14,11 @@ type console struct {
 
 // newMainConsole creates and initializes a new console for the Ben Eater computer.
 func newMainConsole(computer *BenEaterComputer) *console {
-	wm := computers.NewWindowManager()
+	wm := managers.NewWindowManager()
 
 	config := &computers.ConsoleBuildConfig{
 		WindowManager:     wm,
-		NavigationManager: computers.NewNavigationManager(),
+		NavigationManager: managers.NewNavigationManager(),
 		InputHandler:      computers.NewDefaultInputHandler(wm),
 		Pages:             tview.NewPages(),
 		App:               tview.NewApplication(),

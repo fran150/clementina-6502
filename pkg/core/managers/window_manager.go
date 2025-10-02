@@ -1,8 +1,26 @@
-package computers
+package managers
 
 import (
 	"github.com/fran150/clementina-6502/pkg/terminal"
 )
+
+// WindowManager defines the interface for managing console windows.
+type WindowManager interface {
+	// AddWindow adds a new window to the manager.
+	AddWindow(key string, window terminal.Window)
+
+	// GetWindow retrieves a window by its key.
+	GetWindow(key string) terminal.Window
+
+	// RemoveWindow removes a window by its key.
+	RemoveWindow(key string)
+
+	// GetAllWindows returns all windows.
+	GetAllWindows() map[string]terminal.Window
+
+	// GetTickers returns all ticker windows.
+	GetTickers() map[string]terminal.TickerWindow
+}
 
 // DefaultWindowManager manages console windows and their lifecycle.
 type DefaultWindowManager struct {
@@ -87,10 +105,13 @@ func (wm *DefaultWindowManager) GetTickers() map[string]terminal.TickerWindow {
 	return result
 }
 
-// GetWindow is a generic function that retrieves and type-casts a window from the console's window map.
+// GetWindow is a generic function that retrieves and type-casts a window from the window manager.
+//
+// Type Parameters:
+//   - T: The expected window type to cast to
 //
 // Parameters:
-//   - c: The BaseConsole instance to search in
+//   - wm: The WindowManager instance to search in
 //   - key: The unique identifier of the window to retrieve
 //
 // Returns:

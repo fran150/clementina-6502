@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/core/controllers"
+	"github.com/fran150/clementina-6502/pkg/core/interfaces"
 )
 
 // EmulationLoopConfig contains settings that control the display refresh rate.
@@ -16,9 +18,9 @@ type EmulationLoopConfig struct {
 // It ensures the emulation runs at the specified speed and handles the
 // separation between processing cycles and display updates.
 type EmulationLoop struct {
-	emulator        Emulator
-	renderer        Renderer
-	speedController SpeedController
+	emulator        interfaces.Emulator
+	renderer        interfaces.Renderer
+	speedController interfaces.SpeedController
 	config          *EmulationLoopConfig
 
 	panicHandler func(loopType string, panicData any) bool
@@ -39,7 +41,7 @@ type EmulationLoop struct {
 //
 // Returns:
 //   - A pointer to the initialized EmulationLoop
-func NewEmulationLoop(emulator Emulator, renderer Renderer, speedController SpeedController, config *EmulationLoopConfig) *EmulationLoop {
+func NewEmulationLoop(emulator interfaces.Emulator, renderer interfaces.Renderer, speedController interfaces.SpeedController, config *EmulationLoopConfig) *EmulationLoop {
 	return &EmulationLoop{
 		emulator:        emulator,
 		renderer:        renderer,
@@ -133,8 +135,8 @@ func (e *EmulationLoop) executeLoop(context *common.StepContext) {
 	e.tickLoopRunning = true
 
 	// Try to cast to DefaultSpeedController for performance optimization
-	var defaultSpeedController *DefaultSpeedController
-	if dsc, ok := e.speedController.(*DefaultSpeedController); ok {
+	var defaultSpeedController *controllers.DefaultSpeedController
+	if dsc, ok := e.speedController.(*controllers.DefaultSpeedController); ok {
 		defaultSpeedController = dsc
 	}
 

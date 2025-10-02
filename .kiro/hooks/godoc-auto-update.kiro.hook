@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Auto Godoc Comments",
+  "description": "Automatically adds or updates godoc comments for all exported functions, types, and variables in Go files to ensure complete documentation coverage",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "**/*.go"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Please review the Go file that was just saved and add or update any missing godoc comments for all exported functions, types, constants, and variables. Follow Go documentation conventions: start comments with the name of the item being documented, use complete sentences, and provide clear, concise descriptions of what each item does. Make sure all public APIs are properly documented."
+  }
+}

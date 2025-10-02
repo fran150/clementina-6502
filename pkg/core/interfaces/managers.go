@@ -1,4 +1,4 @@
-package computers
+package interfaces
 
 import (
 	"github.com/fran150/clementina-6502/pkg/terminal"

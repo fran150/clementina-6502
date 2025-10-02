@@ -2,6 +2,8 @@ package computers
 
 import (
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/core/interfaces"
+	"github.com/fran150/clementina-6502/pkg/core/managers"
 	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/rivo/tview"
@@ -9,18 +11,18 @@ import (
 
 // Console provides the core console functionality without UI framework dependencies.
 type Console struct {
-	windowManager     WindowManager
-	navigationManager NavigationManager
-	inputHandler      InputHandler
+	windowManager     interfaces.WindowManager
+	navigationManager interfaces.NavigationManager
+	inputHandler      interfaces.InputHandler
 	pages             *tview.Pages
 	app               *tview.Application
 }
 
-// Objects required to build the console
+// ConsoleBuildConfig contains the objects required to build the console.
 type ConsoleBuildConfig struct {
-	WindowManager     WindowManager
-	NavigationManager NavigationManager
-	InputHandler      InputHandler
+	WindowManager     interfaces.WindowManager
+	NavigationManager interfaces.NavigationManager
+	InputHandler      interfaces.InputHandler
 	Pages             *tview.Pages
 	App               *tview.Application
 }
@@ -112,7 +114,7 @@ func (c *Console) ReturnToPreviousWindow() {
 func (c *Console) ScrollUp(step uint32) {
 	activeKey := c.navigationManager.GetCurrent()
 
-	if window := GetWindow[ui.MemoryWindow](c.windowManager, activeKey); window != nil {
+	if window := managers.GetWindow[ui.MemoryWindow](c.windowManager, activeKey); window != nil {
 		window.ScrollUp(step)
 	}
 }
@@ -124,20 +126,21 @@ func (c *Console) ScrollUp(step uint32) {
 func (c *Console) ScrollDown(step uint32) {
 	activeKey := c.navigationManager.GetCurrent()
 
-	if window := GetWindow[ui.MemoryWindow](c.windowManager, activeKey); window != nil {
+	if window := managers.GetWindow[ui.MemoryWindow](c.windowManager, activeKey); window != nil {
 		window.ScrollDown(step)
 	}
 }
 
+// RemoveSelectedItem removes the currently selected item from the breakpoint form window.
 func (c *Console) RemoveSelectedItem() {
-	if window := GetWindow[ui.BreakPointForm](c.windowManager, "breakpoint"); window != nil {
+	if window := managers.GetWindow[ui.BreakPointForm](c.windowManager, "breakpoint"); window != nil {
 		window.RemoveSelectedItem()
 	}
 }
 
 // ShowEmulationSpeed displays the emulation speed configuration window.
 func (c *Console) ShowEmulationSpeed() {
-	if window := GetWindow[ui.SpeedWindow](c.windowManager, "speed"); window != nil {
+	if window := managers.GetWindow[ui.SpeedWindow](c.windowManager, "speed"); window != nil {
 		window.ShowConfig()
 	}
 }
@@ -186,16 +189,20 @@ func (c *Console) Stop() {
 	c.app.Stop()
 }
 
-// GetWindowManager returns the window manager asociated to this object
-func (c *Console) GetWindowManager() WindowManager {
+// GetWindowManager returns the window manager associated with this console.
+func (c *Console) GetWindowManager() interfaces.WindowManager {
 	return c.windowManager
 }
 
-// GetPages returns the window manager asociated to this object
+// GetPages returns the tview.Pages instance associated with this console.
 func (c *Console) GetPages() *tview.Pages {
 	return c.pages
 }
 
+// SetRoot sets the root primitive for the console application.
+//
+// Parameters:
+//   - root: The tview primitive to set as the application root
 func (c *Console) SetRoot(root tview.Primitive) {
 	c.app.SetRoot(root, true)
 }

@@ -6,6 +6,8 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina/modules"
+	"github.com/fran150/clementina-6502/pkg/core/interfaces"
+	"github.com/fran150/clementina-6502/pkg/core/managers"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 )
 
@@ -63,7 +65,7 @@ type ClementinaComputer struct {
 	mappers mappers
 
 	// Performance optimization: cache frequently accessed state
-	stateManager        *computers.StateManager
+	stateManager        *managers.StateManager
 	lastBreakpointCheck uint64
 }
 
@@ -129,7 +131,7 @@ func (c *ClementinaComputer) Tick(context *common.StepContext) {
 		if c.chips.cpu.IsReadingOpcode() && (context.Cycle-c.lastBreakpointCheck) > 100 {
 			c.lastBreakpointCheck = context.Cycle
 
-			if breakpointWindow := computers.GetWindow[ui.BreakPointForm](c.console.GetWindowManager(), "breakpoint"); breakpointWindow != nil {
+			if breakpointWindow := managers.GetWindow[ui.BreakPointForm](c.console.GetWindowManager(), "breakpoint"); breakpointWindow != nil {
 				if breakpointWindow.CheckBreakpoint(c.chips.cpu.GetProgramCounter() - 1) {
 					c.stateManager.Pause()
 				}
@@ -269,7 +271,7 @@ func (c *ClementinaComputer) GetTargetSpeedPtr() *float64 {
 }
 
 // GetSpeedController returns the speed controller for direct access.
-func (c *ClementinaComputer) GetSpeedController() computers.SpeedController {
+func (c *ClementinaComputer) GetSpeedController() interfaces.SpeedController {
 	return c.system.GetSpeedController()
 }
 

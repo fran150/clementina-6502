@@ -1,4 +1,4 @@
-package computers
+package controllers
 
 // DefaultSpeedController manages emulation speed with non-linear scaling.
 type DefaultSpeedController struct {

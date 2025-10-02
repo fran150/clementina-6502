@@ -1,4 +1,4 @@
-package computers
+package managers
 
 import (
 	"github.com/fran150/clementina-6502/internal/slicesext"

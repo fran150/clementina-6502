@@ -1,4 +1,4 @@
-package computers
+package managers
 
 // ComputerState represents the current state of a computer system.
 type ComputerState struct {

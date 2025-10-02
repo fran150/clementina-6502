@@ -2,16 +2,18 @@ package computers
 
 import (
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/core/interfaces"
+	"github.com/fran150/clementina-6502/pkg/core/managers"
 )
 
 // ComputerSystem orchestrates all computer components using composition.
 // It provides a clean interface for controlling computer execution while
 // maintaining separation of concerns between different components.
 type ComputerSystem struct {
-	core            ComputerCore
+	core            interfaces.ComputerCore
 	loop            *EmulationLoop
-	stateManager    *StateManager
-	speedController SpeedController
+	stateManager    *managers.StateManager
+	speedController interfaces.SpeedController
 
 	context *common.StepContext
 }
@@ -25,8 +27,8 @@ type ComputerSystem struct {
 //
 // Returns:
 //   - A pointer to the initialized ComputerSystem
-func NewComputerSystem(core ComputerCore, speedController SpeedController, config *EmulationLoopConfig) *ComputerSystem {
-	stateManager := NewStateManager()
+func NewComputerSystem(core interfaces.ComputerCore, speedController interfaces.SpeedController, config *EmulationLoopConfig) *ComputerSystem {
+	stateManager := managers.NewStateManager()
 	loop := NewEmulationLoop(core, core, speedController, config)
 
 	return &ComputerSystem{
@@ -114,12 +116,12 @@ func (cs *ComputerSystem) Unreset() {
 }
 
 // GetStateManager returns the state manager for direct access if needed.
-func (cs *ComputerSystem) GetStateManager() *StateManager {
+func (cs *ComputerSystem) GetStateManager() *managers.StateManager {
 	return cs.stateManager
 }
 
 // GetSpeedController returns the speed controller for direct access if needed.
-func (cs *ComputerSystem) GetSpeedController() SpeedController {
+func (cs *ComputerSystem) GetSpeedController() interfaces.SpeedController {
 	return cs.speedController
 }
 
