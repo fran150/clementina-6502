@@ -86,14 +86,18 @@ func (e *EmulationLoop) IsStopping() bool {
 // Returns:
 //   - A StepContext that can be used to control and monitor the emulation
 func (e *EmulationLoop) Start() *common.StepContext {
-	context := common.NewStepContext()
+	if !e.IsRunning() {
+		context := common.NewStepContext()
 
-	e.stop = false
+		e.stop = false
 
-	go e.executeLoop(&context)
-	go e.executeDraw(&context)
+		go e.executeLoop(&context)
+		go e.executeDraw(&context)
 
-	return &context
+		return &context
+	} else {
+		return nil
+	}
 }
 
 // Stop stops the emulation loop.
