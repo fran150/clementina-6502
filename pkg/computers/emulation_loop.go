@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/fran150/clementina-6502/pkg/common"
-	"github.com/fran150/clementina-6502/pkg/core/controllers"
 	"github.com/fran150/clementina-6502/pkg/core/interfaces"
 )
 
@@ -130,27 +129,15 @@ func (e *EmulationLoop) executeLoop(context *common.StepContext) {
 
 	var lastTPSExecuted, targetTPSNano int64
 	var lastSpeedCheck uint64
-	var currentSpeed float64 = e.speedController.GetTargetSpeed()
 
 	e.tickLoopRunning = true
-
-	// Try to cast to DefaultSpeedController for performance optimization
-	var defaultSpeedController *controllers.DefaultSpeedController
-	if dsc, ok := e.speedController.(*controllers.DefaultSpeedController); ok {
-		defaultSpeedController = dsc
-	}
 
 	for !e.stop {
 		// Only check speed every 1000 cycles to reduce overhead
 		if (context.Cycle - lastSpeedCheck) > 1000 {
-			if defaultSpeedController != nil {
-				// Use cached nanoseconds per cycle for better performance
-				targetTPSNano = int64(defaultSpeedController.GetNanosPerCycle())
-			} else {
-				// Fallback to interface method
-				currentSpeed = e.speedController.GetTargetSpeed()
-				targetTPSNano = int64(float64(time.Microsecond) / currentSpeed)
-			}
+			// Use cached nanoseconds per cycle for better performance
+			targetTPSNano = int64(e.speedController.GetNanosPerCycle())
+
 			lastSpeedCheck = context.Cycle
 		}
 
