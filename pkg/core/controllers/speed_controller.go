@@ -5,7 +5,6 @@ type DefaultSpeedController struct {
 	targetSpeedMhz float64
 	// Cache the reciprocal for performance (1/speed = nanoseconds per cycle)
 	cachedNanosPerCycle float64
-	speedChanged        bool
 }
 
 // NewSpeedController creates a new speed controller with the specified initial speed.
@@ -18,50 +17,24 @@ type DefaultSpeedController struct {
 func NewSpeedController(initialSpeedMhz float64) *DefaultSpeedController {
 	sc := &DefaultSpeedController{
 		targetSpeedMhz: initialSpeedMhz,
-		speedChanged:   true,
 	}
 	sc.updateCache()
 	return sc
 }
 
 // SpeedUp increases the emulation speed of the computer.
-// It uses a non-linear scale for speeds below 0.5 MHz and a linear scale above.
+// Uses progressive scaling: 0.1 for speeds ≥1, 0.01 for 0.1-0.99, 0.001 for 0.01-0.099, etc.
 func (s *DefaultSpeedController) SpeedUp() {
-	if s.targetSpeedMhz < 0.5 {
-		// Non-linear increase below 0.5 MHz
-		// Increase by 20% of current speed
-		increase := s.targetSpeedMhz * 0.2
-		if increase < 0.000001 {
-			// Ensure minimum increase to avoid tiny increments
-			increase = 0.000001
-		}
-		s.targetSpeedMhz += increase
-	} else {
-		// Linear increase above 0.5 MHz
-		s.targetSpeedMhz += 0.1
-	}
-	s.speedChanged = true
+	increment := s.getSpeedIncrement()
+	s.targetSpeedMhz += increment
 	s.updateCache()
 }
 
 // SpeedDown decreases the emulation speed of the computer.
-// It uses a linear scale for speeds above 0.5 MHz and a non-linear scale below,
-// ensuring the speed never goes below a minimum threshold.
+// Uses progressive scaling: 0.1 for speeds >1, 0.01 for 0.1-1.0, 0.001 for 0.01-0.1, etc.
 func (s *DefaultSpeedController) SpeedDown() {
-	if s.targetSpeedMhz > 0.5 {
-		// Linear reduction above 0.5 MHz
-		s.targetSpeedMhz -= 0.1
-	} else {
-		// Non-linear reduction below 0.5 MHz to avoid reaching 0
-		// This will reduce by a fraction of the current speed
-		reduction := s.targetSpeedMhz * 0.2
-		if reduction < 0.000001 {
-			// Ensure minimum reduction to avoid tiny decrements
-			reduction = 0.000001
-		}
-		s.targetSpeedMhz -= reduction
-	}
-	s.speedChanged = true
+	increment := s.getSpeedIncrement()
+	s.targetSpeedMhz -= increment
 	s.updateCache()
 }
 
@@ -71,10 +44,10 @@ func (s *DefaultSpeedController) GetTargetSpeed() float64 {
 }
 
 // SetTargetSpeed sets the target speed in MHz.
+// The speed must be greater than 0, otherwise the request is ignored.
 func (s *DefaultSpeedController) SetTargetSpeed(speedMhz float64) {
 	if speedMhz > 0 {
 		s.targetSpeedMhz = speedMhz
-		s.speedChanged = true
 		s.updateCache()
 	}
 }
@@ -82,15 +55,32 @@ func (s *DefaultSpeedController) SetTargetSpeed(speedMhz float64) {
 // updateCache updates the cached nanoseconds per cycle calculation
 func (s *DefaultSpeedController) updateCache() {
 	if s.targetSpeedMhz > 0 {
+		// Convert MHz to nanoseconds per cycle: (1 second / 1 microsecond) / speedMhz
 		s.cachedNanosPerCycle = 1000.0 / s.targetSpeedMhz // nanoseconds per cycle
 	}
 }
 
-// GetNanosPerCycle returns the cached nanoseconds per cycle for performance
+// GetNanosPerCycle returns the cached nanoseconds per cycle for performance.
 func (s *DefaultSpeedController) GetNanosPerCycle() float64 {
-	if s.speedChanged {
-		s.updateCache()
-		s.speedChanged = false
-	}
 	return s.cachedNanosPerCycle
+}
+
+// getSpeedIncrement calculates the appropriate increment/decrement based on current speed.
+// Returns 0.1 for speeds ≥1, 0.01 for 0.1-0.99, 0.001 for 0.01-0.099, etc.
+func (s *DefaultSpeedController) getSpeedIncrement() float64 {
+	if s.targetSpeedMhz >= 1.0 {
+		return 0.1
+	}
+
+	// For speeds < 1.0, find the appropriate decimal place
+	// Start with 0.01 for the 0.1-0.99 range, then scale down
+	increment := 0.01
+	rangeThreshold := 0.1
+
+	for s.targetSpeedMhz < rangeThreshold {
+		increment /= 10
+		rangeThreshold /= 10
+	}
+
+	return increment
 }

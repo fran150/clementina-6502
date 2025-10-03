@@ -13,4 +13,7 @@ type SpeedController interface {
 
 	// SetTargetSpeed sets the target speed in MHz.
 	SetTargetSpeed(speedMhz float64)
+
+	// GetNanosPerCycle returns the nanoseconds per cycle for the current speed.
+	GetNanosPerCycle() float64
 }
