@@ -2,6 +2,7 @@ package terminal
 
 import (
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -34,4 +35,10 @@ type TickerWindow interface {
 	// Parameters:
 	//   - context: The current step context for the emulation cycle
 	Tick(context *common.StepContext)
+}
+
+// InputHandler defines the interface for handling user input.
+type InputHandler interface {
+	// HandleKey processes a key event and returns the modified event or nil.
+	HandleKey(event *tcell.EventKey) *tcell.EventKey
 }

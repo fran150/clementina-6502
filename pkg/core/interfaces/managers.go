@@ -2,7 +2,6 @@ package interfaces
 
 import (
 	"github.com/fran150/clementina-6502/pkg/terminal"
-	"github.com/gdamore/tcell/v2"
 )
 
 // WindowManager defines the interface for managing console windows.
@@ -36,10 +35,4 @@ type NavigationManager interface {
 
 	// PushToHistory adds the current window to history and navigates to new window.
 	PushToHistory(key string)
-}
-
-// InputHandler defines the interface for handling user input.
-type InputHandler interface {
-	// HandleKey processes a key event and returns the modified event or nil.
-	HandleKey(event *tcell.EventKey) *tcell.EventKey
 }

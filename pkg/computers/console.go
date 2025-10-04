@@ -13,7 +13,7 @@ import (
 type Console struct {
 	windowManager     interfaces.WindowManager
 	navigationManager interfaces.NavigationManager
-	inputHandler      interfaces.InputHandler
+	inputHandler      terminal.InputHandler
 	pages             *tview.Pages
 	app               *tview.Application
 }
@@ -22,7 +22,7 @@ type Console struct {
 type ConsoleBuildConfig struct {
 	WindowManager     interfaces.WindowManager
 	NavigationManager interfaces.NavigationManager
-	InputHandler      interfaces.InputHandler
+	InputHandler      terminal.InputHandler
 	Pages             *tview.Pages
 	App               *tview.Application
 }
