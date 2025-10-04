@@ -3,7 +3,6 @@ package computers
 import (
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/core/interfaces"
-	"github.com/fran150/clementina-6502/pkg/core/managers"
 	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/rivo/tview"
@@ -11,7 +10,7 @@ import (
 
 // Console provides the core console functionality without UI framework dependencies.
 type Console struct {
-	windowManager     interfaces.WindowManager
+	windowManager     terminal.WindowManager
 	navigationManager interfaces.NavigationManager
 	inputHandler      terminal.InputHandler
 	pages             *tview.Pages
@@ -20,7 +19,7 @@ type Console struct {
 
 // ConsoleBuildConfig contains the objects required to build the console.
 type ConsoleBuildConfig struct {
-	WindowManager     interfaces.WindowManager
+	WindowManager     terminal.WindowManager
 	NavigationManager interfaces.NavigationManager
 	InputHandler      terminal.InputHandler
 	Pages             *tview.Pages
@@ -114,7 +113,7 @@ func (c *Console) ReturnToPreviousWindow() {
 func (c *Console) ScrollUp(step uint32) {
 	activeKey := c.navigationManager.GetCurrent()
 
-	if window := managers.GetWindow[ui.MemoryWindow](c.windowManager, activeKey); window != nil {
+	if window := terminal.GetWindow[ui.MemoryWindow](c.windowManager, activeKey); window != nil {
 		window.ScrollUp(step)
 	}
 }
@@ -126,21 +125,21 @@ func (c *Console) ScrollUp(step uint32) {
 func (c *Console) ScrollDown(step uint32) {
 	activeKey := c.navigationManager.GetCurrent()
 
-	if window := managers.GetWindow[ui.MemoryWindow](c.windowManager, activeKey); window != nil {
+	if window := terminal.GetWindow[ui.MemoryWindow](c.windowManager, activeKey); window != nil {
 		window.ScrollDown(step)
 	}
 }
 
 // RemoveSelectedItem removes the currently selected item from the breakpoint form window.
 func (c *Console) RemoveSelectedItem() {
-	if window := managers.GetWindow[ui.BreakPointForm](c.windowManager, "breakpoint"); window != nil {
+	if window := terminal.GetWindow[ui.BreakPointForm](c.windowManager, "breakpoint"); window != nil {
 		window.RemoveSelectedItem()
 	}
 }
 
 // ShowEmulationSpeed displays the emulation speed configuration window.
 func (c *Console) ShowEmulationSpeed() {
-	if window := managers.GetWindow[ui.SpeedWindow](c.windowManager, "speed"); window != nil {
+	if window := terminal.GetWindow[ui.SpeedWindow](c.windowManager, "speed"); window != nil {
 		window.ShowConfig()
 	}
 }
@@ -190,7 +189,7 @@ func (c *Console) Stop() {
 }
 
 // GetWindowManager returns the window manager associated with this console.
-func (c *Console) GetWindowManager() interfaces.WindowManager {
+func (c *Console) GetWindowManager() terminal.WindowManager {
 	return c.windowManager
 }
 

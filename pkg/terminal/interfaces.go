@@ -37,6 +37,24 @@ type TickerWindow interface {
 	Tick(context *common.StepContext)
 }
 
+// WindowManager defines the interface for managing console windows.
+type WindowManager interface {
+	// AddWindow adds a new window to the manager.
+	AddWindow(key string, window Window)
+
+	// GetWindow retrieves a window by its key.
+	GetWindow(key string) Window
+
+	// RemoveWindow removes a window by its key.
+	RemoveWindow(key string)
+
+	// GetAllWindows returns all windows.
+	GetAllWindows() map[string]Window
+
+	// GetTickers returns all ticker windows.
+	GetTickers() map[string]TickerWindow
+}
+
 // InputHandler defines the interface for handling user input.
 type InputHandler interface {
 	// HandleKey processes a key event and returns the modified event or nil.

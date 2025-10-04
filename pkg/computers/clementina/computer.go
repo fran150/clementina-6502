@@ -8,6 +8,7 @@ import (
 	"github.com/fran150/clementina-6502/pkg/computers/clementina/modules"
 	"github.com/fran150/clementina-6502/pkg/core/interfaces"
 	"github.com/fran150/clementina-6502/pkg/core/managers"
+	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 )
 
@@ -131,7 +132,7 @@ func (c *ClementinaComputer) Tick(context *common.StepContext) {
 		if c.chips.cpu.IsReadingOpcode() && (context.Cycle-c.lastBreakpointCheck) > 100 {
 			c.lastBreakpointCheck = context.Cycle
 
-			if breakpointWindow := managers.GetWindow[ui.BreakPointForm](c.console.GetWindowManager(), "breakpoint"); breakpointWindow != nil {
+			if breakpointWindow := terminal.GetWindow[ui.BreakPointForm](c.console.GetWindowManager(), "breakpoint"); breakpointWindow != nil {
 				if breakpointWindow.CheckBreakpoint(c.chips.cpu.GetProgramCounter() - 1) {
 					c.stateManager.Pause()
 				}

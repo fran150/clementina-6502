@@ -1,31 +1,9 @@
-package managers
-
-import (
-	"github.com/fran150/clementina-6502/pkg/terminal"
-)
-
-// WindowManager defines the interface for managing console windows.
-type WindowManager interface {
-	// AddWindow adds a new window to the manager.
-	AddWindow(key string, window terminal.Window)
-
-	// GetWindow retrieves a window by its key.
-	GetWindow(key string) terminal.Window
-
-	// RemoveWindow removes a window by its key.
-	RemoveWindow(key string)
-
-	// GetAllWindows returns all windows.
-	GetAllWindows() map[string]terminal.Window
-
-	// GetTickers returns all ticker windows.
-	GetTickers() map[string]terminal.TickerWindow
-}
+package terminal
 
 // DefaultWindowManager manages console windows and their lifecycle.
 type DefaultWindowManager struct {
-	windows map[string]terminal.Window
-	tickers map[string]terminal.TickerWindow
+	windows map[string]Window
+	tickers map[string]TickerWindow
 }
 
 // NewWindowManager creates a new window manager.
@@ -34,8 +12,8 @@ type DefaultWindowManager struct {
 //   - A pointer to the initialized DefaultWindowManager
 func NewWindowManager() *DefaultWindowManager {
 	return &DefaultWindowManager{
-		windows: make(map[string]terminal.Window),
-		tickers: make(map[string]terminal.TickerWindow),
+		windows: make(map[string]Window),
+		tickers: make(map[string]TickerWindow),
 	}
 }
 
@@ -44,11 +22,11 @@ func NewWindowManager() *DefaultWindowManager {
 // Parameters:
 //   - key: The unique identifier for the window
 //   - window: The window instance to add
-func (wm *DefaultWindowManager) AddWindow(key string, window terminal.Window) {
+func (wm *DefaultWindowManager) AddWindow(key string, window Window) {
 	if _, exists := wm.windows[key]; !exists {
 		wm.windows[key] = window
 
-		if ticker, ok := window.(terminal.TickerWindow); ok {
+		if ticker, ok := window.(TickerWindow); ok {
 			wm.tickers[key] = ticker
 		}
 	}
@@ -61,7 +39,7 @@ func (wm *DefaultWindowManager) AddWindow(key string, window terminal.Window) {
 //
 // Returns:
 //   - The window instance, or nil if not found
-func (wm *DefaultWindowManager) GetWindow(key string) terminal.Window {
+func (wm *DefaultWindowManager) GetWindow(key string) Window {
 	if window, exists := wm.windows[key]; exists {
 		return window
 	}
@@ -83,9 +61,9 @@ func (wm *DefaultWindowManager) RemoveWindow(key string) {
 //
 // Returns:
 //   - A map of all windows keyed by their identifiers
-func (wm *DefaultWindowManager) GetAllWindows() map[string]terminal.Window {
+func (wm *DefaultWindowManager) GetAllWindows() map[string]Window {
 	// Return a copy to prevent external modification
-	result := make(map[string]terminal.Window)
+	result := make(map[string]Window)
 	for k, v := range wm.windows {
 		result[k] = v
 	}
@@ -96,9 +74,9 @@ func (wm *DefaultWindowManager) GetAllWindows() map[string]terminal.Window {
 //
 // Returns:
 //   - A map of all ticker windows keyed by their identifiers
-func (wm *DefaultWindowManager) GetTickers() map[string]terminal.TickerWindow {
+func (wm *DefaultWindowManager) GetTickers() map[string]TickerWindow {
 	// Return a copy to prevent external modification
-	result := make(map[string]terminal.TickerWindow)
+	result := make(map[string]TickerWindow)
 	for k, v := range wm.tickers {
 		result[k] = v
 	}

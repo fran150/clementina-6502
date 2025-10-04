@@ -7,6 +7,7 @@ import (
 	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/core/interfaces"
 	"github.com/fran150/clementina-6502/pkg/core/managers"
+	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"go.bug.st/serial"
 )
@@ -120,7 +121,7 @@ func (c *BenEaterComputer) Tick(context *common.StepContext) {
 		// Only check breakpoints every 100 cycles for performance
 		if c.chips.cpu.IsReadingOpcode() && (context.Cycle-c.lastBreakpointCheck) > 100 {
 			c.lastBreakpointCheck = context.Cycle
-			if breakpointWindow := managers.GetWindow[ui.BreakPointForm](c.console.GetWindowManager(), "breakpoint"); breakpointWindow != nil {
+			if breakpointWindow := terminal.GetWindow[ui.BreakPointForm](c.console.GetWindowManager(), "breakpoint"); breakpointWindow != nil {
 				if breakpointWindow.CheckBreakpoint(c.chips.cpu.GetProgramCounter() - 1) {
 					c.stateManager.Pause()
 				}

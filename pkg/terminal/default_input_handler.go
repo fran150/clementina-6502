@@ -1,18 +1,16 @@
-package computers
+package terminal
 
 import (
-	"github.com/fran150/clementina-6502/pkg/core/interfaces"
-	"github.com/fran150/clementina-6502/pkg/core/managers"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/gdamore/tcell/v2"
 )
 
 // DefaultInputHandler provides default input handling for the console.
 type DefaultInputHandler struct {
-	windowManager interfaces.WindowManager
+	windowManager WindowManager
 }
 
-func NewDefaultInputHandler(windowManager interfaces.WindowManager) *DefaultInputHandler {
+func NewDefaultInputHandler(windowManager WindowManager) *DefaultInputHandler {
 	return &DefaultInputHandler{
 		windowManager: windowManager,
 	}
@@ -29,7 +27,7 @@ func (dih *DefaultInputHandler) HandleKey(event *tcell.EventKey) *tcell.EventKey
 	// Delegate to the options window if it exists
 	// This maintains compatibility with the original implementation
 
-	if window := managers.GetWindow[ui.OptionsWindow](dih.windowManager, "options"); window != nil {
+	if window := GetWindow[ui.OptionsWindow](dih.windowManager, "options"); window != nil {
 		window.ProcessKey(event)
 	}
 
