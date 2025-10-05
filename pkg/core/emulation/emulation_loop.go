@@ -1,4 +1,4 @@
-package computers
+package emulation
 
 import (
 	"time"

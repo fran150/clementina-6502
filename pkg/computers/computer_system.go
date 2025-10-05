@@ -2,6 +2,7 @@ package computers
 
 import (
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/core/emulation"
 	"github.com/fran150/clementina-6502/pkg/core/interfaces"
 	"github.com/fran150/clementina-6502/pkg/core/managers"
 )
@@ -11,7 +12,7 @@ import (
 // maintaining separation of concerns between different components.
 type ComputerSystem struct {
 	core            interfaces.ComputerCore
-	loop            *EmulationLoop
+	loop            *emulation.EmulationLoop
 	stateManager    *managers.StateManager
 	speedController interfaces.SpeedController
 
@@ -27,9 +28,9 @@ type ComputerSystem struct {
 //
 // Returns:
 //   - A pointer to the initialized ComputerSystem
-func NewComputerSystem(core interfaces.ComputerCore, speedController interfaces.SpeedController, config *EmulationLoopConfig) *ComputerSystem {
+func NewComputerSystem(core interfaces.ComputerCore, speedController interfaces.SpeedController, config *emulation.EmulationLoopConfig) *ComputerSystem {
 	stateManager := managers.NewStateManager()
-	loop := NewEmulationLoop(core, core, speedController, config)
+	loop := emulation.NewEmulationLoop(core, core, speedController, config)
 
 	return &ComputerSystem{
 		core:            core,
@@ -126,6 +127,6 @@ func (cs *ComputerSystem) GetSpeedController() interfaces.SpeedController {
 }
 
 // GetEmulationLoop returns the emulation loop for direct access if needed.
-func (cs *ComputerSystem) GetEmulationLoop() *EmulationLoop {
+func (cs *ComputerSystem) GetEmulationLoop() *emulation.EmulationLoop {
 	return cs.loop
 }

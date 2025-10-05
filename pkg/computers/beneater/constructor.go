@@ -13,6 +13,7 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components/via"
 	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/core/controllers"
+	"github.com/fran150/clementina-6502/pkg/core/emulation"
 )
 
 // NewBenEaterComputer creates and initializes a new instance of the Ben Eater 6502 computer emulation.
@@ -150,7 +151,7 @@ func NewBenEaterComputer(config *BenEaterComputerConfig) (*BenEaterComputer, err
 
 	// Create the computer system using the new architecture
 	speedController := controllers.NewSpeedController(1.0) // Default 1 MHz
-	loopConfig := &computers.EmulationLoopConfig{
+	loopConfig := &emulation.EmulationLoopConfig{
 		DisplayFps: config.DisplayFps,
 	}
 
