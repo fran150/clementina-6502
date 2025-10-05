@@ -69,7 +69,7 @@ func (c *Console) SetBreakpointConfigMode() {
 // ReturnToPreviousWindow returns to the previous window.
 func (c *Console) ReturnToPreviousWindow() {
 	c.navigationManager.GoBack()
-	c.windowManager.SwitchToPage(c.GetActiveWindow())
+	c.windowManager.SwitchToPage(c.navigationManager.GetCurrent())
 }
 
 // ScrollUp scrolls the active memory window up by the specified number of lines.
@@ -108,14 +108,6 @@ func (c *Console) ShowEmulationSpeed() {
 	if window := terminal.GetWindow[ui.SpeedWindow](c.windowManager, "speed"); window != nil {
 		window.ShowConfig()
 	}
-}
-
-// GetActiveWindow returns the key of the currently active window.
-//
-// Returns:
-//   - The key of the currently active window
-func (c *Console) GetActiveWindow() string {
-	return c.navigationManager.GetCurrent()
 }
 
 // Draw clears and draws all windows in the console.
@@ -157,6 +149,11 @@ func (c *Console) Stop() {
 // GetWindowManager returns the window manager associated with this console.
 func (c *Console) GetWindowManager() terminal.WindowManager {
 	return c.windowManager
+}
+
+// GetNavigationManager returns the navigation manager associated with this console.
+func (c *Console) GetNavigationManager() interfaces.NavigationManager {
+	return c.navigationManager
 }
 
 // SetRoot sets the root primitive for the console application.

@@ -107,7 +107,7 @@ func (c *console) initializeLayout() {
 
 // ShowGotoForm shows the go to form for memory navigation allowing to navigate back.
 func (c *console) ShowGotoForm() {
-	activeKey := c.GetActiveWindow()
+	activeKey := c.GetNavigationManager().GetCurrent()
 
 	if memoryWindow := terminal.GetWindow[ui.MemoryWindow](c.GetWindowManager(), activeKey); memoryWindow != nil {
 		if gotoWindow := terminal.GetWindow[ui.MemoryWindowGoToForm](c.GetWindowManager(), "goto"); memoryWindow != nil {
