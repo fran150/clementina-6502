@@ -27,7 +27,6 @@ func newMainConsole(computer *ClementinaComputer) *console {
 		WindowManager:     wm,
 		NavigationManager: managers.NewNavigationManager(),
 		InputHandler:      terminal.NewDefaultInputHandler(wm),
-		Pages:             tview.NewPages(),
 		App:               tview.NewApplication(),
 	}
 
@@ -41,18 +40,18 @@ func newMainConsole(computer *ClementinaComputer) *console {
 	menuOptions := createMenuOptions(computer, console)
 
 	// Initialize all windows
-	console.AddWindow("code", ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators))
-	console.AddWindow("speed", ui.NewSpeedWindow(computer.GetSpeedController()))
-	console.AddWindow("cpu", ui.NewCpuWindow(computer.chips.cpu))
-	console.AddWindow("via", ui.NewViaWindow(computer.chips.via))
-	console.AddWindow("baseram", ui.NewMemoryWindow(computer.chips.baseram))
-	console.AddWindow("exram", ui.NewMemoryWindow(computer.chips.exram))
-	console.AddWindow("hiram", ui.NewMemoryWindow(computer.chips.hiram))
-	console.AddWindow("goto", ui.NewMemoryWindowGoToForm())
+	wm.AddWindow("code", ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators))
+	wm.AddWindow("speed", ui.NewSpeedWindow(computer.GetSpeedController()))
+	wm.AddWindow("cpu", ui.NewCpuWindow(computer.chips.cpu))
+	wm.AddWindow("via", ui.NewViaWindow(computer.chips.via))
+	wm.AddWindow("baseram", ui.NewMemoryWindow(computer.chips.baseram))
+	wm.AddWindow("exram", ui.NewMemoryWindow(computer.chips.exram))
+	wm.AddWindow("hiram", ui.NewMemoryWindow(computer.chips.hiram))
+	wm.AddWindow("goto", ui.NewMemoryWindowGoToForm())
 	busWindow := ui.NewBusWindow()
-	console.AddWindow("bus", busWindow)
-	console.AddWindow("breakpoint", ui.NewBreakPointForm())
-	console.AddWindow("options", ui.NewOptionsWindow(menuOptions))
+	wm.AddWindow("bus", busWindow)
+	wm.AddWindow("breakpoint", ui.NewBreakPointForm())
+	wm.AddWindow("options", ui.NewOptionsWindow(menuOptions))
 
 	initializeBusWindow(computer, busWindow)
 
@@ -93,11 +92,13 @@ func initializeBusWindow(computer *ClementinaComputer, busWindow *ui.BusWindow) 
 
 // initializeLayout sets up the initial layout of console windows.
 func (c *console) initializeLayout() {
+	wm := c.GetWindowManager()
+
 	// Setup initial grid layout
-	c.grid.AddItem(c.GetWindow("speed").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
-		AddItem(c.GetWindow("code").GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
-		AddItem(c.GetWindow("options").GetDrawArea(), 2, 0, 1, 2, 0, 0, false).
-		AddItem(c.GetPages(), 0, 1, 2, 1, 0, 0, true)
+	c.grid.AddItem(wm.GetWindow("speed").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
+		AddItem(wm.GetWindow("code").GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
+		AddItem(wm.GetWindow("options").GetDrawArea(), 2, 0, 1, 2, 0, 0, false).
+		AddItem(wm.GetPages(), 0, 1, 2, 1, 0, 0, true)
 }
 
 /************************************************************************************

@@ -21,7 +21,6 @@ func newMainConsole(computer *BenEaterComputer) *console {
 		WindowManager:     wm,
 		NavigationManager: managers.NewNavigationManager(),
 		InputHandler:      terminal.NewDefaultInputHandler(wm),
-		Pages:             tview.NewPages(),
 		App:               tview.NewApplication(),
 	}
 
@@ -35,19 +34,19 @@ func newMainConsole(computer *BenEaterComputer) *console {
 	menuOptions := createMenuOptions(computer, console)
 
 	// Initialize all windows
-	console.AddWindow("lcd", ui.NewDisplayWindow(computer.chips.lcd))
-	console.AddWindow("code", ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators))
-	console.AddWindow("speed", ui.NewSpeedWindow(computer.GetSpeedController()))
-	console.AddWindow("cpu", ui.NewCpuWindow(computer.chips.cpu))
-	console.AddWindow("via", ui.NewViaWindow(computer.chips.via))
-	console.AddWindow("lcd_controller", ui.NewLcdWindow(computer.chips.lcd))
-	console.AddWindow("acia", ui.NewAciaWindow(computer.chips.acia))
-	console.AddWindow("ram", ui.NewMemoryWindow(computer.chips.ram))
-	console.AddWindow("rom", ui.NewMemoryWindow(computer.chips.rom))
+	wm.AddWindow("lcd", ui.NewDisplayWindow(computer.chips.lcd))
+	wm.AddWindow("code", ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators))
+	wm.AddWindow("speed", ui.NewSpeedWindow(computer.GetSpeedController()))
+	wm.AddWindow("cpu", ui.NewCpuWindow(computer.chips.cpu))
+	wm.AddWindow("via", ui.NewViaWindow(computer.chips.via))
+	wm.AddWindow("lcd_controller", ui.NewLcdWindow(computer.chips.lcd))
+	wm.AddWindow("acia", ui.NewAciaWindow(computer.chips.acia))
+	wm.AddWindow("ram", ui.NewMemoryWindow(computer.chips.ram))
+	wm.AddWindow("rom", ui.NewMemoryWindow(computer.chips.rom))
 	busWindow := ui.NewBusWindow()
-	console.AddWindow("bus", busWindow)
-	console.AddWindow("breakpoint", ui.NewBreakPointForm())
-	console.AddWindow("options", ui.NewOptionsWindow(menuOptions))
+	wm.AddWindow("bus", busWindow)
+	wm.AddWindow("breakpoint", ui.NewBreakPointForm())
+	wm.AddWindow("options", ui.NewOptionsWindow(menuOptions))
 
 	initializeBusWindow(computer, busWindow)
 
@@ -84,10 +83,12 @@ func initializeBusWindow(computer *BenEaterComputer, busWindow *ui.BusWindow) {
 
 // initializeLayout sets up the initial layout of console windows.
 func (c *console) initializeLayout() {
+	wm := c.GetWindowManager()
+
 	// Setup initial grid layout
-	c.grid.AddItem(c.GetWindow("lcd").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
-		AddItem(c.GetWindow("speed").GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
-		AddItem(c.GetWindow("code").GetDrawArea(), 2, 0, 1, 1, 0, 0, false).
-		AddItem(c.GetWindow("options").GetDrawArea(), 3, 0, 1, 2, 0, 0, false).
-		AddItem(c.GetPages(), 0, 1, 3, 1, 0, 0, true)
+	c.grid.AddItem(wm.GetWindow("lcd").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
+		AddItem(wm.GetWindow("speed").GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
+		AddItem(wm.GetWindow("code").GetDrawArea(), 2, 0, 1, 1, 0, 0, false).
+		AddItem(wm.GetWindow("options").GetDrawArea(), 3, 0, 1, 2, 0, 0, false).
+		AddItem(wm.GetPages(), 0, 1, 3, 1, 0, 0, true)
 }

@@ -53,6 +53,11 @@ type WindowManager interface {
 
 	// GetTickers returns all ticker windows.
 	GetTickers() map[string]TickerWindow
+
+	// SwitchToPage makes the specified window active
+	SwitchToPage(key string)
+
+	GetPages() *tview.Pages
 }
 
 // InputHandler defines the interface for handling user input.

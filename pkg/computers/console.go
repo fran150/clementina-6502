@@ -13,7 +13,6 @@ type Console struct {
 	windowManager     terminal.WindowManager
 	navigationManager interfaces.NavigationManager
 	inputHandler      terminal.InputHandler
-	pages             *tview.Pages
 	app               *tview.Application
 }
 
@@ -22,7 +21,6 @@ type ConsoleBuildConfig struct {
 	WindowManager     terminal.WindowManager
 	NavigationManager interfaces.NavigationManager
 	InputHandler      terminal.InputHandler
-	Pages             *tview.Pages
 	App               *tview.Application
 }
 
@@ -39,7 +37,6 @@ func NewConsole(config *ConsoleBuildConfig) *Console {
 		windowManager:     config.WindowManager,
 		navigationManager: config.NavigationManager,
 		inputHandler:      config.InputHandler,
-		pages:             config.Pages,
 		app:               config.App,
 	}
 
@@ -49,40 +46,9 @@ func NewConsole(config *ConsoleBuildConfig) *Console {
 	console.app.EnablePaste(true)
 
 	// Set the pages as the root of the tview app
-	console.app.SetRoot(console.pages, true)
+	console.app.SetRoot(console.windowManager.GetPages(), true)
 
 	return console
-}
-
-// AddWindow adds a new window to the console.
-//
-// Parameters:
-//   - key: The unique identifier for the window
-//   - window: The window instance to add
-func (c *Console) AddWindow(key string, window terminal.Window) {
-	c.windowManager.AddWindow(key, window)
-	c.pages.AddPage(key, window.GetDrawArea(), true, true)
-
-}
-
-// GetWindow retrieves a window by its key.
-//
-// Parameters:
-//   - key: The unique identifier of the window to retrieve
-//
-// Returns:
-//   - The window instance, or nil if not found
-func (c *Console) GetWindow(key string) terminal.Window {
-	return c.windowManager.GetWindow(key)
-}
-
-// RemoveWindow removes a window by its key.
-//
-// Parameters:
-//   - key: The unique identifier of the window to remove
-func (c *Console) RemoveWindow(key string) {
-	c.windowManager.RemoveWindow(key)
-	c.pages.RemovePage(key)
 }
 
 // ShowWindow activates the specified window.
@@ -91,19 +57,19 @@ func (c *Console) RemoveWindow(key string) {
 //   - windowKey: The key identifying the window to show
 func (c *Console) ShowWindow(windowKey string) {
 	c.navigationManager.NavigateTo(windowKey)
-	c.pages.SwitchToPage(windowKey)
+	c.windowManager.SwitchToPage(windowKey)
 }
 
 // SetBreakpointConfigMode activates the breakpoint configuration window.
 func (c *Console) SetBreakpointConfigMode() {
 	c.navigationManager.PushToHistory("breakpoint")
-	c.pages.SwitchToPage("breakpoint")
+	c.windowManager.SwitchToPage("breakpoint")
 }
 
 // ReturnToPreviousWindow returns to the previous window.
 func (c *Console) ReturnToPreviousWindow() {
 	c.navigationManager.GoBack()
-	c.pages.SwitchToPage(c.GetActiveWindow())
+	c.windowManager.SwitchToPage(c.GetActiveWindow())
 }
 
 // ScrollUp scrolls the active memory window up by the specified number of lines.
@@ -191,11 +157,6 @@ func (c *Console) Stop() {
 // GetWindowManager returns the window manager associated with this console.
 func (c *Console) GetWindowManager() terminal.WindowManager {
 	return c.windowManager
-}
-
-// GetPages returns the tview.Pages instance associated with this console.
-func (c *Console) GetPages() *tview.Pages {
-	return c.pages
 }
 
 // SetRoot sets the root primitive for the console application.

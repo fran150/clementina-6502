@@ -1,9 +1,12 @@
 package terminal
 
+import "github.com/rivo/tview"
+
 // DefaultWindowManager manages console windows and their lifecycle.
 type DefaultWindowManager struct {
 	windows map[string]Window
 	tickers map[string]TickerWindow
+	pages   *tview.Pages
 }
 
 // NewWindowManager creates a new window manager.
@@ -14,6 +17,7 @@ func NewWindowManager() *DefaultWindowManager {
 	return &DefaultWindowManager{
 		windows: make(map[string]Window),
 		tickers: make(map[string]TickerWindow),
+		pages:   tview.NewPages(),
 	}
 }
 
@@ -29,6 +33,8 @@ func (wm *DefaultWindowManager) AddWindow(key string, window Window) {
 		if ticker, ok := window.(TickerWindow); ok {
 			wm.tickers[key] = ticker
 		}
+
+		wm.pages.AddPage(key, window.GetDrawArea(), true, true)
 	}
 }
 
@@ -54,7 +60,14 @@ func (wm *DefaultWindowManager) RemoveWindow(key string) {
 	if _, exists := wm.windows[key]; exists {
 		delete(wm.windows, key)
 		delete(wm.tickers, key)
+		wm.pages.RemovePage(key)
 	}
+}
+
+// SwitchToPage changes the currently active page to the window with the
+// specified key.
+func (wm *DefaultWindowManager) SwitchToPage(key string) {
+	wm.pages.SwitchToPage(key)
 }
 
 // GetAllWindows returns all windows.
@@ -81,6 +94,10 @@ func (wm *DefaultWindowManager) GetTickers() map[string]TickerWindow {
 		result[k] = v
 	}
 	return result
+}
+
+func (wm *DefaultWindowManager) GetPages() *tview.Pages {
+	return wm.pages
 }
 
 // GetWindow is a generic function that retrieves and type-casts a window from the window manager.
