@@ -9,6 +9,26 @@ type ComputerCore interface {
 	Renderer
 }
 
+// EmulationLoop defines the interface for managing emulation execution.
+// This handles the lifecycle and timing of the emulation process.
+type EmulationLoop interface {
+	// Start begins the emulation loop and returns the execution context.
+	// Returns nil if the loop is already running.
+	Start() *common.StepContext
+
+	// Stop stops the emulation loop.
+	Stop()
+
+	// IsRunning checks if the emulation loop is currently running.
+	IsRunning() bool
+
+	// IsStopping checks if the emulation loop is in the process of stopping.
+	IsStopping() bool
+
+	// SetPanicHandler sets the panic handler for loop failures.
+	SetPanicHandler(handler func(loopType string, panicData any) bool)
+}
+
 // Emulator defines the core emulation logic interface.
 // This represents the pure emulation functionality without lifecycle concerns.
 type Emulator interface {

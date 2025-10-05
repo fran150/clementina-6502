@@ -12,7 +12,7 @@ import (
 // maintaining separation of concerns between different components.
 type ComputerSystem struct {
 	core            interfaces.ComputerCore
-	loop            *emulation.EmulationLoop
+	loop            interfaces.EmulationLoop
 	stateManager    *managers.StateManager
 	speedController interfaces.SpeedController
 
@@ -127,6 +127,6 @@ func (cs *ComputerSystem) GetSpeedController() interfaces.SpeedController {
 }
 
 // GetEmulationLoop returns the emulation loop for direct access if needed.
-func (cs *ComputerSystem) GetEmulationLoop() *emulation.EmulationLoop {
+func (cs *ComputerSystem) GetEmulationLoop() interfaces.EmulationLoop {
 	return cs.loop
 }
