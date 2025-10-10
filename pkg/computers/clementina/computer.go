@@ -4,10 +4,8 @@ import (
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
-	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina/modules"
 	"github.com/fran150/clementina-6502/pkg/core/interfaces"
-	"github.com/fran150/clementina-6502/pkg/core/managers"
 	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 )
@@ -57,7 +55,8 @@ type circuit struct {
 // Clementina represents a complete emulation of Clementina 6502 computer.
 // It contains all the necessary components and connections to simulate the hardware.
 type ClementinaComputer struct {
-	system      *computers.ComputerSystem
+	context *common.StepContext
+
 	chips       *chips
 	circuit     *circuit
 	console     *console
@@ -66,7 +65,9 @@ type ClementinaComputer struct {
 	mappers mappers
 
 	// Performance optimization: cache frequently accessed state
-	stateManager        *managers.StateManager
+	loop                interfaces.EmulationLoop
+	speedController     interfaces.SpeedController
+	stateManager        interfaces.StateManager
 	lastBreakpointCheck uint64
 }
 
@@ -76,22 +77,19 @@ type ClementinaComputer struct {
 
 // Run starts the emulation loop and runs the console application.
 func (c *ClementinaComputer) Run() (*common.StepContext, error) {
-	context, err := c.system.Start()
-	if err != nil {
-		return nil, err
-	}
+	c.context = c.loop.Start()
 
 	if err := c.console.Run(); err != nil {
-		c.system.Stop()
+		c.loop.Stop()
 		return nil, err
 	}
 
-	return context, nil
+	return c.context, nil
 }
 
 // Stop stops computer execution and finishes the console application.
 func (c *ClementinaComputer) Stop() {
-	c.system.Stop()
+	c.loop.Stop()
 	c.console.Stop()
 }
 
@@ -102,11 +100,6 @@ func (c *ClementinaComputer) Stop() {
 // Parameters:
 //   - context: The current step context
 func (c *ClementinaComputer) Tick(context *common.StepContext) {
-	// Cache state manager for performance
-	if c.stateManager == nil {
-		c.stateManager = c.system.GetStateManager()
-	}
-
 	if !c.stateManager.IsPaused() || c.stateManager.IsStepping() {
 		// Core emulation - keep this tight for performance
 		c.chips.cpu.Tick(context)
@@ -223,52 +216,52 @@ func (c *ClementinaComputer) checkReset() {
 
 // Pause stops the execution of the computer.
 func (c *ClementinaComputer) Pause() {
-	c.system.Pause()
+	c.stateManager.Pause()
 }
 
 // Resume continues the execution of the computer after being paused.
 func (c *ClementinaComputer) Resume() {
-	c.system.Resume()
+	c.stateManager.Resume()
 }
 
 // Reset triggers a reset of the computer.
 func (c *ClementinaComputer) Reset() {
-	c.system.Reset()
+	c.stateManager.Reset()
 }
 
 // Step signals that the computer should step through one cycle.
 func (c *ClementinaComputer) Step() {
-	c.system.Step()
+	c.stateManager.Step()
 }
 
 // SpeedUp increases the emulation speed.
 func (c *ClementinaComputer) SpeedUp() {
-	c.system.SpeedUp()
+	c.speedController.SpeedUp()
 }
 
 // SpeedDown decreases the emulation speed.
 func (c *ClementinaComputer) SpeedDown() {
-	c.system.SpeedDown()
+	c.speedController.SpeedDown()
 }
 
 // IsRunning checks if the computer is currently running.
 func (c *ClementinaComputer) IsRunning() bool {
-	return c.system.IsRunning()
+	return c.loop.IsRunning()
 }
 
 // IsPaused checks if the computer is currently paused.
 func (c *ClementinaComputer) IsPaused() bool {
-	return c.system.IsPaused()
+	return c.stateManager.IsPaused()
 }
 
 // GetTargetSpeed returns the current target speed in MHz.
 func (c *ClementinaComputer) GetTargetSpeed() float64 {
-	return c.system.GetTargetSpeed()
+	return c.speedController.GetTargetSpeed()
 }
 
 // GetSpeedController returns the speed controller for direct access.
 func (c *ClementinaComputer) GetSpeedController() interfaces.SpeedController {
-	return c.system.GetSpeedController()
+	return c.speedController
 }
 
 // BaseRamPoke writes a value directly to the base RAM at the specified address.

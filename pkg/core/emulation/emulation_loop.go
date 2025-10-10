@@ -17,8 +17,7 @@ type EmulationLoopConfig struct {
 // It ensures the emulation runs at the specified speed and handles the
 // separation between processing cycles and display updates.
 type EmulationLoop struct {
-	emulator        interfaces.Emulator
-	renderer        interfaces.Renderer
+	computer        interfaces.ComputerCore
 	speedController interfaces.SpeedController
 	config          *EmulationLoopConfig
 
@@ -33,17 +32,15 @@ type EmulationLoop struct {
 // NewEmulationLoop creates a new emulation loop with the specified components.
 //
 // Parameters:
-//   - emulator: The emulator to run
-//   - renderer: The renderer for display updates
+//   - computer: The computer to run
 //   - speedController: The speed controller for timing
 //   - config: Configuration settings for the emulation loop
 //
 // Returns:
 //   - A pointer to the initialized EmulationLoop
-func NewEmulationLoop(emulator interfaces.Emulator, renderer interfaces.Renderer, speedController interfaces.SpeedController, config *EmulationLoopConfig) *EmulationLoop {
+func NewEmulationLoop(computer interfaces.ComputerCore, speedController interfaces.SpeedController, config *EmulationLoopConfig) *EmulationLoop {
 	return &EmulationLoop{
-		emulator:        emulator,
-		renderer:        renderer,
+		computer:        computer,
 		speedController: speedController,
 		config:          config,
 		panicHandler:    nil,
@@ -147,7 +144,7 @@ func (e *EmulationLoop) executeLoop(context *common.StepContext) {
 
 		if (context.T - lastTPSExecuted) > targetTPSNano {
 			lastTPSExecuted = context.T
-			e.emulator.Tick(context)
+			e.computer.Tick(context)
 			context.NextCycle()
 		} else {
 			context.SkipCycle()
@@ -174,6 +171,6 @@ func (e *EmulationLoop) executeDraw(context *common.StepContext) {
 
 	for !e.stop {
 		<-ticker.C
-		e.renderer.Draw(context)
+		e.computer.Draw(context)
 	}
 }
