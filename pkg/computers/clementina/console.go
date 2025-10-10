@@ -110,8 +110,8 @@ func (c *console) ShowGotoForm() {
 	activeKey := c.GetNavigationManager().GetCurrent()
 
 	if memoryWindow := terminal.GetWindow[ui.MemoryWindow](c.GetWindowManager(), activeKey); memoryWindow != nil {
-		if gotoWindow := terminal.GetWindow[ui.MemoryWindowGoToForm](c.GetWindowManager(), "goto"); memoryWindow != nil {
-			if optionsWindow := terminal.GetWindow[ui.OptionsWindow](c.GetWindowManager(), "options"); memoryWindow != nil {
+		if gotoWindow := terminal.GetWindow[ui.MemoryWindowGoToForm](c.GetWindowManager(), "goto"); gotoWindow != nil {
+			if optionsWindow := terminal.GetWindow[ui.OptionsWindow](c.GetWindowManager(), "options"); optionsWindow != nil {
 				gotoWindow.InitForm(memoryWindow, func() {
 					optionsWindow.GoToPreviousMenu()
 				})
