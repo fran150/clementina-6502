@@ -214,51 +214,6 @@ func (c *ClementinaComputer) checkReset() {
 * Controller Interface methods (delegated to system)
 ********************************************************************************************/
 
-// Pause stops the execution of the computer.
-func (c *ClementinaComputer) Pause() {
-	c.stateManager.Pause()
-}
-
-// Resume continues the execution of the computer after being paused.
-func (c *ClementinaComputer) Resume() {
-	c.stateManager.Resume()
-}
-
-// Reset triggers a reset of the computer.
-func (c *ClementinaComputer) Reset() {
-	c.stateManager.Reset()
-}
-
-// Step signals that the computer should step through one cycle.
-func (c *ClementinaComputer) Step() {
-	c.stateManager.Step()
-}
-
-// SpeedUp increases the emulation speed.
-func (c *ClementinaComputer) SpeedUp() {
-	c.speedController.SpeedUp()
-}
-
-// SpeedDown decreases the emulation speed.
-func (c *ClementinaComputer) SpeedDown() {
-	c.speedController.SpeedDown()
-}
-
-// IsRunning checks if the computer is currently running.
-func (c *ClementinaComputer) IsRunning() bool {
-	return c.loop.IsRunning()
-}
-
-// IsPaused checks if the computer is currently paused.
-func (c *ClementinaComputer) IsPaused() bool {
-	return c.stateManager.IsPaused()
-}
-
-// GetTargetSpeed returns the current target speed in MHz.
-func (c *ClementinaComputer) GetTargetSpeed() float64 {
-	return c.speedController.GetTargetSpeed()
-}
-
 // GetSpeedController returns the speed controller for direct access.
 func (c *ClementinaComputer) GetSpeedController() interfaces.SpeedController {
 	return c.speedController

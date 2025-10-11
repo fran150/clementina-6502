@@ -191,51 +191,6 @@ func (c *BenEaterComputer) checkReset() {
 * Controller Interface methods (delegated to system)
 ********************************************************************************************/
 
-// Pause stops the execution of the computer.
-func (c *BenEaterComputer) Pause() {
-	c.stateManager.Pause()
-}
-
-// Resume continues the execution of the computer after being paused.
-func (c *BenEaterComputer) Resume() {
-	c.stateManager.Resume()
-}
-
-// Reset triggers a reset of the computer.
-func (c *BenEaterComputer) Reset() {
-	c.stateManager.Reset()
-}
-
-// Step signals that the computer should step through one cycle.
-func (c *BenEaterComputer) Step() {
-	c.stateManager.Step()
-}
-
-// SpeedUp increases the emulation speed.
-func (c *BenEaterComputer) SpeedUp() {
-	c.speedController.SpeedUp()
-}
-
-// SpeedDown decreases the emulation speed.
-func (c *BenEaterComputer) SpeedDown() {
-	c.speedController.SpeedDown()
-}
-
-// IsRunning checks if the computer is currently running.
-func (c *BenEaterComputer) IsRunning() bool {
-	return c.loop.IsRunning()
-}
-
-// IsPaused checks if the computer is currently paused.
-func (c *BenEaterComputer) IsPaused() bool {
-	return c.stateManager.IsPaused()
-}
-
-// GetTargetSpeed returns the current target speed in MHz.
-func (c *BenEaterComputer) GetTargetSpeed() float64 {
-	return c.speedController.GetTargetSpeed()
-}
-
 // GetSpeedController returns the speed controller for direct access.
 func (c *BenEaterComputer) GetSpeedController() interfaces.SpeedController {
 	return c.speedController

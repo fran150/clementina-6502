@@ -25,7 +25,7 @@ func createMenuOptions(computer *ClementinaComputer, console *console) []*ui.Opt
 					Rune:           'r',
 					KeyName:        "R",
 					KeyDescription: "Reset",
-					Action:         computer.Reset,
+					Action:         computer.stateManager.Reset,
 				},
 				{
 					Rune:           'e',
@@ -36,19 +36,19 @@ func createMenuOptions(computer *ClementinaComputer, console *console) []*ui.Opt
 							Rune:           'p',
 							KeyName:        "P",
 							KeyDescription: "Pause",
-							Action:         computer.Pause,
+							Action:         computer.stateManager.Pause,
 						},
 						{
 							Rune:           'r',
 							KeyName:        "R",
 							KeyDescription: "Resume",
-							Action:         computer.Resume,
+							Action:         computer.stateManager.Resume,
 						},
 						{
 							Rune:           's',
 							KeyName:        "S",
 							KeyDescription: "Step",
-							Action:         computer.Step,
+							Action:         computer.stateManager.Step,
 						},
 						{
 							Rune:           'b',
@@ -80,7 +80,7 @@ func createMenuOptions(computer *ClementinaComputer, console *console) []*ui.Opt
 							KeyDescription: "Speed Up",
 							Action: func() {
 								console.ShowEmulationSpeed()
-								computer.SpeedUp()
+								computer.speedController.SpeedUp()
 							},
 							DoNotForward: true,
 						},
@@ -90,7 +90,7 @@ func createMenuOptions(computer *ClementinaComputer, console *console) []*ui.Opt
 							KeyDescription: "Speed Down",
 							Action: func() {
 								console.ShowEmulationSpeed()
-								computer.SpeedDown()
+								computer.speedController.SpeedDown()
 							},
 							DoNotForward: true,
 						},
