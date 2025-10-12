@@ -53,8 +53,6 @@ type BenEaterComputer struct {
 	speedController   interfaces.SpeedController
 	stateManager      interfaces.StateManager
 	breakpointManager interfaces.BreakpointManager
-
-	lastBreakpointCheck uint64
 }
 
 type BenEaterComputerConfig struct {
@@ -110,18 +108,20 @@ func (c *BenEaterComputer) Tick(context *common.StepContext) {
 			c.stateManager.ClearStepping()
 		}
 
-		// Only check breakpoints every 100 cycles for performance
-		if c.chips.cpu.IsReadingOpcode() && (context.Cycle-c.lastBreakpointCheck) > 100 {
-			c.lastBreakpointCheck = context.Cycle
-			if c.breakpointManager.HasBreakpoint(c.chips.cpu.GetProgramCounter() - 1) {
-				c.stateManager.Pause()
-			}
+		if c.breakpointManager.HasBreakpoint(c.chips.cpu.GetProgramCounter() - 1) {
+			c.stateManager.Pause()
 		}
 
-		// Console tick is expensive, do it less frequently
-		if (context.Cycle%10) == 0 && c.console != nil {
-			c.console.Tick(context)
-		}
+		// TODO: I'm getting 7.29 Mhz without calling this function. That is the upper limit.
+		// I get 5.9 Mhz when commenting ticker.Tick call in the console.Tick method. If I comment only
+		// the contents of the ticket.Tick but leave the call I get 5.5. This means that is 0.4 Mhz lost in the
+		// overhead of that call (could it be the interface transformation?)
+		// I was getting:
+		// 2.9 mhz with the window manager implemeantion of returning a copy of the maps.
+		// 3.6 mhz using go's new enumerators functions
+		// 4.1 returning a function for each iteration loop
+		// 4.3 returning the map reference directly (but this means that it can be altered directly)
+		c.console.Tick(context)
 	}
 }
 

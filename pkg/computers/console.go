@@ -115,10 +115,11 @@ func (c *Console) ShowEmulationSpeed() {
 // Parameters:
 //   - context: The current step context
 func (c *Console) Draw(context *common.StepContext) {
-	for _, window := range c.windowManager.GetAllWindows() {
+	c.windowManager.GetAllWindows(func(key string, window terminal.Window) bool {
 		window.Clear()
 		window.Draw(context)
-	}
+		return true // continue iteration
+	})
 
 	c.app.Draw()
 }
@@ -128,9 +129,10 @@ func (c *Console) Draw(context *common.StepContext) {
 // Parameters:
 //   - context: The current step context
 func (c *Console) Tick(context *common.StepContext) {
-	for _, ticker := range c.windowManager.GetTickers() {
+	c.windowManager.GetTickers(func(key string, ticker terminal.TickerWindow) bool {
 		ticker.Tick(context)
-	}
+		return true // continue iteration
+	})
 }
 
 // Run starts the console application.

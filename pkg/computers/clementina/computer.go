@@ -63,11 +63,10 @@ type ClementinaComputer struct {
 	mappers mappers
 
 	// Performance optimization: cache frequently accessed state
-	loop                interfaces.EmulationLoop
-	speedController     interfaces.SpeedController
-	stateManager        interfaces.StateManager
-	breakpointManager   interfaces.BreakpointManager
-	lastBreakpointCheck uint64
+	loop              interfaces.EmulationLoop
+	speedController   interfaces.SpeedController
+	stateManager      interfaces.StateManager
+	breakpointManager interfaces.BreakpointManager
 }
 
 /*******************************************************************************************
@@ -120,18 +119,11 @@ func (c *ClementinaComputer) Tick(context *common.StepContext) {
 			c.stateManager.ClearStepping()
 		}
 
-		// Only check breakpoints every 100 cycles for performance
-		if c.chips.cpu.IsReadingOpcode() && (context.Cycle-c.lastBreakpointCheck) > 100 {
-			c.lastBreakpointCheck = context.Cycle
-			if c.breakpointManager.HasBreakpoint(c.chips.cpu.GetProgramCounter() - 1) {
-				c.stateManager.Pause()
-			}
+		if c.breakpointManager.HasBreakpoint(c.chips.cpu.GetProgramCounter() - 1) {
+			c.stateManager.Pause()
 		}
 
-		// Console tick is expensive, do it less frequently
-		if (context.Cycle%10) == 0 && c.console != nil {
-			c.console.Tick(context)
-		}
+		c.console.Tick(context)
 	}
 }
 

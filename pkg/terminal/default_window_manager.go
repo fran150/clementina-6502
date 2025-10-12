@@ -1,6 +1,8 @@
 package terminal
 
-import "github.com/rivo/tview"
+import (
+	"github.com/rivo/tview"
+)
 
 // DefaultWindowManager manages console windows and their lifecycle.
 type DefaultWindowManager struct {
@@ -70,30 +72,44 @@ func (wm *DefaultWindowManager) SwitchToPage(key string) {
 	wm.pages.SwitchToPage(key)
 }
 
-// GetAllWindows returns all windows.
+// GetAllWindows iterates over all windows for read-only access.
+// The callback function receives each key-value pair and should return true to continue iteration.
 //
-// Returns:
-//   - A map of all windows keyed by their identifiers
-func (wm *DefaultWindowManager) GetAllWindows() map[string]Window {
-	// Return a copy to prevent external modification
-	result := make(map[string]Window)
+// Parameters:
+//   - fn: Callback function that receives key and window. Return false to stop iteration.
+//
+// Example usage:
+//
+//	wm.GetAllWindows(func(key string, window Window) bool {
+//	    fmt.Printf("Window: %s\n", key)
+//	    return true // continue iteration
+//	})
+func (wm *DefaultWindowManager) GetAllWindows(fn func(key string, window Window) bool) {
 	for k, v := range wm.windows {
-		result[k] = v
+		if !fn(k, v) {
+			break
+		}
 	}
-	return result
 }
 
-// GetTickers returns all ticker windows.
+// GetTickers iterates over all ticker windows for read-only access.
+// The callback function receives each key-value pair and should return true to continue iteration.
 //
-// Returns:
-//   - A map of all ticker windows keyed by their identifiers
-func (wm *DefaultWindowManager) GetTickers() map[string]TickerWindow {
-	// Return a copy to prevent external modification
-	result := make(map[string]TickerWindow)
+// Parameters:
+//   - fn: Callback function that receives key and ticker. Return false to stop iteration.
+//
+// Example usage:
+//
+//	wm.GetTickers(func(key string, ticker TickerWindow) bool {
+//	    fmt.Printf("Ticker: %s\n", key)
+//	    return true // continue iteration
+//	})
+func (wm *DefaultWindowManager) GetTickers(fn func(key string, ticker TickerWindow) bool) {
 	for k, v := range wm.tickers {
-		result[k] = v
+		if !fn(k, v) {
+			break
+		}
 	}
-	return result
 }
 
 func (wm *DefaultWindowManager) GetPages() *tview.Pages {

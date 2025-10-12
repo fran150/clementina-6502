@@ -48,11 +48,13 @@ type WindowManager interface {
 	// RemoveWindow removes a window by its key.
 	RemoveWindow(key string)
 
-	// GetAllWindows returns all windows.
-	GetAllWindows() map[string]Window
+	// GetAllWindows iterates over all windows for read-only access.
+	// The callback function receives each key-value pair and should return true to continue iteration.
+	GetAllWindows(fn func(key string, window Window) bool)
 
-	// GetTickers returns all ticker windows.
-	GetTickers() map[string]TickerWindow
+	// GetTickers iterates over all ticker windows for read-only access.
+	// The callback function receives each key-value pair and should return true to continue iteration.
+	GetTickers(fn func(key string, ticker TickerWindow) bool)
 
 	// SwitchToPage makes the specified window active
 	SwitchToPage(key string)
