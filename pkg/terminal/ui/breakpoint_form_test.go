@@ -4,21 +4,26 @@ import (
 	"testing"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/core/interfaces"
+	"github.com/fran150/clementina-6502/pkg/core/managers"
 	"github.com/rivo/tview"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNewBreakPointForm(t *testing.T) {
-	form := NewBreakPointForm()
+	var bm interfaces.BreakpointManager = managers.NewBreakpointManager()
+	form := NewBreakPointForm(bm)
 
 	assert.NotNil(t, form.grid)
 	assert.NotNil(t, form.form)
 	assert.NotNil(t, form.list)
-	assert.Empty(t, form.breakpointAddresses)
+	assert.NotNil(t, form.breakpointManager)
+	assert.Equal(t, 0, form.breakpointManager.GetBreakpointCount())
 }
 
 func TestValidateHexInput(t *testing.T) {
-	form := NewBreakPointForm()
+	var bm interfaces.BreakpointManager = managers.NewBreakpointManager()
+	form := NewBreakPointForm(bm)
 
 	tests := []struct {
 		name     string
@@ -43,8 +48,10 @@ func TestValidateHexInput(t *testing.T) {
 }
 
 func TestCheckBreakpoint(t *testing.T) {
-	form := NewBreakPointForm()
-	form.breakpointAddresses = []uint16{0x1234, 0x5678}
+	var bm interfaces.BreakpointManager = managers.NewBreakpointManager()
+	form := NewBreakPointForm(bm)
+	bm.AddBreakpoint(0x1234)
+	bm.AddBreakpoint(0x5678)
 
 	tests := []struct {
 		name    string
@@ -65,7 +72,8 @@ func TestCheckBreakpoint(t *testing.T) {
 }
 
 func TestRemoveSelectedItem(t *testing.T) {
-	form := NewBreakPointForm()
+	var bm interfaces.BreakpointManager = managers.NewBreakpointManager()
+	form := NewBreakPointForm(bm)
 
 	// Test empty list case first
 	t.Run("Remove from empty list", func(t *testing.T) {
@@ -75,11 +83,13 @@ func TestRemoveSelectedItem(t *testing.T) {
 		form.RemoveSelectedItem()
 		// Verify it's still empty
 		assert.Equal(t, 0, form.list.GetItemCount())
-		assert.Empty(t, form.breakpointAddresses)
+		assert.Equal(t, 0, form.breakpointManager.GetBreakpointCount())
 	})
 
 	// Setup for the rest of the tests
-	form.breakpointAddresses = []uint16{0x1234, 0x5678, 0x9ABC}
+	bm.AddBreakpoint(0x1234)
+	bm.AddBreakpoint(0x5678)
+	bm.AddBreakpoint(0x9ABC)
 
 	// Add items to the list
 	form.list.AddItem("$1234", "", ' ', nil)
@@ -99,14 +109,15 @@ func TestRemoveSelectedItem(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			form.RemoveSelectedItem()
-			assert.Equal(t, tt.expectedLen, len(form.breakpointAddresses))
+			assert.Equal(t, tt.expectedLen, form.breakpointManager.GetBreakpointCount())
 			assert.Equal(t, tt.expectedLen, form.list.GetItemCount())
 		})
 	}
 }
 
 func TestAddBreakpointAddress(t *testing.T) {
-	form := NewBreakPointForm()
+	var bm interfaces.BreakpointManager = managers.NewBreakpointManager()
+	form := NewBreakPointForm(bm)
 	input := form.form.GetFormItemByLabel("Address").(*tview.InputField)
 
 	tests := []struct {
@@ -133,11 +144,12 @@ func TestAddBreakpointAddress(t *testing.T) {
 				return
 			}
 
+			initialCount := form.breakpointManager.GetBreakpointCount()
 			form.AddSelectedBreakpointAddress()
 
-			// Check if breakpoint was added to the addresses slice
-			lastAddr := form.breakpointAddresses[len(form.breakpointAddresses)-1]
-			assert.Equal(t, tt.expectedValue, lastAddr)
+			// Check if breakpoint was added to the manager
+			assert.Equal(t, initialCount+1, form.breakpointManager.GetBreakpointCount())
+			assert.True(t, form.breakpointManager.HasBreakpoint(tt.expectedValue))
 
 			// Check if list item was added with correct format
 			lastIndex := form.list.GetItemCount() - 1
@@ -151,7 +163,8 @@ func TestAddBreakpointAddress(t *testing.T) {
 }
 
 func TestBreakPointForm_Draw(t *testing.T) {
-	form := NewBreakPointForm()
+	var bm interfaces.BreakpointManager = managers.NewBreakpointManager()
+	form := NewBreakPointForm(bm)
 	context := &common.StepContext{}
 
 	// We just verify it doesn't panic

@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fran150/clementina-6502/internal/slicesext"
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/core/interfaces"
 	"github.com/rivo/tview"
 )
 
@@ -18,16 +18,21 @@ type BreakPointForm struct {
 	form *tview.Form
 	list *tview.List
 
-	breakpointAddresses []uint16
+	breakpointManager interfaces.BreakpointManager
 }
 
 // NewBreakPointForm creates and initializes a new breakpoint management form.
 // It sets up the UI components for adding, displaying, and removing breakpoints.
 //
+// Parameters:
+//   - breakpointManager: The breakpoint manager to use for managing breakpoints
+//
 // Returns:
 //   - A pointer to the initialized BreakPointForm
-func NewBreakPointForm() *BreakPointForm {
-	breakPointForm := &BreakPointForm{}
+func NewBreakPointForm(breakpointManager interfaces.BreakpointManager) *BreakPointForm {
+	breakPointForm := &BreakPointForm{
+		breakpointManager: breakpointManager,
+	}
 
 	form := tview.NewForm().
 		AddInputField("Address", "", 5, breakPointForm.validateHexInput, nil).
@@ -70,8 +75,7 @@ func (d *BreakPointForm) RemoveSelectedItem() {
 // Parameters:
 //   - index: The index of the breakpoint to remove
 func (d *BreakPointForm) RemoveBreakpointAddress(index int) {
-	d.breakpointAddresses = slicesext.SliceRemove(d.breakpointAddresses, index)
-
+	d.breakpointManager.RemoveBreakpointByIndex(index)
 	d.list.RemoveItem(index)
 }
 
@@ -83,13 +87,7 @@ func (d *BreakPointForm) RemoveBreakpointAddress(index int) {
 // Returns:
 //   - true if a breakpoint exists at the address, false otherwise
 func (d *BreakPointForm) CheckBreakpoint(address uint16) bool {
-	for _, value := range d.breakpointAddresses {
-		if value == address {
-			return true
-		}
-	}
-
-	return false
+	return d.breakpointManager.HasBreakpoint(address)
 }
 
 // AddBreakpointAddress adds a new breakpoint at the specified hexadecimal address.
@@ -105,10 +103,10 @@ func (d *BreakPointForm) AddBreakpointAddress(text string) {
 		panic(err)
 	}
 
-	d.breakpointAddresses = append(d.breakpointAddresses, uint16(value))
+	address := uint16(value)
+	d.breakpointManager.AddBreakpoint(address)
 
 	text = fmt.Sprintf("$%04s", text)
-
 	d.list.AddItem(text, "", ' ', nil)
 }
 

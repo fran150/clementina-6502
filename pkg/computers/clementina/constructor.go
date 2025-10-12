@@ -231,8 +231,9 @@ func NewClementinaComputer(config *ClementinaComputerConfig) (*ClementinaCompute
 		circuit: circuit,
 		mappers: mappers,
 
-		speedController: controllers.NewSpeedController(1.1),
-		stateManager:    managers.NewStateManager(),
+		speedController:   controllers.NewSpeedController(1.1),
+		stateManager:      managers.NewStateManager(),
+		breakpointManager: managers.NewBreakpointManager(),
 
 		resetCycles: 0,
 	}

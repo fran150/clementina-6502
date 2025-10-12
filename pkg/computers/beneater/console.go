@@ -36,7 +36,7 @@ func newMainConsole(computer *BenEaterComputer) *console {
 	// Initialize all windows
 	wm.AddWindow("lcd", ui.NewDisplayWindow(computer.chips.lcd))
 	wm.AddWindow("code", ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators))
-	wm.AddWindow("speed", ui.NewSpeedWindow(computer.GetSpeedController()))
+	wm.AddWindow("speed", ui.NewSpeedWindow(computer.speedController))
 	wm.AddWindow("cpu", ui.NewCpuWindow(computer.chips.cpu))
 	wm.AddWindow("via", ui.NewViaWindow(computer.chips.via))
 	wm.AddWindow("lcd_controller", ui.NewLcdWindow(computer.chips.lcd))
@@ -45,7 +45,7 @@ func newMainConsole(computer *BenEaterComputer) *console {
 	wm.AddWindow("rom", ui.NewMemoryWindow(computer.chips.rom))
 	busWindow := ui.NewBusWindow()
 	wm.AddWindow("bus", busWindow)
-	wm.AddWindow("breakpoint", ui.NewBreakPointForm())
+	wm.AddWindow("breakpoint", ui.NewBreakPointForm(computer.breakpointManager))
 	wm.AddWindow("options", ui.NewOptionsWindow(menuOptions))
 
 	initializeBusWindow(computer, busWindow)

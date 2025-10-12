@@ -41,7 +41,7 @@ func newMainConsole(computer *ClementinaComputer) *console {
 
 	// Initialize all windows
 	wm.AddWindow("code", ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators))
-	wm.AddWindow("speed", ui.NewSpeedWindow(computer.GetSpeedController()))
+	wm.AddWindow("speed", ui.NewSpeedWindow(computer.speedController))
 	wm.AddWindow("cpu", ui.NewCpuWindow(computer.chips.cpu))
 	wm.AddWindow("via", ui.NewViaWindow(computer.chips.via))
 	wm.AddWindow("baseram", ui.NewMemoryWindow(computer.chips.baseram))
@@ -50,7 +50,7 @@ func newMainConsole(computer *ClementinaComputer) *console {
 	wm.AddWindow("goto", ui.NewMemoryWindowGoToForm())
 	busWindow := ui.NewBusWindow()
 	wm.AddWindow("bus", busWindow)
-	wm.AddWindow("breakpoint", ui.NewBreakPointForm())
+	wm.AddWindow("breakpoint", ui.NewBreakPointForm(computer.breakpointManager))
 	wm.AddWindow("options", ui.NewOptionsWindow(menuOptions))
 
 	initializeBusWindow(computer, busWindow)

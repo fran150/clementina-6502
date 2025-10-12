@@ -147,8 +147,9 @@ func NewBenEaterComputer(config *BenEaterComputerConfig) (*BenEaterComputer, err
 		chips:   chips,
 		circuit: circuit,
 
-		speedController: controllers.NewSpeedController(1.1),
-		stateManager:    managers.NewStateManager(),
+		speedController:   controllers.NewSpeedController(1.1),
+		stateManager:      managers.NewStateManager(),
+		breakpointManager: managers.NewBreakpointManager(),
 
 		resetCycles: 0,
 	}

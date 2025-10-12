@@ -6,8 +6,6 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina/modules"
 	"github.com/fran150/clementina-6502/pkg/core/interfaces"
-	"github.com/fran150/clementina-6502/pkg/terminal"
-	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 )
 
 type mapperFunctions[T uint8 | uint16, S uint8 | uint16] struct {
@@ -68,6 +66,7 @@ type ClementinaComputer struct {
 	loop                interfaces.EmulationLoop
 	speedController     interfaces.SpeedController
 	stateManager        interfaces.StateManager
+	breakpointManager   interfaces.BreakpointManager
 	lastBreakpointCheck uint64
 }
 
@@ -124,11 +123,8 @@ func (c *ClementinaComputer) Tick(context *common.StepContext) {
 		// Only check breakpoints every 100 cycles for performance
 		if c.chips.cpu.IsReadingOpcode() && (context.Cycle-c.lastBreakpointCheck) > 100 {
 			c.lastBreakpointCheck = context.Cycle
-
-			if breakpointWindow := terminal.GetWindow[ui.BreakPointForm](c.console.GetWindowManager(), "breakpoint"); breakpointWindow != nil {
-				if breakpointWindow.CheckBreakpoint(c.chips.cpu.GetProgramCounter() - 1) {
-					c.stateManager.Pause()
-				}
+			if c.breakpointManager.HasBreakpoint(c.chips.cpu.GetProgramCounter() - 1) {
+				c.stateManager.Pause()
 			}
 		}
 
@@ -217,6 +213,11 @@ func (c *ClementinaComputer) checkReset() {
 // GetSpeedController returns the speed controller for direct access.
 func (c *ClementinaComputer) GetSpeedController() interfaces.SpeedController {
 	return c.speedController
+}
+
+// GetBreakpointManager returns the breakpoint manager for direct access.
+func (c *ClementinaComputer) GetBreakpointManager() interfaces.BreakpointManager {
+	return c.breakpointManager
 }
 
 // BaseRamPoke writes a value directly to the base RAM at the specified address.
