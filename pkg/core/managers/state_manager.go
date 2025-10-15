@@ -14,6 +14,7 @@ type DefaultStateManager struct {
 func NewStateManager() *DefaultStateManager {
 	return &DefaultStateManager{
 		state: interfaces.ComputerState{
+			Stopped:   false,
 			Paused:    false,
 			Stepping:  false,
 			Resetting: false,
@@ -75,7 +76,12 @@ func (sm *DefaultStateManager) IsResetting() bool {
 	return sm.state.Resetting
 }
 
-// GetState returns a copy of the current computer state.
-func (sm *DefaultStateManager) GetState() interfaces.ComputerState {
-	return sm.state
+// Stop stops the computer completely.
+func (sm *DefaultStateManager) Stop() {
+	sm.state.Stopped = true
+}
+
+// IsStopped checks if the computer is currently stopped.
+func (sm *DefaultStateManager) IsStopped() bool {
+	return sm.state.Stopped
 }

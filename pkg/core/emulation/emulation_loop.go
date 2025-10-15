@@ -18,6 +18,7 @@ type EmulationLoopConfig struct {
 // separation between processing cycles and display updates.
 type EmulationLoop struct {
 	computer        interfaces.ComputerCore
+	console         interfaces.EmulationConsole
 	speedController interfaces.SpeedController
 	config          *EmulationLoopConfig
 
@@ -38,9 +39,10 @@ type EmulationLoop struct {
 //
 // Returns:
 //   - A pointer to the initialized EmulationLoop
-func NewEmulationLoop(computer interfaces.ComputerCore, speedController interfaces.SpeedController, config *EmulationLoopConfig) *EmulationLoop {
+func NewEmulationLoop(computer interfaces.ComputerCore, console interfaces.EmulationConsole, speedController interfaces.SpeedController, config *EmulationLoopConfig) *EmulationLoop {
 	return &EmulationLoop{
 		computer:        computer,
+		console:         console,
 		speedController: speedController,
 		config:          config,
 		panicHandler:    nil,
@@ -171,6 +173,6 @@ func (e *EmulationLoop) executeDraw(context *common.StepContext) {
 
 	for !e.stop {
 		<-ticker.C
-		e.computer.Draw(context)
+		e.console.Draw(context)
 	}
 }

@@ -5,8 +5,10 @@ import "github.com/fran150/clementina-6502/pkg/common"
 // ComputerCore combines emulation and rendering capabilities.
 // This represents the core computer functionality.
 type ComputerCore interface {
-	Emulator
-	Renderer
+	Ticker
+
+	// GetProgramCounter returns the current program counter value.
+	GetProgramCounter() uint16
 }
 
 // EmulationLoop defines the interface for managing emulation execution.
@@ -29,9 +31,9 @@ type EmulationLoop interface {
 	SetPanicHandler(handler func(loopType string, panicData any) bool)
 }
 
-// Emulator defines the core emulation logic interface.
+// Ticker defines the core emulation logic interface.
 // This represents the pure emulation functionality without lifecycle concerns.
-type Emulator interface {
+type Ticker interface {
 	// Tick processes one clock cycle of the computer system.
 	// This includes updating all components like CPU, memory, and peripherals.
 	//

@@ -5,7 +5,6 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina/modules"
-	"github.com/fran150/clementina-6502/pkg/core/interfaces"
 )
 
 type mapperFunctions[T uint8 | uint16, S uint8 | uint16] struct {
@@ -55,41 +54,15 @@ type circuit struct {
 type ClementinaComputer struct {
 	context *common.StepContext
 
-	chips       *chips
-	circuit     *circuit
-	console     *console
-	resetCycles uint8
+	chips   *chips
+	circuit *circuit
 
 	mappers mappers
-
-	// Performance optimization: cache frequently accessed state
-	loop              interfaces.EmulationLoop
-	speedController   interfaces.SpeedController
-	stateManager      interfaces.StateManager
-	breakpointManager interfaces.BreakpointManager
 }
 
 /*******************************************************************************************
 * ComputerCore Interface methods (Emulator + Renderer)
 ********************************************************************************************/
-
-// Run starts the emulation loop and runs the console application.
-func (c *ClementinaComputer) Run() (*common.StepContext, error) {
-	c.context = c.loop.Start()
-
-	if err := c.console.Run(); err != nil {
-		c.loop.Stop()
-		return nil, err
-	}
-
-	return c.context, nil
-}
-
-// Stop stops computer execution and finishes the console application.
-func (c *ClementinaComputer) Stop() {
-	c.loop.Stop()
-	c.console.Stop()
-}
 
 // Tick advances the computer's state by one cycle.
 // It updates all components if the computer is not paused or if a single step is requested.
@@ -98,42 +71,19 @@ func (c *ClementinaComputer) Stop() {
 // Parameters:
 //   - context: The current step context
 func (c *ClementinaComputer) Tick(context *common.StepContext) {
-	if !c.stateManager.IsPaused() || c.stateManager.IsStepping() {
-		// Core emulation - keep this tight for performance
-		c.chips.cpu.Tick(context)
+	// Core emulation - keep this tight for performance
+	c.chips.cpu.Tick(context)
 
-		c.chips.csLogic.Tick(context)
-		c.chips.oeRWSync.Tick(context)
+	c.chips.csLogic.Tick(context)
+	c.chips.oeRWSync.Tick(context)
 
-		c.chips.via.Tick(context)
+	c.chips.via.Tick(context)
 
-		c.chips.baseram.Tick(context)
-		c.chips.hiram.Tick(context)
-		c.chips.exram.Tick(context)
+	c.chips.baseram.Tick(context)
+	c.chips.hiram.Tick(context)
+	c.chips.exram.Tick(context)
 
-		c.chips.cpu.PostTick(context)
-		c.checkReset()
-
-		// Clear stepping state
-		if c.stateManager.IsStepping() {
-			c.stateManager.ClearStepping()
-		}
-
-		if c.breakpointManager.HasBreakpoint(c.chips.cpu.GetProgramCounter() - 1) {
-			c.stateManager.Pause()
-		}
-
-		c.console.Tick(context)
-	}
-}
-
-// Draw renders the computer's UI to the terminal.
-// It delegates the drawing to the console component.
-//
-// Parameters:
-//   - context: The current step context
-func (c *ClementinaComputer) Draw(context *common.StepContext) {
-	c.console.Draw(context)
+	c.chips.cpu.PostTick(context)
 }
 
 // Close performs cleanup operations when shutting down the computer.
@@ -181,35 +131,6 @@ func (c *ClementinaComputer) getPotentialOperators(programCounter uint16) [2]uin
 	op2 := chip.Peek(address + 1)
 
 	return [2]uint8{op1, op2}
-}
-
-// checkReset handles the reset signal timing for the CPU.
-// On 6502 systems the reset signal must be held low for a certain number of cycles
-func (c *ClementinaComputer) checkReset() {
-	if c.stateManager.IsResetting() {
-		c.circuit.cpuReset.Set(false)
-		c.resetCycles++
-		if c.resetCycles > 5 {
-			c.stateManager.Unreset()
-			c.resetCycles = 0
-		}
-	} else {
-		c.circuit.cpuReset.Set(true)
-	}
-}
-
-/*******************************************************************************************
-* Controller Interface methods (delegated to system)
-********************************************************************************************/
-
-// GetSpeedController returns the speed controller for direct access.
-func (c *ClementinaComputer) GetSpeedController() interfaces.SpeedController {
-	return c.speedController
-}
-
-// GetBreakpointManager returns the breakpoint manager for direct access.
-func (c *ClementinaComputer) GetBreakpointManager() interfaces.BreakpointManager {
-	return c.breakpointManager
 }
 
 // BaseRamPoke writes a value directly to the base RAM at the specified address.

@@ -147,21 +147,3 @@ func (c *Console) Run() error {
 func (c *Console) Stop() {
 	c.app.Stop()
 }
-
-// GetWindowManager returns the window manager associated with this console.
-func (c *Console) GetWindowManager() terminal.WindowManager {
-	return c.windowManager
-}
-
-// GetNavigationManager returns the navigation manager associated with this console.
-func (c *Console) GetNavigationManager() interfaces.NavigationManager {
-	return c.navigationManager
-}
-
-// SetRoot sets the root primitive for the console application.
-//
-// Parameters:
-//   - root: The tview primitive to set as the application root
-func (c *Console) SetRoot(root tview.Primitive) {
-	c.app.SetRoot(root, true)
-}

@@ -17,6 +17,7 @@ type NavigationManager interface {
 
 // ComputerState represents the current state of a computer system.
 type ComputerState struct {
+	Stopped   bool // Indicates if the computer is currently stopped
 	Paused    bool // Indicates if the computer is currently paused
 	Stepping  bool // Indicates if the computer is stepping through cycles
 	Resetting bool // Indicates if the computer is in the process of resetting
@@ -62,6 +63,12 @@ type StateManager interface {
 
 	// GetState returns a copy of the current computer state.
 	GetState() ComputerState
+
+	// Stop stops the computer completely.
+	Stop()
+
+	// IsStopped checks if the computer is currently stopped.
+	IsStopped() bool
 }
 
 // BreakpointManager defines the contract for managing breakpoints in debugging.

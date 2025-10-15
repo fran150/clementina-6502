@@ -2,6 +2,8 @@ package clementina
 
 import (
 	"github.com/fran150/clementina-6502/pkg/computers"
+	"github.com/fran150/clementina-6502/pkg/core/emulation"
+	"github.com/fran150/clementina-6502/pkg/core/interfaces"
 	"github.com/fran150/clementina-6502/pkg/core/managers"
 	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
@@ -10,17 +12,21 @@ import (
 
 type console struct {
 	*computers.Console
-	grid *tview.Grid
+
+	grid              *tview.Grid
+	app               *tview.Application
+	windowsManager    terminal.WindowManager
+	navigationManager interfaces.NavigationManager
 }
 
-// newMainConsole creates and initializes a new console for the Clementina computer.
+// NewClementinaEmulationConsole creates and initializes a new console for the Clementina computer.
 //
 // Parameters:
 //   - computer: The ClementinaComputer instance to create the console for
 //
 // Returns:
 //   - A configured console ready for use
-func newMainConsole(computer *ClementinaComputer) *console {
+func NewClementinaEmulationConsole(computer *ClementinaComputer, emulatorConfig *emulation.EmulatorConfig) *console {
 	wm := terminal.NewWindowManager()
 
 	config := &computers.ConsoleBuildConfig{
@@ -31,17 +37,19 @@ func newMainConsole(computer *ClementinaComputer) *console {
 	}
 
 	console := &console{
-		Console: computers.NewConsole(config),
-		grid:    tview.NewGrid(),
+		Console:        computers.NewConsole(config),
+		grid:           tview.NewGrid(),
+		app:            config.App,
+		windowsManager: config.WindowManager,
 	}
 
 	console.initializeMainGrid()
 
-	menuOptions := createMenuOptions(computer, console)
+	menuOptions := createMenuOptions(console, emulatorConfig)
 
 	// Initialize all windows
 	wm.AddWindow("code", ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators))
-	wm.AddWindow("speed", ui.NewSpeedWindow(computer.speedController))
+	wm.AddWindow("speed", ui.NewSpeedWindow(emulatorConfig.SpeedController))
 	wm.AddWindow("cpu", ui.NewCpuWindow(computer.chips.cpu))
 	wm.AddWindow("via", ui.NewViaWindow(computer.chips.via))
 	wm.AddWindow("baseram", ui.NewMemoryWindow(computer.chips.baseram))
@@ -50,7 +58,7 @@ func newMainConsole(computer *ClementinaComputer) *console {
 	wm.AddWindow("goto", ui.NewMemoryWindowGoToForm())
 	busWindow := ui.NewBusWindow()
 	wm.AddWindow("bus", busWindow)
-	wm.AddWindow("breakpoint", ui.NewBreakPointForm(computer.breakpointManager))
+	wm.AddWindow("breakpoint", ui.NewBreakPointForm(emulatorConfig.BreakpointManager))
 	wm.AddWindow("options", ui.NewOptionsWindow(menuOptions))
 
 	initializeBusWindow(computer, busWindow)
@@ -75,7 +83,7 @@ func (c *console) initializeMainGrid() {
 		SetTitle("Clementina 6502 Computer")
 
 	// Get the tview app from the framework and set the grid as root
-	c.SetRoot(c.grid)
+	c.app.SetRoot(c.grid, true)
 }
 
 // initializeBusWindow configures the bus window with the computer's buses.
@@ -92,13 +100,11 @@ func initializeBusWindow(computer *ClementinaComputer, busWindow *ui.BusWindow) 
 
 // initializeLayout sets up the initial layout of console windows.
 func (c *console) initializeLayout() {
-	wm := c.GetWindowManager()
-
 	// Setup initial grid layout
-	c.grid.AddItem(wm.GetWindow("speed").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
-		AddItem(wm.GetWindow("code").GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
-		AddItem(wm.GetWindow("options").GetDrawArea(), 2, 0, 1, 2, 0, 0, false).
-		AddItem(wm.GetPages(), 0, 1, 2, 1, 0, 0, true)
+	c.grid.AddItem(c.windowsManager.GetWindow("speed").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
+		AddItem(c.windowsManager.GetWindow("code").GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
+		AddItem(c.windowsManager.GetWindow("options").GetDrawArea(), 2, 0, 1, 2, 0, 0, false).
+		AddItem(c.windowsManager.GetPages(), 0, 1, 2, 1, 0, 0, true)
 }
 
 /************************************************************************************
@@ -107,11 +113,11 @@ func (c *console) initializeLayout() {
 
 // ShowGotoForm shows the go to form for memory navigation allowing to navigate back.
 func (c *console) ShowGotoForm() {
-	activeKey := c.GetNavigationManager().GetCurrent()
+	activeKey := c.navigationManager.GetCurrent()
 
-	if memoryWindow := terminal.GetWindow[ui.MemoryWindow](c.GetWindowManager(), activeKey); memoryWindow != nil {
-		if gotoWindow := terminal.GetWindow[ui.MemoryWindowGoToForm](c.GetWindowManager(), "goto"); gotoWindow != nil {
-			if optionsWindow := terminal.GetWindow[ui.OptionsWindow](c.GetWindowManager(), "options"); optionsWindow != nil {
+	if memoryWindow := terminal.GetWindow[ui.MemoryWindow](c.windowsManager, activeKey); memoryWindow != nil {
+		if gotoWindow := terminal.GetWindow[ui.MemoryWindowGoToForm](c.windowsManager, "goto"); gotoWindow != nil {
+			if optionsWindow := terminal.GetWindow[ui.OptionsWindow](c.windowsManager, "options"); optionsWindow != nil {
 				gotoWindow.InitForm(memoryWindow, func() {
 					optionsWindow.GoToPreviousMenu()
 				})

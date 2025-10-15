@@ -1,17 +1,11 @@
 package clementina
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/components/cpu"
 	"github.com/fran150/clementina-6502/pkg/components/memory"
 	"github.com/fran150/clementina-6502/pkg/components/via"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina/modules"
-	"github.com/fran150/clementina-6502/pkg/core/controllers"
-	"github.com/fran150/clementina-6502/pkg/core/emulation"
-	"github.com/fran150/clementina-6502/pkg/core/managers"
 )
 
 // ClementinaComputerConfig contains configuration for the Clementina computer.
@@ -230,26 +224,7 @@ func NewClementinaComputer(config *ClementinaComputerConfig) (*ClementinaCompute
 		chips:   chips,
 		circuit: circuit,
 		mappers: mappers,
-
-		speedController:   controllers.NewSpeedController(1.1),
-		stateManager:      managers.NewStateManager(),
-		breakpointManager: managers.NewBreakpointManager(),
-
-		resetCycles: 0,
 	}
-
-	computer.console = newMainConsole(computer)
-
-	loopConfig := &emulation.EmulationLoopConfig{
-		DisplayFps: config.DisplayFps,
-	}
-
-	computer.loop = emulation.NewEmulationLoop(computer, computer.speedController, loopConfig)
-
-	computer.loop.SetPanicHandler(func(loopType string, panicData any) bool {
-		fmt.Fprintf(os.Stderr, "%s panic: %v\n", loopType, panicData)
-		return false
-	})
 
 	return computer, nil
 }

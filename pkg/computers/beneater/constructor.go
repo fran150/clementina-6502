@@ -1,9 +1,6 @@
 package beneater
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/fran150/clementina-6502/pkg/components/acia"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/components/cpu"
@@ -11,9 +8,6 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components/memory"
 	"github.com/fran150/clementina-6502/pkg/components/other/gates"
 	"github.com/fran150/clementina-6502/pkg/components/via"
-	"github.com/fran150/clementina-6502/pkg/core/controllers"
-	"github.com/fran150/clementina-6502/pkg/core/emulation"
-	"github.com/fran150/clementina-6502/pkg/core/managers"
 )
 
 // NewBenEaterComputer creates and initializes a new instance of the Ben Eater 6502 computer emulation.
@@ -146,27 +140,7 @@ func NewBenEaterComputer(config *BenEaterComputerConfig) (*BenEaterComputer, err
 	computer := &BenEaterComputer{
 		chips:   chips,
 		circuit: circuit,
-
-		speedController:   controllers.NewSpeedController(1.1),
-		stateManager:      managers.NewStateManager(),
-		breakpointManager: managers.NewBreakpointManager(),
-
-		resetCycles: 0,
 	}
-
-	computer.console = newMainConsole(computer)
-
-	loopConfig := &emulation.EmulationLoopConfig{
-		DisplayFps: config.DisplayFps,
-	}
-
-	computer.loop = emulation.NewEmulationLoop(computer, computer.speedController, loopConfig)
-
-	computer.loop.SetPanicHandler(func(loopType string, panicData any) bool {
-		fmt.Fprintf(os.Stderr, "%s panic: %v\n", loopType, panicData)
-		computer.Stop()
-		return false
-	})
 
 	return computer, nil
 }

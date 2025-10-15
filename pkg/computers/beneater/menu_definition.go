@@ -1,6 +1,7 @@
 package beneater
 
 import (
+	"github.com/fran150/clementina-6502/pkg/core/emulation"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/gdamore/tcell/v2"
 )
@@ -14,7 +15,7 @@ import (
 //
 // Returns:
 //   - A slice of menu options for the options window
-func createMenuOptions(computer *BenEaterComputer, console *console) []*ui.OptionsWindowMenuOption {
+func createMenuOptions(console *BenEaterComputerConsole, emulatorConfig *emulation.EmulatorConfig) []*ui.OptionsWindowMenuOption {
 	return []*ui.OptionsWindowMenuOption{
 		{
 			Rune:           'e',
@@ -25,7 +26,7 @@ func createMenuOptions(computer *BenEaterComputer, console *console) []*ui.Optio
 					Rune:           'r',
 					KeyName:        "R",
 					KeyDescription: "Reset",
-					Action:         computer.stateManager.Reset,
+					Action:         emulatorConfig.StateManager.Reset,
 				},
 				{
 					Rune:           'e',
@@ -36,19 +37,19 @@ func createMenuOptions(computer *BenEaterComputer, console *console) []*ui.Optio
 							Rune:           'p',
 							KeyName:        "P",
 							KeyDescription: "Pause",
-							Action:         computer.stateManager.Pause,
+							Action:         emulatorConfig.StateManager.Pause,
 						},
 						{
 							Rune:           'r',
 							KeyName:        "R",
 							KeyDescription: "Resume",
-							Action:         computer.stateManager.Resume,
+							Action:         emulatorConfig.StateManager.Resume,
 						},
 						{
 							Rune:           's',
 							KeyName:        "S",
 							KeyDescription: "Step",
-							Action:         computer.stateManager.Step,
+							Action:         emulatorConfig.StateManager.Step,
 						},
 						{
 							Rune:           'b',
@@ -80,7 +81,7 @@ func createMenuOptions(computer *BenEaterComputer, console *console) []*ui.Optio
 							KeyDescription: "Speed Up",
 							Action: func() {
 								console.ShowEmulationSpeed()
-								computer.speedController.SpeedUp()
+								emulatorConfig.SpeedController.SpeedUp()
 							},
 							DoNotForward: true,
 						},
@@ -90,7 +91,7 @@ func createMenuOptions(computer *BenEaterComputer, console *console) []*ui.Optio
 							KeyDescription: "Speed Down",
 							Action: func() {
 								console.ShowEmulationSpeed()
-								computer.speedController.SpeedDown()
+								emulatorConfig.SpeedController.SpeedDown()
 							},
 							DoNotForward: true,
 						},
@@ -167,7 +168,7 @@ func createMenuOptions(computer *BenEaterComputer, console *console) []*ui.Optio
 			Rune:           'q',
 			KeyName:        "Q",
 			KeyDescription: "Quit",
-			Action:         computer.Stop,
+			Action:         emulatorConfig.StateManager.Stop,
 		},
 	}
 }
@@ -180,7 +181,7 @@ func createMenuOptions(computer *BenEaterComputer, console *console) []*ui.Optio
 //
 // Returns:
 //   - A slice of menu options for memory window navigation
-func createMemoryWindowSubMenu(console *console) []*ui.OptionsWindowMenuOption {
+func createMemoryWindowSubMenu(console *BenEaterComputerConsole) []*ui.OptionsWindowMenuOption {
 	return []*ui.OptionsWindowMenuOption{
 		{
 			Key:            tcell.KeyUp,
