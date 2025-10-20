@@ -30,7 +30,7 @@ func NewClementinaEmulationConsole(computer *ClementinaComputer, emulator interf
 
 	config := &computers.ConsoleBuildConfig{
 		WindowManager:     wm,
-		NavigationManager: managers.NewNavigationManager(),
+		NavigationManager: managers.NewDefaultNavigationManager(),
 		InputHandler:      terminal.NewDefaultInputHandler(wm),
 		App:               tview.NewApplication(),
 	}

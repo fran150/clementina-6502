@@ -12,17 +12,17 @@ import (
 
 func NewBenEaterEmulation(computer *BenEaterComputer, speed float64, displayFPS int) (interfaces.Emulator, error) {
 	speedController := controllers.NewSpeedController(speed)
-	breakPointManager := managers.NewBreakpointManager()
+	breakPointManager := managers.NewDefaultBreakpointManager()
 
 	console := NewBenEaterEmulationConsole(computer)
 
-	loopConfig := &emulation.EmulationLoopConfig{
+	loopConfig := &emulation.DefaultEmulationLoopConfig{
 		SpeedController: speedController,
 		DisplayFPS:      displayFPS,
 	}
 	loop := emulation.NewEmulationLoop(*loopConfig)
 
-	emulatorConfig := &emulation.EmulatorConfig{
+	emulatorConfig := emulation.DefaultEmulatorConfig{
 		Computer:          computer,
 		Console:           console,
 		Loop:              loop,

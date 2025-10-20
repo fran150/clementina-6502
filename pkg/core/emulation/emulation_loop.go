@@ -7,27 +7,31 @@ import (
 	"github.com/fran150/clementina-6502/pkg/core/interfaces"
 )
 
-// EmulationLoopConfig contains settings that control the display refresh rate.
-type EmulationLoopConfig struct {
+// DefaultEmulationLoopConfig contains settings that control the display refresh rate.
+type DefaultEmulationLoopConfig struct {
 	SpeedController interfaces.SpeedController
-	PanicHandler    func(loopType string, panicData any) bool
 	DisplayFPS      int
 	RefreshNanos    int64
 }
 
-// EmulationLoop manages the timing and execution of the emulation cycle.
+// DefaultEmulationLoop manages the timing and execution of the emulation cycle.
 // It ensures the emulation runs at the specified speed and handles the
 // separation between processing cycles and display updates.
-type EmulationLoop struct {
+type DefaultEmulationLoop struct {
 	emulator interfaces.Emulator
 
-	config *EmulationLoopConfig
+	config       *DefaultEmulationLoopConfig
+	panicHandler func(loopType string, panicData any) bool
 
 	tickLoopRunning bool
 	drawLoopRunning bool
 	stop            bool
 	pause           bool
 }
+
+/************************************************************************************
+* Constructor
+*************************************************************************************/
 
 // NewEmulationLoop creates a new emulation loop with the specified components.
 //
@@ -38,16 +42,16 @@ type EmulationLoop struct {
 //
 // Returns:
 //   - A pointer to the initialized EmulationLoop
-func NewEmulationLoop(config EmulationLoopConfig) *EmulationLoop {
+func NewEmulationLoop(config DefaultEmulationLoopConfig) *DefaultEmulationLoop {
 	if config.RefreshNanos <= 0 {
-		config.RefreshNanos = 5 * 1_000_000
+		config.RefreshNanos = 15 * 1_000_000
 	}
 
 	if config.DisplayFPS <= 0 {
 		config.DisplayFPS = 10
 	}
 
-	return &EmulationLoop{
+	return &DefaultEmulationLoop{
 		config:          &config,
 		tickLoopRunning: false,
 		drawLoopRunning: false,
@@ -55,7 +59,18 @@ func NewEmulationLoop(config EmulationLoopConfig) *EmulationLoop {
 	}
 }
 
-func (e *EmulationLoop) SetEmulator(emulator interfaces.Emulator) {
+/************************************************************************************
+* Setters
+*************************************************************************************/
+
+// SetEmulator sets the emulator instance for the emulation loop.
+// This can only be called when the loop is not running.
+//
+// Parameters:
+//   - emulator: The emulator instance to set
+//
+// Panics if called while the emulation loop is running.
+func (e *DefaultEmulationLoop) SetEmulator(emulator interfaces.Emulator) {
 	if !e.IsRunning() {
 		e.emulator = emulator
 	} else {
@@ -69,26 +84,34 @@ func (e *EmulationLoop) SetEmulator(emulator interfaces.Emulator) {
 //
 // Parameters:
 //   - handler: Function to handle panics, returns true if panic should be suppressed
-func (e *EmulationLoop) SetPanicHandler(handler func(loopType string, panicData any) bool) {
-	e.config.PanicHandler = handler
+func (e *DefaultEmulationLoop) SetPanicHandler(handler func(loopType string, panicData any) bool) {
+	e.panicHandler = handler
+}
+
+/************************************************************************************
+* Getters
+*************************************************************************************/
+
+// IsRunning checks if the emulation loop is currently running.
+// Returns true if the loop is not stopped.
+func (e *DefaultEmulationLoop) IsRunning() bool {
+	return e.drawLoopRunning || e.tickLoopRunning
 }
 
 // IsPaused checks if the emulation loop is currently paused.
 // Returns true if the loop is paused.
-func (e *EmulationLoop) IsPaused() bool {
+func (e *DefaultEmulationLoop) IsPaused() bool {
 	return e.pause
 }
 
-// IsRunning checks if the emulation loop is currently running.
-// Returns true if the loop is not stopped.
-func (e *EmulationLoop) IsRunning() bool {
-	return e.drawLoopRunning || e.tickLoopRunning
-}
-
 // IsStopping checks if the emulation loop is in the process of stopping.
-func (e *EmulationLoop) IsStopping() bool {
+func (e *DefaultEmulationLoop) IsStopping() bool {
 	return e.stop && e.IsRunning()
 }
+
+/************************************************************************************
+* State management
+*************************************************************************************/
 
 // Start begins the emulation loop with the provided handlers.
 // It runs the emulation at the configured speed and manages the timing
@@ -96,7 +119,7 @@ func (e *EmulationLoop) IsStopping() bool {
 //
 // Returns:
 //   - A StepContext that can be used to control and monitor the emulation
-func (e *EmulationLoop) Start() *common.StepContext {
+func (e *DefaultEmulationLoop) Start() *common.StepContext {
 	if !e.IsRunning() && e.emulator != nil {
 		context := common.NewStepContext()
 
@@ -112,38 +135,33 @@ func (e *EmulationLoop) Start() *common.StepContext {
 	}
 }
 
-// Stop stops the emulation loop.
-func (e *EmulationLoop) Stop() {
+// Stop signals the emulation loop to stop execution.
+// This will cause both the tick and draw loops to exit gracefully.
+func (e *DefaultEmulationLoop) Stop() {
 	e.stop = true
 }
 
-func (e *EmulationLoop) Resume() {
+// Resume resumes the emulation loop execution after it has been paused.
+// This allows the tick loop to continue processing CPU cycles.
+func (e *DefaultEmulationLoop) Resume() {
 	e.pause = false
 }
 
-func (e *EmulationLoop) Pause() {
+// Pause pauses the emulation loop execution.
+// The tick loop will stop processing CPU cycles but the draw loop continues.
+func (e *DefaultEmulationLoop) Pause() {
 	e.pause = true
 }
 
-// handlePanic triggers the execution of a handler before panicking.
-//
-// Parameters:
-//   - loopType: The type of loop that panicked (for logging purposes)
-//   - r: The recovered panic value
-func (e *EmulationLoop) handlePanic(loopType string, r any) {
-	e.Stop()
-	if e.config.PanicHandler != nil {
-		if !e.config.PanicHandler(loopType, r) {
-			panic(r)
-		}
-	}
-}
+/************************************************************************************
+* Loops
+*************************************************************************************/
 
 // executeLoop runs the main emulation loop that processes CPU cycles.
 //
 // Parameters:
 //   - context: The step context for emulation state
-func (e *EmulationLoop) executeLoop(context *common.StepContext) {
+func (e *DefaultEmulationLoop) executeLoop(context *common.StepContext) {
 	defer func() {
 		e.tickLoopRunning = false
 		if r := recover(); r != nil {
@@ -176,7 +194,7 @@ func (e *EmulationLoop) executeLoop(context *common.StepContext) {
 //
 // Parameters:
 //   - context: The step context for emulation state
-func (e *EmulationLoop) executeDraw(context *common.StepContext) {
+func (e *DefaultEmulationLoop) executeDraw(context *common.StepContext) {
 	defer func() {
 		e.drawLoopRunning = false
 		if r := recover(); r != nil {
@@ -192,5 +210,23 @@ func (e *EmulationLoop) executeDraw(context *common.StepContext) {
 	for !e.stop {
 		<-ticker.C
 		e.emulator.Draw(context)
+	}
+}
+
+/************************************************************************************
+* Loop error management
+*************************************************************************************/
+
+// handlePanic triggers the execution of a handler before panicking.
+//
+// Parameters:
+//   - loopType: The type of loop that panicked (for logging purposes)
+//   - r: The recovered panic value
+func (e *DefaultEmulationLoop) handlePanic(loopType string, r any) {
+	e.Stop()
+	if e.panicHandler != nil {
+		if !e.panicHandler(loopType, r) {
+			panic(r)
+		}
 	}
 }

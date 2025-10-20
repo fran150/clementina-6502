@@ -24,7 +24,7 @@ func NewBenEaterEmulationConsole(computer *BenEaterComputer) *BenEaterComputerCo
 
 	config := &computers.ConsoleBuildConfig{
 		WindowManager:     wm,
-		NavigationManager: managers.NewNavigationManager(),
+		NavigationManager: managers.NewDefaultNavigationManager(),
 		InputHandler:      terminal.NewDefaultInputHandler(wm),
 		App:               tview.NewApplication(),
 	}

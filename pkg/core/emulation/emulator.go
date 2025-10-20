@@ -5,7 +5,9 @@ import (
 	"github.com/fran150/clementina-6502/pkg/core/interfaces"
 )
 
-type EmulatorConfig struct {
+// DefaultEmulatorConfig holds the configuration for a DefaultEmulator instance.
+// It contains all the necessary components required to run the emulation.
+type DefaultEmulatorConfig struct {
 	Computer          interfaces.ComputerCore
 	Console           interfaces.EmulationConsole
 	Loop              interfaces.EmulationLoop
@@ -13,58 +15,76 @@ type EmulatorConfig struct {
 	BreakpointManager interfaces.BreakpointManager
 }
 
+// DefaultEmulator is the main emulator implementation that orchestrates the execution
+// of a 6502 computer system. It manages the emulation loop, console interface,
+// speed control, and breakpoint functionality.
 type DefaultEmulator struct {
-	computer          interfaces.ComputerCore
-	console           interfaces.EmulationConsole
-	loop              interfaces.EmulationLoop
-	speedController   interfaces.SpeedController
-	breakpointManager interfaces.BreakpointManager
+	config *DefaultEmulatorConfig
 
 	stepping  bool
 	resetting bool
 }
 
-func NewDefaultEmulator(config *EmulatorConfig) *DefaultEmulator {
+/************************************************************************************
+* Constructor
+*************************************************************************************/
+
+// NewDefaultEmulator creates a new DefaultEmulator instance with the provided configuration.
+// It initializes the emulator with default state values and sets up the bidirectional
+// references between the emulator and its loop and console components.
+func NewDefaultEmulator(config DefaultEmulatorConfig) *DefaultEmulator {
 	emulator := &DefaultEmulator{
-		computer:          config.Computer,
-		console:           config.Console,
-		loop:              config.Loop,
-		speedController:   config.SpeedController,
-		breakpointManager: config.BreakpointManager,
+		config:    &config,
+		stepping:  false,
+		resetting: false,
 	}
 
-	emulator.loop.SetEmulator(emulator)
-	emulator.console.SetEmulator(emulator)
+	emulator.config.Loop.SetEmulator(emulator)
+	emulator.config.Console.SetEmulator(emulator)
 
 	return emulator
 }
 
-// Run starts the emulation loop and runs the console application.
-func (e *DefaultEmulator) Run() (*common.StepContext, error) {
-	context := e.loop.Start()
+/************************************************************************************
+* State Management
+*************************************************************************************/
 
-	if err := e.console.Run(); err != nil {
-		e.loop.Stop()
+// Run starts the emulator by initializing the emulation loop and console.
+// It returns the step context from the loop and any error that occurred during console startup.
+// If the console fails to start, the loop is stopped and the error is returned.
+func (e *DefaultEmulator) Run() (*common.StepContext, error) {
+	context := e.config.Loop.Start()
+
+	if err := e.config.Console.Run(); err != nil {
+		e.config.Loop.Stop()
 		return context, err
 	}
 
 	return context, nil
 }
 
-// Stop stops computer execution and finishes the console application.
+// Stop terminates the emulator by stopping both the emulation loop and console.
+// This method should be called to cleanly shut down the emulator and release resources.
 func (e *DefaultEmulator) Stop() {
-	e.loop.Stop()
-	e.console.Stop()
+	e.config.Loop.Stop()
+	e.config.Console.Stop()
 }
 
+// Pause pauses the emulation loop, stopping the execution of the computer system.
+// The emulator can be resumed later using the Resume method.
 func (e *DefaultEmulator) Pause() {
-	e.loop.Pause()
+	e.config.Loop.Pause()
 }
 
+// Resume resumes the emulation loop after it has been paused.
+// This continues the execution of the computer system from where it was paused.
 func (e *DefaultEmulator) Resume() {
-	e.loop.Resume()
+	e.config.Loop.Resume()
 }
 
+// Step executes a single step of the emulation if the emulator is currently paused.
+// After executing one step, the emulator will automatically pause again.
+// If the emulator is not paused, this method has no effect.
 func (e *DefaultEmulator) Step() {
 	if e.IsPaused() {
 		e.stepping = true
@@ -72,34 +92,64 @@ func (e *DefaultEmulator) Step() {
 	}
 }
 
+// Reset initiates a reset of the computer system by setting the resetting flag
+// and calling the computer's Reset method with true to begin the reset process.
 func (e *DefaultEmulator) Reset() {
 	e.resetting = true
-	e.computer.Reset(true)
+	e.config.Computer.Reset(true)
 }
 
+// UnReset completes the reset process by clearing the resetting flag
+// and calling the computer's Reset method with false to finish the reset.
 func (e *DefaultEmulator) UnReset() {
 	e.resetting = false
-	e.computer.Reset(false)
+	e.config.Computer.Reset(false)
 }
 
+/************************************************************************************
+* State Getters
+*************************************************************************************/
+
+// IsRunning returns true if the emulation loop is currently running.
+// This indicates that the emulator is actively executing the computer system.
+func (e *DefaultEmulator) IsRunning() bool {
+	return e.config.Loop.IsRunning()
+}
+
+// IsStopping returns true if the emulation loop is in the process of stopping.
+// This indicates that a stop operation has been initiated but not yet completed.
+func (e *DefaultEmulator) IsStopping() bool {
+	return e.config.Loop.IsStopping()
+}
+
+// IsPaused returns true if the emulation loop is currently paused.
+// When paused, the computer system execution is temporarily halted but can be resumed.
 func (e *DefaultEmulator) IsPaused() bool {
-	return e.loop.IsPaused()
+	return e.config.Loop.IsPaused()
 }
 
-func (e *DefaultEmulator) IsResetting() bool {
-	return e.resetting
-}
-
+// IsStepping returns true if the emulator is currently in stepping mode.
+// Stepping mode allows for single-step execution of the computer system.
 func (e *DefaultEmulator) IsStepping() bool {
 	return e.stepping
 }
 
-func (e *DefaultEmulator) IsStopping() bool {
-	return e.loop.IsStopping()
+// IsResetting returns true if the computer system is currently being reset.
+// This indicates that a reset operation is in progress.
+func (e *DefaultEmulator) IsResetting() bool {
+	return e.resetting
 }
 
+/************************************************************************************
+* Loop methods
+*************************************************************************************/
+
+// Tick executes one emulation cycle by advancing the computer system by one step
+// and updating the console. It handles stepping mode by automatically pausing
+// after a single step, and checks for breakpoints to pause execution when hit.
+// The method also updates the console with the current execution context.
 func (e *DefaultEmulator) Tick(context *common.StepContext) {
-	e.computer.Tick(context)
+	e.config.Computer.Tick(context)
 
 	// Clear stepping state
 	if e.IsStepping() {
@@ -107,36 +157,28 @@ func (e *DefaultEmulator) Tick(context *common.StepContext) {
 		e.stepping = false
 	}
 
-	if e.breakpointManager.HasBreakpoint(e.computer.GetProgramCounter() - 1) {
+	if e.config.BreakpointManager.HasBreakpoint(e.config.Computer.GetProgramCounter() - 1) {
 		e.Pause()
 	}
 
-	// TODO: I'm getting 7.29 Mhz without calling this function. That is the upper limit.
-	// I get 5.9 Mhz when commenting ticker.Tick call in the console.Tick method. If I comment only
-	// the contents of the ticket.Tick but leave the call I get 5.5. This means that is 0.4 Mhz lost in the
-	// overhead of that call (could it be the interface transformation?)
-	// I was getting:
-	// 2.9 mhz with the window manager implemeantion of returning a copy of the maps.
-	// 3.6 mhz using go's new enumerators functions
-	// 4.1 returning a function for each iteration loop
-	// 4.3 returning the map reference directly (but this means that it can be altered directly)
-	e.console.Tick(context)
+	e.config.Console.Tick(context)
 }
 
+// Draw renders the current state of the emulation by delegating to the console's
+// draw method. This is typically called to update the visual representation
+// of the computer system's current state.
 func (e *DefaultEmulator) Draw(context *common.StepContext) {
-	e.console.Draw(context)
+	e.config.Console.Draw(context)
 }
+
+/************************************************************************************
+* Getters
+*************************************************************************************/
 
 func (e *DefaultEmulator) GetSpeedController() interfaces.SpeedController {
-	return e.speedController
+	return e.config.SpeedController
 }
 
 func (e *DefaultEmulator) GetBreakpointManager() interfaces.BreakpointManager {
-	return e.breakpointManager
+	return e.config.BreakpointManager
 }
-
-// loopConfig := &emulation.EmulationLoopConfig{
-// 	DisplayFps: config.DisplayFps,
-// }
-
-// computer.loop = emulation.NewEmulationLoop(computer, computer.speedController, loopConfig)

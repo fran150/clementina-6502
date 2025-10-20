@@ -10,11 +10,11 @@ type DefaultNavigationManager struct {
 	history []string
 }
 
-// NewNavigationManager creates a new navigation manager.
+// NewDefaultNavigationManager creates a new navigation manager.
 //
 // Returns:
 //   - A pointer to the initialized DefaultNavigationManager
-func NewNavigationManager() *DefaultNavigationManager {
+func NewDefaultNavigationManager() *DefaultNavigationManager {
 	return &DefaultNavigationManager{
 		current: "",
 		history: make([]string, 0, 10), // Pre-allocate with reasonable capacity

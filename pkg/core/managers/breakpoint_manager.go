@@ -10,11 +10,11 @@ type DefaultBreakpointManager struct {
 	breakpoints []uint16
 }
 
-// NewBreakpointManager creates a new breakpoint manager.
+// NewDefaultBreakpointManager creates a new breakpoint manager.
 //
 // Returns:
 //   - A pointer to the initialized DefaultBreakpointManager
-func NewBreakpointManager() *DefaultBreakpointManager {
+func NewDefaultBreakpointManager() *DefaultBreakpointManager {
 	return &DefaultBreakpointManager{
 		breakpoints: make([]uint16, 0),
 	}

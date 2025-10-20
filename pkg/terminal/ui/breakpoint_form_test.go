@@ -11,7 +11,7 @@ import (
 )
 
 func TestNewBreakPointForm(t *testing.T) {
-	var bm interfaces.BreakpointManager = managers.NewBreakpointManager()
+	var bm interfaces.BreakpointManager = managers.NewDefaultBreakpointManager()
 	form := NewBreakPointForm(bm)
 
 	assert.NotNil(t, form.grid)
@@ -22,7 +22,7 @@ func TestNewBreakPointForm(t *testing.T) {
 }
 
 func TestValidateHexInput(t *testing.T) {
-	var bm interfaces.BreakpointManager = managers.NewBreakpointManager()
+	var bm interfaces.BreakpointManager = managers.NewDefaultBreakpointManager()
 	form := NewBreakPointForm(bm)
 
 	tests := []struct {
@@ -48,7 +48,7 @@ func TestValidateHexInput(t *testing.T) {
 }
 
 func TestCheckBreakpoint(t *testing.T) {
-	var bm interfaces.BreakpointManager = managers.NewBreakpointManager()
+	var bm interfaces.BreakpointManager = managers.NewDefaultBreakpointManager()
 	form := NewBreakPointForm(bm)
 	bm.AddBreakpoint(0x1234)
 	bm.AddBreakpoint(0x5678)
@@ -72,7 +72,7 @@ func TestCheckBreakpoint(t *testing.T) {
 }
 
 func TestRemoveSelectedItem(t *testing.T) {
-	var bm interfaces.BreakpointManager = managers.NewBreakpointManager()
+	var bm interfaces.BreakpointManager = managers.NewDefaultBreakpointManager()
 	form := NewBreakPointForm(bm)
 
 	// Test empty list case first
@@ -116,7 +116,7 @@ func TestRemoveSelectedItem(t *testing.T) {
 }
 
 func TestAddBreakpointAddress(t *testing.T) {
-	var bm interfaces.BreakpointManager = managers.NewBreakpointManager()
+	var bm interfaces.BreakpointManager = managers.NewDefaultBreakpointManager()
 	form := NewBreakPointForm(bm)
 	input := form.form.GetFormItemByLabel("Address").(*tview.InputField)
 
@@ -163,7 +163,7 @@ func TestAddBreakpointAddress(t *testing.T) {
 }
 
 func TestBreakPointForm_Draw(t *testing.T) {
-	var bm interfaces.BreakpointManager = managers.NewBreakpointManager()
+	var bm interfaces.BreakpointManager = managers.NewDefaultBreakpointManager()
 	form := NewBreakPointForm(bm)
 	context := &common.StepContext{}
 

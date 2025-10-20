@@ -60,8 +60,11 @@ type Emulator interface {
 	Step()
 	Reset()
 	UnReset()
-	IsPaused() bool
+
+	IsRunning() bool
 	IsStopping() bool
+	IsPaused() bool
+	IsStepping() bool
 	IsResetting() bool
 
 	GetSpeedController() SpeedController
