@@ -24,8 +24,8 @@ type OptionsWindowMenuOption struct {
 	Rune           rune
 	KeyName        string
 	KeyDescription string
-	Action         func()
-	BackAction     func()
+	Action         func(option *OptionsWindowMenuOption)
+	BackAction     func(option *OptionsWindowMenuOption)
 	DoNotForward   bool
 
 	SubMenu []*OptionsWindowMenuOption
@@ -92,7 +92,7 @@ func (d *OptionsWindow) ProcessKey(event *tcell.EventKey) *tcell.EventKey {
 		if (event.Key() == tcell.KeyRune && option.Rune == event.Rune()) ||
 			(event.Key() != tcell.KeyRune && option.Key == event.Key()) {
 			if option.Action != nil {
-				option.Action()
+				option.Action(option)
 			}
 			if option.SubMenu != nil {
 				d.SetActiveMenu(option)
@@ -114,7 +114,7 @@ func (d *OptionsWindow) GoToPreviousMenu() {
 	active := d.GetActiveMenu()
 	if active != nil {
 		if active.BackAction != nil {
-			active.BackAction()
+			active.BackAction(active)
 		}
 		d.SetActiveMenu(active.parent)
 	}

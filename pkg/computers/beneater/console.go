@@ -2,7 +2,7 @@ package beneater
 
 import (
 	"github.com/fran150/clementina-6502/pkg/computers"
-	"github.com/fran150/clementina-6502/pkg/core/emulation"
+	"github.com/fran150/clementina-6502/pkg/core/interfaces"
 	"github.com/fran150/clementina-6502/pkg/core/managers"
 	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
@@ -12,13 +12,14 @@ import (
 type BenEaterComputerConsole struct {
 	*computers.Console
 
+	computer       *BenEaterComputer
 	grid           *tview.Grid
 	app            *tview.Application
 	windowsManager terminal.WindowManager
 }
 
 // newMainConsole creates and initializes a new console for the Ben Eater computer.
-func NewBenEaterEmulationConsole(computer *BenEaterComputer, emulatorConfig *emulation.EmulatorConfig) *BenEaterComputerConsole {
+func NewBenEaterEmulationConsole(computer *BenEaterComputer) *BenEaterComputerConsole {
 	wm := terminal.NewWindowManager()
 
 	config := &computers.ConsoleBuildConfig{
@@ -30,6 +31,7 @@ func NewBenEaterEmulationConsole(computer *BenEaterComputer, emulatorConfig *emu
 
 	console := &BenEaterComputerConsole{
 		Console:        computers.NewConsole(config),
+		computer:       computer,
 		grid:           tview.NewGrid(),
 		app:            config.App,
 		windowsManager: config.WindowManager,
@@ -37,36 +39,39 @@ func NewBenEaterEmulationConsole(computer *BenEaterComputer, emulatorConfig *emu
 
 	console.initializeMainGrid()
 
-	menuOptions := createMenuOptions(console, emulatorConfig)
-
-	// Initialize all windows
-	wm.AddWindow("lcd", ui.NewDisplayWindow(computer.chips.lcd))
-	wm.AddWindow("code", ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators))
-	wm.AddWindow("speed", ui.NewSpeedWindow(emulatorConfig.SpeedController))
-	wm.AddWindow("cpu", ui.NewCpuWindow(computer.chips.cpu))
-	wm.AddWindow("via", ui.NewViaWindow(computer.chips.via))
-	wm.AddWindow("lcd_controller", ui.NewLcdWindow(computer.chips.lcd))
-	wm.AddWindow("acia", ui.NewAciaWindow(computer.chips.acia))
-	wm.AddWindow("ram", ui.NewMemoryWindow(computer.chips.ram))
-	wm.AddWindow("rom", ui.NewMemoryWindow(computer.chips.rom))
-	busWindow := ui.NewBusWindow()
-	wm.AddWindow("bus", busWindow)
-	wm.AddWindow("breakpoint", ui.NewBreakPointForm(emulatorConfig.BreakpointManager))
-	wm.AddWindow("options", ui.NewOptionsWindow(menuOptions))
-
-	initializeBusWindow(computer, busWindow)
-
-	console.initializeLayout()
-
-	// Set initial active window
-	console.ShowWindow("cpu")
-
 	return console
 }
 
 /************************************************************************************
 * Initialization methods
 *************************************************************************************/
+
+func (c *BenEaterComputerConsole) SetEmulator(emulator interfaces.Emulator) {
+	menuOptions := createMenuOptions(c, emulator)
+
+	// Initialize all windows
+	c.windowsManager.AddWindow("lcd", ui.NewDisplayWindow(c.computer.chips.lcd))
+	c.windowsManager.AddWindow("code", ui.NewCodeWindow(c.computer.chips.cpu, c.computer.getPotentialOperators))
+	c.windowsManager.AddWindow("speed", ui.NewSpeedWindow(emulator.GetSpeedController()))
+	c.windowsManager.AddWindow("cpu", ui.NewCpuWindow(c.computer.chips.cpu))
+	c.windowsManager.AddWindow("via", ui.NewViaWindow(c.computer.chips.via))
+	c.windowsManager.AddWindow("lcd_controller", ui.NewLcdWindow(c.computer.chips.lcd))
+	c.windowsManager.AddWindow("acia", ui.NewAciaWindow(c.computer.chips.acia))
+	c.windowsManager.AddWindow("ram", ui.NewMemoryWindow(c.computer.chips.ram))
+	c.windowsManager.AddWindow("rom", ui.NewMemoryWindow(c.computer.chips.rom))
+	busWindow := ui.NewBusWindow()
+	c.windowsManager.AddWindow("bus", busWindow)
+	c.windowsManager.AddWindow("breakpoint", ui.NewBreakPointForm(emulator.GetBreakpointManager()))
+	c.windowsManager.AddWindow("options", ui.NewOptionsWindow(menuOptions))
+
+	initializeBusWindow(c.computer, busWindow)
+
+	c.initializeLayout()
+
+	// Set initial active window
+	c.ShowWindow("cpu")
+
+}
 
 // initializeMainGrid sets up the main grid layout for the console.
 func (c *BenEaterComputerConsole) initializeMainGrid() {

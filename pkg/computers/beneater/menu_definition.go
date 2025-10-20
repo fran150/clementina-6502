@@ -1,7 +1,7 @@
 package beneater
 
 import (
-	"github.com/fran150/clementina-6502/pkg/core/emulation"
+	"github.com/fran150/clementina-6502/pkg/core/interfaces"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/gdamore/tcell/v2"
 )
@@ -15,7 +15,7 @@ import (
 //
 // Returns:
 //   - A slice of menu options for the options window
-func createMenuOptions(console *BenEaterComputerConsole, emulatorConfig *emulation.EmulatorConfig) []*ui.OptionsWindowMenuOption {
+func createMenuOptions(console *BenEaterComputerConsole, emulator interfaces.Emulator) []*ui.OptionsWindowMenuOption {
 	return []*ui.OptionsWindowMenuOption{
 		{
 			Rune:           'e',
@@ -26,7 +26,15 @@ func createMenuOptions(console *BenEaterComputerConsole, emulatorConfig *emulati
 					Rune:           'r',
 					KeyName:        "R",
 					KeyDescription: "Reset",
-					Action:         emulatorConfig.StateManager.Reset,
+					Action: func(option *ui.OptionsWindowMenuOption) {
+						if emulator.IsResetting() {
+							option.KeyDescription = "Reset"
+							emulator.UnReset()
+						} else {
+							option.KeyDescription = "Release Reset"
+							emulator.Reset()
+						}
+					},
 				},
 				{
 					Rune:           'e',
@@ -37,32 +45,42 @@ func createMenuOptions(console *BenEaterComputerConsole, emulatorConfig *emulati
 							Rune:           'p',
 							KeyName:        "P",
 							KeyDescription: "Pause",
-							Action:         emulatorConfig.StateManager.Pause,
+							Action: func(option *ui.OptionsWindowMenuOption) {
+								emulator.Pause()
+							},
 						},
 						{
 							Rune:           'r',
 							KeyName:        "R",
 							KeyDescription: "Resume",
-							Action:         emulatorConfig.StateManager.Resume,
+							Action: func(option *ui.OptionsWindowMenuOption) {
+								emulator.Resume()
+							},
 						},
 						{
 							Rune:           's',
 							KeyName:        "S",
 							KeyDescription: "Step",
-							Action:         emulatorConfig.StateManager.Step,
+							Action: func(option *ui.OptionsWindowMenuOption) {
+								emulator.Step()
+							},
 						},
 						{
 							Rune:           'b',
 							KeyName:        "B",
 							KeyDescription: "Breakpoints",
-							Action:         console.SetBreakpointConfigMode,
-							BackAction:     console.ReturnToPreviousWindow,
+							Action: func(option *ui.OptionsWindowMenuOption) {
+								console.SetBreakpointConfigMode()
+							},
+							BackAction: func(option *ui.OptionsWindowMenuOption) {
+								console.ReturnToPreviousWindow()
+							},
 							SubMenu: []*ui.OptionsWindowMenuOption{
 								{
 									Rune:           'r',
 									KeyName:        "R",
 									KeyDescription: "Remove Selected Breakpoint",
-									Action: func() {
+									Action: func(option *ui.OptionsWindowMenuOption) {
 										console.RemoveSelectedItem()
 									},
 								},
@@ -79,9 +97,9 @@ func createMenuOptions(console *BenEaterComputerConsole, emulatorConfig *emulati
 							Key:            tcell.KeyUp,
 							KeyName:        "Up",
 							KeyDescription: "Speed Up",
-							Action: func() {
+							Action: func(option *ui.OptionsWindowMenuOption) {
 								console.ShowEmulationSpeed()
-								emulatorConfig.SpeedController.SpeedUp()
+								emulator.GetSpeedController().SpeedUp()
 							},
 							DoNotForward: true,
 						},
@@ -89,9 +107,9 @@ func createMenuOptions(console *BenEaterComputerConsole, emulatorConfig *emulati
 							Key:            tcell.KeyDown,
 							KeyName:        "Dn",
 							KeyDescription: "Speed Down",
-							Action: func() {
+							Action: func(option *ui.OptionsWindowMenuOption) {
 								console.ShowEmulationSpeed()
-								emulatorConfig.SpeedController.SpeedDown()
+								emulator.GetSpeedController().SpeedDown()
 							},
 							DoNotForward: true,
 						},
@@ -108,7 +126,7 @@ func createMenuOptions(console *BenEaterComputerConsole, emulatorConfig *emulati
 					Key:            tcell.KeyF1,
 					KeyName:        "F1",
 					KeyDescription: "CPU",
-					Action: func() {
+					Action: func(option *ui.OptionsWindowMenuOption) {
 						console.ShowWindow("cpu")
 					},
 				},
@@ -116,7 +134,7 @@ func createMenuOptions(console *BenEaterComputerConsole, emulatorConfig *emulati
 					Key:            tcell.KeyF2,
 					KeyName:        "F2",
 					KeyDescription: "VIA",
-					Action: func() {
+					Action: func(option *ui.OptionsWindowMenuOption) {
 						console.ShowWindow("via")
 					},
 				},
@@ -124,7 +142,7 @@ func createMenuOptions(console *BenEaterComputerConsole, emulatorConfig *emulati
 					Key:            tcell.KeyF3,
 					KeyName:        "F3",
 					KeyDescription: "ACIA",
-					Action: func() {
+					Action: func(option *ui.OptionsWindowMenuOption) {
 						console.ShowWindow("acia")
 					},
 				},
@@ -132,7 +150,7 @@ func createMenuOptions(console *BenEaterComputerConsole, emulatorConfig *emulati
 					Key:            tcell.KeyF4,
 					KeyName:        "F4",
 					KeyDescription: "LCD",
-					Action: func() {
+					Action: func(option *ui.OptionsWindowMenuOption) {
 						console.ShowWindow("lcd_controller")
 					},
 				},
@@ -140,7 +158,7 @@ func createMenuOptions(console *BenEaterComputerConsole, emulatorConfig *emulati
 					Key:            tcell.KeyF5,
 					KeyName:        "F5",
 					KeyDescription: "ROM",
-					Action: func() {
+					Action: func(option *ui.OptionsWindowMenuOption) {
 						console.ShowWindow("rom")
 					},
 					SubMenu: createMemoryWindowSubMenu(console),
@@ -149,7 +167,7 @@ func createMenuOptions(console *BenEaterComputerConsole, emulatorConfig *emulati
 					Key:            tcell.KeyF6,
 					KeyName:        "F6",
 					KeyDescription: "RAM",
-					Action: func() {
+					Action: func(option *ui.OptionsWindowMenuOption) {
 						console.ShowWindow("ram")
 					},
 					SubMenu: createMemoryWindowSubMenu(console),
@@ -158,7 +176,7 @@ func createMenuOptions(console *BenEaterComputerConsole, emulatorConfig *emulati
 					Key:            tcell.KeyF7,
 					KeyName:        "F7",
 					KeyDescription: "Buses",
-					Action: func() {
+					Action: func(option *ui.OptionsWindowMenuOption) {
 						console.ShowWindow("bus")
 					},
 				},
@@ -168,7 +186,9 @@ func createMenuOptions(console *BenEaterComputerConsole, emulatorConfig *emulati
 			Rune:           'q',
 			KeyName:        "Q",
 			KeyDescription: "Quit",
-			Action:         emulatorConfig.StateManager.Stop,
+			Action: func(option *ui.OptionsWindowMenuOption) {
+				emulator.Stop()
+			},
 		},
 	}
 }
@@ -187,7 +207,7 @@ func createMemoryWindowSubMenu(console *BenEaterComputerConsole) []*ui.OptionsWi
 			Key:            tcell.KeyUp,
 			KeyName:        "Up",
 			KeyDescription: "Scroll Up",
-			Action: func() {
+			Action: func(option *ui.OptionsWindowMenuOption) {
 				console.ScrollUp(1)
 			},
 			DoNotForward: true,
@@ -196,7 +216,7 @@ func createMemoryWindowSubMenu(console *BenEaterComputerConsole) []*ui.OptionsWi
 			Key:            tcell.KeyDown,
 			KeyName:        "Dn",
 			KeyDescription: "Scroll Down",
-			Action: func() {
+			Action: func(option *ui.OptionsWindowMenuOption) {
 				console.ScrollDown(1)
 			},
 			DoNotForward: true,
@@ -205,7 +225,7 @@ func createMemoryWindowSubMenu(console *BenEaterComputerConsole) []*ui.OptionsWi
 			Key:            tcell.KeyPgUp,
 			KeyName:        "Pg Up",
 			KeyDescription: "Scroll Up Fast",
-			Action: func() {
+			Action: func(option *ui.OptionsWindowMenuOption) {
 				console.ScrollUp(20)
 			},
 		},
@@ -213,7 +233,7 @@ func createMemoryWindowSubMenu(console *BenEaterComputerConsole) []*ui.OptionsWi
 			Key:            tcell.KeyPgDn,
 			KeyName:        "Pg Dn",
 			KeyDescription: "Scroll Down Fast",
-			Action: func() {
+			Action: func(option *ui.OptionsWindowMenuOption) {
 				console.ScrollDown(20)
 			},
 		},

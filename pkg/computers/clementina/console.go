@@ -2,7 +2,6 @@ package clementina
 
 import (
 	"github.com/fran150/clementina-6502/pkg/computers"
-	"github.com/fran150/clementina-6502/pkg/core/emulation"
 	"github.com/fran150/clementina-6502/pkg/core/interfaces"
 	"github.com/fran150/clementina-6502/pkg/core/managers"
 	"github.com/fran150/clementina-6502/pkg/terminal"
@@ -26,7 +25,7 @@ type console struct {
 //
 // Returns:
 //   - A configured console ready for use
-func NewClementinaEmulationConsole(computer *ClementinaComputer, emulatorConfig *emulation.EmulatorConfig) *console {
+func NewClementinaEmulationConsole(computer *ClementinaComputer, emulator interfaces.Emulator) *console {
 	wm := terminal.NewWindowManager()
 
 	config := &computers.ConsoleBuildConfig{
@@ -45,11 +44,11 @@ func NewClementinaEmulationConsole(computer *ClementinaComputer, emulatorConfig 
 
 	console.initializeMainGrid()
 
-	menuOptions := createMenuOptions(console, emulatorConfig)
+	menuOptions := createMenuOptions(console, emulator)
 
 	// Initialize all windows
 	wm.AddWindow("code", ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators))
-	wm.AddWindow("speed", ui.NewSpeedWindow(emulatorConfig.SpeedController))
+	wm.AddWindow("speed", ui.NewSpeedWindow(emulator.GetSpeedController()))
 	wm.AddWindow("cpu", ui.NewCpuWindow(computer.chips.cpu))
 	wm.AddWindow("via", ui.NewViaWindow(computer.chips.via))
 	wm.AddWindow("baseram", ui.NewMemoryWindow(computer.chips.baseram))
@@ -58,7 +57,7 @@ func NewClementinaEmulationConsole(computer *ClementinaComputer, emulatorConfig 
 	wm.AddWindow("goto", ui.NewMemoryWindowGoToForm())
 	busWindow := ui.NewBusWindow()
 	wm.AddWindow("bus", busWindow)
-	wm.AddWindow("breakpoint", ui.NewBreakPointForm(emulatorConfig.BreakpointManager))
+	wm.AddWindow("breakpoint", ui.NewBreakPointForm(emulator.GetBreakpointManager()))
 	wm.AddWindow("options", ui.NewOptionsWindow(menuOptions))
 
 	initializeBusWindow(computer, busWindow)

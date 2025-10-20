@@ -46,10 +46,10 @@ func TestOptionsWindow_ProcessKey(t *testing.T) {
 			Key:            tcell.KeyF1,
 			KeyName:        "F1",
 			KeyDescription: "Test Option",
-			Action: func() {
+			Action: func(option *OptionsWindowMenuOption) {
 				actionCalled = true
 			},
-			BackAction: func() {
+			BackAction: func(option *OptionsWindowMenuOption) {
 				backActionCalled = true
 			},
 			SubMenu: []*OptionsWindowMenuOption{

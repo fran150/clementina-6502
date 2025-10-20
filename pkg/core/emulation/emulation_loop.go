@@ -9,25 +9,24 @@ import (
 
 // EmulationLoopConfig contains settings that control the display refresh rate.
 type EmulationLoopConfig struct {
-	// DisplayFps specifies the target frames per second for display updates
-	DisplayFps int
+	SpeedController interfaces.SpeedController
+	PanicHandler    func(loopType string, panicData any) bool
+	DisplayFPS      int
+	RefreshNanos    int64
 }
 
 // EmulationLoop manages the timing and execution of the emulation cycle.
 // It ensures the emulation runs at the specified speed and handles the
 // separation between processing cycles and display updates.
 type EmulationLoop struct {
-	computer        interfaces.ComputerCore
-	console         interfaces.EmulationConsole
-	speedController interfaces.SpeedController
-	config          *EmulationLoopConfig
+	emulator interfaces.Emulator
 
-	panicHandler func(loopType string, panicData any) bool
+	config *EmulationLoopConfig
 
 	tickLoopRunning bool
 	drawLoopRunning bool
-
-	stop bool
+	stop            bool
+	pause           bool
 }
 
 // NewEmulationLoop creates a new emulation loop with the specified components.
@@ -39,23 +38,30 @@ type EmulationLoop struct {
 //
 // Returns:
 //   - A pointer to the initialized EmulationLoop
-func NewEmulationLoop(computer interfaces.ComputerCore, console interfaces.EmulationConsole, speedController interfaces.SpeedController, config *EmulationLoopConfig) *EmulationLoop {
+func NewEmulationLoop(config EmulationLoopConfig) *EmulationLoop {
+	if config.RefreshNanos <= 0 {
+		config.RefreshNanos = 5 * 1_000_000
+	}
+
+	if config.DisplayFPS <= 0 {
+		config.DisplayFPS = 10
+	}
+
 	return &EmulationLoop{
-		computer:        computer,
-		console:         console,
-		speedController: speedController,
-		config:          config,
-		panicHandler:    nil,
-		stop:            true,
+		config:          &config,
 		tickLoopRunning: false,
 		drawLoopRunning: false,
+		stop:            true,
 	}
 }
 
-// GetConfig returns the current emulation loop configuration.
-// This includes target speed and display refresh rate settings.
-func (e *EmulationLoop) GetConfig() *EmulationLoopConfig {
-	return e.config
+func (e *EmulationLoop) SetEmulator(emulator interfaces.Emulator) {
+	if !e.IsRunning() {
+		e.emulator = emulator
+	} else {
+		panic("Cannot change emulator object while emulator loop is running")
+	}
+
 }
 
 // SetPanicHandler sets the panic handler. This function will be called for cleanup if
@@ -64,7 +70,13 @@ func (e *EmulationLoop) GetConfig() *EmulationLoopConfig {
 // Parameters:
 //   - handler: Function to handle panics, returns true if panic should be suppressed
 func (e *EmulationLoop) SetPanicHandler(handler func(loopType string, panicData any) bool) {
-	e.panicHandler = handler
+	e.config.PanicHandler = handler
+}
+
+// IsPaused checks if the emulation loop is currently paused.
+// Returns true if the loop is paused.
+func (e *EmulationLoop) IsPaused() bool {
+	return e.pause
 }
 
 // IsRunning checks if the emulation loop is currently running.
@@ -85,9 +97,10 @@ func (e *EmulationLoop) IsStopping() bool {
 // Returns:
 //   - A StepContext that can be used to control and monitor the emulation
 func (e *EmulationLoop) Start() *common.StepContext {
-	if !e.IsRunning() {
+	if !e.IsRunning() && e.emulator != nil {
 		context := common.NewStepContext()
 
+		e.pause = false
 		e.stop = false
 
 		go e.executeLoop(&context)
@@ -104,6 +117,14 @@ func (e *EmulationLoop) Stop() {
 	e.stop = true
 }
 
+func (e *EmulationLoop) Resume() {
+	e.pause = false
+}
+
+func (e *EmulationLoop) Pause() {
+	e.pause = true
+}
+
 // handlePanic triggers the execution of a handler before panicking.
 //
 // Parameters:
@@ -111,8 +132,8 @@ func (e *EmulationLoop) Stop() {
 //   - r: The recovered panic value
 func (e *EmulationLoop) handlePanic(loopType string, r any) {
 	e.Stop()
-	if e.panicHandler != nil {
-		if !e.panicHandler(loopType, r) {
+	if e.config.PanicHandler != nil {
+		if !e.config.PanicHandler(loopType, r) {
 			panic(r)
 		}
 	}
@@ -131,22 +152,19 @@ func (e *EmulationLoop) executeLoop(context *common.StepContext) {
 	}()
 
 	var lastTPSExecuted, targetTPSNano int64
-	var lastSpeedCheck uint64
+	var lastSpeedCheck int64
 
 	e.tickLoopRunning = true
 
 	for !e.stop {
-		// Only check speed every 1000 cycles to reduce overhead
-		if (context.Cycle - lastSpeedCheck) > 1000 {
-			// Use cached nanoseconds per cycle for better performance
-			targetTPSNano = int64(e.speedController.GetNanosPerCycle())
-
-			lastSpeedCheck = context.Cycle
+		if (context.T - lastSpeedCheck) > e.config.RefreshNanos {
+			targetTPSNano = int64(e.config.SpeedController.GetNanosPerCycle())
+			lastSpeedCheck = context.T
 		}
 
-		if (context.T - lastTPSExecuted) > targetTPSNano {
+		if (context.T-lastTPSExecuted) > targetTPSNano && !e.pause {
 			lastTPSExecuted = context.T
-			e.computer.Tick(context)
+			e.emulator.Tick(context)
 			context.NextCycle()
 		} else {
 			context.SkipCycle()
@@ -166,13 +184,13 @@ func (e *EmulationLoop) executeDraw(context *common.StepContext) {
 		}
 	}()
 
-	ticker := time.NewTicker(time.Second / time.Duration(e.config.DisplayFps))
+	ticker := time.NewTicker(time.Second / time.Duration(e.config.DisplayFPS))
 	defer ticker.Stop()
 
 	e.drawLoopRunning = true
 
 	for !e.stop {
 		<-ticker.C
-		e.console.Draw(context)
+		e.emulator.Draw(context)
 	}
 }

@@ -6,53 +6,109 @@ import (
 )
 
 type EmulatorConfig struct {
+	Computer          interfaces.ComputerCore
+	Console           interfaces.EmulationConsole
+	Loop              interfaces.EmulationLoop
 	SpeedController   interfaces.SpeedController
-	StateManager      interfaces.StateManager
 	BreakpointManager interfaces.BreakpointManager
 }
 
-type Emulator struct {
-	context *common.StepContext
-
-	computer interfaces.ComputerCore
-	loop     *EmulationLoop
-	console  interfaces.EmulationConsole
-
+type DefaultEmulator struct {
+	computer          interfaces.ComputerCore
+	console           interfaces.EmulationConsole
+	loop              interfaces.EmulationLoop
 	speedController   interfaces.SpeedController
-	stateManager      interfaces.StateManager
 	breakpointManager interfaces.BreakpointManager
+
+	stepping  bool
+	resetting bool
+}
+
+func NewDefaultEmulator(config *EmulatorConfig) *DefaultEmulator {
+	emulator := &DefaultEmulator{
+		computer:          config.Computer,
+		console:           config.Console,
+		loop:              config.Loop,
+		speedController:   config.SpeedController,
+		breakpointManager: config.BreakpointManager,
+	}
+
+	emulator.loop.SetEmulator(emulator)
+	emulator.console.SetEmulator(emulator)
+
+	return emulator
 }
 
 // Run starts the emulation loop and runs the console application.
-func (e *Emulator) Run() (*common.StepContext, error) {
-	e.context = e.loop.Start()
+func (e *DefaultEmulator) Run() (*common.StepContext, error) {
+	context := e.loop.Start()
 
 	if err := e.console.Run(); err != nil {
 		e.loop.Stop()
-		return e.context, err
+		return context, err
 	}
 
-	return e.context, nil
+	return context, nil
 }
 
 // Stop stops computer execution and finishes the console application.
-func (e *Emulator) Stop() {
+func (e *DefaultEmulator) Stop() {
 	e.loop.Stop()
 	e.console.Stop()
 }
 
-func (e *Emulator) Tick() {
-	if !e.stateManager.IsPaused() || e.stateManager.IsStepping() {
-		e.computer.Tick(e.context)
+func (e *DefaultEmulator) Pause() {
+	e.loop.Pause()
+}
+
+func (e *DefaultEmulator) Resume() {
+	e.loop.Resume()
+}
+
+func (e *DefaultEmulator) Step() {
+	if e.IsPaused() {
+		e.stepping = true
+		e.Resume()
 	}
+}
+
+func (e *DefaultEmulator) Reset() {
+	e.resetting = true
+	e.computer.Reset(true)
+}
+
+func (e *DefaultEmulator) UnReset() {
+	e.resetting = false
+	e.computer.Reset(false)
+}
+
+func (e *DefaultEmulator) IsPaused() bool {
+	return e.loop.IsPaused()
+}
+
+func (e *DefaultEmulator) IsResetting() bool {
+	return e.resetting
+}
+
+func (e *DefaultEmulator) IsStepping() bool {
+	return e.stepping
+}
+
+func (e *DefaultEmulator) IsStopping() bool {
+	return e.loop.IsStopping()
+}
+
+func (e *DefaultEmulator) Tick(context *common.StepContext) {
+	e.computer.Tick(context)
 
 	// Clear stepping state
-	if e.stateManager.IsStepping() {
-		e.stateManager.ClearStepping()
+	if e.IsStepping() {
+		e.Pause()
+		e.stepping = false
 	}
 
 	if e.breakpointManager.HasBreakpoint(e.computer.GetProgramCounter() - 1) {
-		e.stateManager.Pause()
+		e.Pause()
 	}
 
 	// TODO: I'm getting 7.29 Mhz without calling this function. That is the upper limit.
@@ -64,21 +120,18 @@ func (e *Emulator) Tick() {
 	// 3.6 mhz using go's new enumerators functions
 	// 4.1 returning a function for each iteration loop
 	// 4.3 returning the map reference directly (but this means that it can be altered directly)
-	e.console.Tick(e.context)
+	e.console.Tick(context)
 }
 
-// GetSpeedController returns the speed controller interface.
-func (e *Emulator) GetSpeedController() interfaces.SpeedController {
+func (e *DefaultEmulator) Draw(context *common.StepContext) {
+	e.console.Draw(context)
+}
+
+func (e *DefaultEmulator) GetSpeedController() interfaces.SpeedController {
 	return e.speedController
 }
 
-// GetStateManager returns the state manager interface.
-func (e *Emulator) GetStateManager() interfaces.StateManager {
-	return e.stateManager
-}
-
-// GetBreakpointManager returns the breakpoint manager interface.
-func (e *Emulator) GetBreakpointManager() interfaces.BreakpointManager {
+func (e *DefaultEmulator) GetBreakpointManager() interfaces.BreakpointManager {
 	return e.breakpointManager
 }
 
@@ -87,9 +140,3 @@ func (e *Emulator) GetBreakpointManager() interfaces.BreakpointManager {
 // }
 
 // computer.loop = emulation.NewEmulationLoop(computer, computer.speedController, loopConfig)
-
-// computer.loop.SetPanicHandler(func(loopType string, panicData any) bool {
-// 	fmt.Fprintf(os.Stderr, "%s panic: %v\n", loopType, panicData)
-// 	computer.Stop()
-// 	return false
-// })

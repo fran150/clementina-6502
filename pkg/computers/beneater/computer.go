@@ -41,8 +41,6 @@ type circuit struct {
 // BenEaterComputer represents a complete emulation of Ben Eater's 6502 computer.
 // It contains all the necessary components and connections to simulate the hardware.
 type BenEaterComputer struct {
-	context *common.StepContext
-
 	chips   *chips
 	circuit *circuit
 }
@@ -73,6 +71,18 @@ func (c *BenEaterComputer) Tick(context *common.StepContext) {
 	c.chips.acia.Tick(context)
 
 	c.chips.cpu.PostTick(context)
+}
+
+// GetProgramCounter returns the current program counter value from the CPU.
+//
+// Returns:
+//   - The current program counter as a uint16 value
+func (c *BenEaterComputer) GetProgramCounter() uint16 {
+	return c.chips.cpu.GetProgramCounter()
+}
+
+func (c *BenEaterComputer) Reset(status bool) {
+	c.circuit.cpuReset.Set(!status)
 }
 
 /*******************************************************************************************

@@ -5,4 +5,6 @@ type EmulationConsole interface {
 	Renderer
 	Run() error
 	Stop()
+
+	SetEmulator(emulator Emulator)
 }
