@@ -10,11 +10,11 @@ import (
 )
 
 type BenEaterComputerConsoleConfig struct {
-	*computers.Console
+	*computers.BaseTerminalEmulatorConsole
 }
 
 type BenEaterComputerConsole struct {
-	*computers.Console
+	*computers.BaseTerminalEmulatorConsole
 	computer *BenEaterComputer
 	grid     *tview.Grid
 }
@@ -23,7 +23,7 @@ type BenEaterComputerConsole struct {
 func NewBenEaterEmulationConsole(computer *BenEaterComputer) *BenEaterComputerConsole {
 	wm := terminal.NewWindowManager()
 
-	config := computers.ConsoleConfig{
+	config := computers.BaseTerminalEmulatorConsoleConfig{
 		WindowManager:     wm,
 		NavigationManager: managers.NewDefaultNavigationManager(),
 		InputHandler:      terminal.NewDefaultInputHandler(wm),
@@ -31,9 +31,9 @@ func NewBenEaterEmulationConsole(computer *BenEaterComputer) *BenEaterComputerCo
 	}
 
 	console := &BenEaterComputerConsole{
-		Console:  computers.NewConsole(config),
-		computer: computer,
-		grid:     tview.NewGrid(),
+		BaseTerminalEmulatorConsole: computers.NewBaseTerminalEmulatorConsole(config),
+		computer:                    computer,
+		grid:                        tview.NewGrid(),
 	}
 
 	console.initializeMainGrid()

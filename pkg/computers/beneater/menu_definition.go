@@ -70,7 +70,7 @@ func createMenuOptions(console *BenEaterComputerConsole, emulator interfaces.Emu
 							KeyName:        "B",
 							KeyDescription: "Breakpoints",
 							Action: func(option *ui.OptionsWindowMenuOption) {
-								console.SetBreakpointConfigMode()
+								console.SwitchToBreakpointConfigMode()
 							},
 							BackAction: func(option *ui.OptionsWindowMenuOption) {
 								console.ReturnToPreviousWindow()
@@ -81,7 +81,7 @@ func createMenuOptions(console *BenEaterComputerConsole, emulator interfaces.Emu
 									KeyName:        "R",
 									KeyDescription: "Remove Selected Breakpoint",
 									Action: func(option *ui.OptionsWindowMenuOption) {
-										console.RemoveSelectedItem()
+										console.RemoveSelectedBreakpointAddress()
 									},
 								},
 							},
@@ -98,7 +98,7 @@ func createMenuOptions(console *BenEaterComputerConsole, emulator interfaces.Emu
 							KeyName:        "Up",
 							KeyDescription: "Speed Up",
 							Action: func(option *ui.OptionsWindowMenuOption) {
-								console.ShowEmulationSpeed()
+								console.ShowEmulationSpeedPopup()
 								emulator.GetSpeedController().SpeedUp()
 							},
 							DoNotForward: true,
@@ -108,7 +108,7 @@ func createMenuOptions(console *BenEaterComputerConsole, emulator interfaces.Emu
 							KeyName:        "Dn",
 							KeyDescription: "Speed Down",
 							Action: func(option *ui.OptionsWindowMenuOption) {
-								console.ShowEmulationSpeed()
+								console.ShowEmulationSpeedPopup()
 								emulator.GetSpeedController().SpeedDown()
 							},
 							DoNotForward: true,
@@ -208,7 +208,7 @@ func createMemoryWindowSubMenu(console *BenEaterComputerConsole) []*ui.OptionsWi
 			KeyName:        "Up",
 			KeyDescription: "Scroll Up",
 			Action: func(option *ui.OptionsWindowMenuOption) {
-				console.ScrollUp(1)
+				console.ScrollMemoryWindowUp(1)
 			},
 			DoNotForward: true,
 		},
@@ -217,7 +217,7 @@ func createMemoryWindowSubMenu(console *BenEaterComputerConsole) []*ui.OptionsWi
 			KeyName:        "Dn",
 			KeyDescription: "Scroll Down",
 			Action: func(option *ui.OptionsWindowMenuOption) {
-				console.ScrollDown(1)
+				console.ScrollMemoryWindowDown(1)
 			},
 			DoNotForward: true,
 		},
@@ -226,7 +226,7 @@ func createMemoryWindowSubMenu(console *BenEaterComputerConsole) []*ui.OptionsWi
 			KeyName:        "Pg Up",
 			KeyDescription: "Scroll Up Fast",
 			Action: func(option *ui.OptionsWindowMenuOption) {
-				console.ScrollUp(20)
+				console.ScrollMemoryWindowUp(20)
 			},
 		},
 		{
@@ -234,7 +234,7 @@ func createMemoryWindowSubMenu(console *BenEaterComputerConsole) []*ui.OptionsWi
 			KeyName:        "Pg Dn",
 			KeyDescription: "Scroll Down Fast",
 			Action: func(option *ui.OptionsWindowMenuOption) {
-				console.ScrollDown(20)
+				console.ScrollMemoryWindowDown(20)
 			},
 		},
 	}

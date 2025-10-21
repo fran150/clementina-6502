@@ -10,11 +10,11 @@ import (
 )
 
 type ClementinaComputerConsoleConfig struct {
-	*computers.Console
+	*computers.BaseTerminalEmulatorConsole
 }
 
 type ClementinaComputerConsole struct {
-	*computers.Console
+	*computers.BaseTerminalEmulatorConsole
 	computer *ClementinaComputer
 	grid     *tview.Grid
 }
@@ -29,7 +29,7 @@ type ClementinaComputerConsole struct {
 func NewClementinaEmulationConsole(computer *ClementinaComputer) *ClementinaComputerConsole {
 	wm := terminal.NewWindowManager()
 
-	config := computers.ConsoleConfig{
+	config := computers.BaseTerminalEmulatorConsoleConfig{
 		WindowManager:     wm,
 		NavigationManager: managers.NewDefaultNavigationManager(),
 		InputHandler:      terminal.NewDefaultInputHandler(wm),
@@ -37,9 +37,9 @@ func NewClementinaEmulationConsole(computer *ClementinaComputer) *ClementinaComp
 	}
 
 	console := &ClementinaComputerConsole{
-		Console:  computers.NewConsole(config),
-		computer: computer,
-		grid:     tview.NewGrid(),
+		BaseTerminalEmulatorConsole: computers.NewBaseTerminalEmulatorConsole(config),
+		computer:                    computer,
+		grid:                        tview.NewGrid(),
 	}
 
 	console.initializeMainGrid()
@@ -128,7 +128,7 @@ func (c *ClementinaComputerConsole) ShowGotoForm() {
 					optionsWindow.GoToPreviousMenu()
 				})
 
-				c.SetBreakpointConfigMode()
+				c.SwitchToBreakpointConfigMode()
 			}
 		}
 	}

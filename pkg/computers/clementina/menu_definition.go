@@ -70,7 +70,7 @@ func createMenuOptions(console *ClementinaComputerConsole, emulator interfaces.E
 							KeyName:        "B",
 							KeyDescription: "Breakpoints",
 							Action: func(option *ui.OptionsWindowMenuOption) {
-								console.SetBreakpointConfigMode()
+								console.SwitchToBreakpointConfigMode()
 							},
 							BackAction: func(option *ui.OptionsWindowMenuOption) {
 								console.ReturnToPreviousWindow()
@@ -81,7 +81,7 @@ func createMenuOptions(console *ClementinaComputerConsole, emulator interfaces.E
 									KeyName:        "R",
 									KeyDescription: "Remove Selected Breakpoint",
 									Action: func(option *ui.OptionsWindowMenuOption) {
-										console.RemoveSelectedItem()
+										console.RemoveSelectedBreakpointAddress()
 									},
 								},
 							},
@@ -98,7 +98,7 @@ func createMenuOptions(console *ClementinaComputerConsole, emulator interfaces.E
 							KeyName:        "Up",
 							KeyDescription: "Speed Up",
 							Action: func(option *ui.OptionsWindowMenuOption) {
-								console.ShowEmulationSpeed()
+								console.ShowEmulationSpeedPopup()
 								emulator.GetSpeedController().SpeedUp()
 							},
 							DoNotForward: true,
@@ -108,7 +108,7 @@ func createMenuOptions(console *ClementinaComputerConsole, emulator interfaces.E
 							KeyName:        "Dn",
 							KeyDescription: "Speed Down",
 							Action: func(option *ui.OptionsWindowMenuOption) {
-								console.ShowEmulationSpeed()
+								console.ShowEmulationSpeedPopup()
 								emulator.GetSpeedController().SpeedDown()
 							},
 							DoNotForward: true,
@@ -201,7 +201,7 @@ func createMemoryWindowSubMenu(console *ClementinaComputerConsole) []*ui.Options
 			KeyName:        "Up",
 			KeyDescription: "Scroll Up",
 			Action: func(option *ui.OptionsWindowMenuOption) {
-				console.ScrollUp(1)
+				console.ScrollMemoryWindowUp(1)
 			},
 			DoNotForward: true,
 		},
@@ -210,7 +210,7 @@ func createMemoryWindowSubMenu(console *ClementinaComputerConsole) []*ui.Options
 			KeyName:        "Dn",
 			KeyDescription: "Scroll Down",
 			Action: func(option *ui.OptionsWindowMenuOption) {
-				console.ScrollDown(1)
+				console.ScrollMemoryWindowDown(1)
 			},
 			DoNotForward: true,
 		},
@@ -219,7 +219,7 @@ func createMemoryWindowSubMenu(console *ClementinaComputerConsole) []*ui.Options
 			KeyName:        "Pg Up",
 			KeyDescription: "S. Up Fast",
 			Action: func(option *ui.OptionsWindowMenuOption) {
-				console.ScrollUp(64)
+				console.ScrollMemoryWindowUp(64)
 			},
 		},
 		{
@@ -227,7 +227,7 @@ func createMemoryWindowSubMenu(console *ClementinaComputerConsole) []*ui.Options
 			KeyName:        "Pg Dn",
 			KeyDescription: "S. Down Fast",
 			Action: func(option *ui.OptionsWindowMenuOption) {
-				console.ScrollDown(64)
+				console.ScrollMemoryWindowDown(64)
 			},
 		},
 		{
