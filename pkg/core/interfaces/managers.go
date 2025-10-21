@@ -15,7 +15,7 @@ type NavigationManager interface {
 	PushToHistory(key string)
 }
 
-// BreakpointManager defines the contract for managing breakpoints in debugging.
+// BreakpointManager defines the contract for managing breakpoints for computer debugging.
 type BreakpointManager interface {
 	// AddBreakpoint adds a breakpoint at the specified address.
 	// If a breakpoint already exists at the address, it won't be added again.

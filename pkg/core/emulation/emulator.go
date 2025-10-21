@@ -175,10 +175,27 @@ func (e *DefaultEmulator) Draw(context *common.StepContext) {
 * Getters
 *************************************************************************************/
 
+// GetComputer returns the computer core instance.
+func (e *DefaultEmulator) GetComputer() interfaces.ComputerCore {
+	return e.config.Computer
+}
+
+// GetConsole returns the emulation console instance.
+func (e *DefaultEmulator) GetConsole() interfaces.EmulationConsole {
+	return e.config.Console
+}
+
+// GetLoop returns the emulation loop instance.
+func (e *DefaultEmulator) GetLoop() interfaces.EmulationLoop {
+	return e.config.Loop
+}
+
+// GetSpeedController returns the speed controller instance.
 func (e *DefaultEmulator) GetSpeedController() interfaces.SpeedController {
 	return e.config.SpeedController
 }
 
+// GetBreakpointManager returns the breakpoint manager instance.
 func (e *DefaultEmulator) GetBreakpointManager() interfaces.BreakpointManager {
 	return e.config.BreakpointManager
 }

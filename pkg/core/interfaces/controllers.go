@@ -1,6 +1,6 @@
 package interfaces
 
-// SpeedController defines the interface for managing emulation speed.
+// SpeedController defines a mechanism for managing emulation speed.
 type SpeedController interface {
 	// SpeedUp increases the emulation speed.
 	SpeedUp()
