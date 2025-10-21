@@ -9,13 +9,14 @@ import (
 	"github.com/rivo/tview"
 )
 
-type console struct {
+type ClementinaComputerConsoleConfig struct {
 	*computers.Console
+}
 
-	grid              *tview.Grid
-	app               *tview.Application
-	windowsManager    terminal.WindowManager
-	navigationManager interfaces.NavigationManager
+type ClementinaComputerConsole struct {
+	*computers.Console
+	computer *ClementinaComputer
+	grid     *tview.Grid
 }
 
 // NewClementinaEmulationConsole creates and initializes a new console for the Clementina computer.
@@ -25,47 +26,23 @@ type console struct {
 //
 // Returns:
 //   - A configured console ready for use
-func NewClementinaEmulationConsole(computer *ClementinaComputer, emulator interfaces.Emulator) *console {
+func NewClementinaEmulationConsole(computer *ClementinaComputer) *ClementinaComputerConsole {
 	wm := terminal.NewWindowManager()
 
-	config := &computers.ConsoleBuildConfig{
+	config := computers.ConsoleConfig{
 		WindowManager:     wm,
 		NavigationManager: managers.NewDefaultNavigationManager(),
 		InputHandler:      terminal.NewDefaultInputHandler(wm),
 		App:               tview.NewApplication(),
 	}
 
-	console := &console{
-		Console:        computers.NewConsole(config),
-		grid:           tview.NewGrid(),
-		app:            config.App,
-		windowsManager: config.WindowManager,
+	console := &ClementinaComputerConsole{
+		Console:  computers.NewConsole(config),
+		computer: computer,
+		grid:     tview.NewGrid(),
 	}
 
 	console.initializeMainGrid()
-
-	menuOptions := createMenuOptions(console, emulator)
-
-	// Initialize all windows
-	wm.AddWindow("code", ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators))
-	wm.AddWindow("speed", ui.NewSpeedWindow(emulator.GetSpeedController()))
-	wm.AddWindow("cpu", ui.NewCpuWindow(computer.chips.cpu))
-	wm.AddWindow("via", ui.NewViaWindow(computer.chips.via))
-	wm.AddWindow("baseram", ui.NewMemoryWindow(computer.chips.baseram))
-	wm.AddWindow("exram", ui.NewMemoryWindow(computer.chips.exram))
-	wm.AddWindow("hiram", ui.NewMemoryWindow(computer.chips.hiram))
-	wm.AddWindow("goto", ui.NewMemoryWindowGoToForm())
-	busWindow := ui.NewBusWindow()
-	wm.AddWindow("bus", busWindow)
-	wm.AddWindow("breakpoint", ui.NewBreakPointForm(emulator.GetBreakpointManager()))
-	wm.AddWindow("options", ui.NewOptionsWindow(menuOptions))
-
-	initializeBusWindow(computer, busWindow)
-
-	console.initializeLayout()
-
-	// Set initial active window
-	console.ShowWindow("cpu")
 
 	return console
 }
@@ -74,15 +51,42 @@ func NewClementinaEmulationConsole(computer *ClementinaComputer, emulator interf
 * Initialization methods
 *************************************************************************************/
 
+func (c *ClementinaComputerConsole) SetEmulator(emulator interfaces.Emulator) {
+	menuOptions := createMenuOptions(c, emulator)
+
+	wm := c.GetWindowManager()
+
+	// Initialize all windows
+	wm.AddWindow("code", ui.NewCodeWindow(c.computer.chips.cpu, c.computer.getPotentialOperators))
+	wm.AddWindow("speed", ui.NewSpeedWindow(emulator.GetSpeedController()))
+	wm.AddWindow("cpu", ui.NewCpuWindow(c.computer.chips.cpu))
+	wm.AddWindow("via", ui.NewViaWindow(c.computer.chips.via))
+	wm.AddWindow("baseram", ui.NewMemoryWindow(c.computer.chips.baseram))
+	wm.AddWindow("exram", ui.NewMemoryWindow(c.computer.chips.exram))
+	wm.AddWindow("hiram", ui.NewMemoryWindow(c.computer.chips.hiram))
+	wm.AddWindow("goto", ui.NewMemoryWindowGoToForm())
+	busWindow := ui.NewBusWindow()
+	wm.AddWindow("bus", busWindow)
+	wm.AddWindow("breakpoint", ui.NewBreakPointForm(emulator.GetBreakpointManager()))
+	wm.AddWindow("options", ui.NewOptionsWindow(menuOptions))
+
+	initializeBusWindow(c.computer, busWindow)
+
+	c.initializeLayout()
+
+	// Set initial active window
+	c.ShowWindow("cpu")
+}
+
 // initializeMainGrid sets up the main grid layout for the console.
-func (c *console) initializeMainGrid() {
+func (c *ClementinaComputerConsole) initializeMainGrid() {
 	c.grid.SetRows(3, 0, 3).
 		SetColumns(25, 0).
 		SetBorder(true).
 		SetTitle("Clementina 6502 Computer")
 
 	// Get the tview app from the framework and set the grid as root
-	c.app.SetRoot(c.grid, true)
+	c.GetApp().SetRoot(c.grid, true)
 }
 
 // initializeBusWindow configures the bus window with the computer's buses.
@@ -98,12 +102,13 @@ func initializeBusWindow(computer *ClementinaComputer, busWindow *ui.BusWindow) 
 }
 
 // initializeLayout sets up the initial layout of console windows.
-func (c *console) initializeLayout() {
+func (c *ClementinaComputerConsole) initializeLayout() {
 	// Setup initial grid layout
-	c.grid.AddItem(c.windowsManager.GetWindow("speed").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
-		AddItem(c.windowsManager.GetWindow("code").GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
-		AddItem(c.windowsManager.GetWindow("options").GetDrawArea(), 2, 0, 1, 2, 0, 0, false).
-		AddItem(c.windowsManager.GetPages(), 0, 1, 2, 1, 0, 0, true)
+	wm := c.GetWindowManager()
+	c.grid.AddItem(wm.GetWindow("speed").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
+		AddItem(wm.GetWindow("code").GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
+		AddItem(wm.GetWindow("options").GetDrawArea(), 2, 0, 1, 2, 0, 0, false).
+		AddItem(wm.GetPages(), 0, 1, 2, 1, 0, 0, true)
 }
 
 /************************************************************************************
@@ -111,12 +116,14 @@ func (c *console) initializeLayout() {
 *************************************************************************************/
 
 // ShowGotoForm shows the go to form for memory navigation allowing to navigate back.
-func (c *console) ShowGotoForm() {
-	activeKey := c.navigationManager.GetCurrent()
+func (c *ClementinaComputerConsole) ShowGotoForm() {
+	activeKey := c.GetNavigationManager().GetCurrent()
 
-	if memoryWindow := terminal.GetWindow[ui.MemoryWindow](c.windowsManager, activeKey); memoryWindow != nil {
-		if gotoWindow := terminal.GetWindow[ui.MemoryWindowGoToForm](c.windowsManager, "goto"); gotoWindow != nil {
-			if optionsWindow := terminal.GetWindow[ui.OptionsWindow](c.windowsManager, "options"); optionsWindow != nil {
+	wm := c.GetWindowManager()
+
+	if memoryWindow := terminal.GetWindow[ui.MemoryWindow](wm, activeKey); memoryWindow != nil {
+		if gotoWindow := terminal.GetWindow[ui.MemoryWindowGoToForm](wm, "goto"); gotoWindow != nil {
+			if optionsWindow := terminal.GetWindow[ui.OptionsWindow](wm, "options"); optionsWindow != nil {
 				gotoWindow.InitForm(memoryWindow, func() {
 					optionsWindow.GoToPreviousMenu()
 				})

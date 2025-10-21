@@ -15,7 +15,7 @@ import (
 //
 // Returns:
 //   - A slice of menu options for the options window
-func createMenuOptions(console *console, emulator interfaces.Emulator) []*ui.OptionsWindowMenuOption {
+func createMenuOptions(console *ClementinaComputerConsole, emulator interfaces.Emulator) []*ui.OptionsWindowMenuOption {
 	return []*ui.OptionsWindowMenuOption{
 		{
 			Rune:           'e',
@@ -194,7 +194,7 @@ func createMenuOptions(console *console, emulator interfaces.Emulator) []*ui.Opt
 //
 // Returns:
 //   - A slice of menu options for memory window navigation
-func createMemoryWindowSubMenu(console *console) []*ui.OptionsWindowMenuOption {
+func createMemoryWindowSubMenu(console *ClementinaComputerConsole) []*ui.OptionsWindowMenuOption {
 	return []*ui.OptionsWindowMenuOption{
 		{
 			Key:            tcell.KeyUp,

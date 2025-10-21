@@ -10,43 +10,29 @@ import (
 
 // Console provides the core console functionality without UI framework dependencies.
 type Console struct {
-	windowManager     terminal.WindowManager
-	navigationManager interfaces.NavigationManager
-	inputHandler      terminal.InputHandler
-	app               *tview.Application
+	config *ConsoleConfig
 }
 
-// ConsoleBuildConfig contains the objects required to build the console.
-type ConsoleBuildConfig struct {
+// ConsoleConfig contains the objects required to build the console.
+type ConsoleConfig struct {
 	WindowManager     terminal.WindowManager
 	NavigationManager interfaces.NavigationManager
 	InputHandler      terminal.InputHandler
 	App               *tview.Application
 }
 
-// NewConsole creates a new console with the specified managers.
-//
-// Parameters:
-//   - windowManager: The window manager to use
-//   - navigationManager: The navigation manager to use
-//
-// Returns:
-//   - A pointer to the initialized Console
-func NewConsole(config *ConsoleBuildConfig) *Console {
+func NewConsole(config ConsoleConfig) *Console {
 	console := &Console{
-		windowManager:     config.WindowManager,
-		navigationManager: config.NavigationManager,
-		inputHandler:      config.InputHandler,
-		app:               config.App,
+		config: &config,
 	}
 
 	// Configure the framework
-	console.app.SetInputCapture(console.inputHandler.HandleKey)
-	console.app.EnableMouse(true)
-	console.app.EnablePaste(true)
+	console.config.App.SetInputCapture(console.config.InputHandler.HandleKey)
+	console.config.App.EnableMouse(true)
+	console.config.App.EnablePaste(true)
 
 	// Set the pages as the root of the tview app
-	console.app.SetRoot(console.windowManager.GetPages(), true)
+	console.config.App.SetRoot(console.config.WindowManager.GetPages(), true)
 
 	return console
 }
@@ -56,20 +42,20 @@ func NewConsole(config *ConsoleBuildConfig) *Console {
 // Parameters:
 //   - windowKey: The key identifying the window to show
 func (c *Console) ShowWindow(windowKey string) {
-	c.navigationManager.NavigateTo(windowKey)
-	c.windowManager.SwitchToPage(windowKey)
+	c.config.NavigationManager.NavigateTo(windowKey)
+	c.config.WindowManager.SwitchToPage(windowKey)
 }
 
 // SetBreakpointConfigMode activates the breakpoint configuration window.
 func (c *Console) SetBreakpointConfigMode() {
-	c.navigationManager.PushToHistory("breakpoint")
-	c.windowManager.SwitchToPage("breakpoint")
+	c.config.NavigationManager.PushToHistory("breakpoint")
+	c.config.WindowManager.SwitchToPage("breakpoint")
 }
 
 // ReturnToPreviousWindow returns to the previous window.
 func (c *Console) ReturnToPreviousWindow() {
-	c.navigationManager.GoBack()
-	c.windowManager.SwitchToPage(c.navigationManager.GetCurrent())
+	c.config.NavigationManager.GoBack()
+	c.config.WindowManager.SwitchToPage(c.config.NavigationManager.GetCurrent())
 }
 
 // ScrollUp scrolls the active memory window up by the specified number of lines.
@@ -77,9 +63,9 @@ func (c *Console) ReturnToPreviousWindow() {
 // Parameters:
 //   - step: The number of lines to scroll up
 func (c *Console) ScrollUp(step uint32) {
-	activeKey := c.navigationManager.GetCurrent()
+	activeKey := c.config.NavigationManager.GetCurrent()
 
-	if window := terminal.GetWindow[ui.MemoryWindow](c.windowManager, activeKey); window != nil {
+	if window := terminal.GetWindow[ui.MemoryWindow](c.config.WindowManager, activeKey); window != nil {
 		window.ScrollUp(step)
 	}
 }
@@ -89,23 +75,23 @@ func (c *Console) ScrollUp(step uint32) {
 // Parameters:
 //   - step: The number of lines to scroll down
 func (c *Console) ScrollDown(step uint32) {
-	activeKey := c.navigationManager.GetCurrent()
+	activeKey := c.config.NavigationManager.GetCurrent()
 
-	if window := terminal.GetWindow[ui.MemoryWindow](c.windowManager, activeKey); window != nil {
+	if window := terminal.GetWindow[ui.MemoryWindow](c.config.WindowManager, activeKey); window != nil {
 		window.ScrollDown(step)
 	}
 }
 
 // RemoveSelectedItem removes the currently selected item from the breakpoint form window.
 func (c *Console) RemoveSelectedItem() {
-	if window := terminal.GetWindow[ui.BreakPointForm](c.windowManager, "breakpoint"); window != nil {
+	if window := terminal.GetWindow[ui.BreakPointForm](c.config.WindowManager, "breakpoint"); window != nil {
 		window.RemoveSelectedItem()
 	}
 }
 
 // ShowEmulationSpeed displays the emulation speed configuration window.
 func (c *Console) ShowEmulationSpeed() {
-	if window := terminal.GetWindow[ui.SpeedWindow](c.windowManager, "speed"); window != nil {
+	if window := terminal.GetWindow[ui.SpeedWindow](c.config.WindowManager, "speed"); window != nil {
 		window.ShowConfig()
 	}
 }
@@ -115,13 +101,13 @@ func (c *Console) ShowEmulationSpeed() {
 // Parameters:
 //   - context: The current step context
 func (c *Console) Draw(context *common.StepContext) {
-	c.windowManager.GetAllWindows(func(key string, window terminal.Window) bool {
+	c.config.WindowManager.GetAllWindows(func(key string, window terminal.Window) bool {
 		window.Clear()
 		window.Draw(context)
 		return true // continue iteration
 	})
 
-	c.app.Draw()
+	c.config.App.Draw()
 }
 
 // Tick updates the console components that need to be updated every cycle.
@@ -129,7 +115,7 @@ func (c *Console) Draw(context *common.StepContext) {
 // Parameters:
 //   - context: The current step context
 func (c *Console) Tick(context *common.StepContext) {
-	c.windowManager.GetTickers(func(key string, ticker terminal.TickerWindow) bool {
+	c.config.WindowManager.GetTickers(func(key string, ticker terminal.TickerWindow) bool {
 		ticker.Tick(context)
 		return true // continue iteration
 	})
@@ -140,10 +126,30 @@ func (c *Console) Tick(context *common.StepContext) {
 // Returns:
 //   - An error if the application fails to start
 func (c *Console) Run() error {
-	return c.app.Run()
+	return c.config.App.Run()
 }
 
 // Stop stops the console application.
 func (c *Console) Stop() {
-	c.app.Stop()
+	c.config.App.Stop()
+}
+
+// GetWindowManager returns the window manager.
+func (c *Console) GetWindowManager() terminal.WindowManager {
+	return c.config.WindowManager
+}
+
+// GetNavigationManager returns the navigation manager.
+func (c *Console) GetNavigationManager() interfaces.NavigationManager {
+	return c.config.NavigationManager
+}
+
+// GetInputHandler returns the input handler.
+func (c *Console) GetInputHandler() terminal.InputHandler {
+	return c.config.InputHandler
+}
+
+// GetApp returns the tview application.
+func (c *Console) GetApp() *tview.Application {
+	return c.config.App
 }

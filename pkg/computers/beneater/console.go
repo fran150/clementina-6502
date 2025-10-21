@@ -9,20 +9,21 @@ import (
 	"github.com/rivo/tview"
 )
 
+type BenEaterComputerConsoleConfig struct {
+	*computers.Console
+}
+
 type BenEaterComputerConsole struct {
 	*computers.Console
-
-	computer       *BenEaterComputer
-	grid           *tview.Grid
-	app            *tview.Application
-	windowsManager terminal.WindowManager
+	computer *BenEaterComputer
+	grid     *tview.Grid
 }
 
 // newMainConsole creates and initializes a new console for the Ben Eater computer.
 func NewBenEaterEmulationConsole(computer *BenEaterComputer) *BenEaterComputerConsole {
 	wm := terminal.NewWindowManager()
 
-	config := &computers.ConsoleBuildConfig{
+	config := computers.ConsoleConfig{
 		WindowManager:     wm,
 		NavigationManager: managers.NewDefaultNavigationManager(),
 		InputHandler:      terminal.NewDefaultInputHandler(wm),
@@ -30,11 +31,9 @@ func NewBenEaterEmulationConsole(computer *BenEaterComputer) *BenEaterComputerCo
 	}
 
 	console := &BenEaterComputerConsole{
-		Console:        computers.NewConsole(config),
-		computer:       computer,
-		grid:           tview.NewGrid(),
-		app:            config.App,
-		windowsManager: config.WindowManager,
+		Console:  computers.NewConsole(config),
+		computer: computer,
+		grid:     tview.NewGrid(),
 	}
 
 	console.initializeMainGrid()
@@ -49,28 +48,28 @@ func NewBenEaterEmulationConsole(computer *BenEaterComputer) *BenEaterComputerCo
 func (c *BenEaterComputerConsole) SetEmulator(emulator interfaces.Emulator) {
 	menuOptions := createMenuOptions(c, emulator)
 
+	wm := c.GetWindowManager()
+
 	// Initialize all windows
-	c.windowsManager.AddWindow("lcd", ui.NewDisplayWindow(c.computer.chips.lcd))
-	c.windowsManager.AddWindow("code", ui.NewCodeWindow(c.computer.chips.cpu, c.computer.getPotentialOperators))
-	c.windowsManager.AddWindow("speed", ui.NewSpeedWindow(emulator.GetSpeedController()))
-	c.windowsManager.AddWindow("cpu", ui.NewCpuWindow(c.computer.chips.cpu))
-	c.windowsManager.AddWindow("via", ui.NewViaWindow(c.computer.chips.via))
-	c.windowsManager.AddWindow("lcd_controller", ui.NewLcdWindow(c.computer.chips.lcd))
-	c.windowsManager.AddWindow("acia", ui.NewAciaWindow(c.computer.chips.acia))
-	c.windowsManager.AddWindow("ram", ui.NewMemoryWindow(c.computer.chips.ram))
-	c.windowsManager.AddWindow("rom", ui.NewMemoryWindow(c.computer.chips.rom))
+	wm.AddWindow("lcd", ui.NewDisplayWindow(c.computer.chips.lcd))
+	wm.AddWindow("code", ui.NewCodeWindow(c.computer.chips.cpu, c.computer.getPotentialOperators))
+	wm.AddWindow("speed", ui.NewSpeedWindow(emulator.GetSpeedController()))
+	wm.AddWindow("cpu", ui.NewCpuWindow(c.computer.chips.cpu))
+	wm.AddWindow("via", ui.NewViaWindow(c.computer.chips.via))
+	wm.AddWindow("lcd_controller", ui.NewLcdWindow(c.computer.chips.lcd))
+	wm.AddWindow("acia", ui.NewAciaWindow(c.computer.chips.acia))
+	wm.AddWindow("ram", ui.NewMemoryWindow(c.computer.chips.ram))
+	wm.AddWindow("rom", ui.NewMemoryWindow(c.computer.chips.rom))
 	busWindow := ui.NewBusWindow()
-	c.windowsManager.AddWindow("bus", busWindow)
-	c.windowsManager.AddWindow("breakpoint", ui.NewBreakPointForm(emulator.GetBreakpointManager()))
-	c.windowsManager.AddWindow("options", ui.NewOptionsWindow(menuOptions))
+	wm.AddWindow("bus", busWindow)
+	wm.AddWindow("breakpoint", ui.NewBreakPointForm(emulator.GetBreakpointManager()))
+	wm.AddWindow("options", ui.NewOptionsWindow(menuOptions))
 
 	initializeBusWindow(c.computer, busWindow)
-
 	c.initializeLayout()
 
 	// Set initial active window
 	c.ShowWindow("cpu")
-
 }
 
 // initializeMainGrid sets up the main grid layout for the console.
@@ -81,7 +80,7 @@ func (c *BenEaterComputerConsole) initializeMainGrid() {
 		SetTitle("Ben Eater 6502 Computer")
 
 	// Get the tview app from the framework and set the grid as root
-	c.app.SetRoot(c.grid, true)
+	c.GetApp().SetRoot(c.grid, true)
 }
 
 // initializeBusWindow configures the bus window with the computer's buses.
@@ -95,9 +94,10 @@ func initializeBusWindow(computer *BenEaterComputer, busWindow *ui.BusWindow) {
 // initializeLayout sets up the initial layout of console windows.
 func (c *BenEaterComputerConsole) initializeLayout() {
 	// Setup initial grid layout
-	c.grid.AddItem(c.windowsManager.GetWindow("lcd").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
-		AddItem(c.windowsManager.GetWindow("speed").GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
-		AddItem(c.windowsManager.GetWindow("code").GetDrawArea(), 2, 0, 1, 1, 0, 0, false).
-		AddItem(c.windowsManager.GetWindow("options").GetDrawArea(), 3, 0, 1, 2, 0, 0, false).
-		AddItem(c.windowsManager.GetPages(), 0, 1, 3, 1, 0, 0, true)
+	wm := c.GetWindowManager()
+	c.grid.AddItem(wm.GetWindow("lcd").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
+		AddItem(wm.GetWindow("speed").GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
+		AddItem(wm.GetWindow("code").GetDrawArea(), 2, 0, 1, 1, 0, 0, false).
+		AddItem(wm.GetWindow("options").GetDrawArea(), 3, 0, 1, 2, 0, 0, false).
+		AddItem(wm.GetPages(), 0, 1, 3, 1, 0, 0, true)
 }
