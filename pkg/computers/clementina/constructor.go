@@ -8,11 +8,6 @@ import (
 	"github.com/fran150/clementina-6502/pkg/computers/clementina/modules"
 )
 
-// ClementinaComputerConfig contains configuration for the Clementina computer.
-type ClementinaComputerConfig struct {
-	DisplayFps int
-}
-
 // NewClementinaComputer creates and initializes a new instance of the Clementina 6502 computer emulation.
 // It sets up all hardware components and connects them according to the design.
 //
@@ -22,7 +17,7 @@ type ClementinaComputerConfig struct {
 // Returns:
 //   - A pointer to the initialized ClementinaComputer
 //   - An error if initialization fails
-func NewClementinaComputer(config *ClementinaComputerConfig) (*ClementinaComputer, error) {
+func NewClementinaComputer() (*ClementinaComputer, error) {
 	chips := &chips{
 		cpu:      cpu.NewCpu65C02S(),
 		baseram:  memory.NewRam(memory.RAM_SIZE_32K),

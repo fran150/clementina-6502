@@ -15,7 +15,7 @@ import (
 //
 // Returns:
 //   - A slice of menu options for the options window
-func createMenuOptions(console *BenEaterComputerConsole, emulator interfaces.Emulator) []*ui.OptionsWindowMenuOption {
+func createMenuOptions(console *BenEaterEmulatorConsole, emulator interfaces.Emulator) []*ui.OptionsWindowMenuOption {
 	return []*ui.OptionsWindowMenuOption{
 		{
 			Rune:           'e',
@@ -201,7 +201,7 @@ func createMenuOptions(console *BenEaterComputerConsole, emulator interfaces.Emu
 //
 // Returns:
 //   - A slice of menu options for memory window navigation
-func createMemoryWindowSubMenu(console *BenEaterComputerConsole) []*ui.OptionsWindowMenuOption {
+func createMemoryWindowSubMenu(console *BenEaterEmulatorConsole) []*ui.OptionsWindowMenuOption {
 	return []*ui.OptionsWindowMenuOption{
 		{
 			Key:            tcell.KeyUp,

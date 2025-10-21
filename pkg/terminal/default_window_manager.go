@@ -11,11 +11,11 @@ type DefaultWindowManager struct {
 	pages   *tview.Pages
 }
 
-// NewWindowManager creates a new window manager.
+// NewDefaultWindowManager creates a new window manager.
 //
 // Returns:
 //   - A pointer to the initialized DefaultWindowManager
-func NewWindowManager() *DefaultWindowManager {
+func NewDefaultWindowManager() *DefaultWindowManager {
 	return &DefaultWindowManager{
 		windows: make(map[string]Window),
 		tickers: make(map[string]TickerWindow),

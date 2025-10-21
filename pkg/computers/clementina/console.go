@@ -3,42 +3,28 @@ package clementina
 import (
 	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/core/interfaces"
-	"github.com/fran150/clementina-6502/pkg/core/managers"
 	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/rivo/tview"
 )
 
-type ClementinaComputerConsoleConfig struct {
-	*computers.BaseTerminalEmulatorConsole
+type ClementinaEmulatorConsoleConfig struct {
+	computers.BaseTerminalEmulatorConsoleConfig
+
+	Computer *ClementinaComputer
 }
 
-type ClementinaComputerConsole struct {
+type ClementinaEmulatorConsole struct {
 	*computers.BaseTerminalEmulatorConsole
 	computer *ClementinaComputer
 	grid     *tview.Grid
 }
 
-// NewClementinaEmulationConsole creates and initializes a new console for the Clementina computer.
-//
-// Parameters:
-//   - computer: The ClementinaComputer instance to create the console for
-//
-// Returns:
-//   - A configured console ready for use
-func NewClementinaEmulationConsole(computer *ClementinaComputer) *ClementinaComputerConsole {
-	wm := terminal.NewWindowManager()
+func NewClementinaEmulatorConsole(config ClementinaEmulatorConsoleConfig) *ClementinaEmulatorConsole {
 
-	config := computers.BaseTerminalEmulatorConsoleConfig{
-		WindowManager:     wm,
-		NavigationManager: managers.NewDefaultNavigationManager(),
-		InputHandler:      terminal.NewDefaultInputHandler(wm),
-		App:               tview.NewApplication(),
-	}
-
-	console := &ClementinaComputerConsole{
-		BaseTerminalEmulatorConsole: computers.NewBaseTerminalEmulatorConsole(config),
-		computer:                    computer,
+	console := &ClementinaEmulatorConsole{
+		BaseTerminalEmulatorConsole: computers.NewBaseTerminalEmulatorConsole(config.BaseTerminalEmulatorConsoleConfig),
+		computer:                    config.Computer,
 		grid:                        tview.NewGrid(),
 	}
 
@@ -51,7 +37,7 @@ func NewClementinaEmulationConsole(computer *ClementinaComputer) *ClementinaComp
 * Initialization methods
 *************************************************************************************/
 
-func (c *ClementinaComputerConsole) SetEmulator(emulator interfaces.Emulator) {
+func (c *ClementinaEmulatorConsole) SetEmulator(emulator interfaces.Emulator) {
 	menuOptions := createMenuOptions(c, emulator)
 
 	wm := c.GetWindowManager()
@@ -79,7 +65,7 @@ func (c *ClementinaComputerConsole) SetEmulator(emulator interfaces.Emulator) {
 }
 
 // initializeMainGrid sets up the main grid layout for the console.
-func (c *ClementinaComputerConsole) initializeMainGrid() {
+func (c *ClementinaEmulatorConsole) initializeMainGrid() {
 	c.grid.SetRows(3, 0, 3).
 		SetColumns(25, 0).
 		SetBorder(true).
@@ -102,7 +88,7 @@ func initializeBusWindow(computer *ClementinaComputer, busWindow *ui.BusWindow) 
 }
 
 // initializeLayout sets up the initial layout of console windows.
-func (c *ClementinaComputerConsole) initializeLayout() {
+func (c *ClementinaEmulatorConsole) initializeLayout() {
 	// Setup initial grid layout
 	wm := c.GetWindowManager()
 	c.grid.AddItem(wm.GetWindow("speed").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
@@ -116,7 +102,7 @@ func (c *ClementinaComputerConsole) initializeLayout() {
 *************************************************************************************/
 
 // ShowGotoForm shows the go to form for memory navigation allowing to navigate back.
-func (c *ClementinaComputerConsole) ShowGotoForm() {
+func (c *ClementinaEmulatorConsole) ShowGotoForm() {
 	activeKey := c.GetNavigationManager().GetCurrent()
 
 	wm := c.GetWindowManager()

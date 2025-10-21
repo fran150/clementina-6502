@@ -51,12 +51,10 @@ type BenEaterComputerConfig struct {
 }
 
 /*******************************************************************************************
-* ComputerCore Interface methods (Emulator + Renderer)
+* ComputerCore Interface methods
 ********************************************************************************************/
 
 // Tick advances the computer's state by one cycle.
-// It updates all components if the computer is not paused or if a single step is requested.
-// It also handles breakpoints and resets.
 //
 // Parameters:
 //   - context: The current step context
@@ -81,6 +79,10 @@ func (c *BenEaterComputer) GetProgramCounter() uint16 {
 	return c.chips.cpu.GetProgramCounter()
 }
 
+// Reset sets the reset state of the computer.
+//
+// Parameters:
+//   - status: true to reset the computer, false to release from reset
 func (c *BenEaterComputer) Reset(status bool) {
 	c.circuit.cpuReset.Set(!status)
 }
@@ -93,6 +95,15 @@ func (c *BenEaterComputer) Reset(status bool) {
 // It ensures that the ACIA component is properly closed to release resources.
 func (c *BenEaterComputer) Close() {
 	c.chips.acia.Close()
+}
+
+// getPotentialOperators retrieves the next two bytes from ROM at the given program counter.
+func (c *BenEaterComputer) getPotentialOperators(programCounter uint16) [2]uint8 {
+	rom := c.chips.rom
+	programCounter &= 0x7FFF
+	operand1Address := programCounter & 0x7FFF
+	operand2Address := (programCounter + 1) & 0x7FFF
+	return [2]uint8{rom.Peek(uint32(operand1Address)), rom.Peek(uint32(operand2Address))}
 }
 
 // LoadRom loads a ROM image from the specified file path into the computer's ROM.
@@ -109,13 +120,4 @@ func (c *BenEaterComputer) LoadRom(romImagePath string) error {
 	}
 
 	return nil
-}
-
-// getPotentialOperators retrieves the next two bytes from ROM at the given program counter.
-func (c *BenEaterComputer) getPotentialOperators(programCounter uint16) [2]uint8 {
-	rom := c.chips.rom
-	programCounter &= 0x7FFF
-	operand1Address := programCounter & 0x7FFF
-	operand2Address := (programCounter + 1) & 0x7FFF
-	return [2]uint8{rom.Peek(uint32(operand1Address)), rom.Peek(uint32(operand2Address))}
 }

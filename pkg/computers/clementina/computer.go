@@ -7,6 +7,10 @@ import (
 	"github.com/fran150/clementina-6502/pkg/computers/clementina/modules"
 )
 
+/*******************************************************************************************
+* Structs definition
+********************************************************************************************/
+
 type mapperFunctions[T uint8 | uint16, S uint8 | uint16] struct {
 	MapToSource   func(value T, current []S) []S
 	MapFromSource func(value []S) T
@@ -52,8 +56,6 @@ type circuit struct {
 // Clementina represents a complete emulation of Clementina 6502 computer.
 // It contains all the necessary components and connections to simulate the hardware.
 type ClementinaComputer struct {
-	context *common.StepContext
-
 	chips   *chips
 	circuit *circuit
 
@@ -61,12 +63,10 @@ type ClementinaComputer struct {
 }
 
 /*******************************************************************************************
-* ComputerCore Interface methods (Emulator + Renderer)
+* ComputerCore Interface methods
 ********************************************************************************************/
 
 // Tick advances the computer's state by one cycle.
-// It updates all components if the computer is not paused or if a single step is requested.
-// It also handles breakpoints and resets.
 //
 // Parameters:
 //   - context: The current step context
@@ -86,9 +86,25 @@ func (c *ClementinaComputer) Tick(context *common.StepContext) {
 	c.chips.cpu.PostTick(context)
 }
 
-// Close performs cleanup operations when shutting down the computer.
-func (c *ClementinaComputer) Close() {
+// GetProgramCounter returns the current program counter value from the CPU.
+//
+// Returns:
+//   - The current program counter as a uint16 value
+func (c *ClementinaComputer) GetProgramCounter() uint16 {
+	return c.chips.cpu.GetProgramCounter()
 }
+
+// Reset sets the reset state of the computer.
+//
+// Parameters:
+//   - status: true to reset the computer, false to release from reset
+func (c *ClementinaComputer) Reset(status bool) {
+	c.circuit.cpuReset.Set(!status)
+}
+
+/*******************************************************************************************
+* Miscellaneous functions
+********************************************************************************************/
 
 // getPotentialOperators retrieves the next two bytes from memory at the given program counter.
 // It handles different memory regions (base RAM, extended RAM, high RAM) based on the address.

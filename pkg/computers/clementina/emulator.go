@@ -1,4 +1,4 @@
-package beneater
+package clementina
 
 import (
 	"fmt"
@@ -13,13 +13,13 @@ import (
 	"github.com/rivo/tview"
 )
 
-func NewBenEaterEmulator(computer *BenEaterComputer, speed float64, displayFPS int) (interfaces.Emulator, error) {
+func NewClemetinaEmulator(computer *ClementinaComputer, speed float64, displayFPS int) (interfaces.Emulator, error) {
 	speedController := controllers.NewSpeedController(speed)
 	breakPointManager := managers.NewDefaultBreakpointManager()
 	windowManager := terminal.NewDefaultWindowManager()
 	navigationManager := managers.NewDefaultNavigationManager()
 
-	console := NewBenEaterEmulatorConsole(BenEaterEmulatorConsoleConfig{
+	console := NewClementinaEmulatorConsole(ClementinaEmulatorConsoleConfig{
 		BaseTerminalEmulatorConsoleConfig: computers.BaseTerminalEmulatorConsoleConfig{
 			WindowManager:     windowManager,
 			NavigationManager: navigationManager,

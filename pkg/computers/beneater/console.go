@@ -3,36 +3,27 @@ package beneater
 import (
 	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/core/interfaces"
-	"github.com/fran150/clementina-6502/pkg/core/managers"
-	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/rivo/tview"
 )
 
-type BenEaterComputerConsoleConfig struct {
-	*computers.BaseTerminalEmulatorConsole
+type BenEaterEmulatorConsoleConfig struct {
+	computers.BaseTerminalEmulatorConsoleConfig
+
+	Computer *BenEaterComputer
 }
 
-type BenEaterComputerConsole struct {
+type BenEaterEmulatorConsole struct {
 	*computers.BaseTerminalEmulatorConsole
 	computer *BenEaterComputer
 	grid     *tview.Grid
 }
 
 // newMainConsole creates and initializes a new console for the Ben Eater computer.
-func NewBenEaterEmulationConsole(computer *BenEaterComputer) *BenEaterComputerConsole {
-	wm := terminal.NewWindowManager()
-
-	config := computers.BaseTerminalEmulatorConsoleConfig{
-		WindowManager:     wm,
-		NavigationManager: managers.NewDefaultNavigationManager(),
-		InputHandler:      terminal.NewDefaultInputHandler(wm),
-		App:               tview.NewApplication(),
-	}
-
-	console := &BenEaterComputerConsole{
-		BaseTerminalEmulatorConsole: computers.NewBaseTerminalEmulatorConsole(config),
-		computer:                    computer,
+func NewBenEaterEmulatorConsole(config BenEaterEmulatorConsoleConfig) *BenEaterEmulatorConsole {
+	console := &BenEaterEmulatorConsole{
+		BaseTerminalEmulatorConsole: computers.NewBaseTerminalEmulatorConsole(config.BaseTerminalEmulatorConsoleConfig),
+		computer:                    config.Computer,
 		grid:                        tview.NewGrid(),
 	}
 
@@ -45,7 +36,7 @@ func NewBenEaterEmulationConsole(computer *BenEaterComputer) *BenEaterComputerCo
 * Initialization methods
 *************************************************************************************/
 
-func (c *BenEaterComputerConsole) SetEmulator(emulator interfaces.Emulator) {
+func (c *BenEaterEmulatorConsole) SetEmulator(emulator interfaces.Emulator) {
 	menuOptions := createMenuOptions(c, emulator)
 
 	wm := c.GetWindowManager()
@@ -73,7 +64,7 @@ func (c *BenEaterComputerConsole) SetEmulator(emulator interfaces.Emulator) {
 }
 
 // initializeMainGrid sets up the main grid layout for the console.
-func (c *BenEaterComputerConsole) initializeMainGrid() {
+func (c *BenEaterEmulatorConsole) initializeMainGrid() {
 	c.grid.SetRows(4, 3, 0, 3).
 		SetColumns(25, 0).
 		SetBorder(true).
@@ -92,7 +83,7 @@ func initializeBusWindow(computer *BenEaterComputer, busWindow *ui.BusWindow) {
 }
 
 // initializeLayout sets up the initial layout of console windows.
-func (c *BenEaterComputerConsole) initializeLayout() {
+func (c *BenEaterEmulatorConsole) initializeLayout() {
 	// Setup initial grid layout
 	wm := c.GetWindowManager()
 	c.grid.AddItem(wm.GetWindow("lcd").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).

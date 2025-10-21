@@ -7,6 +7,7 @@ import (
 
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/computers/beneater"
+	"github.com/fran150/clementina-6502/pkg/computers/clementina"
 	"github.com/fran150/clementina-6502/pkg/core/interfaces"
 	"github.com/spf13/cobra"
 	"go.bug.st/serial"
@@ -69,12 +70,10 @@ func runEmulator(cmd *cobra.Command, args []string) {
 			}
 		}
 
-		config := &beneater.BenEaterComputerConfig{
+		benEaterComputer, err := beneater.NewBenEaterComputer(&beneater.BenEaterComputerConfig{
 			Port:              port,
 			EmulateModemLines: emulateModemLines,
-		}
-
-		benEaterComputer, err := beneater.NewBenEaterComputer(config)
+		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
 			os.Exit(1)
@@ -88,36 +87,34 @@ func runEmulator(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 
-		emulator, err = beneater.NewBenEaterEmulation(benEaterComputer, targetMhz, targetFps)
+		emulator, err = beneater.NewBenEaterEmulator(benEaterComputer, targetMhz, targetFps)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating emulator: %v\n", err)
 			os.Exit(1)
 		}
 	} else {
-		// config := &clementina.ClementinaComputerConfig{
-		// 	DisplayFps: targetFps,
-		// }
+		clementinaComputer, err := clementina.NewClementinaComputer()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
+			os.Exit(1)
+		}
 
-		// clementinaComputer, err := clementina.NewClementinaComputer(config)
-		// if err != nil {
-		// 	fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
-		// 	os.Exit(1)
-		// }
+		// TODO: Hardcoding a simple loop for now.
+		clementinaComputer.HiRamPoke(0xFFFC, 0x00, 0x00) // Set $E100 in the reset vector
+		clementinaComputer.HiRamPoke(0xFFFD, 0x00, 0xE1)
 
-		// // Set the initial speed
-		// clementinaComputer.GetSpeedController().SetTargetSpeed(targetMhz)
+		clementinaComputer.HiRamPoke(0xE100, 0x00, 0xA9) // LDA #$01
+		clementinaComputer.HiRamPoke(0xE101, 0x00, 0x01)
+		clementinaComputer.HiRamPoke(0xE102, 0x00, 0x1A) // INC A
+		clementinaComputer.HiRamPoke(0xE103, 0x00, 0x4C) // JMP $E102
+		clementinaComputer.HiRamPoke(0xE104, 0x00, 0x02)
+		clementinaComputer.HiRamPoke(0xE105, 0x00, 0xE1)
 
-		// clementinaComputer.HiRamPoke(0xFFFC, 0x00, 0x00) // Set $E100 in the reset vector
-		// clementinaComputer.HiRamPoke(0xFFFD, 0x00, 0xE1)
-
-		// clementinaComputer.HiRamPoke(0xE100, 0x00, 0xA9) // LDA #$01
-		// clementinaComputer.HiRamPoke(0xE101, 0x00, 0x01)
-		// clementinaComputer.HiRamPoke(0xE102, 0x00, 0x1A) // INC A
-		// clementinaComputer.HiRamPoke(0xE103, 0x00, 0x4C) // JMP $E102
-		// clementinaComputer.HiRamPoke(0xE104, 0x00, 0x02)
-		// clementinaComputer.HiRamPoke(0xE105, 0x00, 0xE1)
-
-		// computer = clementinaComputer
+		emulator, err = clementina.NewClemetinaEmulator(clementinaComputer, targetMhz, targetFps)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating emulator: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	t := time.Now()
