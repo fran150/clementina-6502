@@ -1,23 +1,21 @@
 package cpu
 
+import "github.com/fran150/clementina-6502/pkg/components"
+
 // StatusRegister represents the processor status register in the 6502 CPU.
 // It contains flags that record the results of operations and control CPU behavior.
 // See https://www.6502.org/users/obelisk/6502/registers.html
 type StatusRegister uint8
 
-// StatusBit defines the bit positions for each flag in the status register.
-// These constants are used to access and modify individual flags.
-type StatusBit uint8
-
 const (
-	CarryFlagBit        StatusBit = 0 // Carry flag (C)
-	ZeroFlagBit         StatusBit = 1 // Zero flag (Z)
-	IrqDisableFlagBit   StatusBit = 2 // Interrupt disable flag (I)
-	DecimalModeFlagBit  StatusBit = 3 // Decimal mode flag (D)
-	BreakCommandFlagBit StatusBit = 4 // Break command flag (B)
-	UnusedFlagBit       StatusBit = 5 // Unused flag (always set to 1)
-	OverflowFlagBit     StatusBit = 6 // Overflow flag (V)
-	NegativeFlagBit     StatusBit = 7 // Negative flag (N)
+	CarryFlagBit        components.StatusBit = 0 // Carry flag (C)
+	ZeroFlagBit         components.StatusBit = 1 // Zero flag (Z)
+	IrqDisableFlagBit   components.StatusBit = 2 // Interrupt disable flag (I)
+	DecimalModeFlagBit  components.StatusBit = 3 // Decimal mode flag (D)
+	BreakCommandFlagBit components.StatusBit = 4 // Break command flag (B)
+	UnusedFlagBit       components.StatusBit = 5 // Unused flag (always set to 1)
+	OverflowFlagBit     components.StatusBit = 6 // Overflow flag (V)
+	NegativeFlagBit     components.StatusBit = 7 // Negative flag (N)
 )
 
 // NewStatusRegister creates a new status register with the specified initial value.
@@ -27,14 +25,14 @@ func NewStatusRegister(value uint8) StatusRegister {
 }
 
 // Returns whether the specified bit of the status register is set
-func (status StatusRegister) Flag(bit StatusBit) bool {
+func (status StatusRegister) Flag(bit components.StatusBit) bool {
 	mask := uint8(1 << bit)
 
 	return (uint8(status) & mask) > 0
 }
 
 // Allows to set or unset an specific bit of the status register
-func (status *StatusRegister) SetFlag(bit StatusBit, set bool) {
+func (status *StatusRegister) SetFlag(bit components.StatusBit, set bool) {
 	mask := uint8(1 << bit)
 
 	if set {

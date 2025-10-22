@@ -19,7 +19,7 @@ import (
 //   - An error if initialization fails
 func NewClementinaComputer() (*ClementinaComputer, error) {
 	chips := &chips{
-		cpu:      cpu.NewCpu65C02S(),
+		cpu:      cpu.NewCPU65C02SChip(),
 		baseram:  memory.NewRam(memory.RAM_SIZE_32K),
 		exram:    memory.NewRam(memory.RAM_SIZE_512K),
 		hiram:    memory.NewRam(memory.RAM_SIZE_32K),

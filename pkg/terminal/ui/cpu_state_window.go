@@ -37,7 +37,7 @@ func NewCpuWindow(processor components.Cpu6502Chip) *CpuWindow {
 	}
 }
 
-func getFlagStatusColor(status cpu.StatusRegister, bit cpu.StatusBit) string {
+func getFlagStatusColor(status components.StatusRegister, bit components.StatusBit) string {
 	if status.Flag(bit) {
 		return "[green]"
 	}
@@ -84,7 +84,7 @@ func (d *CpuWindow) Draw(context *common.StepContext) {
 	// Create flag display with descriptions
 	flags := []struct {
 		name string
-		bit  cpu.StatusBit
+		bit  components.StatusBit
 		desc string
 	}{
 		{"N", cpu.NegativeFlagBit, "Negative"},

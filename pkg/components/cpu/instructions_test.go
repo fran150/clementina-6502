@@ -2,6 +2,8 @@ package cpu
 
 import (
 	"testing"
+
+	"github.com/fran150/clementina-6502/pkg/components"
 )
 
 func TestNewInstructionSet(t *testing.T) {
@@ -15,8 +17,8 @@ func TestNewInstructionSet(t *testing.T) {
 
 	// Test some known opcodes
 	testCases := []struct {
-		opcode   OpCode
-		mnemonic Mnemonic
+		opcode   components.OpCode
+		mnemonic components.Mnemonic
 	}{
 		{0xEA, NOP}, // NOP instruction
 		{0xA9, LDA}, // LDA immediate
@@ -40,11 +42,11 @@ func TestInvalidOpCode(t *testing.T) {
 	instructionSet := NewInstructionSet()
 
 	// Test an invalid opcode (0x02 is not used in the 65C02)
-	invalidOpCode := OpCode(0x02)
+	invalidOpCode := components.OpCode(0x02)
 	instruction := instructionSet.GetByOpCode(invalidOpCode)
 
 	// Should return NOP (0xEA) for invalid opcodes
-	if instruction.OpCode() != OpCode(0xEA) {
+	if instruction.OpCode() != components.OpCode(0xEA) {
 		t.Errorf("Expected invalid opcode to return NOP (0xEA), got %02X",
 			instruction.OpCode())
 	}
@@ -65,7 +67,7 @@ func TestInstructionData(t *testing.T) {
 	}
 
 	// Test getter methods
-	if testInstruction.OpCode() != OpCode(0xEA) {
+	if testInstruction.OpCode() != components.OpCode(0xEA) {
 		t.Errorf("Expected opcode 0xEA, got %02X", testInstruction.OpCode())
 	}
 
@@ -83,7 +85,7 @@ func TestInstructionSetCompleteness(t *testing.T) {
 	instructionSet := NewInstructionSet()
 
 	// Test that we have all valid opcodes implemented
-	expectedInstructions := map[OpCode]bool{
+	expectedInstructions := map[components.OpCode]bool{
 		0xEA: true, // NOP
 		0xA9: true, // LDA immediate
 		0x4C: true, // JMP absolute

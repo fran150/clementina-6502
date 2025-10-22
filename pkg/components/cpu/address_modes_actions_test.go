@@ -42,7 +42,7 @@ type addressModeTestDataWithControlLines struct {
 // Creates a computer for testing the CPU emulation.
 // It is only 64K of RAM memory connected to the bus, processor lines are wired
 // to always high or low lines.
-func newComputer() (*Cpu65C02S, *memory.Ram) {
+func newComputer() (*cpu65C02S, *memory.Ram) {
 	addressBus := buses.New16BitStandaloneBus()
 	dataBus := buses.New8BitStandaloneBus()
 
@@ -62,7 +62,7 @@ func newComputer() (*Cpu65C02S, *memory.Ram) {
 	ram.ChipSelect().Connect(alwaysLowLine)
 	ram.OutputEnable().Connect(alwaysLowLine)
 
-	cpu := NewCpu65C02S()
+	cpu := newCpu65C02S()
 	cpu.AddressBus().Connect(addressBus)
 	cpu.DataBus().Connect(dataBus)
 
@@ -85,7 +85,7 @@ func newComputer() (*Cpu65C02S, *memory.Ram) {
 
 // Similar to the createComputer() function but in this case it returns the NMI, IRQ, RESET and RDY lines
 // to allow testing
-func newComputerWithControlLines() (*Cpu65C02S, *memory.Ram, *buses.StandaloneLine, *buses.StandaloneLine, *buses.StandaloneLine, *buses.StandaloneLine) {
+func newComputerWithControlLines() (*cpu65C02S, *memory.Ram, *buses.StandaloneLine, *buses.StandaloneLine, *buses.StandaloneLine, *buses.StandaloneLine) {
 	cpu, ram := newComputer()
 
 	nmiLine := buses.NewStandaloneLine(true)
@@ -103,7 +103,7 @@ func newComputerWithControlLines() (*Cpu65C02S, *memory.Ram, *buses.StandaloneLi
 
 // Evaluates the current status of the CPU on a given cycle and
 // compares it with the expceted value from the test data.
-func evaluateCycle(cycle int, cpu *Cpu65C02S, step *addressModeTestData, t *testing.T) {
+func evaluateCycle(cycle int, cpu *cpu65C02S, step *addressModeTestData, t *testing.T) {
 	evaluateLine(cycle, cpu.readWrite.GetLine().Status(), step.writeEnable, t, "R/W")
 
 	evaluateRegister(cycle, cpu.accumulatorRegister, step.accumulatorRegister, t, "A")
@@ -123,7 +123,7 @@ func evaluateLine(cycle int, status bool, stepStatus bool, t *testing.T, lineNam
 }
 
 // Returns the appropriate signal line based on the letter specified for the test
-func getSignalLine(cpu *Cpu65C02S, signalCode rune) buses.LineConnector {
+func getSignalLine(cpu *cpu65C02S, signalCode rune) buses.LineConnector {
 	switch string(unicode.ToLower(signalCode)) {
 	case "m":
 		return cpu.memoryLock
@@ -143,7 +143,7 @@ func getSignalLine(cpu *Cpu65C02S, signalCode rune) buses.LineConnector {
 // is expected to be disabled.
 // If not specified M (Memory Lock), S (Sync) and V (lines) are expected to be disabled. If not specified, R (Ready) line is
 // expected to be enabled. For example, specifying "" will expect M,S and V disabled and R enabled.
-func evaluateSignalLines(t *testing.T, cpu *Cpu65C02S, signalString string) {
+func evaluateSignalLines(t *testing.T, cpu *cpu65C02S, signalString string) {
 	// Lines to be evaluated and their default expected status (upper case -> enabled, lower case -> disabled)
 	const signals string = "msvR"
 	// Line names to show when reporting error
@@ -200,7 +200,7 @@ func evaluateRegister[U uint8 | uint16](cycle int, registerValue U, stepValue U,
 }
 
 // Iterates over the specified steps comparting the status of the CPU with the expected values.
-func runTest(cpu *Cpu65C02S, ram *memory.Ram, steps []addressModeTestData, t *testing.T) {
+func runTest(cpu *cpu65C02S, ram *memory.Ram, steps []addressModeTestData, t *testing.T) {
 	// Only log detailed execution information when verbose testing is enabled
 	if testing.Verbose() {
 		t.Logf("Cycle \t Addr \t Data \t R/W \t PC \t A \t X \t Y \t SP \t Flags \n")
@@ -220,9 +220,9 @@ func runTest(cpu *Cpu65C02S, ram *memory.Ram, steps []addressModeTestData, t *te
 
 		// Only log detailed execution information when verbose testing is enabled
 		if testing.Verbose() {
-			t.Logf("%v \t %04X \t %02X \t %v \t %04X \t %02X \t %02X \t %02X \t %02X \t %08b \n", 
-				cycle, cpu.addressBus.Read(), cpu.dataBus.Read(), cpu.readWrite.GetLine().Status(), 
-				cpu.programCounter, cpu.accumulatorRegister, cpu.xRegister, cpu.yRegister, 
+			t.Logf("%v \t %04X \t %02X \t %v \t %04X \t %02X \t %02X \t %02X \t %02X \t %08b \n",
+				cycle, cpu.addressBus.Read(), cpu.dataBus.Read(), cpu.readWrite.GetLine().Status(),
+				cpu.programCounter, cpu.accumulatorRegister, cpu.xRegister, cpu.yRegister,
 				cpu.stackPointer, cpu.processorStatusRegister.ReadValue())
 		}
 
@@ -237,7 +237,7 @@ func runTest(cpu *Cpu65C02S, ram *memory.Ram, steps []addressModeTestData, t *te
 // to send the CPU to an initial known state, and RDY is and both input output, if it's pulled to disabled
 // halts the CPU leaving the address bus in the last status. When the processor halts during WAI and STP
 // instructions, it pulls this line to disable
-func runTestWithInterrupts(cpu *Cpu65C02S, ram *memory.Ram, irqLine *buses.StandaloneLine, nmiLine *buses.StandaloneLine, resetLine *buses.StandaloneLine, readyLine *buses.StandaloneLine, steps []addressModeTestDataWithControlLines, t *testing.T) {
+func runTestWithInterrupts(cpu *cpu65C02S, ram *memory.Ram, irqLine *buses.StandaloneLine, nmiLine *buses.StandaloneLine, resetLine *buses.StandaloneLine, readyLine *buses.StandaloneLine, steps []addressModeTestDataWithControlLines, t *testing.T) {
 	// Only log detailed execution information when verbose testing is enabled
 	if testing.Verbose() {
 		t.Logf("Cycle \t Addr \t Data \t R/W \t PC \t A \t X \t Y \t SP \t Flags \t IRQ \t NMI \t RST \t RDY \n")
@@ -266,9 +266,9 @@ func runTestWithInterrupts(cpu *Cpu65C02S, ram *memory.Ram, irqLine *buses.Stand
 
 		// Only log detailed execution information when verbose testing is enabled
 		if testing.Verbose() {
-			t.Logf("%v \t %04X \t %02X \t %v \t %04X \t %02X \t %02X \t %02X \t %02X \t %08b \t %v \t %v \t %v \t %v \n", 
-				cycle, cpu.addressBus.Read(), cpu.dataBus.Read(), cpu.readWrite.GetLine().Status(), 
-				cpu.programCounter, cpu.accumulatorRegister, cpu.xRegister, cpu.yRegister, 
+			t.Logf("%v \t %04X \t %02X \t %v \t %04X \t %02X \t %02X \t %02X \t %02X \t %08b \t %v \t %v \t %v \t %v \n",
+				cycle, cpu.addressBus.Read(), cpu.dataBus.Read(), cpu.readWrite.GetLine().Status(),
+				cpu.programCounter, cpu.accumulatorRegister, cpu.xRegister, cpu.yRegister,
 				cpu.stackPointer, cpu.processorStatusRegister.ReadValue(),
 				!irqLine.Status(), !nmiLine.Status(), !resetLine.Status(), !readyLine.Status())
 		}

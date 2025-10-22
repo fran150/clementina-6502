@@ -1,5 +1,7 @@
 package cpu
 
+import "github.com/fran150/clementina-6502/pkg/components"
+
 /*******************************************************************************************
 * Types and Constants
 ********************************************************************************************/
@@ -9,14 +11,14 @@ package cpu
 // to allow setting the bus values and control lines, and another "post tick" to set the
 // status of the processor according to the responses. This type allows to define the actions
 // executed on each clock tick for each address mode.
-type cycleAction func(cpu *Cpu65C02S) bool
+type cycleAction func(cpu *cpu65C02S) bool
 
 // Each address mode takes the CPU a number of cycles to execute. In this emulation
 // these actions will be divided in 2 functions, one set executed during the clock tick
 // to allow setting the bus values and control lines, and another "post tick" to set the
 // status of the processor according to the responses. This type allows to define the actions
 // executed after each clock tick for each address mode.
-type cyclePostAction func(cpu *Cpu65C02S)
+type cyclePostAction func(cpu *cpu65C02S)
 
 // During the execution of an instruction the CPU signals is internal status through 3 lines
 // that are set on specific cycles of certain combinations of address modes and execution types.
@@ -135,7 +137,7 @@ var vectorPullingSignaling = syncSignaling{
 // Sets the program counter value on the bus for reading. If incrementProgramCounter parameter is true,
 // program counter is automatically increased to the next address.
 func readFromProgramCounter(incrementProgramCounter bool) cycleAction {
-	return func(cpu *Cpu65C02S) bool {
+	return func(cpu *cpu65C02S) bool {
 		cpu.setReadBus(cpu.programCounter)
 		if incrementProgramCounter {
 			cpu.programCounter++
@@ -147,7 +149,7 @@ func readFromProgramCounter(incrementProgramCounter bool) cycleAction {
 
 // Sets the current value of the intruction register on the bus for reading.
 func readFromInstructionRegister() cycleAction {
-	return func(cpu *Cpu65C02S) bool {
+	return func(cpu *cpu65C02S) bool {
 		cpu.setReadBus(cpu.instructionRegister)
 
 		return true
@@ -158,7 +160,7 @@ func readFromInstructionRegister() cycleAction {
 // Just sets the R/W flag to read. If the performAction is true then the function with the specific ations
 // for the instruction is called.
 func readFromAddressInBus(performAction bool) cycleAction {
-	return func(cpu *Cpu65C02S) bool {
+	return func(cpu *cpu65C02S) bool {
 		cpu.setReadBus(cpu.addressBus.Read())
 		if performAction {
 			cpu.performAction()
@@ -171,7 +173,7 @@ func readFromAddressInBus(performAction bool) cycleAction {
 // Increment the current value in the bus by one and sets is to read. This is commonly used to read
 // 2 bytes address from memory, for example in indirect address modes.
 func readFromNextAddressInBus() cycleAction {
-	return func(cpu *Cpu65C02S) bool {
+	return func(cpu *cpu65C02S) bool {
 		cpu.setReadBus(uint16(cpu.addressBus.Read() + 1))
 
 		return true
@@ -181,7 +183,7 @@ func readFromNextAddressInBus() cycleAction {
 // Sets a specific address on the bus for reading. This is commonly used to read from IRQ, NMI or reset
 // vectors.
 func readFromAddress(address uint16) cycleAction {
-	return func(cpu *Cpu65C02S) bool {
+	return func(cpu *cpu65C02S) bool {
 		cpu.setReadBus(address)
 
 		return true
@@ -193,7 +195,7 @@ func readFromAddress(address uint16) cycleAction {
 // is moved up, but some cycles requires a repeated read. If increasedStackPointer parameter is true
 // the stack pointer value is automatically incremented.
 func readFromStackPointer(increaseStackPointer bool) cycleAction {
-	return func(cpu *Cpu65C02S) bool {
+	return func(cpu *cpu65C02S) bool {
 		if increaseStackPointer {
 			cpu.stackPointer++
 		}
@@ -208,7 +210,7 @@ func readFromStackPointer(increaseStackPointer bool) cycleAction {
 // reached. In these cases the processor needs an extra cycle, on the 65C02S this is an extra read
 // on the current bus value.
 func extraCycleIfCarryInstructionRegister() cycleAction {
-	return func(cpu *Cpu65C02S) bool {
+	return func(cpu *cpu65C02S) bool {
 		cpu.setReadBus(cpu.addressBus.Read())
 
 		if cpu.instructionRegisterCarry {
@@ -224,7 +226,7 @@ func extraCycleIfCarryInstructionRegister() cycleAction {
 // This causes a read on the current program counter and it is used to update the program counter
 // to branch value
 func extraCycleIfBranchTaken() cycleAction {
-	return func(cpu *Cpu65C02S) bool {
+	return func(cpu *cpu65C02S) bool {
 		if cpu.branchTaken {
 			cpu.branchTaken = false
 
@@ -242,7 +244,7 @@ func extraCycleIfBranchTaken() cycleAction {
 // This is used to push the program counter MSB to the stack. It configures the bus to write the MSB of the PC
 // into the stack pointer address and updates the stack pointer value accordingly
 func writeProgramCounterMSBToStack() cycleAction {
-	return func(cpu *Cpu65C02S) bool {
+	return func(cpu *cpu65C02S) bool {
 		counterMSB := cpu.programCounter & 0xFF00
 		counterMSB = counterMSB >> 8
 		cpu.writeToStack(uint8(counterMSB))
@@ -254,7 +256,7 @@ func writeProgramCounterMSBToStack() cycleAction {
 // This is used to push the program counter LSB to the stack. It configures the bus to write the LSB of the PC
 // into the stack pointer address and updates the stack pointer value accordingly
 func writeProgramCounterLSBToStack() cycleAction {
-	return func(cpu *Cpu65C02S) bool {
+	return func(cpu *cpu65C02S) bool {
 		counterLSB := cpu.programCounter & 0x00FF
 		cpu.writeToStack(uint8(counterLSB))
 		cpu.stackPointer--
@@ -269,7 +271,7 @@ func writeProgramCounterLSBToStack() cycleAction {
 // Both BRK instructions and hardware IRQ should set the I (IRQ disable) flag, right after the saving of the
 // processor status to the stack, the disableIrq flag controls this behaviour
 func writeProcessorStatusRegisterToStack(hardwareInterrupt bool, disableIrq bool) cycleAction {
-	return func(cpu *Cpu65C02S) bool {
+	return func(cpu *cpu65C02S) bool {
 		value := cpu.processorStatusRegister.ReadValue()
 
 		if hardwareInterrupt {
@@ -295,8 +297,8 @@ func writeProcessorStatusRegisterToStack(hardwareInterrupt bool, disableIrq bool
 // Copies the value in the data bus as the current opcode. This is the instruction
 // being processed
 func intoOpCode() cyclePostAction {
-	return func(cpu *Cpu65C02S) {
-		cpu.currentOpCode = OpCode(cpu.dataBus.Read())
+	return func(cpu *cpu65C02S) {
+		cpu.currentOpCode = components.OpCode(cpu.dataBus.Read())
 
 		cpu.currentInstruction = instructionSet.GetByOpCode(cpu.currentOpCode)
 
@@ -309,7 +311,7 @@ func intoOpCode() cyclePostAction {
 // will pick the value from here to perfrom their operations.
 // If the `performAction` parameter is true, the instruction action will be executed
 func intoDataRegister(performAction bool) cyclePostAction {
-	return func(cpu *Cpu65C02S) {
+	return func(cpu *cpu65C02S) {
 		cpu.dataRegister = cpu.dataBus.Read()
 		if performAction {
 			cpu.performAction()
@@ -321,7 +323,7 @@ func intoDataRegister(performAction bool) cyclePostAction {
 // The instruction register is used as temporary buffer to store the address of
 // the operand for certain instructions.
 func intoInstructionRegisterLSB() cyclePostAction {
-	return func(cpu *Cpu65C02S) {
+	return func(cpu *cpu65C02S) {
 		cpu.setInstructionRegisterLSB(cpu.dataBus.Read())
 	}
 }
@@ -331,7 +333,7 @@ func intoInstructionRegisterLSB() cyclePostAction {
 // the operand for certain instructions.
 // If the `performAction` parameter is true, the instruction action will be executed
 func intoInstructionRegisterMSB(performAction bool) cyclePostAction {
-	return func(cpu *Cpu65C02S) {
+	return func(cpu *cpu65C02S) {
 		cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
 
 		if performAction {
@@ -344,7 +346,7 @@ func intoInstructionRegisterMSB(performAction bool) cyclePostAction {
 // This is typically used when restoring the status from the stack after
 // an interruption but it can be also triggered manual for example with PLP
 func intoStatusRegister() cyclePostAction {
-	return func(cpu *Cpu65C02S) {
+	return func(cpu *cpu65C02S) {
 		cpu.processorStatusRegister.SetValue(cpu.dataBus.Read())
 	}
 }
@@ -354,7 +356,7 @@ func intoStatusRegister() cyclePostAction {
 // address modes in where if the page boundary is reached it just
 // "wraps around"
 func addToInstructionRegisterLSB(origin sumOrigin) cyclePostAction {
-	return func(cpu *Cpu65C02S) {
+	return func(cpu *cpu65C02S) {
 		switch origin {
 		case fromXRegister:
 			cpu.addToInstructionRegisterLSB(cpu.xRegister)
@@ -372,7 +374,7 @@ func addToInstructionRegisterLSB(origin sumOrigin) cyclePostAction {
 // the bus is set to read from the unchanged value as the extra cycle causes a read
 // from this value.
 func addToInstructionRegister(origin sumOrigin) cyclePostAction {
-	return func(cpu *Cpu65C02S) {
+	return func(cpu *cpu65C02S) {
 		cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
 		cpu.setReadBus(cpu.instructionRegister)
 
@@ -397,7 +399,7 @@ func addToInstructionRegister(origin sumOrigin) cyclePostAction {
 // to know that an interrupt was requested. The clearFlag parameter allows to clear
 // that flag when the interrupt cycles are completed
 func moveInstructionRegisterToProgramCounter(setInstructionRegisterMSB bool, clearFlag clearRequestFlag) cyclePostAction {
-	return func(cpu *Cpu65C02S) {
+	return func(cpu *cpu65C02S) {
 		if setInstructionRegisterMSB {
 			cpu.setInstructionRegisterMSB(cpu.dataBus.Read())
 		}
@@ -421,7 +423,7 @@ func moveInstructionRegisterToProgramCounter(setInstructionRegisterMSB bool, cle
 // See discussions about BBR and BBS correct timing here:
 // https://www.reddit.com/r/beneater/comments/1cac3ly/clarification_of_65c02_instruction_execution_times/
 func moveInstructionRegisterToProgramCounterIfNotCarry() cyclePostAction {
-	return func(cpu *Cpu65C02S) {
+	return func(cpu *cpu65C02S) {
 		if !cpu.instructionRegisterCarry {
 			cpu.programCounter = cpu.instructionRegister
 			cpu.setReadBus(cpu.programCounter)
@@ -431,7 +433,7 @@ func moveInstructionRegisterToProgramCounterIfNotCarry() cyclePostAction {
 
 // Used when we don´t need to do anything in the post cycle phase.
 func doNothing() cyclePostAction {
-	return func(cpu *Cpu65C02S) {
+	return func(cpu *cpu65C02S) {
 	}
 }
 

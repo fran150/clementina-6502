@@ -6,45 +6,45 @@ import (
 
 func TestCpu65C02S_GetterMethods(t *testing.T) {
 	// Setup
-	cpu := NewCpu65C02S()
+	cpu := newCpu65C02S()
 
 	// Test cases structure for register values
 	tests := []struct {
 		name     string
-		setup    func(*Cpu65C02S)
-		getValue func(*Cpu65C02S) uint8
+		setup    func(*cpu65C02S)
+		getValue func(*cpu65C02S) uint8
 		want     uint8
 	}{
 		{
 			name: "GetAccumulatorRegister returns correct value",
-			setup: func(c *Cpu65C02S) {
+			setup: func(c *cpu65C02S) {
 				c.accumulatorRegister = 0x42
 			},
-			getValue: (*Cpu65C02S).GetAccumulatorRegister,
+			getValue: (*cpu65C02S).GetAccumulatorRegister,
 			want:     0x42,
 		},
 		{
 			name: "GetXRegister returns correct value",
-			setup: func(c *Cpu65C02S) {
+			setup: func(c *cpu65C02S) {
 				c.xRegister = 0x55
 			},
-			getValue: (*Cpu65C02S).GetXRegister,
+			getValue: (*cpu65C02S).GetXRegister,
 			want:     0x55,
 		},
 		{
 			name: "GetYRegister returns correct value",
-			setup: func(c *Cpu65C02S) {
+			setup: func(c *cpu65C02S) {
 				c.yRegister = 0xAA
 			},
-			getValue: (*Cpu65C02S).GetYRegister,
+			getValue: (*cpu65C02S).GetYRegister,
 			want:     0xAA,
 		},
 		{
 			name: "GetStackPointer returns correct value",
-			setup: func(c *Cpu65C02S) {
+			setup: func(c *cpu65C02S) {
 				c.stackPointer = 0xFF
 			},
-			getValue: (*Cpu65C02S).GetStackPointer,
+			getValue: (*cpu65C02S).GetStackPointer,
 			want:     0xFF,
 		},
 	}

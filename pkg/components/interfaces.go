@@ -3,7 +3,6 @@ package components
 import (
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
-	"github.com/fran150/clementina-6502/pkg/components/cpu"
 	"go.bug.st/serial"
 )
 
@@ -37,6 +36,45 @@ type Acia6551Chip interface {
 	IsRXRegisterEmpty() bool
 }
 
+// AddressMode represents the different addressing modes available in the 6502 processor.
+// Each mode determines how the CPU accesses memory for an instruction.
+type AddressMode int
+
+// AddressModeData defines the interface for CPU addressing mode information.
+// It provides details about how the CPU accesses memory for different instruction types.
+type AddressModeData interface {
+	Name() AddressMode
+	Text() string
+	Format() string
+	Cycles() int
+	MemSize() uint8
+}
+
+// OpCode represents a unique identifier for each instruction and addressing mode combination.
+// Values range from 0x00 to 0xFF (0-255), covering all possible 6502 instructions.
+// See http://www.6502.org/users/obelisk/65C02/reference.html
+type OpCode uint
+
+// Mnemonic represents the human-readable assembly language representation of 6502 CPU instructions.
+// Each mnemonic can be used with different addressing modes to form complete instructions.
+// For example, LDA $C010 uses absolute addressing to load a value from memory address $C010,
+// while LDA #$FF uses immediate addressing to load the literal value $FF.
+type Mnemonic string
+
+type CpuInstructionData interface {
+	OpCode() OpCode
+	Mnemonic() Mnemonic
+	AddressMode() AddressMode
+}
+
+// StatusBit defines the bit positions for each flag in the status register.
+// These constants are used to access and modify individual flags.
+type StatusBit uint8
+
+type StatusRegister interface {
+	Flag(bit StatusBit) bool
+}
+
 // Cpu6502Chip defines the interface for the 65C02S CPU emulation.
 // It provides access to all CPU pins, internal registers, and execution control.
 type Cpu6502Chip interface {
@@ -63,10 +101,10 @@ type Cpu6502Chip interface {
 	GetXRegister() uint8
 	GetYRegister() uint8
 	GetStackPointer() uint8
-	GetProcessorStatusRegister() cpu.StatusRegister
+	GetProcessorStatusRegister() StatusRegister
 	IsReadingOpcode() bool
-	GetCurrentInstruction() *cpu.CpuInstructionData
-	GetCurrentAddressMode() *cpu.AddressModeData
+	GetCurrentInstruction() CpuInstructionData
+	GetCurrentAddressMode() AddressModeData
 	GetProgramCounter() uint16
 
 	// Program counter manipulation

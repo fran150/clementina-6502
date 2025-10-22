@@ -6,10 +6,11 @@ import (
 	"unicode"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/memory"
 )
 
-func runInstructionTest(cpu *Cpu65C02S, ram *memory.Ram, cycles uint64) {
+func runInstructionTest(cpu *cpu65C02S, ram *memory.Ram, cycles uint64) {
 	context := common.NewStepContext()
 
 	for i := range cycles {
@@ -23,7 +24,7 @@ func runInstructionTest(cpu *Cpu65C02S, ram *memory.Ram, cycles uint64) {
 	}
 }
 
-func evaluateRegisterValue(t *testing.T, cpu *Cpu65C02S, name string, value uint8, expected uint8) {
+func evaluateRegisterValue(t *testing.T, cpu *cpu65C02S, name string, value uint8, expected uint8) {
 	if value != expected {
 		instruction := instructionSet.GetByOpCode(cpu.currentOpCode)
 		addressMode := addressModeSet.GetByName(instruction.addressMode)
@@ -32,7 +33,7 @@ func evaluateRegisterValue(t *testing.T, cpu *Cpu65C02S, name string, value uint
 	}
 }
 
-func evaluateAddress(t *testing.T, cpu *Cpu65C02S, ram *memory.Ram, address uint16, expected uint8) {
+func evaluateAddress(t *testing.T, cpu *cpu65C02S, ram *memory.Ram, address uint16, expected uint8) {
 	value := ram.Peek(uint32(address))
 
 	if value != expected {
@@ -43,7 +44,7 @@ func evaluateAddress(t *testing.T, cpu *Cpu65C02S, ram *memory.Ram, address uint
 	}
 }
 
-func evaluateFlag(t *testing.T, cpu *Cpu65C02S, flagString string) {
+func evaluateFlag(t *testing.T, cpu *cpu65C02S, flagString string) {
 	const flags string = "czidb-vn"
 
 	instruction := instructionSet.GetByOpCode(cpu.currentOpCode)
@@ -54,20 +55,20 @@ func evaluateFlag(t *testing.T, cpu *Cpu65C02S, flagString string) {
 		lcFlag := unicode.ToLower(flag)
 
 		if strings.Contains(flagString, string(ucFlag)) {
-			if !cpu.processorStatusRegister.Flag(StatusBit(i)) {
+			if !cpu.processorStatusRegister.Flag(components.StatusBit(i)) {
 				t.Errorf("%s - %s - Expected %s flag to be set", instruction.Mnemonic(), addressMode.Text(), string(ucFlag))
 			}
 		}
 
 		if strings.Contains(flagString, string(lcFlag)) {
-			if cpu.processorStatusRegister.Flag(StatusBit(i)) {
+			if cpu.processorStatusRegister.Flag(components.StatusBit(i)) {
 				t.Errorf("%s - %s - Expected %s flag NOT to be set", instruction.Mnemonic(), addressMode.Text(), string(ucFlag))
 			}
 		}
 	}
 }
 
-func evaluateProgramCounter(t *testing.T, cpu *Cpu65C02S, expectedValue uint16) {
+func evaluateProgramCounter(t *testing.T, cpu *cpu65C02S, expectedValue uint16) {
 	if cpu.programCounter != expectedValue {
 		instruction := instructionSet.GetByOpCode(cpu.currentOpCode)
 		addressMode := addressModeSet.GetByName(instruction.addressMode)
@@ -76,43 +77,43 @@ func evaluateProgramCounter(t *testing.T, cpu *Cpu65C02S, expectedValue uint16) 
 	}
 }
 
-func evaluateAccumulatorInstruction(t *testing.T, cpu *Cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, expectedAccumulatorValue uint8) {
+func evaluateAccumulatorInstruction(t *testing.T, cpu *cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, expectedAccumulatorValue uint8) {
 	runInstructionTest(cpu, ram, cycles)
 	evaluateRegisterValue(t, cpu, "accumulator", cpu.accumulatorRegister, expectedAccumulatorValue)
 	evaluateFlag(t, cpu, flagString)
 }
 
-func evaluateXRegisterInstruction(t *testing.T, cpu *Cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, expectedRegisterValue uint8) {
+func evaluateXRegisterInstruction(t *testing.T, cpu *cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, expectedRegisterValue uint8) {
 	runInstructionTest(cpu, ram, cycles)
 	evaluateRegisterValue(t, cpu, "X Register", cpu.xRegister, expectedRegisterValue)
 	evaluateFlag(t, cpu, flagString)
 }
 
-func evaluateYRegisterInstruction(t *testing.T, cpu *Cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, expectedRegisterValue uint8) {
+func evaluateYRegisterInstruction(t *testing.T, cpu *cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, expectedRegisterValue uint8) {
 	runInstructionTest(cpu, ram, cycles)
 	evaluateRegisterValue(t, cpu, "Y Register", cpu.yRegister, expectedRegisterValue)
 	evaluateFlag(t, cpu, flagString)
 }
 
-func evaluateStackPointerInstruction(t *testing.T, cpu *Cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, expectedRegisterValue uint8) {
+func evaluateStackPointerInstruction(t *testing.T, cpu *cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, expectedRegisterValue uint8) {
 	runInstructionTest(cpu, ram, cycles)
 	evaluateRegisterValue(t, cpu, "Stack Pointer", cpu.stackPointer, expectedRegisterValue)
 	evaluateFlag(t, cpu, flagString)
 }
 
-func evaluateRMWInstruction(t *testing.T, cpu *Cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, address uint16, expectedValue uint8) {
+func evaluateRMWInstruction(t *testing.T, cpu *cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, address uint16, expectedValue uint8) {
 	runInstructionTest(cpu, ram, cycles)
 	evaluateAddress(t, cpu, ram, address, expectedValue)
 	evaluateFlag(t, cpu, flagString)
 }
 
-func evaluateBranchInstruction(t *testing.T, cpu *Cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, expectedProgramCounterValue uint16) {
+func evaluateBranchInstruction(t *testing.T, cpu *cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, expectedProgramCounterValue uint16) {
 	runInstructionTest(cpu, ram, cycles)
 	evaluateProgramCounter(t, cpu, expectedProgramCounterValue)
 	evaluateFlag(t, cpu, flagString)
 }
 
-func evaluateFlagInstruction(t *testing.T, cpu *Cpu65C02S, ram *memory.Ram, cycles uint64, flagString string) {
+func evaluateFlagInstruction(t *testing.T, cpu *cpu65C02S, ram *memory.Ram, cycles uint64, flagString string) {
 	runInstructionTest(cpu, ram, cycles)
 	evaluateFlag(t, cpu, flagString)
 }

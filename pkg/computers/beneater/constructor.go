@@ -22,7 +22,7 @@ import (
 //   - An error if initialization fails
 func NewBenEaterComputer(config *BenEaterComputerConfig) (*BenEaterComputer, error) {
 	chips := &chips{
-		cpu:  cpu.NewCpu65C02S(),
+		cpu:  cpu.NewCPU65C02SChip(),
 		ram:  memory.NewRam(memory.RAM_SIZE_32K),
 		rom:  memory.NewRam(memory.RAM_SIZE_32K),
 		via:  via.NewVia65C22Chip(),

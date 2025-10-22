@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 )
 
@@ -14,7 +15,7 @@ var instructionSet *CpuInstructionSet = NewInstructionSet()
 // for details.
 // There is another document for the rockwell processor that has better data about cycle timing here:
 // https://web.archive.org/web/20221112220234if_/http://archive.6502.org/datasheets/rockwell_r65c00_microprocessors.pdf
-type Cpu65C02S struct {
+type cpu65C02S struct {
 	addressBus           *buses.BusConnector[uint16]
 	busEnable            *buses.ConnectorEnabledHigh
 	dataBus              *buses.BusConnector[uint8]
@@ -47,7 +48,7 @@ type Cpu65C02S struct {
 
 	instructionRegisterCarry bool
 	branchTaken              bool
-	currentOpCode            OpCode
+	currentOpCode            components.OpCode
 	instructionRegister      uint16
 	dataRegister             uint8
 
@@ -60,9 +61,13 @@ type Cpu65C02S struct {
 	processorStopped bool
 }
 
+func NewCPU65C02SChip() components.Cpu6502Chip {
+	return newCpu65C02S()
+}
+
 // Creates a CPU with typical values for all registers, address and data bus are not connected
-func NewCpu65C02S() *Cpu65C02S {
-	cpu := &Cpu65C02S{
+func newCpu65C02S() *cpu65C02S {
+	cpu := &cpu65C02S{
 		addressBus: buses.NewBusConnector[uint16](),
 		dataBus:    buses.NewBusConnector[uint8](),
 
@@ -100,20 +105,20 @@ func NewCpu65C02S() *Cpu65C02S {
 
 // The sixteen bit Address Bus formed by A0-A15, address memory and I/O registers that exchange data on
 // the Data Bus. The address lines can be set to the high impedance state by the Bus Enable (BE) signal.
-func (cpu *Cpu65C02S) AddressBus() *buses.BusConnector[uint16] {
+func (cpu *cpu65C02S) AddressBus() *buses.BusConnector[uint16] {
 	return cpu.addressBus
 }
 
 // The Bus Enable (BE) input signal provides external control of the Address, Data and the RWB buffers. When
 // Bus Enable is high, the Address, Data and RWB buffers are active.
-func (cpu *Cpu65C02S) BusEnable() *buses.ConnectorEnabledHigh {
+func (cpu *cpu65C02S) BusEnable() *buses.ConnectorEnabledHigh {
 	return cpu.busEnable
 }
 
 // The eight Data Bus lines D0-D7 are used to provide instructions, data and addresses to the
 // microprocessor and exchange data with memory and I/O registers. These lines may be set to the high
 // impedance state by the Bus Enable (BE) signal.
-func (cpu *Cpu65C02S) DataBus() *buses.BusConnector[uint8] {
+func (cpu *cpu65C02S) DataBus() *buses.BusConnector[uint8] {
 	return cpu.dataBus
 }
 
@@ -124,7 +129,7 @@ func (cpu *Cpu65C02S) DataBus() *buses.BusConnector[uint8] {
 // held until the interrupt handler clears the interrupt request source. When Return from Interrupt (RTI) is
 // executed the (I) flag is restored and a new interrupt can be handled. If the (I) flag is cleared in an interrupt
 // handler, nested interrupts can occur.
-func (cpu *Cpu65C02S) InterruptRequest() *buses.ConnectorEnabledLow {
+func (cpu *cpu65C02S) InterruptRequest() *buses.ConnectorEnabledLow {
 	return cpu.interruptRequest
 }
 
@@ -132,7 +137,7 @@ func (cpu *Cpu65C02S) InterruptRequest() *buses.ConnectorEnabledLow {
 // a multiprocessor system. Memory Lock indicates the need to defer arbitration of the bus cycle when MLB
 // is low. Memory Lock is low during the last three cycles of ASL, DEC, INC, LSR, ROL, ROR, TRB, and
 // TSB (all RMW) memory referencing instructions.
-func (cpu *Cpu65C02S) MemoryLock() *buses.ConnectorEnabledLow {
+func (cpu *cpu65C02S) MemoryLock() *buses.ConnectorEnabledLow {
 	return cpu.memoryLock
 }
 
@@ -142,7 +147,7 @@ func (cpu *Cpu65C02S) MemoryLock() *buses.ConnectorEnabledLow {
 // interrupts will occur if NMIB remains low. The NMIB signal going low causes the Program Counter (PC) and
 // Processor Status Register information to be pushed onto the stack before jumping to the interrupt handler.
 // These values are used to return the processor to its original state prior to the NMIB interrupt.
-func (cpu *Cpu65C02S) NonMaskableInterrupt() *buses.ConnectorEnabledLow {
+func (cpu *cpu65C02S) NonMaskableInterrupt() *buses.ConnectorEnabledLow {
 	return cpu.nonMaskableInterrupt
 }
 
@@ -153,7 +158,7 @@ func (cpu *Cpu65C02S) NonMaskableInterrupt() *buses.ConnectorEnabledLow {
 // When a positive edge is detected, there will be a reset sequence lasting seven clock cycles. The program
 // counter is loaded with the reset vector from locations FFFC (low byte) and FFFD (high byte). This is the
 // start location for program control. RESB should be held high after reset for normal operation
-func (cpu *Cpu65C02S) Reset() *buses.ConnectorEnabledLow {
+func (cpu *cpu65C02S) Reset() *buses.ConnectorEnabledLow {
 	return cpu.reset
 }
 
@@ -161,7 +166,7 @@ func (cpu *Cpu65C02S) Reset() *buses.ConnectorEnabledLow {
 // The signal is sampled on the rising edge of PHI2. SOB was originally intended for fast input recognition
 // because it can be tested with a branch instruction; however, it is not recommended in new system design
 // and was seldom used in the past.
-func (cpu *Cpu65C02S) SetOverflow() *buses.ConnectorEnabledLow {
+func (cpu *cpu65C02S) SetOverflow() *buses.ConnectorEnabledLow {
 	return cpu.setOverflow
 }
 
@@ -169,7 +174,7 @@ func (cpu *Cpu65C02S) SetOverflow() *buses.ConnectorEnabledLow {
 // microprocessor is reading data from memory or I/O. When in the low state, the Data Bus contains valid data
 // to be written from the microprocessor and stored at the addressed memory or I/O location. The RWB signal
 // is set to the high impedance state when Bus Enable (BE) is low
-func (cpu *Cpu65C02S) ReadWrite() *buses.ConnectorEnabledLow {
+func (cpu *cpu65C02S) ReadWrite() *buses.ConnectorEnabledLow {
 	return cpu.readWrite
 }
 
@@ -177,7 +182,7 @@ func (cpu *Cpu65C02S) ReadWrite() *buses.ConnectorEnabledLow {
 // RDY to the high state allows the microprocessor to continue operation following the next PHI2 negative
 // transition. The WAI instruction pulls RDY low signaling the WAit-for-Interrupt condition, thus
 // RDY is a bi-directional pin.
-func (cpu *Cpu65C02S) Ready() *buses.ConnectorEnabledHigh {
+func (cpu *cpu65C02S) Ready() *buses.ConnectorEnabledHigh {
 	return cpu.ready
 }
 
@@ -187,7 +192,7 @@ func (cpu *Cpu65C02S) Ready() *buses.ConnectorEnabledHigh {
 // line is pulled low during the clock cycle in which SYNC went high, the processor will stop in its current
 // state and will remain in the state until the RDY line goes high. In this manner, the SYNC signal can be
 // used to control RDY to cause single instruction execution.
-func (cpu *Cpu65C02S) Sync() *buses.ConnectorEnabledHigh {
+func (cpu *cpu65C02S) Sync() *buses.ConnectorEnabledHigh {
 	return cpu.sync
 }
 
@@ -195,7 +200,7 @@ func (cpu *Cpu65C02S) Sync() *buses.ConnectorEnabledHigh {
 // sequence. VPB is low during the last interrupt sequence cycles, during which time the processor reads
 // the interrupt vector. The VPB signal may be used to select and prioritize interrupts from several sources
 // by modifying the vector addresses.
-func (cpu *Cpu65C02S) VectorPull() *buses.ConnectorEnabledLow {
+func (cpu *cpu65C02S) VectorPull() *buses.ConnectorEnabledLow {
 	return cpu.vectorPull
 }
 
@@ -208,7 +213,7 @@ func (cpu *Cpu65C02S) VectorPull() *buses.ConnectorEnabledLow {
 // As part of the emulation for every cycle we will execute 2 functions:
 // First Tick for all emulated components and then PostTick.
 // The parameter T represents the elapsed time between executions.
-func (cpu *Cpu65C02S) Tick(context *common.StepContext) {
+func (cpu *cpu65C02S) Tick(context *common.StepContext) {
 	cpu.currentInstruction = cpu.nextInstruction
 	cpu.currentAddressMode = cpu.nextAddressMode
 	cpu.currentCycleIndex = cpu.nextCycleIndex
@@ -241,7 +246,7 @@ func (cpu *Cpu65C02S) Tick(context *common.StepContext) {
 
 // As part of the emulation for every cycle we will execute 2 functions:
 // First Tick for all emulated components and then PostTick.
-func (cpu *Cpu65C02S) PostTick(context *common.StepContext) {
+func (cpu *cpu65C02S) PostTick(context *common.StepContext) {
 	// Execute post action if CPU is not paused or stopped
 	if cpu.Ready().Enabled() {
 		cpu.currentCycle.postCycle(cpu)
@@ -259,7 +264,7 @@ func (cpu *Cpu65C02S) PostTick(context *common.StepContext) {
 // Vector pull is enabled when the processor is pulling the interrupt vector (FFFA - FFFF)
 // during an interrupt. It allows to change the response and have different handlers
 // depending on what triggered the interrupt
-func (cpu *Cpu65C02S) setCycleSignaling() {
+func (cpu *cpu65C02S) setCycleSignaling() {
 	signaling := cpu.currentCycle.signaling
 
 	cpu.memoryLock.SetEnable(signaling.memoryLock)
@@ -271,7 +276,7 @@ func (cpu *Cpu65C02S) setCycleSignaling() {
 // SOB was originally intended for fast input recognition because it can be tested with a branch instruction;
 // however, it is not recommended in new system design
 // and was seldom used in the past.
-func (cpu *Cpu65C02S) checkOverflowSet() {
+func (cpu *cpu65C02S) checkOverflowSet() {
 	if cpu.setOverflow.Enabled() {
 		cpu.processorStatusRegister.SetFlag(OverflowFlagBit, true)
 	}
@@ -279,7 +284,7 @@ func (cpu *Cpu65C02S) checkOverflowSet() {
 
 // Check the interrupt lines and marks if an interrupt was requested. The interrupts are served once the current
 // instruction completes.
-func (cpu *Cpu65C02S) checkInterrupts() {
+func (cpu *cpu65C02S) checkInterrupts() {
 	nmiEnabled := cpu.NonMaskableInterrupt().Enabled()
 
 	if !cpu.irqRequested && cpu.InterruptRequest().Enabled() && !cpu.processorStatusRegister.Flag(IrqDisableFlagBit) {
@@ -296,7 +301,7 @@ func (cpu *Cpu65C02S) checkInterrupts() {
 
 // Reset must be held low for 2 cycles for the processor to reset.
 // This function checks the number of cycles it has been enabled and resets the CPU if needed
-func (cpu *Cpu65C02S) checkReset() {
+func (cpu *cpu65C02S) checkReset() {
 	if cpu.reset.Enabled() {
 		cpu.cyclesWithReset++
 
@@ -312,7 +317,7 @@ func (cpu *Cpu65C02S) checkReset() {
 }
 
 // Sets default values for all the CPU's internal variables
-func (cpu *Cpu65C02S) setDefaultValues() {
+func (cpu *cpu65C02S) setDefaultValues() {
 	cpu.stackPointer = 0xFD
 
 	// Set default value for flags B and I   (NV-BDIZC) = 0x34
@@ -342,7 +347,7 @@ func (cpu *Cpu65C02S) setDefaultValues() {
 // and cycle number. If cycle action returns false, it means that this cycle must
 // be skipped so this function immediately and (recursively) moves to next cycle
 // so all the micro-instructions are executed on the same cycle.
-func (cpu *Cpu65C02S) executeCycleAction(context *common.StepContext) {
+func (cpu *cpu65C02S) executeCycleAction(context *common.StepContext) {
 	continueCycle := cpu.currentCycle.cycle(cpu)
 
 	if !continueCycle {
@@ -358,7 +363,7 @@ func (cpu *Cpu65C02S) executeCycleAction(context *common.StepContext) {
 // until the current instruction has no more cycles.
 // At that point the current cycle is reset to reaOpCode and the instruction
 // and data registers are set to 0 in preparation for a new instruction.
-func (cpu *Cpu65C02S) moveToNextCycle() {
+func (cpu *cpu65C02S) moveToNextCycle() {
 	cpu.nextCycleIndex = cpu.currentCycleIndex + 1
 
 	if int(cpu.nextCycleIndex) >= cpu.currentAddressMode.Cycles() {
@@ -407,7 +412,7 @@ var alwaysExtra []uint8 = []uint8{
 // As part of the emulation the carry addition is performed here and the
 // instructionRegisterCarry field is set to true.
 // The extra cycle will be executed or skipped by looking at this flag.
-func (cpu *Cpu65C02S) addToInstructionRegister(value uint16) {
+func (cpu *cpu65C02S) addToInstructionRegister(value uint16) {
 	original := cpu.instructionRegister
 	data := (original & 0xff) + value
 	cpu.instructionRegister += value
@@ -421,7 +426,7 @@ func (cpu *Cpu65C02S) addToInstructionRegister(value uint16) {
 // This function performs signed addition of the specified value to the instruction register.
 // It also sets the instruction register carry flag in case the address mode requires extra cycles
 // in case of page boundary crossing.
-func (cpu *Cpu65C02S) addToInstructionRegisterRelative(value uint16) {
+func (cpu *cpu65C02S) addToInstructionRegisterRelative(value uint16) {
 	originalMSB := cpu.programCounter & 0xFF00
 
 	if cpu.dataRegister&0x80 == 0x80 {
@@ -441,17 +446,17 @@ func (cpu *Cpu65C02S) addToInstructionRegisterRelative(value uint16) {
 // Any carry will be ignored. This is used mostly in the zero page indexed
 // address modes in where if the page boundary is reached it just
 // "wraps around"
-func (cpu *Cpu65C02S) addToInstructionRegisterLSB(value uint8) {
+func (cpu *cpu65C02S) addToInstructionRegisterLSB(value uint8) {
 	cpu.instructionRegister = uint16(uint8(cpu.instructionRegister) + value)
 }
 
 // Sets the specified value on the instruction register LSB
-func (cpu *Cpu65C02S) setInstructionRegisterLSB(value uint8) {
+func (cpu *cpu65C02S) setInstructionRegisterLSB(value uint8) {
 	cpu.instructionRegister = (cpu.instructionRegister & 0xFF00) + uint16(value)
 }
 
 // Sets the specified value on the instruction register MSB
-func (cpu *Cpu65C02S) setInstructionRegisterMSB(value uint8) {
+func (cpu *cpu65C02S) setInstructionRegisterMSB(value uint8) {
 	cpu.instructionRegister = (cpu.instructionRegister & 0x00FF) + uint16(value)*0x100
 }
 
@@ -459,7 +464,7 @@ func (cpu *Cpu65C02S) setInstructionRegisterMSB(value uint8) {
 // In the 6502 family the stack pointer is located from 0x100 to 0x1FF.
 // The effective address of the stack pointer is then formed by adding
 // 0x100 to the stack pointer value.
-func (cpu *Cpu65C02S) readFromStack() {
+func (cpu *cpu65C02S) readFromStack() {
 	cpu.setReadBus(uint16(cpu.stackPointer) + 0x100)
 }
 
@@ -467,12 +472,12 @@ func (cpu *Cpu65C02S) readFromStack() {
 // In the 6502 family the stack pointer is located from 0x100 to 0x1FF.
 // The effective address of the stack pointer is then formed by adding
 // 0x100 to the stack pointer value.
-func (cpu *Cpu65C02S) writeToStack(value uint8) {
+func (cpu *cpu65C02S) writeToStack(value uint8) {
 	cpu.setWriteBus(uint16(cpu.stackPointer)+0x100, value)
 }
 
 // Executes the instruction action
-func (cpu *Cpu65C02S) performAction() {
+func (cpu *cpu65C02S) performAction() {
 	cpu.currentInstruction.execute(cpu)
 }
 
@@ -483,7 +488,7 @@ func (cpu *Cpu65C02S) performAction() {
  */
 
 // Configures the processor to read from the specified address
-func (cpu *Cpu65C02S) setReadBus(address uint16) {
+func (cpu *cpu65C02S) setReadBus(address uint16) {
 	if cpu.busEnable.Enabled() {
 		cpu.readWrite.SetEnable(false)
 		cpu.addressBus.Write(address)
@@ -492,7 +497,7 @@ func (cpu *Cpu65C02S) setReadBus(address uint16) {
 
 // Configures the processor to write the data parameter into the
 // specified address.
-func (cpu *Cpu65C02S) setWriteBus(address uint16, data uint8) {
+func (cpu *cpu65C02S) setWriteBus(address uint16, data uint8) {
 	if cpu.busEnable.Enabled() {
 		cpu.readWrite.SetEnable(true)
 		cpu.addressBus.Write(address)
@@ -507,52 +512,52 @@ func (cpu *Cpu65C02S) setWriteBus(address uint16, data uint8) {
  */
 
 // Returns the current value of the accumulator register
-func (cpu *Cpu65C02S) GetAccumulatorRegister() uint8 {
+func (cpu *cpu65C02S) GetAccumulatorRegister() uint8 {
 	return cpu.accumulatorRegister
 }
 
 // Returns the current value of the X register
-func (cpu *Cpu65C02S) GetXRegister() uint8 {
+func (cpu *cpu65C02S) GetXRegister() uint8 {
 	return cpu.xRegister
 }
 
 // Returns the current value of the Y register
-func (cpu *Cpu65C02S) GetYRegister() uint8 {
+func (cpu *cpu65C02S) GetYRegister() uint8 {
 	return cpu.yRegister
 }
 
 // Returns the current value of the stack pointer
-func (cpu *Cpu65C02S) GetStackPointer() uint8 {
+func (cpu *cpu65C02S) GetStackPointer() uint8 {
 	return cpu.stackPointer
 }
 
 // Returns the current value of the processor status register
-func (cpu *Cpu65C02S) GetProcessorStatusRegister() StatusRegister {
+func (cpu *cpu65C02S) GetProcessorStatusRegister() components.StatusRegister {
 	return cpu.processorStatusRegister
 }
 
 // Returns if the processor is reading an opcode
-func (cpu *Cpu65C02S) IsReadingOpcode() bool {
+func (cpu *cpu65C02S) IsReadingOpcode() bool {
 	return cpu.currentCycle.signaling.sync
 }
 
 // Returns data about the current instruction being executed by the processor
-func (cpu *Cpu65C02S) GetCurrentInstruction() *CpuInstructionData {
+func (cpu *cpu65C02S) GetCurrentInstruction() components.CpuInstructionData {
 	return cpu.currentInstruction
 }
 
 // Returns data about the address mode of the current instruction being
 // executed by the processor.
-func (cpu *Cpu65C02S) GetCurrentAddressMode() *AddressModeData {
+func (cpu *cpu65C02S) GetCurrentAddressMode() components.AddressModeData {
 	return cpu.currentAddressMode
 }
 
 // Forces the value of the program counter
-func (cpu *Cpu65C02S) ForceProgramCounter(value uint16) {
+func (cpu *cpu65C02S) ForceProgramCounter(value uint16) {
 	cpu.programCounter = value
 }
 
 // Returns the current value of the program counter
-func (cpu *Cpu65C02S) GetProgramCounter() uint16 {
+func (cpu *cpu65C02S) GetProgramCounter() uint16 {
 	return cpu.programCounter
 }

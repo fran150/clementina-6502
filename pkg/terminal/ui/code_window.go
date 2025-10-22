@@ -48,7 +48,7 @@ func NewCodeWindow(processor components.Cpu6502Chip, operandsGetter func(program
 	}
 }
 
-func showCurrentInstruction(programCounter uint16, instruction *cpu.CpuInstructionData, potentialOperands [2]uint8) string {
+func showCurrentInstruction(programCounter uint16, instruction components.CpuInstructionData, potentialOperands [2]uint8) string {
 	sb := strings.Builder{}
 
 	addressMode := instruction.AddressMode()
@@ -100,7 +100,7 @@ func showCurrentInstruction(programCounter uint16, instruction *cpu.CpuInstructi
 	return sb.String()
 }
 
-func (d *CodeWindow) addLineOfCode(programCounter uint16, instruction *cpu.CpuInstructionData, potentialOperands [2]uint8) {
+func (d *CodeWindow) addLineOfCode(programCounter uint16, instruction components.CpuInstructionData, potentialOperands [2]uint8) {
 	codeLine := showCurrentInstruction(programCounter, instruction, potentialOperands)
 
 	d.lines.Queue(codeLine)

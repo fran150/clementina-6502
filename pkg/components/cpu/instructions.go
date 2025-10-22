@@ -1,37 +1,34 @@
 package cpu
 
-// OpCode represents a unique identifier for each instruction and addressing mode combination.
-// Values range from 0x00 to 0xFF (0-255), covering all possible 6502 instructions.
-// See http://www.6502.org/users/obelisk/65C02/reference.html
-type OpCode uint
+import "github.com/fran150/clementina-6502/pkg/components"
 
 // CpuInstructionData contains all information needed to execute a specific CPU instruction.
 // This includes the opcode value, mnemonic representation, execution function, and addressing mode.
 type CpuInstructionData struct {
-	opcode      OpCode       // The numeric opcode value (0x00-0xFF)
-	mnemonic    Mnemonic     // The assembly language representation
-	action      func(cpu *Cpu65C02S) // Function that implements the instruction's behavior
-	addressMode AddressMode  // The addressing mode used by this instruction
+	opcode      components.OpCode      // The numeric opcode value (0x00-0xFF)
+	mnemonic    components.Mnemonic    // The assembly language representation
+	action      func(cpu *cpu65C02S)   // Function that implements the instruction's behavior
+	addressMode components.AddressMode // The addressing mode used by this instruction
 }
 
 // Returns the OpCode value of this instruction and address mode
-func (data *CpuInstructionData) OpCode() OpCode {
+func (data *CpuInstructionData) OpCode() components.OpCode {
 	return data.opcode
 }
 
 // Returns the Mnemonic for the instruction.
-func (data *CpuInstructionData) Mnemonic() Mnemonic {
+func (data *CpuInstructionData) Mnemonic() components.Mnemonic {
 	return data.mnemonic
 }
 
 // Executes the instruction actions modifying the CPU state. For example, INX will increment
 // the value in the X register.
-func (data *CpuInstructionData) execute(cpu *Cpu65C02S) {
+func (data *CpuInstructionData) execute(cpu *cpu65C02S) {
 	data.action(cpu)
 }
 
 // Returns the address mode corresponding to this instruction's OpCode
-func (data *CpuInstructionData) AddressMode() AddressMode {
+func (data *CpuInstructionData) AddressMode() components.AddressMode {
 	return data.addressMode
 }
 
@@ -45,13 +42,13 @@ type CpuInstructionSet struct {
 
 // GetByOpCode retrieves instruction data for a specific opcode.
 // This emulation treats invalid opcodes as NOP (No Operation).
-func (instruction *CpuInstructionSet) GetByOpCode(opCode OpCode) *CpuInstructionData {
+func (instruction *CpuInstructionSet) GetByOpCode(opCode components.OpCode) *CpuInstructionData {
 	value := instruction.opCodeIndex[opCode]
 	if value != nil {
 		return value
 	} else {
 		// In case of invalid instruction return NOP
-		return instruction.opCodeIndex[OpCode(0xEA)]
+		return instruction.opCodeIndex[components.OpCode(0xEA)]
 	}
 }
 

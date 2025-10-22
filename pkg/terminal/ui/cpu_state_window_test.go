@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/cpu"
 	"github.com/stretchr/testify/assert"
 )
@@ -24,7 +25,7 @@ func (m *mockCpuExtension) GetAccumulatorRegister() uint8 { return m.accumulator
 func (m *mockCpuExtension) GetXRegister() uint8           { return m.xRegister }
 func (m *mockCpuExtension) GetYRegister() uint8           { return m.yRegister }
 func (m *mockCpuExtension) GetStackPointer() uint8        { return m.stackPointer }
-func (m *mockCpuExtension) GetProcessorStatusRegister() cpu.StatusRegister {
+func (m *mockCpuExtension) GetProcessorStatusRegister() components.StatusRegister {
 	return m.processorStatusRegister
 }
 
@@ -40,8 +41,8 @@ func TestNewCpuWindow(t *testing.T) {
 func TestGetFlagStatusColor(t *testing.T) {
 	tests := []struct {
 		name     string
-		status   cpu.StatusRegister
-		bit      cpu.StatusBit
+		status   components.StatusRegister
+		bit      components.StatusBit
 		expected string
 	}{
 		{

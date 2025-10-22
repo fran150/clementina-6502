@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/components/cpu"
 	"github.com/stretchr/testify/assert"
@@ -35,14 +36,16 @@ func (m *mockCpu) GetAccumulatorRegister() uint8                    { return 0 }
 func (m *mockCpu) GetXRegister() uint8                              { return 0 }
 func (m *mockCpu) GetYRegister() uint8                              { return 0 }
 func (m *mockCpu) GetStackPointer() uint8                           { return 0 }
-func (m *mockCpu) GetProcessorStatusRegister() cpu.StatusRegister   { return 0 }
-func (m *mockCpu) GetCurrentAddressMode() *cpu.AddressModeData      { return nil }
+func (m *mockCpu) GetProcessorStatusRegister() components.StatusRegister {
+	return cpu.NewStatusRegister(0)
+}
+func (m *mockCpu) GetCurrentAddressMode() components.AddressModeData { return nil }
 
 // Implement the methods that we'll actually use in tests
-func (m *mockCpu) IsReadingOpcode() bool                          { return m.isReadingOpcode }
-func (m *mockCpu) GetCurrentInstruction() *cpu.CpuInstructionData { return m.currentInstruction }
-func (m *mockCpu) GetProgramCounter() uint16                      { return m.programCounter }
-func (m *mockCpu) ForceProgramCounter(value uint16)               { m.programCounter = value }
+func (m *mockCpu) IsReadingOpcode() bool                                { return m.isReadingOpcode }
+func (m *mockCpu) GetCurrentInstruction() components.CpuInstructionData { return m.currentInstruction }
+func (m *mockCpu) GetProgramCounter() uint16                            { return m.programCounter }
+func (m *mockCpu) ForceProgramCounter(value uint16)                     { m.programCounter = value }
 
 func TestCodeWindow_NewCodeWindow(t *testing.T) {
 	mockCpu := &mockCpu{}
@@ -74,7 +77,7 @@ func TestCodeWindow_Tick_NoInstruction(t *testing.T) {
 
 func TestCodeWindow_Tick_WithInstruction(t *testing.T) {
 	instructions := cpu.NewInstructionSet()
-	instruction := instructions.GetByOpCode(cpu.OpCode(0xA9))
+	instruction := instructions.GetByOpCode(components.OpCode(0xA9))
 
 	mockCpu := &mockCpu{
 		programCounter:     0x1000,
@@ -92,7 +95,7 @@ func TestCodeWindow_Tick_WithInstruction(t *testing.T) {
 
 func TestCodeWindow_MaxLines(t *testing.T) {
 	instructions := cpu.NewInstructionSet()
-	instruction := instructions.GetByOpCode(cpu.OpCode(0xEA))
+	instruction := instructions.GetByOpCode(components.OpCode(0xEA))
 
 	mockCpu := &mockCpu{
 		programCounter:     0x1000,
@@ -125,7 +128,7 @@ func TestCodeWindow_Clear(t *testing.T) {
 
 func TestCodeWindow_Draw(t *testing.T) {
 	instructions := cpu.NewInstructionSet()
-	instruction := instructions.GetByOpCode(cpu.OpCode(0xA9))
+	instruction := instructions.GetByOpCode(components.OpCode(0xA9))
 
 	mockCpu := &mockCpu{
 		programCounter:     0x1000,
@@ -208,7 +211,7 @@ func TestCodeWindow_InstructionDecoding(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockCpu.currentInstruction = instructions.GetByOpCode(cpu.OpCode(tt.opcode))
+			mockCpu.currentInstruction = instructions.GetByOpCode(components.OpCode(tt.opcode))
 
 			operandsGetter := func(pc uint16) [2]uint8 {
 				return tt.operands
@@ -235,7 +238,7 @@ func TestCodeWindow_Tick(t *testing.T) {
 	}
 
 	instructions := cpu.NewInstructionSet()
-	mockCpu.currentInstruction = instructions.GetByOpCode(cpu.OpCode(0xA9)) // LDA Immediate
+	mockCpu.currentInstruction = instructions.GetByOpCode(components.OpCode(0xA9)) // LDA Immediate
 
 	operandsGetter := func(pc uint16) [2]uint8 {
 		return [2]uint8{0x42, 0x00}
@@ -263,7 +266,7 @@ func TestCodeWindow_BRKInstruction(t *testing.T) {
 	}
 
 	instructions := cpu.NewInstructionSet()
-	mockCpu.currentInstruction = instructions.GetByOpCode(cpu.OpCode(0x00)) // BRK
+	mockCpu.currentInstruction = instructions.GetByOpCode(components.OpCode(0x00)) // BRK
 
 	operandsGetter := func(pc uint16) [2]uint8 {
 		return [2]uint8{0x00, 0x00}

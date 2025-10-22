@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/components/cpu"
 	"github.com/fran150/clementina-6502/pkg/components/memory"
@@ -30,7 +31,7 @@ const maxAllowedCycles uint64 = 100_000_000
 *******************************************************************************************************/
 
 // Creates a CPU connected to a RAM memory
-func NewComputer() (*cpu.Cpu65C02S, *memory.Ram) {
+func NewComputer() (components.Cpu6502Chip, *memory.Ram) {
 	addressBus := buses.New16BitStandaloneBus()
 	dataBus := buses.New8BitStandaloneBus()
 
@@ -50,7 +51,7 @@ func NewComputer() (*cpu.Cpu65C02S, *memory.Ram) {
 	ram.ChipSelect().Connect(alwaysLowLine)
 	ram.OutputEnable().Connect(alwaysLowLine)
 
-	processor := cpu.NewCpu65C02S()
+	processor := cpu.NewCPU65C02SChip()
 	processor.AddressBus().Connect(addressBus)
 	processor.DataBus().Connect(dataBus)
 
@@ -73,18 +74,18 @@ func NewComputer() (*cpu.Cpu65C02S, *memory.Ram) {
 // Detecting when the code is "stuck" is necessary to determine success / failure of the tests
 
 // This variable will be used to track repeating opcodes
-var previousOpCode cpu.OpCode
+var previousOpCode components.OpCode
 
 // This variable will count how many times the opcode was repeated
 var repeats int = 0
 
 // Error trap opcodes are usually JMP * instructions or branch instructions BNE, BCS, etc (address mode relative)
-func isTrapOpCode(processor *cpu.Cpu65C02S) bool {
+func isTrapOpCode(processor components.Cpu6502Chip) bool {
 	return processor.GetCurrentInstruction().Mnemonic() == cpu.JMP || processor.GetCurrentAddressMode().Name() == cpu.AddressModeRelative
 }
 
 // Counts how many times a "trap" opcode (JMP or branches) is being repeated.
-func verifyAndCountRepeats(processor *cpu.Cpu65C02S) bool {
+func verifyAndCountRepeats(processor components.Cpu6502Chip) bool {
 	if previousOpCode == processor.GetCurrentInstruction().OpCode() && isTrapOpCode(processor) {
 		repeats++
 	} else {
@@ -98,7 +99,7 @@ func verifyAndCountRepeats(processor *cpu.Cpu65C02S) bool {
 }
 
 // Validates the status of the processor when the test finish and fails the test if required.
-func showFinishCondition(processor *cpu.Cpu65C02S, context *common.StepContext, b *testing.B, elapsed time.Duration) {
+func showFinishCondition(processor components.Cpu6502Chip, context *common.StepContext, b *testing.B, elapsed time.Duration) {
 	// If processor is trapped in SUCCESS_PC_VALUE, this means that the tests were completed successfully
 	// Otherwise this is an error condition and must fail the tests
 	if processor.GetProgramCounter() != successPcValue {
@@ -141,7 +142,7 @@ func BenchmarkProcessor(b *testing.B) {
 	processor.ForceProgramCounter(0x0400)
 
 	// Initialize opcode repeats counter
-	previousOpCode = cpu.OpCode(0)
+	previousOpCode = components.OpCode(0)
 	repeats = 0
 
 	// Will count the cycles required to complete execution

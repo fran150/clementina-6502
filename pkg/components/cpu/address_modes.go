@@ -1,11 +1,9 @@
 package cpu
 
-// AddressMode represents the different addressing modes available in the 6502 processor.
-// Each mode determines how the CPU accesses memory for an instruction.
-type AddressMode int
+import "github.com/fran150/clementina-6502/pkg/components"
 
 const (
-	AddressModeImplicit AddressMode = iota
+	AddressModeImplicit components.AddressMode = iota
 	AddressModeAccumulator
 	AddressModeImmediate
 	AddressModeZeroPage
@@ -91,7 +89,7 @@ const (
 //   - When performing indexed addressing, if indexing crosses a page boundary original 6502 will read from an invalid address before accessing the
 //     correct address.
 type AddressModeData struct {
-	name              AddressMode
+	name              components.AddressMode
 	text              string
 	format            string
 	microInstructions []cycleActions
@@ -99,7 +97,7 @@ type AddressModeData struct {
 }
 
 // Returns the name of the address mode
-func (data *AddressModeData) Name() AddressMode {
+func (data *AddressModeData) Name() components.AddressMode {
 	return data.name
 }
 
@@ -138,7 +136,7 @@ type AddressModeSet struct {
 }
 
 // GetByName retrieves address mode data for a specific mode by its name.
-func (addressModeSet *AddressModeSet) GetByName(name AddressMode) *AddressModeData {
+func (addressModeSet *AddressModeSet) GetByName(name components.AddressMode) *AddressModeData {
 	return addressModeSet.nameIndex[name]
 }
 
@@ -208,6 +206,6 @@ func NewAddressModesSet() *AddressModeSet {
 
 // GetAddressMode returns details about the specified address mode from the global address mode set.
 // It provides a convenient way to access address mode data without creating a new set.
-func GetAddressMode(name AddressMode) *AddressModeData {
+func GetAddressMode(name components.AddressMode) *AddressModeData {
 	return addressModeSet.GetByName(name)
 }
