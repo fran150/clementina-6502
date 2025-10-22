@@ -3,30 +3,76 @@ package components
 import (
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
+	"github.com/fran150/clementina-6502/pkg/core/interfaces"
 	"go.bug.st/serial"
 )
 
-// Acia65C51 defines the interface for the 65C51N Asynchronous Communications Interface Adapter.
-// This chip provides serial communication capabilities to the 6502 computer system.
-type Acia65C51 interface {
-	// Pin connections
+// Core interfaces for composition
+
+// PostTicker defines components that need post-tick processing
+type PostTicker interface {
+	PostTick(context *common.StepContext)
+}
+
+// Resettable defines components that can be reset
+type Resettable interface {
+	Reset() *buses.ConnectorEnabledLow
+}
+
+// DataBusConnected defines components connected to the data bus
+type DataBusConnected interface {
 	DataBus() *buses.BusConnector[uint8]
-	IrqRequest() *buses.ConnectorEnabledLow
+}
+
+// AddressBusConnected defines components connected to the address bus
+type AddressBusConnected interface {
+	AddressBus() *buses.BusConnector[uint16]
+}
+
+// ReadWriteControlled defines components with read/write control
+type ReadWriteControlled interface {
 	ReadWrite() *buses.ConnectorEnabledLow
+}
+
+// ChipSelectable defines components with chip select functionality in where the
+// lines are numbered 0 and 1
+type ChipSelectable01 interface {
 	ChipSelect0() *buses.ConnectorEnabledHigh
 	ChipSelect1() *buses.ConnectorEnabledLow
+}
+
+// ChipSelectable defines components with chip select functionality in where the
+// lines are numbered 1 and 2
+type ChipSelectable12 interface {
+	ChipSelect1() *buses.ConnectorEnabledHigh
+	ChipSelect2() *buses.ConnectorEnabledLow
+}
+
+// InterruptCapable defines components that can generate interrupts
+type InterruptCapable interface {
+	IrqRequest() *buses.ConnectorEnabledLow
+}
+
+// RegisterSelectable defines components with register selection
+type RegisterSelectable interface {
 	RegisterSelect(num uint8) *buses.ConnectorEnabledHigh
-	Reset() *buses.ConnectorEnabledLow
+}
 
-	// Configuration methods
+// BusComponent combines common bus-related interfaces
+type BusComponent interface {
+	DataBusConnected
+	ReadWriteControlled
+	interfaces.Ticker
+}
+
+// SerialPortConnectable defines components that can connect to serial ports
+type SerialPortConnectable interface {
 	ConnectToPort(port serial.Port) error
-	ConnectRegisterSelectLines(lines [2]buses.Line)
 	Close()
+}
 
-	// Emulation methods
-	Tick(context *common.StepContext)
-
-	// Register getters
+// AciaRegisters defines ACIA register access methods
+type AciaRegisters interface {
 	GetStatusRegister() uint8
 	GetControlRegister() uint8
 	GetCommandRegister() uint8
@@ -34,6 +80,21 @@ type Acia65C51 interface {
 	GetRXRegister() uint8
 	IsTXRegisterEmpty() bool
 	IsRXRegisterEmpty() bool
+}
+
+// Acia65C51 defines the interface for the 65C51N Asynchronous Communications Interface Adapter.
+// This chip provides serial communication capabilities to the 6502 computer system.
+type Acia65C51 interface {
+	BusComponent
+	ChipSelectable01
+	Resettable
+	InterruptCapable
+	RegisterSelectable
+	SerialPortConnectable
+	AciaRegisters
+
+	// ACIA-specific methods
+	ConnectRegisterSelectLines(lines [2]buses.Line)
 }
 
 // AddressMode represents the different addressing modes available in the 6502 processor.
@@ -75,40 +136,48 @@ type StatusRegister interface {
 	Flag(bit StatusBit) bool
 }
 
-// Cpu65C02 defines the interface for the 65C02S CPU emulation.
-// It provides access to all CPU pins, internal registers, and execution control.
-type Cpu65C02 interface {
-	// Control Lines
-	AddressBus() *buses.BusConnector[uint16]
+// CpuControlLines defines CPU control signal interfaces
+type CpuControlLines interface {
 	BusEnable() *buses.ConnectorEnabledHigh
-	DataBus() *buses.BusConnector[uint8]
 	InterruptRequest() *buses.ConnectorEnabledLow
 	MemoryLock() *buses.ConnectorEnabledLow
 	NonMaskableInterrupt() *buses.ConnectorEnabledLow
-	Reset() *buses.ConnectorEnabledLow
 	SetOverflow() *buses.ConnectorEnabledLow
-	ReadWrite() *buses.ConnectorEnabledLow
 	Ready() *buses.ConnectorEnabledHigh
 	Sync() *buses.ConnectorEnabledHigh
 	VectorPull() *buses.ConnectorEnabledLow
+}
 
-	// Timer methods
-	Tick(context *common.StepContext)
-	PostTick(context *common.StepContext)
-
-	// State getters
+// CpuRegisters defines CPU register access methods
+type CpuRegisters interface {
 	GetAccumulatorRegister() uint8
 	GetXRegister() uint8
 	GetYRegister() uint8
 	GetStackPointer() uint8
 	GetProcessorStatusRegister() StatusRegister
+	GetProgramCounter() uint16
+	ForceProgramCounter(value uint16)
+}
+
+// CpuState defines CPU execution state methods
+type CpuState interface {
 	IsReadingOpcode() bool
 	GetCurrentInstruction() CpuInstructionData
 	GetCurrentAddressMode() AddressModeData
-	GetProgramCounter() uint16
+}
 
-	// Program counter manipulation
-	ForceProgramCounter(value uint16)
+// Cpu65C02 defines the interface for the 65C02S CPU emulation.
+// It provides access to all CPU pins, internal registers, and execution control.
+type Cpu65C02 interface {
+	AddressBusConnected
+	DataBusConnected
+	ReadWriteControlled
+	Resettable
+	interfaces.Ticker
+	PostTicker
+	CpuControlLines
+	CpuRegisters
+	CpuState
 }
 
 // Returns the data needed to display the cursor on the LCD
@@ -131,66 +200,64 @@ type DisplayStatus struct {
 	DDRAM          []uint8
 }
 
-// LCDController defines the interface for the HD44780U LCD controller.
-// This chip manages a character LCD display with cursor control and display settings.
-type LCDController interface {
-	// Bus connection methods
-	Enable() *buses.ConnectorEnabledHigh
-	ReadWrite() *buses.ConnectorEnabledLow
-	RegisterSelect() *buses.ConnectorEnabledHigh
-	DataBus() *buses.BusConnector[uint8]
-
-	// Emulation method
-	Tick(context *common.StepContext)
-
-	// Status methods (based on usage in lcd_controller_window.go)
+// LCDStatus defines LCD status access methods
+type LCDStatus interface {
 	GetCursorStatus() CursorStatus
 	GetDisplayStatus() DisplayStatus
 }
 
-// Memory defines the interface for RAM and ROM memory components.
-// It provides access to memory contents and control signals for memory operations.
-type Memory interface {
-	// Bus and control signal connections
-	HiAddressBus() *buses.BusConnector[uint16]
-	AddressBus() *buses.BusConnector[uint16]
-	DataBus() *buses.BusConnector[uint8]
-	WriteEnable() *buses.ConnectorEnabledLow
-	ChipSelect() *buses.ConnectorEnabledLow
-	OutputEnable() *buses.ConnectorEnabledLow
+// LCDController defines the interface for the HD44780U LCD controller.
+// This chip manages a character LCD display with cursor control and display settings.
+type LCDController interface {
+	DataBusConnected
+	ReadWriteControlled
+	interfaces.Ticker
+	LCDStatus
 
-	// Utility methods
+	// LCD-specific control lines
+	Enable() *buses.ConnectorEnabledHigh
+	RegisterSelect() *buses.ConnectorEnabledHigh
+}
+
+// MemoryAccess defines memory access methods
+type MemoryAccess interface {
 	Peek(address uint32) uint8
 	PeekRange(startAddress uint16, endAddress uint16) []uint8
 	Poke(address uint16, value uint8)
 	Load(binFilePath string) error
 	Size() int
-
-	// Emulation method
-	Tick(context *common.StepContext)
 }
 
-// Via65C22 defines the interface for the 65C22S Versatile Interface Adapter.
-// This chip provides parallel I/O ports, timers, and shift register functionality.
-type Via65C22 interface {
-	// Pin Getters / Setters
-	PeripheralAControlLines(num int) *buses.ConnectorEnabledHigh
-	PeripheralBControlLines(num int) *buses.ConnectorEnabledHigh
-	ChipSelect1() *buses.ConnectorEnabledHigh
-	ChipSelect2() *buses.ConnectorEnabledLow
-	DataBus() *buses.BusConnector[uint8]
-	IrqRequest() *buses.ConnectorEnabledLow
+// MemoryControlLines defines memory control signal interfaces
+type MemoryControlLines interface {
+	WriteEnable() *buses.ConnectorEnabledLow
+	ChipSelect() *buses.ConnectorEnabledLow
+	OutputEnable() *buses.ConnectorEnabledLow
+}
+
+// Memory defines the interface for RAM and ROM memory components.
+// It provides access to memory contents and control signals for memory operations.
+type Memory interface {
+	AddressBusConnected
+	DataBusConnected
+	interfaces.Ticker
+	MemoryAccess
+	MemoryControlLines
+
+	// Memory-specific address bus
+	HiAddressBus() *buses.BusConnector[uint16]
+}
+
+// ViaPeripheralPorts defines VIA peripheral port access
+type ViaPeripheralPorts interface {
 	PeripheralPortA() *buses.BusConnector[uint8]
 	PeripheralPortB() *buses.BusConnector[uint8]
-	Reset() *buses.ConnectorEnabledLow
-	RegisterSelect(num uint8) *buses.ConnectorEnabledHigh
-	ReadWrite() *buses.ConnectorEnabledLow
-	ConnectRegisterSelectLines(lines [4]buses.Line)
+	PeripheralAControlLines(num int) *buses.ConnectorEnabledHigh
+	PeripheralBControlLines(num int) *buses.ConnectorEnabledHigh
+}
 
-	// Tick method
-	Tick(context *common.StepContext)
-
-	// Internal Registers Getters
+// ViaRegisters defines VIA register access methods
+type ViaRegisters interface {
 	GetOutputRegisterA() uint8
 	GetOutputRegisterB() uint8
 	GetInputRegisterA() uint8
@@ -210,19 +277,37 @@ type Via65C22 interface {
 	GetInterruptEnabledFlag() uint8
 }
 
+// Via65C22 defines the interface for the 65C22S Versatile Interface Adapter.
+// This chip provides parallel I/O ports, timers, and shift register functionality.
+type Via65C22 interface {
+	BusComponent
+	ChipSelectable12
+	Resettable
+	InterruptCapable
+	RegisterSelectable
+	ViaPeripheralPorts
+	ViaRegisters
+
+	// VIA-specific methods
+	ConnectRegisterSelectLines(lines [4]buses.Line)
+}
+
+// Decoder74HC138 defines the interface for a 3-to-8 line decoder
 type Decoder74HC138 interface {
-	YPin() *buses.BusConnector[uint8]
+	interfaces.Ticker
+
 	APin(index int) buses.LineConnector
+	YPin() *buses.BusConnector[uint8]
 	EPin(index int) buses.LineConnector
-	Tick(stepContext *common.StepContext)
 }
 
 // QuadLogicGate defines the interface for a quad logic gate component.
 // It provides methods to access the A, B, and Y pins and to execute a tick.
 // It is used by various logic gate implementations like NAND, AND, etc.
 type QuadLogicGate interface {
+	interfaces.Ticker
+
 	APin(index int) buses.LineConnector
 	BPin(index int) buses.LineConnector
 	YPin(index int) buses.LineConnector
-	Tick(stepContext *common.StepContext)
 }
