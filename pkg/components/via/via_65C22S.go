@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 )
 
@@ -76,7 +77,7 @@ const (
 // and pulse counter. Serial Data transfers are provided by a serial to parallel/parallel to serial shift register.
 // Application versatility is further increased by various control registers, including an Interrupt Flag Register, an
 // Interrupt Enable Register and two Function Control Registers.
-type Via65C22S struct {
+type via65C22S struct {
 	chipSelect1    *buses.ConnectorEnabledHigh
 	chipSelect2    *buses.ConnectorEnabledLow
 	dataBus        *buses.BusConnector[uint8]
@@ -97,13 +98,17 @@ type Via65C22S struct {
 	controlLinesB   *viaControlLines
 	shifter         *viaShifter
 
-	registerReadHandlers  []func(*Via65C22S)
-	registerWriteHandlers []func(*Via65C22S)
+	registerReadHandlers  []func(*via65C22S)
+	registerWriteHandlers []func(*via65C22S)
+}
+
+func NewVia65C22Chip() components.ViaChip {
+	return newVia65C22()
 }
 
 // Creates a VIA65C22S chip
-func NewVia65C22() *Via65C22S {
-	via := Via65C22S{
+func newVia65C22() *via65C22S {
+	via := via65C22S{
 		chipSelect1: buses.NewConnectorEnabledHigh(),
 		chipSelect2: buses.NewConnectorEnabledLow(),
 		dataBus:     buses.NewBusConnector[uint8](),
@@ -225,8 +230,8 @@ func NewVia65C22() *Via65C22S {
 *************************************************************************************/
 
 // Populate the handler functions when reading for each of the RS values
-func (via *Via65C22S) populateRegisterReadHandlers() {
-	via.registerReadHandlers = []func(*Via65C22S){
+func (via *via65C22S) populateRegisterReadHandlers() {
+	via.registerReadHandlers = []func(*via65C22S){
 		inputOutputRegisterBReadHandler,                            // 0x00
 		inputOutputRegisterAReadHandler,                            // 0x01
 		readFromRecord(&via.registers.dataDirectionRegisterB),      // 0x02
@@ -247,8 +252,8 @@ func (via *Via65C22S) populateRegisterReadHandlers() {
 }
 
 // Populate the handler functions when writing each of the RS values
-func (via *Via65C22S) populateRegisterWriteHandlers() {
-	via.registerWriteHandlers = []func(*Via65C22S){
+func (via *via65C22S) populateRegisterWriteHandlers() {
+	via.registerWriteHandlers = []func(*via65C22S){
 		inputOutputRegisterBWriteHandler,                          // 0x00
 		inputOutputRegisterAWriteHandler,                          // 0x01
 		writeToRecord(&via.registers.dataDirectionRegisterB),      // 0x02
@@ -275,55 +280,55 @@ func (via *Via65C22S) populateRegisterWriteHandlers() {
 // Returns a reference to the specified peripheral control line A (CA1 and CA2).
 // Line is zero based so CA1 is 0 and CA2 is 1
 // Returns nil if an invalid line number is specified
-func (via *Via65C22S) PeripheralAControlLines(num int) *buses.ConnectorEnabledHigh {
+func (via *via65C22S) PeripheralAControlLines(num int) *buses.ConnectorEnabledHigh {
 	return via.controlLinesA.getLine(num)
 }
 
 // Returns a reference to the specified peripheral control line B (CB1 and CB2).
 // Line is zero based so CB1 is 0 and CB2 is 1
 // Returns nil if an invalid line number is specified
-func (via *Via65C22S) PeripheralBControlLines(num int) *buses.ConnectorEnabledHigh {
+func (via *via65C22S) PeripheralBControlLines(num int) *buses.ConnectorEnabledHigh {
 	return via.controlLinesB.getLine(num)
 }
 
 // Chip select line 1 CS1
-func (via *Via65C22S) ChipSelect1() *buses.ConnectorEnabledHigh {
+func (via *via65C22S) ChipSelect1() *buses.ConnectorEnabledHigh {
 	return via.chipSelect1
 }
 
 // Chip select line 2 CS2B
-func (via *Via65C22S) ChipSelect2() *buses.ConnectorEnabledLow {
+func (via *via65C22S) ChipSelect2() *buses.ConnectorEnabledLow {
 	return via.chipSelect2
 }
 
 // Returns a reference to the data bus connector.
-func (via *Via65C22S) DataBus() *buses.BusConnector[uint8] {
+func (via *via65C22S) DataBus() *buses.BusConnector[uint8] {
 	return via.dataBus
 }
 
 // Returns a reference to the IRQ line
-func (via *Via65C22S) IrqRequest() *buses.ConnectorEnabledLow {
+func (via *via65C22S) IrqRequest() *buses.ConnectorEnabledLow {
 	return via.irqRequest
 }
 
 // Returns a reference to port A connector
-func (via *Via65C22S) PeripheralPortA() *buses.BusConnector[uint8] {
+func (via *via65C22S) PeripheralPortA() *buses.BusConnector[uint8] {
 	return via.peripheralPortA.getConnector()
 }
 
 // Returns a reference to port B connector
-func (via *Via65C22S) PeripheralPortB() *buses.BusConnector[uint8] {
+func (via *via65C22S) PeripheralPortB() *buses.BusConnector[uint8] {
 	return via.peripheralPortB.getConnector()
 }
 
 // Returns a reference to the reset line
-func (via *Via65C22S) Reset() *buses.ConnectorEnabledLow {
+func (via *via65C22S) Reset() *buses.ConnectorEnabledLow {
 	return via.reset
 }
 
 // Returns a reference to the register select lines.
 // It's zero based so RS1 is 0, RS 2 is 1, etc.
-func (via *Via65C22S) RegisterSelect(num uint8) *buses.ConnectorEnabledHigh {
+func (via *via65C22S) RegisterSelect(num uint8) *buses.ConnectorEnabledHigh {
 	if num >= numOfRSLines {
 		panic("Register select line number out of range")
 	}
@@ -332,12 +337,12 @@ func (via *Via65C22S) RegisterSelect(num uint8) *buses.ConnectorEnabledHigh {
 }
 
 // Returns a reference to the R/W line.
-func (via *Via65C22S) ReadWrite() *buses.ConnectorEnabledLow {
+func (via *via65C22S) ReadWrite() *buses.ConnectorEnabledLow {
 	return via.readWrite
 }
 
 // Connects the register select lines to the specified lines
-func (via *Via65C22S) ConnectRegisterSelectLines(lines [numOfRSLines]buses.Line) {
+func (via *via65C22S) ConnectRegisterSelectLines(lines [numOfRSLines]buses.Line) {
 	for i := range numOfRSLines {
 		via.registerSelect[i].Connect(lines[i])
 	}
@@ -348,7 +353,7 @@ func (via *Via65C22S) ConnectRegisterSelectLines(lines [numOfRSLines]buses.Line)
 *************************************************************************************/
 
 // Returns the register select value based on the status of the RS lines
-func (via *Via65C22S) getRegisterSelectValue() viaRegisterCode {
+func (via *via65C22S) getRegisterSelectValue() viaRegisterCode {
 	var value uint8
 
 	for i := range 4 {
@@ -361,7 +366,7 @@ func (via *Via65C22S) getRegisterSelectValue() viaRegisterCode {
 }
 
 // Sets or clears the IRQ line based on the chip status
-func (via *Via65C22S) handleIRQLine() {
+func (via *via65C22S) handleIRQLine() {
 	if via.registers.interrupts.isInterruptTriggered() {
 		via.IrqRequest().SetEnable(true)
 	} else {
@@ -374,7 +379,7 @@ func (via *Via65C22S) handleIRQLine() {
 *************************************************************************************/
 
 // Executes one emulation step
-func (via *Via65C22S) Tick(context *common.StepContext) {
+func (via *via65C22S) Tick(context *common.StepContext) {
 	// From https://lateblt.tripod.com/bit67.txt:
 	// The ORs are also never transparent Whereas an input bus which has input latching turned off can change with its
 	// input without the Enable pin even being cycled, outputting to an OR will not take effect until the Enable pin has made
@@ -437,7 +442,7 @@ func (via *Via65C22S) Tick(context *common.StepContext) {
 //
 // Returns:
 //   - The 8-bit value currently in the ORA register
-func (via *Via65C22S) GetOutputRegisterA() uint8 {
+func (via *via65C22S) GetOutputRegisterA() uint8 {
 	return via.registers.outputRegisterA
 }
 
@@ -445,7 +450,7 @@ func (via *Via65C22S) GetOutputRegisterA() uint8 {
 //
 // Returns:
 //   - The 8-bit value currently in the ORB register
-func (via *Via65C22S) GetOutputRegisterB() uint8 {
+func (via *via65C22S) GetOutputRegisterB() uint8 {
 	return via.registers.outputRegisterB
 }
 
@@ -453,7 +458,7 @@ func (via *Via65C22S) GetOutputRegisterB() uint8 {
 //
 // Returns:
 //   - The 8-bit value currently in the IRA register
-func (via *Via65C22S) GetInputRegisterA() uint8 {
+func (via *via65C22S) GetInputRegisterA() uint8 {
 	return via.registers.inputRegisterA
 }
 
@@ -461,7 +466,7 @@ func (via *Via65C22S) GetInputRegisterA() uint8 {
 //
 // Returns:
 //   - The 8-bit value currently in the IRB register
-func (via *Via65C22S) GetInputRegisterB() uint8 {
+func (via *via65C22S) GetInputRegisterB() uint8 {
 	return via.registers.inputRegisterB
 }
 
@@ -469,7 +474,7 @@ func (via *Via65C22S) GetInputRegisterB() uint8 {
 //
 // Returns:
 //   - The 8-bit value currently in the DDRA register
-func (via *Via65C22S) GetDataDirectionRegisterA() uint8 {
+func (via *via65C22S) GetDataDirectionRegisterA() uint8 {
 	return via.registers.dataDirectionRegisterA
 }
 
@@ -477,7 +482,7 @@ func (via *Via65C22S) GetDataDirectionRegisterA() uint8 {
 //
 // Returns:
 //   - The 8-bit value currently in the DDRB register
-func (via *Via65C22S) GetDataDirectionRegisterB() uint8 {
+func (via *via65C22S) GetDataDirectionRegisterB() uint8 {
 	return via.registers.dataDirectionRegisterB
 }
 
@@ -485,7 +490,7 @@ func (via *Via65C22S) GetDataDirectionRegisterB() uint8 {
 //
 // Returns:
 //   - The 8-bit value currently in the Timer 2 low byte latch
-func (via *Via65C22S) GetLowLatches2() uint8 {
+func (via *via65C22S) GetLowLatches2() uint8 {
 	return via.registers.lowLatches2
 }
 
@@ -493,7 +498,7 @@ func (via *Via65C22S) GetLowLatches2() uint8 {
 //
 // Returns:
 //   - The 8-bit value currently in the Timer 1 low byte latch
-func (via *Via65C22S) GetLowLatches1() uint8 {
+func (via *via65C22S) GetLowLatches1() uint8 {
 	return via.registers.lowLatches1
 }
 
@@ -501,7 +506,7 @@ func (via *Via65C22S) GetLowLatches1() uint8 {
 //
 // Returns:
 //   - The 8-bit value currently in the Timer 2 high byte latch
-func (via *Via65C22S) GetHighLatches2() uint8 {
+func (via *via65C22S) GetHighLatches2() uint8 {
 	return via.registers.highLatches2
 }
 
@@ -509,7 +514,7 @@ func (via *Via65C22S) GetHighLatches2() uint8 {
 //
 // Returns:
 //   - The 8-bit value currently in the Timer 1 high byte latch
-func (via *Via65C22S) GetHighLatches1() uint8 {
+func (via *via65C22S) GetHighLatches1() uint8 {
 	return via.registers.highLatches1
 }
 
@@ -517,7 +522,7 @@ func (via *Via65C22S) GetHighLatches1() uint8 {
 //
 // Returns:
 //   - The 16-bit value currently in the Timer 2 counter
-func (via *Via65C22S) GetCounter2() uint16 {
+func (via *via65C22S) GetCounter2() uint16 {
 	return via.registers.counter2
 }
 
@@ -525,7 +530,7 @@ func (via *Via65C22S) GetCounter2() uint16 {
 //
 // Returns:
 //   - The 16-bit value currently in the Timer 1 counter
-func (via *Via65C22S) GetCounter1() uint16 {
+func (via *via65C22S) GetCounter1() uint16 {
 	return via.registers.counter1
 }
 
@@ -533,7 +538,7 @@ func (via *Via65C22S) GetCounter1() uint16 {
 //
 // Returns:
 //   - The 8-bit value currently in the Shift Register
-func (via *Via65C22S) GetShiftRegister() uint8 {
+func (via *via65C22S) GetShiftRegister() uint8 {
 	return via.registers.shiftRegister
 }
 
@@ -541,7 +546,7 @@ func (via *Via65C22S) GetShiftRegister() uint8 {
 //
 // Returns:
 //   - The 8-bit value currently in the ACR register
-func (via *Via65C22S) GetAuxiliaryControl() uint8 {
+func (via *via65C22S) GetAuxiliaryControl() uint8 {
 	return via.registers.auxiliaryControl
 }
 
@@ -549,7 +554,7 @@ func (via *Via65C22S) GetAuxiliaryControl() uint8 {
 //
 // Returns:
 //   - The 8-bit value currently in the PCR register
-func (via *Via65C22S) GetPeripheralControl() uint8 {
+func (via *via65C22S) GetPeripheralControl() uint8 {
 	return via.registers.peripheralControl
 }
 
@@ -557,7 +562,7 @@ func (via *Via65C22S) GetPeripheralControl() uint8 {
 //
 // Returns:
 //   - The 8-bit value currently in the IFR register
-func (via *Via65C22S) GetInterruptFlagValue() uint8 {
+func (via *via65C22S) GetInterruptFlagValue() uint8 {
 	return via.registers.interrupts.getInterruptFlagValue()
 }
 
@@ -565,6 +570,6 @@ func (via *Via65C22S) GetInterruptFlagValue() uint8 {
 //
 // Returns:
 //   - The 8-bit value currently in the IER register
-func (via *Via65C22S) GetInterruptEnabledFlag() uint8 {
+func (via *via65C22S) GetInterruptEnabledFlag() uint8 {
 	return via.registers.interrupts.getInterruptEnabledFlag()
 }

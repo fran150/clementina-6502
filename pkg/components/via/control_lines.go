@@ -24,7 +24,7 @@ type viaControlLines struct {
 
 // Create and attach control lines to the specified chip. Configuration allows to control how
 // how the lines behave to emulate CA or CB
-func newViaControlLines(via *Via65C22S, config *viaControlLineConfiguration) *viaControlLines {
+func newViaControlLines(via *via65C22S, config *viaControlLineConfiguration) *viaControlLines {
 	return &viaControlLines{
 		lines: [2]*buses.ConnectorEnabledHigh{
 			buses.NewConnectorEnabledHigh(),

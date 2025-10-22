@@ -23,7 +23,7 @@ func NewClementinaComputer() (*ClementinaComputer, error) {
 		baseram:  memory.NewRam(memory.RAM_SIZE_32K),
 		exram:    memory.NewRam(memory.RAM_SIZE_512K),
 		hiram:    memory.NewRam(memory.RAM_SIZE_32K),
-		via:      via.NewVia65C22(),
+		via:      via.NewVia65C22Chip(),
 		csLogic:  modules.NewClementinaCSLogic(),
 		oeRWSync: modules.NewClementinaOERWPHISync(),
 	}

@@ -6,7 +6,7 @@ package via
 
 // Reads IRB / ORB register. Depending on configuration it also latches the output
 // and clears the interrupt flags for the control lines
-func inputOutputRegisterBReadHandler(via *Via65C22S) {
+func inputOutputRegisterBReadHandler(via *via65C22S) {
 	// Get the data direction register
 	outputPins := via.registers.dataDirectionRegisterB
 	inputPins := ^outputPins
@@ -29,7 +29,7 @@ func inputOutputRegisterBReadHandler(via *Via65C22S) {
 
 // Writes the value to the IRB / ORB register. Depending on configuration this might
 // intiate handshake and clear interrupt flags for the control lines
-func inputOutputRegisterBWriteHandler(via *Via65C22S) {
+func inputOutputRegisterBWriteHandler(via *via65C22S) {
 	mode := via.latchesB.getOutputMode()
 
 	if mode == pcrCB2OutputModeHandshake || mode == pcrCB2OutputModePulse {
@@ -49,7 +49,7 @@ func inputOutputRegisterBWriteHandler(via *Via65C22S) {
 // Reads IRA / ORA register. Depending on configuration it also latches the output
 // and clears the interrupt flags for the control lines
 // IRA also allows input handshake, reading the record will initate it.
-func inputOutputRegisterAReadHandler(via *Via65C22S) {
+func inputOutputRegisterAReadHandler(via *via65C22S) {
 	var value uint8
 
 	if !via.latchesA.isLatchingEnabled() {
@@ -71,7 +71,7 @@ func inputOutputRegisterAReadHandler(via *Via65C22S) {
 
 // Writes the value to the IRA / ORA register. Depending on configuration this might
 // intiate handshake and clear interrupt flags for the control lines
-func inputOutputRegisterAWriteHandler(via *Via65C22S) {
+func inputOutputRegisterAWriteHandler(via *via65C22S) {
 	mode := via.latchesA.getOutputMode()
 
 	if mode == pcrCA2OutputModeHandshake || mode == pcrCA2OutputModePulse {
@@ -89,15 +89,15 @@ func inputOutputRegisterAWriteHandler(via *Via65C22S) {
 *************************************************************************************/
 
 // Reads the value of the corresponding register
-func readFromRecord(register *uint8) func(via *Via65C22S) {
-	return func(via *Via65C22S) {
+func readFromRecord(register *uint8) func(via *via65C22S) {
+	return func(via *via65C22S) {
 		via.dataBus.Write(*register)
 	}
 }
 
 // Writes the value to the corresponding register
-func writeToRecord(register *uint8) func(via *Via65C22S) {
-	return func(via *Via65C22S) {
+func writeToRecord(register *uint8) func(via *via65C22S) {
+	return func(via *via65C22S) {
 		*register = via.dataBus.Read()
 	}
 }
@@ -107,14 +107,14 @@ func writeToRecord(register *uint8) func(via *Via65C22S) {
 *************************************************************************************/
 
 // Reads IFR.
-func readnterruptFlagHandler(via *Via65C22S) {
+func readnterruptFlagHandler(via *via65C22S) {
 	via.dataBus.Write(via.registers.interrupts.getInterruptFlagValue())
 }
 
 // From W65C22S manual, page 25:
 // The IFR may be read directly by the microprocessor, and individual flag bits may be
 // cleared by writing a Logic 1 into the appropriate bit of the IFR
-func writeInterruptFlagHandler(via *Via65C22S) {
+func writeInterruptFlagHandler(via *via65C22S) {
 	value := via.registers.interrupts.value & ^via.dataBus.Read()
 	via.registers.interrupts.setInterruptFlagValue(value)
 }
@@ -126,7 +126,7 @@ func writeInterruptFlagHandler(via *Via65C22S) {
 // The processor can read the contents of this register by placing the proper address
 // on the register select and chip select inputs with the R/W line high. Bit 7 will
 // read as a logic 0.
-func readInterruptEnableHandler(via *Via65C22S) {
+func readInterruptEnableHandler(via *via65C22S) {
 	via.dataBus.Write(via.registers.interrupts.getInterruptEnabledFlag())
 }
 
@@ -136,7 +136,7 @@ func readInterruptEnableHandler(via *Via65C22S) {
 // the same address with bit 7 in the data word set to a logic 1.
 // In this case, each 1 in bits 6 through 0 will set the corresponding bit. For each zero,
 // the corresponding bit will be unaffected. T
-func writeInterruptEnableHandler(via *Via65C22S) {
+func writeInterruptEnableHandler(via *via65C22S) {
 	via.registers.interrupts.setInterruptEnabledFlag(via.dataBus.Read())
 }
 
@@ -147,7 +147,7 @@ func writeInterruptEnableHandler(via *Via65C22S) {
 // Writes the specified value to the high order latch / counter.
 // Value is repeated on the high order latch and then transfers the value of the
 // low order latch to the counter initiating countdown.
-func writeT1HighOrderCounter(via *Via65C22S) {
+func writeT1HighOrderCounter(via *via65C22S) {
 	// MSB value for the current value in the bus
 	high := uint16(via.dataBus.Read()) << 8
 
@@ -168,7 +168,7 @@ func writeT1HighOrderCounter(via *Via65C22S) {
 }
 
 // Writes the high order latch clearing the flag if needed
-func writeT1HighOrderLatch(via *Via65C22S) {
+func writeT1HighOrderLatch(via *via65C22S) {
 	// Write into high order latch
 	via.registers.highLatches1 = via.dataBus.Read()
 
@@ -177,7 +177,7 @@ func writeT1HighOrderLatch(via *Via65C22S) {
 }
 
 // Reads the LSB from the counter
-func readT1LowOrderCounter(via *Via65C22S) {
+func readT1LowOrderCounter(via *via65C22S) {
 	via.dataBus.Write(uint8(via.registers.counter1))
 
 	// Clear interrupt flags
@@ -185,7 +185,7 @@ func readT1LowOrderCounter(via *Via65C22S) {
 }
 
 // Reads the MSB from the counter
-func readT1HighOrderCounter(via *Via65C22S) {
+func readT1HighOrderCounter(via *via65C22S) {
 	// Makes 0 the LSB and moves the MSB to the lower byte
 	value := (via.registers.counter1 & 0xFF00) >> 8
 	// Writes the value on the bus
@@ -199,7 +199,7 @@ func readT1HighOrderCounter(via *Via65C22S) {
 // Writes the specified value to the high order latch / counter.
 // Value is repeated on the high order latch and then transfers the value of the
 // low order latch to the counter initiating countdown.
-func writeT2HighOrderCounter(via *Via65C22S) {
+func writeT2HighOrderCounter(via *via65C22S) {
 	// MSB value for the current value in the bus
 	high := uint16(via.dataBus.Read()) << 8
 
@@ -220,7 +220,7 @@ func writeT2HighOrderCounter(via *Via65C22S) {
 }
 
 // Reads the LSB from the counter
-func readT2LowOrderCounter(via *Via65C22S) {
+func readT2LowOrderCounter(via *via65C22S) {
 	via.dataBus.Write(uint8(via.registers.counter2))
 
 	// Clears interrupt flags
@@ -228,7 +228,7 @@ func readT2LowOrderCounter(via *Via65C22S) {
 }
 
 // Reads the MSB from the counter
-func readT2HighOrderCounter(via *Via65C22S) {
+func readT2HighOrderCounter(via *via65C22S) {
 	// Makes 0 the LSB and moves the MSB to the lower byte
 	value := (via.registers.counter2 & 0xFF00) >> 8
 	// Writes the value on the bus
@@ -240,14 +240,14 @@ func readT2HighOrderCounter(via *Via65C22S) {
 *************************************************************************************/
 
 // Reads the LSB from the counter
-func readShiftRegister(via *Via65C22S) {
+func readShiftRegister(via *via65C22S) {
 	via.dataBus.Write(via.registers.shiftRegister)
 	via.shifter.initCounter()
 	via.shifter.shifterEnabled = true
 }
 
 // Reads the MSB from the counter
-func writeShiftRegister(via *Via65C22S) {
+func writeShiftRegister(via *via65C22S) {
 	via.registers.shiftRegister = via.dataBus.Read()
 	via.shifter.initCounter()
 	via.shifter.shifterEnabled = true
@@ -260,7 +260,7 @@ func writeShiftRegister(via *Via65C22S) {
 // Reads IRA / ORA register. Depending on configuration it also latches the output
 // and clears the interrupt flags for the control lines
 // Reading on register 0x0F does not trigger Handshake
-func inputOutputRegisterAReadHandlerNoHandshake(via *Via65C22S) {
+func inputOutputRegisterAReadHandlerNoHandshake(via *via65C22S) {
 	var value uint8
 
 	if !via.latchesA.isLatchingEnabled() {
@@ -277,7 +277,7 @@ func inputOutputRegisterAReadHandlerNoHandshake(via *Via65C22S) {
 // Writes the value to the IRA / ORA register. Depending on configuration this might
 // clear interrupt flags for the control lines
 // Writing on register 0x0F does not trigger Handshake
-func inputOutputRegisterAWriteHandlerNoHandshake(via *Via65C22S) {
+func inputOutputRegisterAWriteHandlerNoHandshake(via *via65C22S) {
 	via.peripheralPortA.clearControlLinesInterruptFlagOnRW()
 
 	// MPU writes to ORA
