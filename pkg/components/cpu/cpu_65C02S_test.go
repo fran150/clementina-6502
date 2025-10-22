@@ -83,7 +83,7 @@ func TestCpu65C02S_GetterMethods(t *testing.T) {
 
 	// Test GetProcessorStatusRegister
 	t.Run("GetProcessorStatusRegister returns correct value", func(t *testing.T) {
-		expectedStatus := StatusRegister(0b10110001)
+		expectedStatus := statusRegister(0b10110001)
 		cpu.processorStatusRegister = expectedStatus
 		if got := cpu.GetProcessorStatusRegister(); got != expectedStatus {
 			t.Errorf("GetProcessorStatusRegister() = %v, want %v", got, expectedStatus)

@@ -17,7 +17,7 @@ type mockCpuExtension struct {
 	xRegister               uint8
 	yRegister               uint8
 	stackPointer            uint8
-	processorStatusRegister cpu.StatusRegister
+	processorStatusRegister components.StatusRegister
 }
 
 // Override the methods needed for CPU state window
@@ -47,13 +47,13 @@ func TestGetFlagStatusColor(t *testing.T) {
 	}{
 		{
 			name:     "Flag set",
-			status:   cpu.StatusRegister(0xFF), // All bits set
+			status:   cpu.NewStatusRegister(0xFF), // All bits set
 			bit:      cpu.ZeroFlagBit,
 			expected: "[green]",
 		},
 		{
 			name:     "Flag not set",
-			status:   cpu.StatusRegister(0x00), // All bits clear
+			status:   cpu.NewStatusRegister(0x00), // All bits clear
 			bit:      cpu.ZeroFlagBit,
 			expected: "[red]",
 		},
@@ -76,7 +76,7 @@ func TestCpuWindow_Draw(t *testing.T) {
 		xRegister:               0x24,
 		yRegister:               0x12,
 		stackPointer:            0xFF,
-		processorStatusRegister: cpu.StatusRegister(0b10101010), // Alternating bits
+		processorStatusRegister: cpu.NewStatusRegister(0b10101010), // Alternating bits
 	}
 
 	window := NewCpuWindow(mockCpu)

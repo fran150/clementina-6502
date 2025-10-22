@@ -2,10 +2,10 @@ package cpu
 
 import "github.com/fran150/clementina-6502/pkg/components"
 
-// StatusRegister represents the processor status register in the 6502 CPU.
+// statusRegister represents the processor status register in the 6502 CPU.
 // It contains flags that record the results of operations and control CPU behavior.
 // See https://www.6502.org/users/obelisk/6502/registers.html
-type StatusRegister uint8
+type statusRegister uint8
 
 const (
 	CarryFlagBit        components.StatusBit = 0 // Carry flag (C)
@@ -20,35 +20,39 @@ const (
 
 // NewStatusRegister creates a new status register with the specified initial value.
 // The BRK (B) and unused (U) flags are always set to 1, regardless of the input value.
-func NewStatusRegister(value uint8) StatusRegister {
-	return StatusRegister(value | 0x30)
+func NewStatusRegister(value uint8) components.StatusRegister {
+	return newStatusRegister(value)
+}
+
+func newStatusRegister(value uint8) statusRegister {
+	return statusRegister(value | 0x30)
 }
 
 // Returns whether the specified bit of the status register is set
-func (status StatusRegister) Flag(bit components.StatusBit) bool {
+func (status statusRegister) Flag(bit components.StatusBit) bool {
 	mask := uint8(1 << bit)
 
 	return (uint8(status) & mask) > 0
 }
 
 // Allows to set or unset an specific bit of the status register
-func (status *StatusRegister) SetFlag(bit components.StatusBit, set bool) {
+func (status *statusRegister) SetFlag(bit components.StatusBit, set bool) {
 	mask := uint8(1 << bit)
 
 	if set {
-		*status = StatusRegister(uint8(*status) | (0x00 + mask))
+		*status = statusRegister(uint8(*status) | (0x00 + mask))
 	} else {
-		*status = StatusRegister(uint8(*status) & (0xFF - mask))
+		*status = statusRegister(uint8(*status) & (0xFF - mask))
 	}
 }
 
 // Sets an explicit value for the status register. The value of BRK (B) and Unused flags will
 // always be set to 1 as they cannot be changed
-func (status *StatusRegister) SetValue(value uint8) {
-	*status = StatusRegister(value) | 0x30
+func (status *statusRegister) SetValue(value uint8) {
+	*status = statusRegister(value) | 0x30
 }
 
 // Returns the byte value of the status register.
-func (status *StatusRegister) ReadValue() uint8 {
+func (status *statusRegister) ReadValue() uint8 {
 	return uint8(*status) | 0x30
 }

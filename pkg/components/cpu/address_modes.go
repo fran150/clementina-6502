@@ -140,9 +140,9 @@ func (addressModeSet *AddressModeSet) GetByName(name components.AddressMode) *Ad
 	return addressModeSet.nameIndex[name]
 }
 
-// NewAddressModesSet creates and returns the complete set of address modes supported by the 65C02S processor.
+// newAddressModesSet creates and returns the complete set of address modes supported by the 65C02S processor.
 // This includes standard 6502 modes, RMW variants, and special modes for interrupts and stack operations.
-func NewAddressModesSet() *AddressModeSet {
+func newAddressModesSet() *AddressModeSet {
 	addressModeSet := AddressModeSet{
 		nameIndex: [40]*AddressModeData{},
 	}

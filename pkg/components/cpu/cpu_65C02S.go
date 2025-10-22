@@ -8,7 +8,7 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 )
 
-var addressModeSet *AddressModeSet = NewAddressModesSet()
+var addressModeSet *AddressModeSet = newAddressModesSet()
 var instructionSet *CpuInstructionSet = NewInstructionSet()
 
 // Represents the WDC 65C02S processor. See https://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf
@@ -34,7 +34,7 @@ type cpu65C02S struct {
 	yRegister               uint8
 	stackPointer            uint8
 	programCounter          uint16
-	processorStatusRegister StatusRegister
+	processorStatusRegister statusRegister
 
 	currentInstruction *CpuInstructionData
 	currentAddressMode *AddressModeData
