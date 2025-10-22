@@ -92,8 +92,8 @@ func (t *testAcia) GetControlRegister() uint8 { return t.controlRegister }
 func (t *testAcia) GetCommandRegister() uint8 { return t.commandRegister }
 func (t *testAcia) GetTXRegister() uint8      { return t.txRegister }
 func (t *testAcia) GetRXRegister() uint8      { return t.rxRegister }
-func (t *testAcia) GetTXRegisterEmpty() bool  { return t.txEmpty }
-func (t *testAcia) GetRXRegisterEmpty() bool  { return t.rxEmpty }
+func (t *testAcia) IsTXRegisterEmpty() bool   { return t.txEmpty }
+func (t *testAcia) IsRXRegisterEmpty() bool   { return t.rxEmpty }
 
 func TestAciaWindowRegistersDisplay(t *testing.T) {
 	testAcia := newTestAcia()

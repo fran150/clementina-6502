@@ -369,14 +369,14 @@ func (acia *Acia65C51N) GetRXRegister() uint8 {
 // Returns whether the transmit register is empty and
 // ready to accept new data for transmission.
 // Returns true if empty, false if it contains data to be transmitted.
-func (acia *Acia65C51N) GetTXRegisterEmpty() bool {
+func (acia *Acia65C51N) IsTXRegisterEmpty() bool {
 	return acia.txRegisterEmpty
 }
 
 // Returns whether the receive register is empty.
 // Returns true if empty (no data received), false if it contains received data
 // that needs to be read.
-func (acia *Acia65C51N) GetRXRegisterEmpty() bool {
+func (acia *Acia65C51N) IsRXRegisterEmpty() bool {
 	return acia.rxRegisterEmpty
 }
 

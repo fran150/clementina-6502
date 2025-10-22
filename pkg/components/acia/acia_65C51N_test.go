@@ -1076,7 +1076,7 @@ func TestAcia65C51N_GetRegisterStates(t *testing.T) {
 				a.txRegisterEmpty = true
 			},
 			want:     true,
-			testFunc: (*Acia65C51N).GetTXRegisterEmpty,
+			testFunc: (*Acia65C51N).IsTXRegisterEmpty,
 		},
 		{
 			name: "Get TX Register Empty - False",
@@ -1084,7 +1084,7 @@ func TestAcia65C51N_GetRegisterStates(t *testing.T) {
 				a.txRegisterEmpty = false
 			},
 			want:     false,
-			testFunc: (*Acia65C51N).GetTXRegisterEmpty,
+			testFunc: (*Acia65C51N).IsTXRegisterEmpty,
 		},
 		{
 			name: "Get RX Register Empty - True",
@@ -1092,7 +1092,7 @@ func TestAcia65C51N_GetRegisterStates(t *testing.T) {
 				a.rxRegisterEmpty = true
 			},
 			want:     true,
-			testFunc: (*Acia65C51N).GetRXRegisterEmpty,
+			testFunc: (*Acia65C51N).IsRXRegisterEmpty,
 		},
 		{
 			name: "Get RX Register Empty - False",
@@ -1100,7 +1100,7 @@ func TestAcia65C51N_GetRegisterStates(t *testing.T) {
 				a.rxRegisterEmpty = false
 			},
 			want:     false,
-			testFunc: (*Acia65C51N).GetRXRegisterEmpty,
+			testFunc: (*Acia65C51N).IsRXRegisterEmpty,
 		},
 	}
 

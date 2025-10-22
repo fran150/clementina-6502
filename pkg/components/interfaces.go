@@ -33,8 +33,8 @@ type Acia6551Chip interface {
 	GetCommandRegister() uint8
 	GetTXRegister() uint8
 	GetRXRegister() uint8
-	GetTXRegisterEmpty() bool
-	GetRXRegisterEmpty() bool
+	IsTXRegisterEmpty() bool
+	IsRXRegisterEmpty() bool
 }
 
 // Cpu6502Chip defines the interface for the 65C02S CPU emulation.
