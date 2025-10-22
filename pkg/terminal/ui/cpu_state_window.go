@@ -13,7 +13,7 @@ import (
 // It shows register values, flags, and the current instruction being executed.
 type CpuWindow struct {
 	text      *tview.TextView
-	processor components.Cpu6502Chip
+	processor components.Cpu65C02
 }
 
 // NewCpuWindow creates a new CPU state display window.
@@ -24,7 +24,7 @@ type CpuWindow struct {
 //
 // Returns:
 //   - A pointer to the initialized CpuWindow
-func NewCpuWindow(processor components.Cpu6502Chip) *CpuWindow {
+func NewCpuWindow(processor components.Cpu65C02) *CpuWindow {
 	text := tview.NewTextView()
 	text.SetScrollable(false).
 		SetDynamicColors(true).

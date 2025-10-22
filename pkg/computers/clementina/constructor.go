@@ -19,11 +19,11 @@ import (
 //   - An error if initialization fails
 func NewClementinaComputer() (*ClementinaComputer, error) {
 	chips := &chips{
-		cpu:      cpu.NewCPU65C02SChip(),
+		cpu:      cpu.NewCpu65C02S(),
 		baseram:  memory.NewRam(memory.RAM_SIZE_32K),
 		exram:    memory.NewRam(memory.RAM_SIZE_512K),
 		hiram:    memory.NewRam(memory.RAM_SIZE_32K),
-		via:      via.NewVia65C22Chip(),
+		via:      via.NewVia65C22S(),
 		csLogic:  modules.NewClementinaCSLogic(),
 		oeRWSync: modules.NewClementinaOERWPHISync(),
 	}

@@ -12,7 +12,7 @@ import (
 // It shows the current register values, timer status, and I/O port configurations.
 type ViaWindow struct {
 	text *tview.TextView
-	via  components.ViaChip
+	via  components.Via65C22
 }
 
 // NewViaWindow creates a new VIA state display window.
@@ -23,7 +23,7 @@ type ViaWindow struct {
 //
 // Returns:
 //   - A pointer to the initialized ViaWindow
-func NewViaWindow(via components.ViaChip) *ViaWindow {
+func NewViaWindow(via components.Via65C22) *ViaWindow {
 	text := tview.NewTextView()
 	text.SetScrollable(false).
 		SetDynamicColors(true).

@@ -16,7 +16,7 @@ type testCircuit struct {
 }
 
 func newTestCircuitCorrectTiming() (*lcdHD44780U, *testCircuit) {
-	lcd := newLCDController()
+	lcd := newLcdHD44780U()
 
 	circuit := testCircuit{
 		bus:            buses.New8BitStandaloneBus(),

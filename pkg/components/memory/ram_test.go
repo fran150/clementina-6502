@@ -22,8 +22,8 @@ type testCircuit struct {
 }
 
 // Creates the test circuit and the ram
-func newTestCircuit(size MemorySize) (*Ram, *testCircuit) {
-	ram := NewRam(size)
+func newTestCircuit(size MemorySize) (*ram, *testCircuit) {
+	ram := newRam(size)
 	circuit := &testCircuit{
 		hiAddressBus: buses.New16BitStandaloneBus(),
 		addressBus:   buses.New16BitStandaloneBus(),
@@ -36,7 +36,7 @@ func newTestCircuit(size MemorySize) (*Ram, *testCircuit) {
 }
 
 // Connects the circuit to the RAM memory
-func (circuit *testCircuit) Wire(ram *Ram) {
+func (circuit *testCircuit) Wire(ram *ram) {
 	ram.HiAddressBus().Connect(circuit.hiAddressBus)
 	ram.AddressBus().Connect(circuit.addressBus)
 	ram.DataBus().Connect(circuit.dataBus)
@@ -180,12 +180,12 @@ func TestPeekAndPokeReadsAndWritesValuesDirectly(t *testing.T) {
 
 // Tests that NewRamWithLessPins correctly masks address pins
 func TestNewRamWithLessPinsMasksAddressCorrectly(t *testing.T) {
-	var ram *Ram
+	var ram *ram
 
 	context := common.NewStepContext()
 
 	_, circuit := newTestCircuit(RAM_SIZE_1K)
-	ram = NewRam(RAM_SIZE_1K)
+	ram = newRam(RAM_SIZE_1K)
 	circuit.Wire(ram)
 
 	// Test writing to an address above the mask

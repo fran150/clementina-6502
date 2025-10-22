@@ -61,7 +61,7 @@ type cpu65C02S struct {
 	processorStopped bool
 }
 
-func NewCPU65C02SChip() components.Cpu6502Chip {
+func NewCpu65C02S() components.Cpu65C02 {
 	return newCpu65C02S()
 }
 

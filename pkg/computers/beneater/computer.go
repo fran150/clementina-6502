@@ -12,13 +12,13 @@ import (
 ********************************************************************************************/
 
 type chips struct {
-	cpu  components.Cpu6502Chip
-	ram  components.MemoryChip
-	rom  components.MemoryChip
-	via  components.ViaChip
-	lcd  components.LCDControllerChip
-	acia components.Acia6551Chip
-	nand components.NANDGatesChip
+	cpu  components.Cpu65C02
+	ram  components.Memory
+	rom  components.Memory
+	via  components.Via65C22
+	lcd  components.LCDController
+	acia components.Acia65C51
+	nand components.QuadLogicGate
 }
 
 type circuit struct {

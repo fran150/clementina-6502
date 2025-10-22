@@ -7,6 +7,7 @@ import (
 
 	"github.com/fran150/clementina-6502/internal/file_io"
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 )
 
@@ -39,10 +40,10 @@ const (
 	RAM_SIZE_1K   MemorySize = 1024       // 1K memory
 )
 
-// Ram represents a RAM chip emulation with standard control signals.
+// ram represents a RAM chip emulation with standard control signals.
 // It implements typical RAM chip functionality including read/write operations,
 // chip select, and output enable controls.
-type Ram struct {
+type ram struct {
 	values          []uint8                     // Memory contents
 	hiAddressBus    *buses.BusConnector[uint16] // Connection to the high address bus
 	addressBus      *buses.BusConnector[uint16] // Connection to the address bus
@@ -53,12 +54,16 @@ type Ram struct {
 	addressPinsMask uint32                      // Mask for active address pins
 }
 
-// NewRam creates a new RAM chip with the specified size in bytes.
+func NewRam(size MemorySize) components.Memory {
+	return newRam(size)
+}
+
+// newRam creates a new RAM chip with the specified size in bytes.
 // It initializes all the necessary bus connectors and control signals.
-func NewRam(size MemorySize) *Ram {
+func newRam(size MemorySize) *ram {
 	mask := uint32(size - 1)
 
-	return &Ram{
+	return &ram{
 		values:       make([]uint8, int(size)),
 		hiAddressBus: buses.NewBusConnector[uint16](),
 		addressBus:   buses.NewBusConnector[uint16](),
@@ -77,37 +82,37 @@ func NewRam(size MemorySize) *Ram {
 
 // HiAddressBus returns the connector to the most significant 16 bits of address bus in large memories.
 // The address bus determines the memory location for read/write operations.
-func (ram *Ram) HiAddressBus() *buses.BusConnector[uint16] {
+func (ram *ram) HiAddressBus() *buses.BusConnector[uint16] {
 	return ram.hiAddressBus
 }
 
 // AddressBus returns the connector to the address bus.
 // The address bus determines the memory location for read/write operations.
-func (ram *Ram) AddressBus() *buses.BusConnector[uint16] {
+func (ram *ram) AddressBus() *buses.BusConnector[uint16] {
 	return ram.addressBus
 }
 
 // DataBus returns the connector to the data bus.
 // The data bus carries the value being read from or written to memory.
-func (ram *Ram) DataBus() *buses.BusConnector[uint8] {
+func (ram *ram) DataBus() *buses.BusConnector[uint8] {
 	return ram.dataBus
 }
 
 // WriteEnable returns the write enable signal connector.
 // When low, indicates a write operation; when high, indicates a read operation.
-func (ram *Ram) WriteEnable() *buses.ConnectorEnabledLow {
+func (ram *ram) WriteEnable() *buses.ConnectorEnabledLow {
 	return ram.writeEnable
 }
 
 // ChipSelect returns the chip select signal connector.
 // When low, indicates this chip is selected and should respond to operations.
-func (ram *Ram) ChipSelect() *buses.ConnectorEnabledLow {
+func (ram *ram) ChipSelect() *buses.ConnectorEnabledLow {
 	return ram.chipSelect
 }
 
 // OutputEnable returns the output enable signal connector.
 // When low, allows the chip to put data on the data bus during read operations.
-func (ram *Ram) OutputEnable() *buses.ConnectorEnabledLow {
+func (ram *ram) OutputEnable() *buses.ConnectorEnabledLow {
 	return ram.outputEnable
 }
 
@@ -117,31 +122,31 @@ func (ram *Ram) OutputEnable() *buses.ConnectorEnabledLow {
 
 // Peek returns the value at the specified memory address without
 // going through the normal bus operations.
-func (ram *Ram) Peek(address uint32) uint8 {
+func (ram *ram) Peek(address uint32) uint8 {
 	return ram.values[address]
 }
 
 // PeekRange returns a slice of memory values between startAddress and endAddress.
 // Useful for debugging and memory dumps.
-func (ram *Ram) PeekRange(startAddress uint16, endAddress uint16) []uint8 {
+func (ram *ram) PeekRange(startAddress uint16, endAddress uint16) []uint8 {
 	return ram.values[startAddress:endAddress]
 }
 
 // Poke writes a value directly to the specified memory address without
 // going through the normal bus operations.
-func (ram *Ram) Poke(address uint16, value uint8) {
+func (ram *ram) Poke(address uint16, value uint8) {
 	ram.values[address] = value
 }
 
 // Load reads a binary file into memory starting at address 0x0000.
 // Returns an error if the file is too large for the available memory
 // or if there are any I/O errors.
-func (ram *Ram) Load(binFilePath string) error {
+func (ram *ram) Load(binFilePath string) error {
 	return ram.loadFromReader(os.Open(binFilePath))
 }
 
 // Size returns the total size of the RAM chip in bytes.
-func (ram *Ram) Size() int {
+func (ram *ram) Size() int {
 	return len(ram.values)
 }
 
@@ -151,7 +156,7 @@ func (ram *Ram) Size() int {
 
 // getAddress returns the current address from the address bus
 // masked with the active address pins mask.
-func (ram *Ram) getAddress() uint32 {
+func (ram *ram) getAddress() uint32 {
 	hi := ram.hiAddressBus.Read()
 	lo := ram.addressBus.Read()
 
@@ -161,19 +166,19 @@ func (ram *Ram) getAddress() uint32 {
 }
 
 // read gets the data from the current address and puts it on the data bus.
-func (ram *Ram) read() {
+func (ram *ram) read() {
 	address := ram.getAddress()
 	ram.dataBus.Write(ram.values[address])
 }
 
 // write stores the data from the data bus to the current address.
-func (ram *Ram) write() {
+func (ram *ram) write() {
 	address := ram.getAddress()
 	ram.values[address] = ram.dataBus.Read()
 }
 
 // LoadFromReader reads binary data from a reader into memory
-func (ram *Ram) loadFromReader(file file_io.FileReader, err error) error {
+func (ram *ram) loadFromReader(file file_io.FileReader, err error) error {
 	if err != nil {
 		return err
 	}
@@ -202,7 +207,7 @@ func (ram *Ram) loadFromReader(file file_io.FileReader, err error) error {
 
 // Tick performs one emulation step, handling memory operations based on
 // the current state of the control signals (chip select, output enable, and write enable).
-func (ram *Ram) Tick(context *common.StepContext) {
+func (ram *ram) Tick(context *common.StepContext) {
 	cs := ram.chipSelect.Enabled()
 	oe := ram.outputEnable.Enabled()
 	writeEnable := ram.writeEnable.Enabled()

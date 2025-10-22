@@ -18,7 +18,7 @@ const maxLinesOfCode = 30
 type CodeWindow struct {
 	text      *tview.TextView
 	lines     *queue.SimpleQueue[string]
-	processor components.Cpu6502Chip
+	processor components.Cpu65C02
 
 	operandsGetter func(programCounter uint16) [2]uint8
 }
@@ -32,7 +32,7 @@ type CodeWindow struct {
 //
 // Returns:
 //   - A pointer to the initialized CodeWindow
-func NewCodeWindow(processor components.Cpu6502Chip, operandsGetter func(programCounter uint16) [2]uint8) *CodeWindow {
+func NewCodeWindow(processor components.Cpu65C02, operandsGetter func(programCounter uint16) [2]uint8) *CodeWindow {
 	code := tview.NewTextView()
 	code.SetTextAlign(tview.AlignLeft)
 	code.SetScrollable(false)

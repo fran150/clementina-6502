@@ -24,11 +24,11 @@ type mappers struct {
 }
 
 type chips struct {
-	cpu      components.Cpu6502Chip
-	baseram  components.MemoryChip
-	hiram    components.MemoryChip
-	exram    components.MemoryChip
-	via      components.ViaChip
+	cpu      components.Cpu65C02
+	baseram  components.Memory
+	hiram    components.Memory
+	exram    components.Memory
+	via      components.Via65C22
 	csLogic  *modules.ClementinaCSLogic
 	oeRWSync *modules.ClementinaOERWPHISync
 }
@@ -115,7 +115,7 @@ func (c *ClementinaComputer) Reset(status bool) {
 // Returns:
 //   - An array of two bytes representing the potential operands
 func (c *ClementinaComputer) getPotentialOperators(programCounter uint16) [2]uint8 {
-	var chip components.MemoryChip
+	var chip components.Memory
 	var address uint32
 
 	switch {

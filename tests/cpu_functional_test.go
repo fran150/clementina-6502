@@ -31,7 +31,7 @@ const maxAllowedCycles uint64 = 100_000_000
 *******************************************************************************************************/
 
 // Creates a CPU connected to a RAM memory
-func NewComputer() (components.Cpu6502Chip, *memory.Ram) {
+func NewComputer() (components.Cpu65C02, components.Memory) {
 	addressBus := buses.New16BitStandaloneBus()
 	dataBus := buses.New8BitStandaloneBus()
 
@@ -51,7 +51,7 @@ func NewComputer() (components.Cpu6502Chip, *memory.Ram) {
 	ram.ChipSelect().Connect(alwaysLowLine)
 	ram.OutputEnable().Connect(alwaysLowLine)
 
-	processor := cpu.NewCPU65C02SChip()
+	processor := cpu.NewCpu65C02S()
 	processor.AddressBus().Connect(addressBus)
 	processor.DataBus().Connect(dataBus)
 
@@ -80,12 +80,12 @@ var previousOpCode components.OpCode
 var repeats int = 0
 
 // Error trap opcodes are usually JMP * instructions or branch instructions BNE, BCS, etc (address mode relative)
-func isTrapOpCode(processor components.Cpu6502Chip) bool {
+func isTrapOpCode(processor components.Cpu65C02) bool {
 	return processor.GetCurrentInstruction().Mnemonic() == cpu.JMP || processor.GetCurrentAddressMode().Name() == cpu.AddressModeRelative
 }
 
 // Counts how many times a "trap" opcode (JMP or branches) is being repeated.
-func verifyAndCountRepeats(processor components.Cpu6502Chip) bool {
+func verifyAndCountRepeats(processor components.Cpu65C02) bool {
 	if previousOpCode == processor.GetCurrentInstruction().OpCode() && isTrapOpCode(processor) {
 		repeats++
 	} else {
@@ -99,7 +99,7 @@ func verifyAndCountRepeats(processor components.Cpu6502Chip) bool {
 }
 
 // Validates the status of the processor when the test finish and fails the test if required.
-func showFinishCondition(processor components.Cpu6502Chip, context *common.StepContext, b *testing.B, elapsed time.Duration) {
+func showFinishCondition(processor components.Cpu65C02, context *common.StepContext, b *testing.B, elapsed time.Duration) {
 	// If processor is trapped in SUCCESS_PC_VALUE, this means that the tests were completed successfully
 	// Otherwise this is an error condition and must fail the tests
 	if processor.GetProgramCounter() != successPcValue {

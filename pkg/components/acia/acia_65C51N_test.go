@@ -33,7 +33,7 @@ func newTestCircuit() (*Acia65C51N, *testCircuit, *testutils.SerialPortMock) {
 		rsLines[i] = buses.NewStandaloneLine(false)
 	}
 
-	acia := newAcia65C51N(true)
+	acia := newAcia65C51(true)
 
 	circuit := testCircuit{
 		dataBus: buses.New8BitStandaloneBus(),
@@ -966,7 +966,7 @@ func TestConnectToPortModemLinesError(t *testing.T) {
 	}
 
 	// Create a new ACIA with modem lines enabled
-	newAcia := newAcia65C51N(true)
+	newAcia := newAcia65C51(true)
 
 	// Make SetDTR fail
 	mock.MakeCallsFailFrom = testutils.FailInSetDTR
@@ -989,7 +989,7 @@ func TestConnectToPortSkipsModemLinesWhenDisabled(t *testing.T) {
 	defer mock.Close()
 
 	// Create a new ACIA with modem lines disabled
-	newAcia := newAcia65C51N(false)
+	newAcia := newAcia65C51(false)
 
 	// Make modem line operations fail
 	mock.MakeCallsFailFrom = testutils.FailInSetDTR

@@ -120,12 +120,12 @@ type Acia65C51N struct {
 	emulateModemLines bool
 }
 
-func NewAcia6551Chip(emulateModemLines bool) components.Acia6551Chip {
-	return newAcia65C51N(emulateModemLines)
+func NewAcia65C51(emulateModemLines bool) components.Acia65C51 {
+	return newAcia65C51(emulateModemLines)
 }
 
 // Creates an ACIA chip in default initialization state
-func newAcia65C51N(emulateModemLines bool) *Acia65C51N {
+func newAcia65C51(emulateModemLines bool) *Acia65C51N {
 	acia := &Acia65C51N{
 		dataBus:     buses.NewBusConnector[uint8](),
 		irqRequest:  buses.NewConnectorEnabledLow(),

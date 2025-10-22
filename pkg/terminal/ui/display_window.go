@@ -13,7 +13,7 @@ import (
 // It renders the 16x2 character display used in the Ben Eater computer.
 type Lcd16x2Window struct {
 	text       *tview.TextView
-	controller components.LCDControllerChip
+	controller components.LCDController
 }
 
 // NewDisplayWindow creates a new LCD display window that shows the contents of the LCD controller.
@@ -24,7 +24,7 @@ type Lcd16x2Window struct {
 //
 // Returns:
 //   - A pointer to the initialized Lcd16x2Window
-func NewDisplayWindow(lcd components.LCDControllerChip) *Lcd16x2Window {
+func NewDisplayWindow(lcd components.LCDController) *Lcd16x2Window {
 	text := tview.NewTextView()
 	text.SetTextAlign(tview.AlignCenter).
 		SetScrollable(false).

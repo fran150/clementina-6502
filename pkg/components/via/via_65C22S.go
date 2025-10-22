@@ -102,12 +102,12 @@ type via65C22S struct {
 	registerWriteHandlers []func(*via65C22S)
 }
 
-func NewVia65C22Chip() components.ViaChip {
-	return newVia65C22()
+func NewVia65C22S() components.Via65C22 {
+	return newVia65C22S()
 }
 
 // Creates a VIA65C22S chip
-func newVia65C22() *via65C22S {
+func newVia65C22S() *via65C22S {
 	via := via65C22S{
 		chipSelect1: buses.NewConnectorEnabledHigh(),
 		chipSelect2: buses.NewConnectorEnabledLow(),

@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/components/memory"
 )
@@ -42,7 +43,7 @@ type addressModeTestDataWithControlLines struct {
 // Creates a computer for testing the CPU emulation.
 // It is only 64K of RAM memory connected to the bus, processor lines are wired
 // to always high or low lines.
-func newComputer() (*cpu65C02S, *memory.Ram) {
+func newComputer() (*cpu65C02S, components.Memory) {
 	addressBus := buses.New16BitStandaloneBus()
 	dataBus := buses.New8BitStandaloneBus()
 
@@ -85,7 +86,7 @@ func newComputer() (*cpu65C02S, *memory.Ram) {
 
 // Similar to the createComputer() function but in this case it returns the NMI, IRQ, RESET and RDY lines
 // to allow testing
-func newComputerWithControlLines() (*cpu65C02S, *memory.Ram, *buses.StandaloneLine, *buses.StandaloneLine, *buses.StandaloneLine, *buses.StandaloneLine) {
+func newComputerWithControlLines() (*cpu65C02S, components.Memory, *buses.StandaloneLine, *buses.StandaloneLine, *buses.StandaloneLine, *buses.StandaloneLine) {
 	cpu, ram := newComputer()
 
 	nmiLine := buses.NewStandaloneLine(true)
@@ -200,7 +201,7 @@ func evaluateRegister[U uint8 | uint16](cycle int, registerValue U, stepValue U,
 }
 
 // Iterates over the specified steps comparting the status of the CPU with the expected values.
-func runTest(cpu *cpu65C02S, ram *memory.Ram, steps []addressModeTestData, t *testing.T) {
+func runTest(cpu *cpu65C02S, ram components.Memory, steps []addressModeTestData, t *testing.T) {
 	// Only log detailed execution information when verbose testing is enabled
 	if testing.Verbose() {
 		t.Logf("Cycle \t Addr \t Data \t R/W \t PC \t A \t X \t Y \t SP \t Flags \n")
@@ -237,7 +238,7 @@ func runTest(cpu *cpu65C02S, ram *memory.Ram, steps []addressModeTestData, t *te
 // to send the CPU to an initial known state, and RDY is and both input output, if it's pulled to disabled
 // halts the CPU leaving the address bus in the last status. When the processor halts during WAI and STP
 // instructions, it pulls this line to disable
-func runTestWithInterrupts(cpu *cpu65C02S, ram *memory.Ram, irqLine *buses.StandaloneLine, nmiLine *buses.StandaloneLine, resetLine *buses.StandaloneLine, readyLine *buses.StandaloneLine, steps []addressModeTestDataWithControlLines, t *testing.T) {
+func runTestWithInterrupts(cpu *cpu65C02S, ram components.Memory, irqLine *buses.StandaloneLine, nmiLine *buses.StandaloneLine, resetLine *buses.StandaloneLine, readyLine *buses.StandaloneLine, steps []addressModeTestDataWithControlLines, t *testing.T) {
 	// Only log detailed execution information when verbose testing is enabled
 	if testing.Verbose() {
 		t.Logf("Cycle \t Addr \t Data \t R/W \t PC \t A \t X \t Y \t SP \t Flags \t IRQ \t NMI \t RST \t RDY \n")

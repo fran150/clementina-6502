@@ -10,7 +10,7 @@ import (
 func TestAllValuesFor74HC32(t *testing.T) {
 	var step common.StepContext
 
-	chip := New74HC32()
+	chip := newOr74HC32()
 	circuit := newLogicGatesTestCircuit(4)
 	circuit.wire(chip)
 
@@ -29,7 +29,7 @@ func TestAllValuesFor74HC32(t *testing.T) {
 }
 
 func TestInvalidPinNumberReturnsNilOn74HC32(t *testing.T) {
-	chip := New74HC32()
+	chip := newOr74HC32()
 
 	assert.Nil(t, chip.APin(-1))
 	assert.Nil(t, chip.APin(or74HC32NumGates))

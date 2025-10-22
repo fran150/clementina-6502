@@ -13,7 +13,7 @@ import (
 // It shows the current content of the LCD display and controller status.
 type LcdControllerWindow struct {
 	text *tview.TextView
-	lcd  components.LCDControllerChip
+	lcd  components.LCDController
 }
 
 // NewLcdWindow creates a new LCD controller display window.
@@ -24,7 +24,7 @@ type LcdControllerWindow struct {
 //
 // Returns:
 //   - A pointer to the initialized LcdControllerWindow
-func NewLcdWindow(lcd components.LCDControllerChip) *LcdControllerWindow {
+func NewLcdWindow(lcd components.LCDController) *LcdControllerWindow {
 	text := tview.NewTextView()
 	text.SetScrollable(false).
 		SetDynamicColors(true).

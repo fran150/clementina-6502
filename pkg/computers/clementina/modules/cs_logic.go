@@ -2,6 +2,7 @@ package modules
 
 import (
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/components/other/decoders"
 	"github.com/fran150/clementina-6502/pkg/components/other/gates"
@@ -25,10 +26,10 @@ type ClementinaCSLogic struct {
 	hiRAME buses.Line       // High RAM enable (32 KB banked in 8 KB windows)
 
 	// Internal components
-	addressDecoder *decoders.Decoder74HC138 // Address decoder to slice RAM space in 16 KB windows
-	ioDecoder      *decoders.Decoder74HC138 // I/O decoder to slice I/O space in 8 slots of 1KB each
-	andGate        *gates.And74HC08         // Gates for logic operations
-	orGate         *gates.Or74HC32          // Gates for logic operations
+	addressDecoder components.Decoder74HC138 // Address decoder to slice RAM space in 16 KB windows
+	ioDecoder      components.Decoder74HC138 // I/O decoder to slice I/O space in 8 slots of 1KB each
+	andGate        components.QuadLogicGate  // Gates for logic operations
+	orGate         components.QuadLogicGate  // Gates for logic operations
 
 	addressDecoderOutput buses.Bus[uint8]
 	vcc                  buses.Line // Lines connected to VCC (will always be high)
@@ -42,8 +43,8 @@ func NewClementinaCSLogic() *ClementinaCSLogic {
 	// Create internal components
 	csLogic.addressDecoder = decoders.NewDecoder74HC138()
 	csLogic.ioDecoder = decoders.NewDecoder74HC138()
-	csLogic.andGate = gates.New74HC08()
-	csLogic.orGate = gates.New74HC32()
+	csLogic.andGate = gates.NewAnd74HC08()
+	csLogic.orGate = gates.NewOr74HC32()
 
 	csLogic.addressDecoderOutput = buses.New8BitStandaloneBus() // Output bus for the address decoder
 	csLogic.vcc = buses.NewStandaloneLine(true)                 // VCC line, always high

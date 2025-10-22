@@ -30,7 +30,7 @@ func newTestDecoderCircuit() *testDecoderCircuit {
 	}
 }
 
-func (c *testDecoderCircuit) wire(chip *Decoder74HC138) {
+func (c *testDecoderCircuit) wire(chip *decoder74HC138) {
 	for i := 0; i < 3; i++ {
 		chip.APin(i).Connect(c.a[i])
 		chip.EPin(i).Connect(c.e[i])
@@ -39,8 +39,8 @@ func (c *testDecoderCircuit) wire(chip *Decoder74HC138) {
 	chip.YPin().Connect(c.y)
 }
 
-func createChipAndCircuit() (*Decoder74HC138, *testDecoderCircuit) {
-	chip := NewDecoder74HC138()
+func createChipAndCircuit() (*decoder74HC138, *testDecoderCircuit) {
+	chip := newDecoder74HC138()
 	circuit := newTestDecoderCircuit()
 	circuit.wire(chip)
 	return chip, circuit
@@ -52,7 +52,7 @@ type decoderTestCase struct {
 	expectedY uint8
 }
 
-func (tc *decoderTestCase) test(t *testing.T, circuit *testDecoderCircuit, chip *Decoder74HC138, step *common.StepContext) {
+func (tc *decoderTestCase) test(t *testing.T, circuit *testDecoderCircuit, chip *decoder74HC138, step *common.StepContext) {
 	for i := range 3 {
 		circuit.e[i].Set(tc.ePinState[i])
 		circuit.a[i].Set(tc.aPinInput&(1<<i) != 0)
@@ -96,7 +96,7 @@ func TestDecoder74HC138_DisableReturnsAllPinsHigh(t *testing.T) {
 }
 
 func TestDecoder74HC138_InvalidPinNumberReturnsNil(t *testing.T) {
-	chip := NewDecoder74HC138()
+	chip := newDecoder74HC138()
 	assert.Nil(t, chip.APin(-1))
 	assert.Nil(t, chip.APin(3))
 	assert.Nil(t, chip.EPin(-1))

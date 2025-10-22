@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 )
 
@@ -13,15 +14,19 @@ import (
 // the corresponding output line will be low (0), while all other outputs will be high (1).
 // The chip also has three enable inputs (E1, E2, E3) that control whether the decoder is active or not.
 // If any of the enable inputs are low, all outputs will be high (inactive).
-type Decoder74HC138 struct {
+type decoder74HC138 struct {
 	yPin *buses.BusConnector[uint8]
 	aPin [3]buses.LineConnector
 	ePin [3]buses.LineConnector
 }
 
+func NewDecoder74HC138() components.Decoder74HC138 {
+	return newDecoder74HC138()
+}
+
 // Creates a new 74HC138
-func NewDecoder74HC138() *Decoder74HC138 {
-	chip := Decoder74HC138{}
+func newDecoder74HC138() *decoder74HC138 {
+	chip := decoder74HC138{}
 
 	chip.yPin = buses.NewBusConnector[uint8]()
 
@@ -38,7 +43,7 @@ func NewDecoder74HC138() *Decoder74HC138 {
 
 // Returns the connector for the 8 bits output. This will be the active low output Y0 to Y7.
 // If input in A pins is 000, Y0 will be low, if input is 001, Y1 will be low, etc.
-func (gate *Decoder74HC138) YPin() *buses.BusConnector[uint8] {
+func (gate *decoder74HC138) YPin() *buses.BusConnector[uint8] {
 	return gate.yPin
 }
 
@@ -48,7 +53,7 @@ func (gate *Decoder74HC138) YPin() *buses.BusConnector[uint8] {
 // The combination of these three pins determines which output line will be low (active).
 // For example, if A0=1, A1=0, A2=0, then Y1 will be low (active), and all other outputs will be high (inactive).
 // if A0=1, A1=1, A2=0, then Y3 will be low (active), and all other outputs will be high (inactive).
-func (gate *Decoder74HC138) APin(index int) buses.LineConnector {
+func (gate *decoder74HC138) APin(index int) buses.LineConnector {
 	if index >= 0 && index < 3 {
 		return gate.aPin[index]
 	} else {
@@ -60,7 +65,7 @@ func (gate *Decoder74HC138) APin(index int) buses.LineConnector {
 // The E pins are used to enable or disable the decoder.
 // E1 and E2 must be low and E3 high for the decoder to function respond. If the decoder
 // is not enabled, all outputs will be high (inactive).
-func (gate *Decoder74HC138) EPin(index int) buses.LineConnector {
+func (gate *decoder74HC138) EPin(index int) buses.LineConnector {
 	if index >= 0 && index < 3 {
 		return gate.ePin[index]
 	} else {
@@ -69,7 +74,7 @@ func (gate *Decoder74HC138) EPin(index int) buses.LineConnector {
 }
 
 // Executes one emulation step
-func (gate *Decoder74HC138) Tick(stepContext *common.StepContext) {
+func (gate *decoder74HC138) Tick(stepContext *common.StepContext) {
 	if gate.ePin[0].Enabled() && gate.ePin[1].Enabled() && gate.ePin[2].Enabled() {
 		value := uint8(0)
 		pin := uint8(1)

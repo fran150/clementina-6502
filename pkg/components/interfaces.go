@@ -6,9 +6,9 @@ import (
 	"go.bug.st/serial"
 )
 
-// Acia6551Chip defines the interface for the 65C51N Asynchronous Communications Interface Adapter.
+// Acia65C51 defines the interface for the 65C51N Asynchronous Communications Interface Adapter.
 // This chip provides serial communication capabilities to the 6502 computer system.
-type Acia6551Chip interface {
+type Acia65C51 interface {
 	// Pin connections
 	DataBus() *buses.BusConnector[uint8]
 	IrqRequest() *buses.ConnectorEnabledLow
@@ -75,9 +75,9 @@ type StatusRegister interface {
 	Flag(bit StatusBit) bool
 }
 
-// Cpu6502Chip defines the interface for the 65C02S CPU emulation.
+// Cpu65C02 defines the interface for the 65C02S CPU emulation.
 // It provides access to all CPU pins, internal registers, and execution control.
-type Cpu6502Chip interface {
+type Cpu65C02 interface {
 	// Control Lines
 	AddressBus() *buses.BusConnector[uint16]
 	BusEnable() *buses.ConnectorEnabledHigh
@@ -131,9 +131,9 @@ type DisplayStatus struct {
 	DDRAM          []uint8
 }
 
-// LCDControllerChip defines the interface for the HD44780U LCD controller.
+// LCDController defines the interface for the HD44780U LCD controller.
 // This chip manages a character LCD display with cursor control and display settings.
-type LCDControllerChip interface {
+type LCDController interface {
 	// Bus connection methods
 	Enable() *buses.ConnectorEnabledHigh
 	ReadWrite() *buses.ConnectorEnabledLow
@@ -148,9 +148,9 @@ type LCDControllerChip interface {
 	GetDisplayStatus() DisplayStatus
 }
 
-// MemoryChip defines the interface for RAM and ROM memory components.
+// Memory defines the interface for RAM and ROM memory components.
 // It provides access to memory contents and control signals for memory operations.
-type MemoryChip interface {
+type Memory interface {
 	// Bus and control signal connections
 	HiAddressBus() *buses.BusConnector[uint16]
 	AddressBus() *buses.BusConnector[uint16]
@@ -170,9 +170,9 @@ type MemoryChip interface {
 	Tick(context *common.StepContext)
 }
 
-// ViaChip defines the interface for the 65C22S Versatile Interface Adapter.
+// Via65C22 defines the interface for the 65C22S Versatile Interface Adapter.
 // This chip provides parallel I/O ports, timers, and shift register functionality.
-type ViaChip interface {
+type Via65C22 interface {
 	// Pin Getters / Setters
 	PeripheralAControlLines(num int) *buses.ConnectorEnabledHigh
 	PeripheralBControlLines(num int) *buses.ConnectorEnabledHigh
@@ -210,18 +210,19 @@ type ViaChip interface {
 	GetInterruptEnabledFlag() uint8
 }
 
-// NANDGatesChip defines the interface for the 74HC00 quad NAND gate chip.
-// This chip contains four independent two-input NAND gates.
-type NANDGatesChip interface {
-	// Returns the connector for pin A at the specified index (0-3)
+type Decoder74HC138 interface {
+	YPin() *buses.BusConnector[uint8]
 	APin(index int) buses.LineConnector
+	EPin(index int) buses.LineConnector
+	Tick(stepContext *common.StepContext)
+}
 
-	// Returns the connector for pin B at the specified index (0-3)
+// QuadLogicGate defines the interface for a quad logic gate component.
+// It provides methods to access the A, B, and Y pins and to execute a tick.
+// It is used by various logic gate implementations like NAND, AND, etc.
+type QuadLogicGate interface {
+	APin(index int) buses.LineConnector
 	BPin(index int) buses.LineConnector
-
-	// Returns the connector for pin Y at the specified index (0-3)
 	YPin(index int) buses.LineConnector
-
-	// Processes one clock tick
-	Tick(context *common.StepContext)
+	Tick(stepContext *common.StepContext)
 }

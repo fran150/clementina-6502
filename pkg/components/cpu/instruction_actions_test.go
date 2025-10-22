@@ -7,10 +7,9 @@ import (
 
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components"
-	"github.com/fran150/clementina-6502/pkg/components/memory"
 )
 
-func runInstructionTest(cpu *cpu65C02S, ram *memory.Ram, cycles uint64) {
+func runInstructionTest(cpu *cpu65C02S, ram components.Memory, cycles uint64) {
 	context := common.NewStepContext()
 
 	for i := range cycles {
@@ -33,7 +32,7 @@ func evaluateRegisterValue(t *testing.T, cpu *cpu65C02S, name string, value uint
 	}
 }
 
-func evaluateAddress(t *testing.T, cpu *cpu65C02S, ram *memory.Ram, address uint16, expected uint8) {
+func evaluateAddress(t *testing.T, cpu *cpu65C02S, ram components.Memory, address uint16, expected uint8) {
 	value := ram.Peek(uint32(address))
 
 	if value != expected {
@@ -77,43 +76,43 @@ func evaluateProgramCounter(t *testing.T, cpu *cpu65C02S, expectedValue uint16) 
 	}
 }
 
-func evaluateAccumulatorInstruction(t *testing.T, cpu *cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, expectedAccumulatorValue uint8) {
+func evaluateAccumulatorInstruction(t *testing.T, cpu *cpu65C02S, ram components.Memory, cycles uint64, flagString string, expectedAccumulatorValue uint8) {
 	runInstructionTest(cpu, ram, cycles)
 	evaluateRegisterValue(t, cpu, "accumulator", cpu.accumulatorRegister, expectedAccumulatorValue)
 	evaluateFlag(t, cpu, flagString)
 }
 
-func evaluateXRegisterInstruction(t *testing.T, cpu *cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, expectedRegisterValue uint8) {
+func evaluateXRegisterInstruction(t *testing.T, cpu *cpu65C02S, ram components.Memory, cycles uint64, flagString string, expectedRegisterValue uint8) {
 	runInstructionTest(cpu, ram, cycles)
 	evaluateRegisterValue(t, cpu, "X Register", cpu.xRegister, expectedRegisterValue)
 	evaluateFlag(t, cpu, flagString)
 }
 
-func evaluateYRegisterInstruction(t *testing.T, cpu *cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, expectedRegisterValue uint8) {
+func evaluateYRegisterInstruction(t *testing.T, cpu *cpu65C02S, ram components.Memory, cycles uint64, flagString string, expectedRegisterValue uint8) {
 	runInstructionTest(cpu, ram, cycles)
 	evaluateRegisterValue(t, cpu, "Y Register", cpu.yRegister, expectedRegisterValue)
 	evaluateFlag(t, cpu, flagString)
 }
 
-func evaluateStackPointerInstruction(t *testing.T, cpu *cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, expectedRegisterValue uint8) {
+func evaluateStackPointerInstruction(t *testing.T, cpu *cpu65C02S, ram components.Memory, cycles uint64, flagString string, expectedRegisterValue uint8) {
 	runInstructionTest(cpu, ram, cycles)
 	evaluateRegisterValue(t, cpu, "Stack Pointer", cpu.stackPointer, expectedRegisterValue)
 	evaluateFlag(t, cpu, flagString)
 }
 
-func evaluateRMWInstruction(t *testing.T, cpu *cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, address uint16, expectedValue uint8) {
+func evaluateRMWInstruction(t *testing.T, cpu *cpu65C02S, ram components.Memory, cycles uint64, flagString string, address uint16, expectedValue uint8) {
 	runInstructionTest(cpu, ram, cycles)
 	evaluateAddress(t, cpu, ram, address, expectedValue)
 	evaluateFlag(t, cpu, flagString)
 }
 
-func evaluateBranchInstruction(t *testing.T, cpu *cpu65C02S, ram *memory.Ram, cycles uint64, flagString string, expectedProgramCounterValue uint16) {
+func evaluateBranchInstruction(t *testing.T, cpu *cpu65C02S, ram components.Memory, cycles uint64, flagString string, expectedProgramCounterValue uint16) {
 	runInstructionTest(cpu, ram, cycles)
 	evaluateProgramCounter(t, cpu, expectedProgramCounterValue)
 	evaluateFlag(t, cpu, flagString)
 }
 
-func evaluateFlagInstruction(t *testing.T, cpu *cpu65C02S, ram *memory.Ram, cycles uint64, flagString string) {
+func evaluateFlagInstruction(t *testing.T, cpu *cpu65C02S, ram components.Memory, cycles uint64, flagString string) {
 	runInstructionTest(cpu, ram, cycles)
 	evaluateFlag(t, cpu, flagString)
 }

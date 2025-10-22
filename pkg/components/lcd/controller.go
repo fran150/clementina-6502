@@ -72,12 +72,12 @@ type lcdHD44780U struct {
 	instructions [8]func(int64) // Handlers for the different instructions that can be specified to the chip
 }
 
-func NewLCDControllerChip() components.LCDControllerChip {
-	return newLCDController()
+func NewLcdHD44780U() components.LCDController {
+	return newLcdHD44780U()
 }
 
 // Creates the LCD controller chip
-func newLCDController() *lcdHD44780U {
+func newLcdHD44780U() *lcdHD44780U {
 	lcd := lcdHD44780U{
 		dataRegisterSelected: buses.NewConnectorEnabledHigh(),
 		write:                buses.NewConnectorEnabledLow(),

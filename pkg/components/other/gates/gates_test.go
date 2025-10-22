@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/stretchr/testify/assert"
 )
@@ -33,7 +34,7 @@ func newLogicGatesTestCircuit(gatesNum int) *logicGatesTestCircuit {
 	return circuit
 }
 
-func (circuit *logicGatesTestCircuit) wire(chip QuadLogicGate) {
+func (circuit *logicGatesTestCircuit) wire(chip components.QuadLogicGate) {
 	for i := range circuit.size {
 		chip.APin(i).Connect(circuit.a[i])
 		chip.BPin(i).Connect(circuit.b[i])
@@ -47,7 +48,7 @@ type logicGatesTestCase struct {
 	y bool
 }
 
-func (testCase *logicGatesTestCase) test(t *testing.T, circuit *logicGatesTestCircuit, chip QuadLogicGate, index int, step *common.StepContext) {
+func (testCase *logicGatesTestCase) test(t *testing.T, circuit *logicGatesTestCircuit, chip components.QuadLogicGate, index int, step *common.StepContext) {
 	circuit.a[index].Set(testCase.a)
 	circuit.b[index].Set(testCase.b)
 

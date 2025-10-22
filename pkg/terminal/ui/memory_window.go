@@ -14,7 +14,7 @@ const maxLines = 37
 // It shows a hexadecimal dump of memory contents with navigation capabilities.
 type MemoryWindow struct {
 	text   *tview.TextView
-	memory components.MemoryChip
+	memory components.Memory
 
 	start uint32
 }
@@ -27,7 +27,7 @@ type MemoryWindow struct {
 //
 // Returns:
 //   - A pointer to the initialized MemoryWindow
-func NewMemoryWindow(memory components.MemoryChip) *MemoryWindow {
+func NewMemoryWindow(memory components.Memory) *MemoryWindow {
 	text := tview.NewTextView()
 	text.SetTextAlign(tview.AlignLeft).
 		SetScrollable(false).

@@ -22,13 +22,13 @@ import (
 //   - An error if initialization fails
 func NewBenEaterComputer(config *BenEaterComputerConfig) (*BenEaterComputer, error) {
 	chips := &chips{
-		cpu:  cpu.NewCPU65C02SChip(),
+		cpu:  cpu.NewCpu65C02S(),
 		ram:  memory.NewRam(memory.RAM_SIZE_32K),
 		rom:  memory.NewRam(memory.RAM_SIZE_32K),
-		via:  via.NewVia65C22Chip(),
-		lcd:  lcd.NewLCDControllerChip(),
-		acia: acia.NewAcia6551Chip(config.EmulateModemLines),
-		nand: gates.New74HC00(),
+		via:  via.NewVia65C22S(),
+		lcd:  lcd.NewLcdHD44780U(),
+		acia: acia.NewAcia65C51(config.EmulateModemLines),
+		nand: gates.NewNand74HC00(),
 	}
 
 	portABus := buses.New8BitStandaloneBus()
