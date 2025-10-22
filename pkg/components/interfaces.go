@@ -4,7 +4,6 @@ import (
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/components/cpu"
-	"github.com/fran150/clementina-6502/pkg/components/lcd"
 	"go.bug.st/serial"
 )
 
@@ -74,6 +73,26 @@ type Cpu6502Chip interface {
 	ForceProgramCounter(value uint16)
 }
 
+// Returns the data needed to display the cursor on the LCD
+type CursorStatus struct {
+	CursorVisible      bool
+	CursorPosition     uint8 // Position of the cursor in the DDRAM
+	BlinkStatusShowing bool
+}
+
+// DisplayStatus contains information about the current state of the LCD display.
+// It includes configuration settings and display parameters.
+type DisplayStatus struct {
+	DisplayOn      bool
+	Is2LineDisplay bool
+	Is5x10Font     bool
+	Line1Start     uint8
+	Line2Start     uint8
+	Is8BitMode     bool
+	CGRAM          []uint8
+	DDRAM          []uint8
+}
+
 // LCDControllerChip defines the interface for the HD44780U LCD controller.
 // This chip manages a character LCD display with cursor control and display settings.
 type LCDControllerChip interface {
@@ -87,8 +106,8 @@ type LCDControllerChip interface {
 	Tick(context *common.StepContext)
 
 	// Status methods (based on usage in lcd_controller_window.go)
-	GetCursorStatus() lcd.CursorStatus
-	GetDisplayStatus() lcd.DisplayStatus
+	GetCursorStatus() CursorStatus
+	GetDisplayStatus() DisplayStatus
 }
 
 // MemoryChip defines the interface for RAM and ROM memory components.

@@ -57,7 +57,7 @@ type lcdAddressCounter struct {
 }
 
 // Creates an address counter for the specified chip
-func newLCDAddressCounter(lcd *LcdHD44780U) *lcdAddressCounter {
+func newLCDAddressCounter(lcd *lcdHD44780U) *lcdAddressCounter {
 	return &lcdAddressCounter{
 		instructionRegister: &lcd.instructionRegister,
 		dataRegister:        &lcd.dataRegister,

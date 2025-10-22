@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
-	"github.com/fran150/clementina-6502/pkg/components/lcd"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,11 +38,11 @@ func TestLcdControllerWindow_Draw(t *testing.T) {
 	mockLcd := new(MockLCDController)
 
 	// Set up the mock expectations
-	mockLcd.On("GetCursorStatus").Return(lcd.CursorStatus{
+	mockLcd.On("GetCursorStatus").Return(components.CursorStatus{
 		CursorPosition: 5,
 	})
 
-	mockLcd.On("GetDisplayStatus").Return(lcd.DisplayStatus{
+	mockLcd.On("GetDisplayStatus").Return(components.DisplayStatus{
 		DisplayOn:      true,
 		Is8BitMode:     true,
 		Is2LineDisplay: true,
@@ -105,12 +105,12 @@ func TestLcdControllerWindow_GetDrawArea(t *testing.T) {
 func TestDrawLcdDDRAM(t *testing.T) {
 	tests := []struct {
 		name          string
-		displayStatus lcd.DisplayStatus
+		displayStatus components.DisplayStatus
 		wantContains  string
 	}{
 		{
 			name: "Empty DDRAM",
-			displayStatus: lcd.DisplayStatus{
+			displayStatus: components.DisplayStatus{
 				DisplayOn:      true,
 				Is2LineDisplay: true,
 				Is8BitMode:     true,
@@ -127,7 +127,7 @@ func TestDrawLcdDDRAM(t *testing.T) {
 		},
 		{
 			name: "Single line of data",
-			displayStatus: lcd.DisplayStatus{
+			displayStatus: components.DisplayStatus{
 				DisplayOn:      true,
 				Is2LineDisplay: true,
 				Is8BitMode:     true,
@@ -148,7 +148,7 @@ func TestDrawLcdDDRAM(t *testing.T) {
 		},
 		{
 			name: "Multiple lines of data",
-			displayStatus: lcd.DisplayStatus{
+			displayStatus: components.DisplayStatus{
 				DisplayOn:      true,
 				Is2LineDisplay: true,
 				Is8BitMode:     true,

@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
-	"github.com/fran150/clementina-6502/pkg/components/lcd"
 	"github.com/rivo/tview"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -38,14 +38,14 @@ func (m *MockLCDController) DataBus() *buses.BusConnector[uint8] {
 	return args.Get(0).(*buses.BusConnector[uint8])
 }
 
-func (m *MockLCDController) GetDisplayStatus() lcd.DisplayStatus {
+func (m *MockLCDController) GetDisplayStatus() components.DisplayStatus {
 	args := m.Called()
-	return args.Get(0).(lcd.DisplayStatus)
+	return args.Get(0).(components.DisplayStatus)
 }
 
-func (m *MockLCDController) GetCursorStatus() lcd.CursorStatus {
+func (m *MockLCDController) GetCursorStatus() components.CursorStatus {
 	args := m.Called()
-	return args.Get(0).(lcd.CursorStatus)
+	return args.Get(0).(components.CursorStatus)
 }
 
 func (m *MockLCDController) Tick(context *common.StepContext) {
@@ -73,8 +73,8 @@ func TestDrawLcdLineOff(t *testing.T) {
 func TestDrawLcdLine(t *testing.T) {
 	tests := []struct {
 		name          string
-		displayStatus lcd.DisplayStatus
-		cursorStatus  lcd.CursorStatus
+		displayStatus components.DisplayStatus
+		cursorStatus  components.CursorStatus
 		lineStart     uint8
 		min           uint8
 		max           uint8
@@ -82,7 +82,7 @@ func TestDrawLcdLine(t *testing.T) {
 	}{
 		{
 			name: "Normal line without wrapping",
-			displayStatus: lcd.DisplayStatus{
+			displayStatus: components.DisplayStatus{
 				DisplayOn:      true,
 				Is2LineDisplay: true,
 				DDRAM: func() []uint8 {
@@ -91,7 +91,7 @@ func TestDrawLcdLine(t *testing.T) {
 					return ddram
 				}(),
 			},
-			cursorStatus: lcd.CursorStatus{},
+			cursorStatus: components.CursorStatus{},
 			lineStart:    0,
 			min:          0,
 			max:          40,
@@ -99,7 +99,7 @@ func TestDrawLcdLine(t *testing.T) {
 		},
 		{
 			name: "Line with wrapping at max index",
-			displayStatus: lcd.DisplayStatus{
+			displayStatus: components.DisplayStatus{
 				DisplayOn:      true,
 				Is2LineDisplay: true,
 				DDRAM: func() []uint8 {
@@ -111,7 +111,7 @@ func TestDrawLcdLine(t *testing.T) {
 					return ddram
 				}(),
 			},
-			cursorStatus: lcd.CursorStatus{},
+			cursorStatus: components.CursorStatus{},
 			lineStart:    38, // Start reading from position 38
 			min:          0,  // Wrap back to beginning of line
 			max:          40, // End of first line
@@ -119,7 +119,7 @@ func TestDrawLcdLine(t *testing.T) {
 		},
 		{
 			name: "Second line with wrapping",
-			displayStatus: lcd.DisplayStatus{
+			displayStatus: components.DisplayStatus{
 				DisplayOn:      true,
 				Is2LineDisplay: true,
 				DDRAM: func() []uint8 {
@@ -129,7 +129,7 @@ func TestDrawLcdLine(t *testing.T) {
 					return ddram
 				}(),
 			},
-			cursorStatus: lcd.CursorStatus{},
+			cursorStatus: components.CursorStatus{},
 			lineStart:    78, // Start near end of second line
 			min:          40,
 			max:          80,
@@ -137,12 +137,12 @@ func TestDrawLcdLine(t *testing.T) {
 		},
 		{
 			name: "Cursor blinking - showing block",
-			displayStatus: lcd.DisplayStatus{
+			displayStatus: components.DisplayStatus{
 				DisplayOn:      true,
 				Is2LineDisplay: true,
 				DDRAM:          createEmptyDDRAM(),
 			},
-			cursorStatus: lcd.CursorStatus{
+			cursorStatus: components.CursorStatus{
 				CursorVisible:      true,
 				BlinkStatusShowing: true,
 				CursorPosition:     5,
@@ -154,12 +154,12 @@ func TestDrawLcdLine(t *testing.T) {
 		},
 		{
 			name: "Cursor blinking - not showing block",
-			displayStatus: lcd.DisplayStatus{
+			displayStatus: components.DisplayStatus{
 				DisplayOn:      true,
 				Is2LineDisplay: true,
 				DDRAM:          createEmptyDDRAM(),
 			},
-			cursorStatus: lcd.CursorStatus{
+			cursorStatus: components.CursorStatus{
 				CursorVisible:      true,
 				BlinkStatusShowing: false,
 				CursorPosition:     5,
@@ -171,7 +171,7 @@ func TestDrawLcdLine(t *testing.T) {
 		},
 		{
 			name: "Cursor blinking with text",
-			displayStatus: lcd.DisplayStatus{
+			displayStatus: components.DisplayStatus{
 				DisplayOn:      true,
 				Is2LineDisplay: true,
 				DDRAM: func() []uint8 {
@@ -180,7 +180,7 @@ func TestDrawLcdLine(t *testing.T) {
 					return ddram
 				}(),
 			},
-			cursorStatus: lcd.CursorStatus{
+			cursorStatus: components.CursorStatus{
 				CursorVisible:      true,
 				BlinkStatusShowing: true,
 				CursorPosition:     5,
@@ -226,43 +226,43 @@ func createEmptyDDRAM() []uint8 {
 func TestLcd16x2Window_Draw(t *testing.T) {
 	tests := []struct {
 		name           string
-		displayStatus  lcd.DisplayStatus
-		cursorStatus   lcd.CursorStatus
+		displayStatus  components.DisplayStatus
+		cursorStatus   components.CursorStatus
 		expectedOutput string
 	}{
 		{
 			name: "Display Off",
-			displayStatus: lcd.DisplayStatus{
+			displayStatus: components.DisplayStatus{
 				DisplayOn:      false,
 				Is2LineDisplay: true,
 			},
-			cursorStatus:   lcd.CursorStatus{},
+			cursorStatus:   components.CursorStatus{},
 			expectedOutput: "[black:grey]                \n[black:grey]                ",
 		},
 		{
 			name: "Not in 2 Line Mode",
-			displayStatus: lcd.DisplayStatus{
+			displayStatus: components.DisplayStatus{
 				DisplayOn:      true,
 				Is2LineDisplay: false,
 			},
-			cursorStatus:   lcd.CursorStatus{},
+			cursorStatus:   components.CursorStatus{},
 			expectedOutput: "[red]Not in two\nline mode",
 		},
 		{
 			name: "Normal Display",
-			displayStatus: lcd.DisplayStatus{
+			displayStatus: components.DisplayStatus{
 				DisplayOn:      true,
 				Is2LineDisplay: true,
 				DDRAM:          createEmptyDDRAM(),
 			},
-			cursorStatus: lcd.CursorStatus{
+			cursorStatus: components.CursorStatus{
 				CursorVisible: false,
 			},
 			expectedOutput: "[black:green]                \n[black:green]                ",
 		},
 		{
 			name: "Display with Text",
-			displayStatus: lcd.DisplayStatus{
+			displayStatus: components.DisplayStatus{
 				DisplayOn:      true,
 				Is2LineDisplay: true,
 				DDRAM: func() []uint8 {
@@ -274,14 +274,14 @@ func TestLcd16x2Window_Draw(t *testing.T) {
 				Line1Start: 0,
 				Line2Start: 40,
 			},
-			cursorStatus: lcd.CursorStatus{
+			cursorStatus: components.CursorStatus{
 				CursorVisible: false,
 			},
 			expectedOutput: "[black:green]Hello World     \n[black:green]Second Line     ",
 		},
 		{
 			name: "Display with Cursor",
-			displayStatus: lcd.DisplayStatus{
+			displayStatus: components.DisplayStatus{
 				DisplayOn:      true,
 				Is2LineDisplay: true,
 				DDRAM: func() []uint8 {
@@ -293,7 +293,7 @@ func TestLcd16x2Window_Draw(t *testing.T) {
 				Line1Start: 0,
 				Line2Start: 40,
 			},
-			cursorStatus: lcd.CursorStatus{
+			cursorStatus: components.CursorStatus{
 				CursorVisible:      true,
 				CursorPosition:     5,
 				BlinkStatusShowing: false,

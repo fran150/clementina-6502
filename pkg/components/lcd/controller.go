@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 )
 
@@ -37,7 +38,7 @@ const SPACE_CHAR uint8 = 0x20
 // under the control of a 4- or 8-bit microprocessor. Since all the functions such as display RAM, character
 // generator, and liquid crystal driver, required for driving a dot-matrix liquid crystal display are internally
 // provided on one chip, a minimal system can be interfaced with this controller/driver.
-type LcdHD44780U struct {
+type lcdHD44780U struct {
 	dataRegisterSelected *buses.ConnectorEnabledHigh // 0: Instruction Register / 1: Data Register
 	write                *buses.ConnectorEnabledLow  // R/W flag
 	enable               *buses.ConnectorEnabledHigh // Chip enable
@@ -71,29 +72,13 @@ type LcdHD44780U struct {
 	instructions [8]func(int64) // Handlers for the different instructions that can be specified to the chip
 }
 
-// Returns the data needed to display the cursor on the LCD
-type CursorStatus struct {
-	CursorVisible      bool
-	CursorPosition     uint8 // Position of the cursor in the DDRAM
-	BlinkStatusShowing bool
-}
-
-// DisplayStatus contains information about the current state of the LCD display.
-// It includes configuration settings and display parameters.
-type DisplayStatus struct {
-	DisplayOn      bool
-	Is2LineDisplay bool
-	Is5x10Font     bool
-	Line1Start     uint8
-	Line2Start     uint8
-	Is8BitMode     bool
-	CGRAM          []uint8
-	DDRAM          []uint8
+func NewLCDControllerChip() components.LCDControllerChip {
+	return newLCDController()
 }
 
 // Creates the LCD controller chip
-func NewLCDController() *LcdHD44780U {
-	lcd := LcdHD44780U{
+func newLCDController() *lcdHD44780U {
+	lcd := lcdHD44780U{
 		dataRegisterSelected: buses.NewConnectorEnabledHigh(),
 		write:                buses.NewConnectorEnabledLow(),
 		enable:               buses.NewConnectorEnabledHigh(),
@@ -136,7 +121,7 @@ func NewLCDController() *LcdHD44780U {
 * Public Methods
 *************************************************************************************/
 
-func (ctrl *LcdHD44780U) Enable() *buses.ConnectorEnabledHigh {
+func (ctrl *lcdHD44780U) Enable() *buses.ConnectorEnabledHigh {
 	return ctrl.enable
 }
 
@@ -146,7 +131,7 @@ func (ctrl *LcdHD44780U) Enable() *buses.ConnectorEnabledHigh {
 //
 // Returns:
 //   - The Read/Write control line connector
-func (ctrl *LcdHD44780U) ReadWrite() *buses.ConnectorEnabledLow {
+func (ctrl *lcdHD44780U) ReadWrite() *buses.ConnectorEnabledLow {
 	return ctrl.write
 }
 
@@ -156,7 +141,7 @@ func (ctrl *LcdHD44780U) ReadWrite() *buses.ConnectorEnabledLow {
 //
 // Returns:
 //   - The Register Select control line connector
-func (ctrl *LcdHD44780U) RegisterSelect() *buses.ConnectorEnabledHigh {
+func (ctrl *lcdHD44780U) RegisterSelect() *buses.ConnectorEnabledHigh {
 	return ctrl.dataRegisterSelected
 }
 
@@ -165,12 +150,12 @@ func (ctrl *LcdHD44780U) RegisterSelect() *buses.ConnectorEnabledHigh {
 //
 // Returns:
 //   - The 8-bit data bus connector
-func (ctrl *LcdHD44780U) DataBus() *buses.BusConnector[uint8] {
+func (ctrl *lcdHD44780U) DataBus() *buses.BusConnector[uint8] {
 	return ctrl.dataBus
 }
 
 // Executes one emulation step
-func (ctrl *LcdHD44780U) Tick(context *common.StepContext) {
+func (ctrl *lcdHD44780U) Tick(context *common.StepContext) {
 	// Checks the status of the busy flag and the status of the blinking cursor
 	ctrl.checkBusy(context)
 	ctrl.cursorBlink(context)
@@ -227,8 +212,8 @@ func (ctrl *LcdHD44780U) Tick(context *common.StepContext) {
 //
 // Returns:
 //   - A CursorStatus struct containing cursor information
-func (ctrl *LcdHD44780U) GetCursorStatus() CursorStatus {
-	return CursorStatus{
+func (ctrl *lcdHD44780U) GetCursorStatus() components.CursorStatus {
+	return components.CursorStatus{
 		CursorVisible:      ctrl.displayCursor,
 		CursorPosition:     ctrl.addressCounter.getDDRAMIndex(ctrl.addressCounter.value),
 		BlinkStatusShowing: ctrl.blinkingVisible,
@@ -240,8 +225,8 @@ func (ctrl *LcdHD44780U) GetCursorStatus() CursorStatus {
 //
 // Returns:
 //   - A DisplayStatus struct containing display information
-func (ctrl *LcdHD44780U) GetDisplayStatus() DisplayStatus {
-	return DisplayStatus{
+func (ctrl *lcdHD44780U) GetDisplayStatus() components.DisplayStatus {
+	return components.DisplayStatus{
 		DisplayOn:      ctrl.displayOn,
 		Is2LineDisplay: ctrl.addressCounter.is2LineDisplay,
 		Is5x10Font:     ctrl.is5x10Font,
@@ -259,14 +244,14 @@ func (ctrl *LcdHD44780U) GetDisplayStatus() DisplayStatus {
 
 // Puts the chip in "busy" state for the specified duration. While in busy state the chip will not
 // respond to instructions or read / write requests
-func (ctrl *LcdHD44780U) setBusy(duration int64, busyStart int64) {
+func (ctrl *lcdHD44780U) setBusy(duration int64, busyStart int64) {
 	ctrl.isBusy = true
 	ctrl.busyStart = busyStart
 	ctrl.busyDuration = duration
 }
 
 // Checks if the busy period completed and if so, lowers the "busy" flag
-func (ctrl *LcdHD44780U) checkBusy(context *common.StepContext) {
+func (ctrl *lcdHD44780U) checkBusy(context *common.StepContext) {
 	if ctrl.isBusy {
 		elapsed := (context.T - ctrl.blinkingStart) / int64(time.Microsecond)
 
@@ -278,7 +263,7 @@ func (ctrl *LcdHD44780U) checkBusy(context *common.StepContext) {
 
 // Used to make the cursor blink, it changes the "blinkingVisible" value based on the
 // configured blinking period
-func (ctrl *LcdHD44780U) cursorBlink(context *common.StepContext) {
+func (ctrl *lcdHD44780U) cursorBlink(context *common.StepContext) {
 	if ctrl.characterBlink {
 		if ctrl.blinkingStart == 0 {
 			ctrl.blinkingStart = context.T
@@ -297,7 +282,7 @@ func (ctrl *LcdHD44780U) cursorBlink(context *common.StepContext) {
 }
 
 // Processes the specified instruction
-func (ctrl *LcdHD44780U) processInstruction(context *common.StepContext) {
+func (ctrl *lcdHD44780U) processInstruction(context *common.StepContext) {
 	mask := addressForInstructionMask
 	i := 7
 
@@ -325,7 +310,7 @@ its original status if it was shifted. In other words, the display disappears an
 the left edge of the display (in the first line if 2 lines are displayed). It also sets I/D to 1 (increment mode)
 in entry mode. S of entry mode does not change.
 */
-func (ctrl *LcdHD44780U) clearDisplay(t int64) {
+func (ctrl *lcdHD44780U) clearDisplay(t int64) {
 	ctrl.setBusy(ctrl.timingConfig.clearDisplayMicro, t)
 
 	for i := range DDRAM_SIZE {
@@ -340,7 +325,7 @@ func (ctrl *LcdHD44780U) clearDisplay(t int64) {
 // Return home sets DDRAM address 0 into the address counter, and returns the display to its original status
 // if it was shifted. The DDRAM contents do not change.
 // The cursor or blinking go to the left edge of the display (in the first line if 2 lines are displayed).
-func (ctrl *LcdHD44780U) returnHome(t int64) {
+func (ctrl *lcdHD44780U) returnHome(t int64) {
 	ctrl.setBusy(ctrl.timingConfig.returnHomeMicro, t)
 
 	ctrl.addressCounter.value = 0x00
@@ -356,7 +341,7 @@ func (ctrl *LcdHD44780U) returnHome(t int64) {
 // not shift if S is 0.
 // If S is 1, it will seem as if the cursor does not move but the display does. The display does not shift when
 // reading from DDRAM. Also, writing into or reading out from CGRAM does not shift the display.
-func (ctrl *LcdHD44780U) entryModeSet(t int64) {
+func (ctrl *lcdHD44780U) entryModeSet(t int64) {
 	ctrl.setBusy(ctrl.timingConfig.instructionMicro, t)
 
 	// I/D = 1: Increment, 0: Decrement
@@ -370,7 +355,7 @@ func (ctrl *LcdHD44780U) entryModeSet(t int64) {
 // C: The cursor is displayed when C is 1 and not displayed when C is 0. Even if the cursor disappears, the
 // function of I/D or other specifications will not change during display data write.
 // B: The character indicated by the cursor blinks when B is 1
-func (ctrl *LcdHD44780U) displayOnOff(t int64) {
+func (ctrl *lcdHD44780U) displayOnOff(t int64) {
 	ctrl.setBusy(ctrl.timingConfig.instructionMicro, t)
 
 	// D = 1: Display On, 0: Display off
@@ -388,7 +373,7 @@ func (ctrl *LcdHD44780U) displayOnOff(t int64) {
 // When the displayed data is shifted repeatedly each line moves only horizontally. The second line display
 // does not shift into the first line position.
 // The address counter (AC) contents will not change if the only action performed is a display shift.
-func (ctrl *LcdHD44780U) cursorDisplayShift(t int64) {
+func (ctrl *lcdHD44780U) cursorDisplayShift(t int64) {
 	ctrl.setBusy(ctrl.timingConfig.instructionMicro, t)
 
 	displayShift := checkBit(ctrl.instructionRegister, instructionBitSC)
@@ -417,7 +402,7 @@ func (ctrl *LcdHD44780U) cursorDisplayShift(t int64) {
 // Note: Perform the function at the head of the program before executing any instructions (except for the
 // read busy flag and address instruction). From this point, the function set instruction cannot be
 // executed unless the interface data length is changed.
-func (ctrl *LcdHD44780U) functionSet(t int64) {
+func (ctrl *lcdHD44780U) functionSet(t int64) {
 	ctrl.setBusy(ctrl.timingConfig.instructionMicro, t)
 
 	ctrl.buffer.is8BitMode = checkBit(ctrl.instructionRegister, instructionBitDL)
@@ -426,14 +411,14 @@ func (ctrl *LcdHD44780U) functionSet(t int64) {
 }
 
 // Sets the CGRAM address based on the value in the instruction register
-func (ctrl *LcdHD44780U) setCGRAMAddress(t int64) {
+func (ctrl *lcdHD44780U) setCGRAMAddress(t int64) {
 	ctrl.setBusy(ctrl.timingConfig.instructionMicro, t)
 
 	ctrl.addressCounter.setCGRAMAddress()
 }
 
 // Sets the DDRAM address based on the value in the instruction register
-func (ctrl *LcdHD44780U) setDDRAMAddress(t int64) {
+func (ctrl *lcdHD44780U) setDDRAMAddress(t int64) {
 	ctrl.setBusy(ctrl.timingConfig.instructionMicro, t)
 
 	ctrl.addressCounter.setDDRAMAddress()

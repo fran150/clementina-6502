@@ -5,7 +5,7 @@ import (
 )
 
 func TestNewLCDAddressCounter(t *testing.T) {
-	lcd := &LcdHD44780U{}
+	lcd := &lcdHD44780U{}
 	ac := newLCDAddressCounter(lcd)
 
 	if ac.toCGRAM != false {
@@ -58,7 +58,7 @@ func TestIsAddressInSecondLine(t *testing.T) {
 }
 
 func TestMoveRight(t *testing.T) {
-	lcd := &LcdHD44780U{}
+	lcd := &lcdHD44780U{}
 	ac := newLCDAddressCounter(lcd)
 
 	// Test moving right in 1-line mode
@@ -85,7 +85,7 @@ func TestMoveRight(t *testing.T) {
 }
 
 func TestMoveLeft(t *testing.T) {
-	lcd := &LcdHD44780U{}
+	lcd := &lcdHD44780U{}
 	ac := newLCDAddressCounter(lcd)
 
 	// Test moving left from position 1
@@ -104,7 +104,7 @@ func TestMoveLeft(t *testing.T) {
 }
 
 func TestAddressCounterSetCGRAMAddress(t *testing.T) {
-	lcd := &LcdHD44780U{}
+	lcd := &lcdHD44780U{}
 	ac := newLCDAddressCounter(lcd)
 
 	lcd.instructionRegister = CGRAM_MIN_ADDR
@@ -119,7 +119,7 @@ func TestAddressCounterSetCGRAMAddress(t *testing.T) {
 }
 
 func TestSetDDRAMAddress(t *testing.T) {
-	lcd := &LcdHD44780U{}
+	lcd := &lcdHD44780U{}
 	ac := newLCDAddressCounter(lcd)
 
 	lcd.instructionRegister = DDRAM_MIN_ADDR
@@ -134,7 +134,7 @@ func TestSetDDRAMAddress(t *testing.T) {
 }
 
 func TestShiftOperations(t *testing.T) {
-	lcd := &LcdHD44780U{}
+	lcd := &lcdHD44780U{}
 	ac := newLCDAddressCounter(lcd)
 
 	initialShift := ac.line1Shift
@@ -152,7 +152,7 @@ func TestShiftOperations(t *testing.T) {
 }
 
 func TestReadWrite(t *testing.T) {
-	lcd := &LcdHD44780U{}
+	lcd := &lcdHD44780U{}
 	ac := newLCDAddressCounter(lcd)
 
 	// Test write with valid address

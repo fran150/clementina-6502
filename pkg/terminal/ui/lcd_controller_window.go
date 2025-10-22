@@ -6,7 +6,6 @@ import (
 
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components"
-	"github.com/fran150/clementina-6502/pkg/components/lcd"
 	"github.com/rivo/tview"
 )
 
@@ -75,7 +74,7 @@ func (d *LcdControllerWindow) Draw(context *common.StepContext) {
 	fmt.Fprintf(d.text, "└─ Reg Select:      [green]%v[white]\n", d.lcd.RegisterSelect().Enabled())
 }
 
-func drawLcdDDRAM(writer io.Writer, displayStatus lcd.DisplayStatus) {
+func drawLcdDDRAM(writer io.Writer, displayStatus components.DisplayStatus) {
 	const itemsPerLine = 8
 
 	// Draw top border with header

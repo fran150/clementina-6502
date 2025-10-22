@@ -15,8 +15,8 @@ type testCircuit struct {
 	readWrite      *buses.StandaloneLine
 }
 
-func newTestCircuitCorrectTiming() (*LcdHD44780U, *testCircuit) {
-	lcd := NewLCDController()
+func newTestCircuitCorrectTiming() (*lcdHD44780U, *testCircuit) {
+	lcd := newLCDController()
 
 	circuit := testCircuit{
 		bus:            buses.New8BitStandaloneBus(),
@@ -33,7 +33,7 @@ func newTestCircuitCorrectTiming() (*LcdHD44780U, *testCircuit) {
 	return lcd, &circuit
 }
 
-func newTestCircuit() (*LcdHD44780U, *testCircuit) {
+func newTestCircuit() (*lcdHD44780U, *testCircuit) {
 	lcd, circuit := newTestCircuitCorrectTiming()
 
 	lcd.timingConfig.clearDisplayMicro = 0
@@ -47,7 +47,7 @@ func newTestCircuit() (*LcdHD44780U, *testCircuit) {
 * Test utilities
 ****************************************************************************************************************/
 
-func readInstruction(lcd *LcdHD44780U, circuit *testCircuit, context *common.StepContext) uint8 {
+func readInstruction(lcd *lcdHD44780U, circuit *testCircuit, context *common.StepContext) uint8 {
 	circuit.registerSelect.Set(false)
 	circuit.enable.Set(true)
 	circuit.readWrite.Set(true)
@@ -65,7 +65,7 @@ func readInstruction(lcd *LcdHD44780U, circuit *testCircuit, context *common.Ste
 	return value
 }
 
-func sendInstruction(lcd *LcdHD44780U, circuit *testCircuit, instruction uint8, context *common.StepContext) {
+func sendInstruction(lcd *lcdHD44780U, circuit *testCircuit, instruction uint8, context *common.StepContext) {
 	circuit.registerSelect.Set(false)
 	circuit.enable.Set(true)
 	circuit.bus.Write(instruction)
@@ -81,7 +81,7 @@ func sendInstruction(lcd *LcdHD44780U, circuit *testCircuit, instruction uint8, 
 	lcd.Tick(context)
 }
 
-func writeValue(lcd *LcdHD44780U, circuit *testCircuit, value uint8, context *common.StepContext) {
+func writeValue(lcd *lcdHD44780U, circuit *testCircuit, value uint8, context *common.StepContext) {
 	circuit.registerSelect.Set(true)
 	circuit.enable.Set(true)
 	circuit.bus.Write(value)
@@ -97,7 +97,7 @@ func writeValue(lcd *LcdHD44780U, circuit *testCircuit, value uint8, context *co
 	lcd.Tick(context)
 }
 
-func readValue(lcd *LcdHD44780U, circuit *testCircuit, context *common.StepContext) uint8 {
+func readValue(lcd *lcdHD44780U, circuit *testCircuit, context *common.StepContext) uint8 {
 	circuit.registerSelect.Set(true)
 	circuit.enable.Set(true)
 	circuit.readWrite.Set(true)
@@ -115,13 +115,13 @@ func readValue(lcd *LcdHD44780U, circuit *testCircuit, context *common.StepConte
 
 type instructionValidator[T bool | uint8] struct {
 	t       *testing.T
-	lcd     *LcdHD44780U
+	lcd     *lcdHD44780U
 	circuit *testCircuit
 	fields  []*T
 	context *common.StepContext
 }
 
-func newInstructionValidator[T bool | uint8](t *testing.T, lcd *LcdHD44780U, circuit *testCircuit, fields ...*T) *instructionValidator[T] {
+func newInstructionValidator[T bool | uint8](t *testing.T, lcd *lcdHD44780U, circuit *testCircuit, fields ...*T) *instructionValidator[T] {
 	context := common.NewStepContext()
 
 	return &instructionValidator[T]{

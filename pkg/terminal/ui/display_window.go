@@ -6,7 +6,6 @@ import (
 
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components"
-	"github.com/fran150/clementina-6502/pkg/components/lcd"
 	"github.com/rivo/tview"
 )
 
@@ -82,7 +81,7 @@ func drawLcdLineOff(writer io.Writer) {
 	}
 }
 
-func drawLcdLine(writer io.Writer, lineStart uint8, displayStatus lcd.DisplayStatus, cursorStatus lcd.CursorStatus, min uint8, max uint8) {
+func drawLcdLine(writer io.Writer, lineStart uint8, displayStatus components.DisplayStatus, cursorStatus components.CursorStatus, min uint8, max uint8) {
 	var count uint8 = 0
 	index := lineStart
 

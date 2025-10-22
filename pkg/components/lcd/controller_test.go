@@ -3,6 +3,7 @@ package lcd
 import (
 	"testing"
 
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/stretchr/testify/assert"
 )
@@ -10,7 +11,7 @@ import (
 func TestLcdHD44780U_Enable(t *testing.T) {
 	// Arrange
 	enableConnector := &buses.ConnectorEnabledHigh{}
-	ctrl := &LcdHD44780U{
+	ctrl := &lcdHD44780U{
 		enable: enableConnector,
 	}
 
@@ -24,7 +25,7 @@ func TestLcdHD44780U_Enable(t *testing.T) {
 func TestLcdHD44780U_ReadWrite(t *testing.T) {
 	// Arrange
 	writeConnector := &buses.ConnectorEnabledLow{}
-	ctrl := &LcdHD44780U{
+	ctrl := &lcdHD44780U{
 		write: writeConnector,
 	}
 
@@ -38,7 +39,7 @@ func TestLcdHD44780U_ReadWrite(t *testing.T) {
 func TestLcdHD44780U_RegisterSelect(t *testing.T) {
 	// Arrange
 	registerSelector := &buses.ConnectorEnabledHigh{}
-	ctrl := &LcdHD44780U{
+	ctrl := &lcdHD44780U{
 		dataRegisterSelected: registerSelector,
 	}
 
@@ -52,7 +53,7 @@ func TestLcdHD44780U_RegisterSelect(t *testing.T) {
 func TestLcdHD44780U_DataBus(t *testing.T) {
 	// Arrange
 	dataBusConnector := &buses.BusConnector[uint8]{}
-	ctrl := &LcdHD44780U{
+	ctrl := &lcdHD44780U{
 		dataBus: dataBusConnector,
 	}
 
@@ -70,7 +71,7 @@ func TestLcdHD44780U_GetCursorStatus(t *testing.T) {
 		addressValue       uint8
 		blinkingVisible    bool
 		expectedDDRAMIndex uint8
-		want               CursorStatus
+		want               components.CursorStatus
 	}{
 		{
 			name:               "Cursor visible and blinking",
@@ -78,7 +79,7 @@ func TestLcdHD44780U_GetCursorStatus(t *testing.T) {
 			addressValue:       0x00,
 			blinkingVisible:    true,
 			expectedDDRAMIndex: 0x00,
-			want: CursorStatus{
+			want: components.CursorStatus{
 				CursorVisible:      true,
 				CursorPosition:     0x00,
 				BlinkStatusShowing: true,
@@ -90,7 +91,7 @@ func TestLcdHD44780U_GetCursorStatus(t *testing.T) {
 			addressValue:       0x40,
 			blinkingVisible:    false,
 			expectedDDRAMIndex: 0x40,
-			want: CursorStatus{
+			want: components.CursorStatus{
 				CursorVisible:      false,
 				CursorPosition:     0x40,
 				BlinkStatusShowing: false,
@@ -101,7 +102,7 @@ func TestLcdHD44780U_GetCursorStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Arrange
-			ctrl := &LcdHD44780U{}
+			ctrl := &lcdHD44780U{}
 			addressCounter := newLCDAddressCounter(ctrl)
 			addressCounter.value = tt.addressValue
 
@@ -129,7 +130,7 @@ func TestLcdHD44780U_GetDisplayStatus(t *testing.T) {
 		is8BitMode     bool
 		cgram          [64]uint8
 		ddram          [80]uint8
-		want           DisplayStatus
+		want           components.DisplayStatus
 	}{
 		{
 			name:           "Display on, 2-line, 5x8 font",
@@ -141,7 +142,7 @@ func TestLcdHD44780U_GetDisplayStatus(t *testing.T) {
 			is8BitMode:     true,
 			cgram:          [64]uint8{},
 			ddram:          [80]uint8{},
-			want: DisplayStatus{
+			want: components.DisplayStatus{
 				DisplayOn:      true,
 				Is2LineDisplay: true,
 				Is5x10Font:     false,
@@ -162,7 +163,7 @@ func TestLcdHD44780U_GetDisplayStatus(t *testing.T) {
 			is8BitMode:     false,
 			cgram:          [64]uint8{},
 			ddram:          [80]uint8{},
-			want: DisplayStatus{
+			want: components.DisplayStatus{
 				DisplayOn:      false,
 				Is2LineDisplay: false,
 				Is5x10Font:     true,
@@ -178,7 +179,7 @@ func TestLcdHD44780U_GetDisplayStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Arrange
-			ctrl := &LcdHD44780U{
+			ctrl := &lcdHD44780U{
 				displayOn:  tt.displayOn,
 				is5x10Font: tt.is5x10Font,
 				cgram:      tt.cgram,
