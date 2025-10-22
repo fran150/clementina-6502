@@ -13,11 +13,11 @@ type AciaWindow struct {
 	// text is the TextView component used to display ACIA information
 	text *tview.TextView
 	// acia is the reference to the ACIA chip being monitored
-	acia components.Acia6522Chip
+	acia components.Acia6551Chip
 }
 
 // NewAciaWindow creates and initializes a new ACIA window with the provided ACIA chip
-func NewAciaWindow(acia components.Acia6522Chip) *AciaWindow {
+func NewAciaWindow(acia components.Acia6551Chip) *AciaWindow {
 	text := tview.NewTextView()
 	text.SetScrollable(false).
 		SetDynamicColors(true).

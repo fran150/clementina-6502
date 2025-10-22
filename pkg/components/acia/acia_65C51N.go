@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"go.bug.st/serial"
 )
@@ -119,8 +120,12 @@ type Acia65C51N struct {
 	emulateModemLines bool
 }
 
+func NewAcia6551Chip(emulateModemLines bool) components.Acia6551Chip {
+	return newAcia65C51N(emulateModemLines)
+}
+
 // Creates an ACIA chip in default initialization state
-func NewAcia65C51N(emulateModemLines bool) *Acia65C51N {
+func newAcia65C51N(emulateModemLines bool) *Acia65C51N {
 	acia := &Acia65C51N{
 		dataBus:     buses.NewBusConnector[uint8](),
 		irqRequest:  buses.NewConnectorEnabledLow(),

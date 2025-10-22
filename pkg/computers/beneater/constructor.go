@@ -27,7 +27,7 @@ func NewBenEaterComputer(config *BenEaterComputerConfig) (*BenEaterComputer, err
 		rom:  memory.NewRam(memory.RAM_SIZE_32K),
 		via:  via.NewVia65C22(),
 		lcd:  lcd.NewLCDController(),
-		acia: acia.NewAcia65C51N(config.EmulateModemLines),
+		acia: acia.NewAcia6551Chip(config.EmulateModemLines),
 		nand: gates.New74HC00(),
 	}
 

@@ -17,7 +17,7 @@ type chips struct {
 	rom  components.MemoryChip
 	via  components.ViaChip
 	lcd  components.LCDControllerChip
-	acia components.Acia6522Chip
+	acia components.Acia6551Chip
 	nand components.NANDGatesChip
 }
 

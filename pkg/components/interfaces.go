@@ -8,9 +8,9 @@ import (
 	"go.bug.st/serial"
 )
 
-// Acia6522Chip defines the interface for the 65C51N Asynchronous Communications Interface Adapter.
+// Acia6551Chip defines the interface for the 65C51N Asynchronous Communications Interface Adapter.
 // This chip provides serial communication capabilities to the 6502 computer system.
-type Acia6522Chip interface {
+type Acia6551Chip interface {
 	// Pin connections
 	DataBus() *buses.BusConnector[uint8]
 	IrqRequest() *buses.ConnectorEnabledLow
