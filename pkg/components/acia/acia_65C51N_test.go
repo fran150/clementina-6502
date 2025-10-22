@@ -26,7 +26,7 @@ type testCircuit struct {
 
 // Creates and returns the test circuit including the ACIA chip
 // the circuit and a mock serial port implementation to interface with.
-func newTestCircuit() (*Acia65C51N, *testCircuit, *testutils.SerialPortMock) {
+func newTestCircuit() (*acia65C51N, *testCircuit, *testutils.SerialPortMock) {
 	var rsLines [numOfRSLines]buses.Line
 
 	for i := range numOfRSLines {
@@ -56,7 +56,7 @@ func newTestCircuit() (*Acia65C51N, *testCircuit, *testutils.SerialPortMock) {
 
 // Wire all components together in the circuit board. It allows to change
 // the input value and assert the output lines.
-func (circuit *testCircuit) wire(acia *Acia65C51N, mock *testutils.SerialPortMock) error {
+func (circuit *testCircuit) wire(acia *acia65C51N, mock *testutils.SerialPortMock) error {
 	if err := acia.ConnectToPort(mock); err != nil {
 		return err
 	}
@@ -144,7 +144,7 @@ func (circuit *testCircuit) setRegisterSelectValue(value uint8) {
 }
 
 // Writes the specified value to the selected register in the ACIA chip.
-func writeToAcia(acia *Acia65C51N, circuit *testCircuit, register uint8, value uint8, step *common.StepContext) {
+func writeToAcia(acia *acia65C51N, circuit *testCircuit, register uint8, value uint8, step *common.StepContext) {
 	circuit.setRegisterSelectValue(register)
 	circuit.rw.Set(false)
 	circuit.dataBus.Write(value)
@@ -155,7 +155,7 @@ func writeToAcia(acia *Acia65C51N, circuit *testCircuit, register uint8, value u
 }
 
 // Reads and returns the value from the specified register in the ACIA chip.
-func readFromAcia(acia *Acia65C51N, circuit *testCircuit, register uint8, step *common.StepContext) uint8 {
+func readFromAcia(acia *acia65C51N, circuit *testCircuit, register uint8, step *common.StepContext) uint8 {
 	circuit.setRegisterSelectValue(register)
 	circuit.rw.Set(true)
 
@@ -167,7 +167,7 @@ func readFromAcia(acia *Acia65C51N, circuit *testCircuit, register uint8, step *
 }
 
 // Disables chip and steps time
-func disableChipAndStepTime(acia *Acia65C51N, circuit *testCircuit, step *common.StepContext) {
+func disableChipAndStepTime(acia *acia65C51N, circuit *testCircuit, step *common.StepContext) {
 	circuit.cs0.Set(false)
 	circuit.cs1.Set(true)
 
@@ -184,7 +184,7 @@ func enableChip(circuit *testCircuit) {
 
 // Tests that the modem lines updates the status registers accordingly and the
 // IRQ behaviour of these lines. This function is used to perform the same batch of tests on the DCD and DSR lines
-func testModemStatusLine(t *testing.T, acia *Acia65C51N, circuit *testCircuit, modemLine *bool, flag uint8, step *common.StepContext) {
+func testModemStatusLine(t *testing.T, acia *acia65C51N, circuit *testCircuit, modemLine *bool, flag uint8, step *common.StepContext) {
 	// Modem enables line, this should trigger an interrupt
 	*modemLine = true
 	disableChipAndStepTime(acia, circuit, step)
@@ -1006,55 +1006,55 @@ func TestConnectToPortSkipsModemLinesWhenDisabled(t *testing.T) {
 func TestAcia65C51N_GetRegisters(t *testing.T) {
 	tests := []struct {
 		name     string
-		setup    func(*Acia65C51N)
+		setup    func(*acia65C51N)
 		want     uint8
-		testFunc func(*Acia65C51N) uint8
+		testFunc func(*acia65C51N) uint8
 	}{
 		{
 			name: "Get Status Register",
-			setup: func(a *Acia65C51N) {
+			setup: func(a *acia65C51N) {
 				a.statusRegister = 0x55
 			},
 			want:     0x55,
-			testFunc: (*Acia65C51N).GetStatusRegister,
+			testFunc: (*acia65C51N).GetStatusRegister,
 		},
 		{
 			name: "Get Control Register",
-			setup: func(a *Acia65C51N) {
+			setup: func(a *acia65C51N) {
 				a.controlRegister = 0xAA
 			},
 			want:     0xAA,
-			testFunc: (*Acia65C51N).GetControlRegister,
+			testFunc: (*acia65C51N).GetControlRegister,
 		},
 		{
 			name: "Get Command Register",
-			setup: func(a *Acia65C51N) {
+			setup: func(a *acia65C51N) {
 				a.commandRegister = 0x33
 			},
 			want:     0x33,
-			testFunc: (*Acia65C51N).GetCommandRegister,
+			testFunc: (*acia65C51N).GetCommandRegister,
 		},
 		{
 			name: "Get TX Register",
-			setup: func(a *Acia65C51N) {
+			setup: func(a *acia65C51N) {
 				a.txRegister = 0xFF
 			},
 			want:     0xFF,
-			testFunc: (*Acia65C51N).GetTXRegister,
+			testFunc: (*acia65C51N).GetTXRegister,
 		},
 		{
 			name: "Get RX Register",
-			setup: func(a *Acia65C51N) {
+			setup: func(a *acia65C51N) {
 				a.rxRegister = 0x12
 			},
 			want:     0x12,
-			testFunc: (*Acia65C51N).GetRXRegister,
+			testFunc: (*acia65C51N).GetRXRegister,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			acia := &Acia65C51N{}
+			acia := &acia65C51N{}
 			tt.setup(acia)
 			if got := tt.testFunc(acia); got != tt.want {
 				t.Errorf("%s = %v, want %v", tt.name, got, tt.want)
@@ -1066,47 +1066,47 @@ func TestAcia65C51N_GetRegisters(t *testing.T) {
 func TestAcia65C51N_GetRegisterStates(t *testing.T) {
 	tests := []struct {
 		name     string
-		setup    func(*Acia65C51N)
+		setup    func(*acia65C51N)
 		want     bool
-		testFunc func(*Acia65C51N) bool
+		testFunc func(*acia65C51N) bool
 	}{
 		{
 			name: "Get TX Register Empty - True",
-			setup: func(a *Acia65C51N) {
+			setup: func(a *acia65C51N) {
 				a.txRegisterEmpty = true
 			},
 			want:     true,
-			testFunc: (*Acia65C51N).IsTXRegisterEmpty,
+			testFunc: (*acia65C51N).IsTXRegisterEmpty,
 		},
 		{
 			name: "Get TX Register Empty - False",
-			setup: func(a *Acia65C51N) {
+			setup: func(a *acia65C51N) {
 				a.txRegisterEmpty = false
 			},
 			want:     false,
-			testFunc: (*Acia65C51N).IsTXRegisterEmpty,
+			testFunc: (*acia65C51N).IsTXRegisterEmpty,
 		},
 		{
 			name: "Get RX Register Empty - True",
-			setup: func(a *Acia65C51N) {
+			setup: func(a *acia65C51N) {
 				a.rxRegisterEmpty = true
 			},
 			want:     true,
-			testFunc: (*Acia65C51N).IsRXRegisterEmpty,
+			testFunc: (*acia65C51N).IsRXRegisterEmpty,
 		},
 		{
 			name: "Get RX Register Empty - False",
-			setup: func(a *Acia65C51N) {
+			setup: func(a *acia65C51N) {
 				a.rxRegisterEmpty = false
 			},
 			want:     false,
-			testFunc: (*Acia65C51N).IsRXRegisterEmpty,
+			testFunc: (*acia65C51N).IsRXRegisterEmpty,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			acia := &Acia65C51N{}
+			acia := &acia65C51N{}
 			tt.setup(acia)
 			if got := tt.testFunc(acia); got != tt.want {
 				t.Errorf("%s = %v, want %v", tt.name, got, tt.want)
@@ -1140,7 +1140,7 @@ func TestAcia65C51N_RegisterSelect(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			acia := &Acia65C51N{
+			acia := &acia65C51N{
 				registerSelect: [numOfRSLines]*buses.ConnectorEnabledHigh{
 					buses.NewConnectorEnabledHigh(),
 					buses.NewConnectorEnabledHigh(),

@@ -2,7 +2,7 @@ package acia
 
 // Sets the value in the data bus into the tx register. This will be picked
 // up by the pollers and sent through the serial port.
-func writeTransmitData(acia *Acia65C51N) {
+func writeTransmitData(acia *acia65C51N) {
 	acia.txMutex.Lock()
 	defer acia.txMutex.Unlock()
 
@@ -11,13 +11,13 @@ func writeTransmitData(acia *Acia65C51N) {
 }
 
 // Writing any value to the status register causes a soft reset
-func programmedReset(acia *Acia65C51N) {
+func programmedReset(acia *acia65C51N) {
 	acia.statusRegister &= softResetStatusRegMask
 	acia.commandRegister &= softResetCommandRegMask
 }
 
 // Sets the value in the data bus into the command register
-func writeCommand(acia *Acia65C51N) {
+func writeCommand(acia *acia65C51N) {
 	acia.commandRegister = acia.dataBus.Read()
 
 	if !isBitSet(acia.commandRegister, commandTICRTSBit) && isBitSet(acia.commandRegister, commandTICTXBit) {
@@ -30,7 +30,7 @@ func writeCommand(acia *Acia65C51N) {
 }
 
 // Sets the value in the data bus into the control register
-func writeControl(acia *Acia65C51N) {
+func writeControl(acia *acia65C51N) {
 	acia.controlRegister = acia.dataBus.Read()
 
 	// If the chip is connected to serial port, updates the
@@ -46,7 +46,7 @@ func writeControl(acia *Acia65C51N) {
 
 // Sets the value of the RX register in the data bus.
 // Reading RX value also clears error flags in the status register
-func readReceiverData(acia *Acia65C51N) {
+func readReceiverData(acia *acia65C51N) {
 	acia.rxMutex.Lock()
 	defer acia.rxMutex.Unlock()
 
@@ -57,17 +57,17 @@ func readReceiverData(acia *Acia65C51N) {
 
 // Sets the value of the status register in the data bus
 // Reading the status register resets the IRQ flag
-func readStatus(acia *Acia65C51N) {
+func readStatus(acia *acia65C51N) {
 	acia.dataBus.Write(acia.statusRegister)
 	acia.statusRegister &= ^statusIRQ
 }
 
 // Sets the value of the command register in the data bus
-func readCommand(acia *Acia65C51N) {
+func readCommand(acia *acia65C51N) {
 	acia.dataBus.Write(acia.commandRegister)
 }
 
 // Sets the value of the control register in the data bus
-func readControl(acia *Acia65C51N) {
+func readControl(acia *acia65C51N) {
 	acia.dataBus.Write(acia.controlRegister)
 }

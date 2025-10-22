@@ -7,7 +7,7 @@ package acia
 // - The transmit register is not empty
 // - CTS (Clear To Send) is enabled (if CTS control is being used)
 // The goroutine runs until acia.running is set to false.
-func (acia *Acia65C51N) writeBytes() {
+func (acia *acia65C51N) writeBytes() {
 	defer acia.wg.Done()
 
 	for acia.running {
@@ -35,7 +35,7 @@ func (acia *Acia65C51N) writeBytes() {
 // The function uses mutexes to ensure thread-safe access to shared registers:
 // - rxMutex for protecting the receive register and status
 // - txMutex for protecting the transmit register when in echo mode
-func (acia *Acia65C51N) readBytes() {
+func (acia *acia65C51N) readBytes() {
 	defer acia.wg.Done()
 
 	buff := make([]byte, 1)
