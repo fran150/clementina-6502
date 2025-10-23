@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/fran150/clementina-6502/pkg/common"
-	"github.com/fran150/clementina-6502/pkg/core/interfaces"
+	"github.com/fran150/clementina-6502/pkg/core"
 	"github.com/rivo/tview"
 )
 
@@ -18,7 +18,7 @@ type BreakPointForm struct {
 	form *tview.Form
 	list *tview.List
 
-	breakpointManager interfaces.BreakpointManager
+	breakpointManager core.BreakpointManager
 }
 
 // NewBreakPointForm creates and initializes a new breakpoint management form.
@@ -29,7 +29,7 @@ type BreakPointForm struct {
 //
 // Returns:
 //   - A pointer to the initialized BreakPointForm
-func NewBreakPointForm(breakpointManager interfaces.BreakpointManager) *BreakPointForm {
+func NewBreakPointForm(breakpointManager core.BreakpointManager) *BreakPointForm {
 	breakPointForm := &BreakPointForm{
 		breakpointManager: breakpointManager,
 	}

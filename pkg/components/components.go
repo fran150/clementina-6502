@@ -3,7 +3,7 @@ package components
 import (
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
-	"github.com/fran150/clementina-6502/pkg/core/interfaces"
+	"github.com/fran150/clementina-6502/pkg/core"
 	"go.bug.st/serial"
 )
 
@@ -62,7 +62,7 @@ type RegisterSelectable interface {
 type BusComponent interface {
 	DataBusConnected
 	ReadWriteControlled
-	interfaces.Ticker
+	core.Ticker
 }
 
 // SerialPortConnectable defines components that can connect to serial ports
@@ -173,7 +173,7 @@ type Cpu65C02 interface {
 	DataBusConnected
 	ReadWriteControlled
 	Resettable
-	interfaces.Ticker
+	core.Ticker
 	PostTicker
 	CpuControlLines
 	CpuRegisters
@@ -211,7 +211,7 @@ type LCDStatus interface {
 type LCDController interface {
 	DataBusConnected
 	ReadWriteControlled
-	interfaces.Ticker
+	core.Ticker
 	LCDStatus
 
 	// LCD-specific control lines
@@ -240,7 +240,7 @@ type MemoryControlLines interface {
 type Memory interface {
 	AddressBusConnected
 	DataBusConnected
-	interfaces.Ticker
+	core.Ticker
 	MemoryAccess
 	MemoryControlLines
 
@@ -294,7 +294,7 @@ type Via65C22 interface {
 
 // Decoder74HC138 defines the interface for a 3-to-8 line decoder
 type Decoder74HC138 interface {
-	interfaces.Ticker
+	core.Ticker
 
 	APin(index int) buses.LineConnector
 	YPin() *buses.BusConnector[uint8]
@@ -305,7 +305,7 @@ type Decoder74HC138 interface {
 // It provides methods to access the A, B, and Y pins and to execute a tick.
 // It is used by various logic gate implementations like NAND, AND, etc.
 type QuadLogicGate interface {
-	interfaces.Ticker
+	core.Ticker
 
 	APin(index int) buses.LineConnector
 	BPin(index int) buses.LineConnector

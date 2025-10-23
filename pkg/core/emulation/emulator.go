@@ -2,17 +2,17 @@ package emulation
 
 import (
 	"github.com/fran150/clementina-6502/pkg/common"
-	"github.com/fran150/clementina-6502/pkg/core/interfaces"
+	"github.com/fran150/clementina-6502/pkg/core"
 )
 
 // DefaultEmulatorConfig holds the configuration for a DefaultEmulator instance.
 // It contains all the necessary components required to run the emulation.
 type DefaultEmulatorConfig struct {
-	Computer          interfaces.ComputerCore
-	Console           interfaces.EmulationConsole
-	Loop              interfaces.EmulationLoop
-	SpeedController   interfaces.SpeedController
-	BreakpointManager interfaces.BreakpointManager
+	Computer          core.ComputerCore
+	Console           core.EmulationConsole
+	Loop              core.EmulationLoop
+	SpeedController   core.SpeedController
+	BreakpointManager core.BreakpointManager
 }
 
 // DefaultEmulator is the main emulator implementation that orchestrates the execution
@@ -176,26 +176,26 @@ func (e *DefaultEmulator) Draw(context *common.StepContext) {
 *************************************************************************************/
 
 // GetComputer returns the computer core instance.
-func (e *DefaultEmulator) GetComputer() interfaces.ComputerCore {
+func (e *DefaultEmulator) GetComputer() core.ComputerCore {
 	return e.config.Computer
 }
 
 // GetConsole returns the emulation console instance.
-func (e *DefaultEmulator) GetConsole() interfaces.EmulationConsole {
+func (e *DefaultEmulator) GetConsole() core.EmulationConsole {
 	return e.config.Console
 }
 
 // GetLoop returns the emulation loop instance.
-func (e *DefaultEmulator) GetLoop() interfaces.EmulationLoop {
+func (e *DefaultEmulator) GetLoop() core.EmulationLoop {
 	return e.config.Loop
 }
 
 // GetSpeedController returns the speed controller instance.
-func (e *DefaultEmulator) GetSpeedController() interfaces.SpeedController {
+func (e *DefaultEmulator) GetSpeedController() core.SpeedController {
 	return e.config.SpeedController
 }
 
 // GetBreakpointManager returns the breakpoint manager instance.
-func (e *DefaultEmulator) GetBreakpointManager() interfaces.BreakpointManager {
+func (e *DefaultEmulator) GetBreakpointManager() core.BreakpointManager {
 	return e.config.BreakpointManager
 }

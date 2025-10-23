@@ -7,7 +7,7 @@ import (
 )
 
 func TestNewBreakpointManager(t *testing.T) {
-	bm := NewDefaultBreakpointManager()
+	bm := NewBreakpointManager()
 
 	assert.NotNil(t, bm)
 	assert.Equal(t, 0, bm.GetBreakpointCount())
@@ -15,7 +15,7 @@ func TestNewBreakpointManager(t *testing.T) {
 }
 
 func TestAddBreakpoint(t *testing.T) {
-	bm := NewDefaultBreakpointManager()
+	bm := NewBreakpointManager()
 
 	// Add first breakpoint
 	bm.AddBreakpoint(0x1234)
@@ -33,7 +33,7 @@ func TestAddBreakpoint(t *testing.T) {
 }
 
 func TestRemoveBreakpoint(t *testing.T) {
-	bm := NewDefaultBreakpointManager()
+	bm := NewBreakpointManager()
 
 	// Add some breakpoints
 	bm.AddBreakpoint(0x1234)
@@ -53,7 +53,7 @@ func TestRemoveBreakpoint(t *testing.T) {
 }
 
 func TestRemoveBreakpointByIndex(t *testing.T) {
-	bm := NewDefaultBreakpointManager()
+	bm := NewBreakpointManager()
 
 	// Add some breakpoints
 	bm.AddBreakpoint(0x1234)
@@ -73,7 +73,7 @@ func TestRemoveBreakpointByIndex(t *testing.T) {
 }
 
 func TestHasBreakpoint(t *testing.T) {
-	bm := NewDefaultBreakpointManager()
+	bm := NewBreakpointManager()
 
 	// Test with empty manager
 	assert.False(t, bm.HasBreakpoint(0x1234))
@@ -85,7 +85,7 @@ func TestHasBreakpoint(t *testing.T) {
 }
 
 func TestGetBreakpoints(t *testing.T) {
-	bm := NewDefaultBreakpointManager()
+	bm := NewBreakpointManager()
 
 	// Test empty
 	breakpoints := bm.GetBreakpoints()
@@ -107,7 +107,7 @@ func TestGetBreakpoints(t *testing.T) {
 }
 
 func TestClearAllBreakpoints(t *testing.T) {
-	bm := NewDefaultBreakpointManager()
+	bm := NewBreakpointManager()
 
 	// Add some breakpoints
 	bm.AddBreakpoint(0x1234)

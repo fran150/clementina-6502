@@ -8,7 +8,7 @@ import (
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/computers/beneater"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina"
-	"github.com/fran150/clementina-6502/pkg/core/interfaces"
+	"github.com/fran150/clementina-6502/pkg/core"
 	"github.com/spf13/cobra"
 	"go.bug.st/serial"
 )
@@ -50,7 +50,7 @@ type ComputerRunner interface {
 }
 
 func runEmulator(cmd *cobra.Command, args []string) {
-	var emulator interfaces.Emulator
+	var emulator core.Emulator
 
 	if model == beneaterModel {
 		var port serial.Port

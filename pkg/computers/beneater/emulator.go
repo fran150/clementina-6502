@@ -5,19 +5,19 @@ import (
 	"os"
 
 	"github.com/fran150/clementina-6502/pkg/computers"
+	"github.com/fran150/clementina-6502/pkg/core"
 	"github.com/fran150/clementina-6502/pkg/core/controllers"
 	"github.com/fran150/clementina-6502/pkg/core/emulation"
-	"github.com/fran150/clementina-6502/pkg/core/interfaces"
 	"github.com/fran150/clementina-6502/pkg/core/managers"
 	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/rivo/tview"
 )
 
-func NewBenEaterEmulator(computer *BenEaterComputer, speed float64, displayFPS int) (interfaces.Emulator, error) {
+func NewBenEaterEmulator(computer *BenEaterComputer, speed float64, displayFPS int) (core.Emulator, error) {
 	speedController := controllers.NewSpeedController(speed)
-	breakPointManager := managers.NewDefaultBreakpointManager()
+	breakPointManager := managers.NewBreakpointManager()
 	windowManager := terminal.NewDefaultWindowManager()
-	navigationManager := managers.NewDefaultNavigationManager()
+	navigationManager := managers.NewNavigationManager()
 
 	console := NewBenEaterEmulatorConsole(BenEaterEmulatorConsoleConfig{
 		BaseTerminalEmulatorConsoleConfig: computers.BaseTerminalEmulatorConsoleConfig{

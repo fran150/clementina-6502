@@ -2,22 +2,32 @@ package managers
 
 import (
 	"slices"
+
+	"github.com/fran150/clementina-6502/pkg/core"
 )
 
-// DefaultBreakpointManager manages breakpoints for debugging purposes.
+// defaultBreakpointManager manages breakpoints for debugging purposes.
 // It provides functionality to add, remove, and check breakpoints at specific addresses.
-type DefaultBreakpointManager struct {
+type defaultBreakpointManager struct {
 	breakpoints []uint16
 }
 
-// NewDefaultBreakpointManager creates a new breakpoint manager.
+// newBreakpointManager creates a new breakpoint manager.
 //
 // Returns:
-//   - A pointer to the initialized DefaultBreakpointManager
-func NewDefaultBreakpointManager() *DefaultBreakpointManager {
-	return &DefaultBreakpointManager{
+//   - A pointer to the initialized BreakpointManager
+func newBreakpointManager() *defaultBreakpointManager {
+	return &defaultBreakpointManager{
 		breakpoints: make([]uint16, 0),
 	}
+}
+
+// NewBreakpointManager creates a new breakpoint manager.
+//
+// Returns:
+//   - A pointer to the initialized BreakpointManager
+func NewBreakpointManager() core.BreakpointManager {
+	return newBreakpointManager()
 }
 
 // AddBreakpoint adds a breakpoint at the specified address.
@@ -25,7 +35,7 @@ func NewDefaultBreakpointManager() *DefaultBreakpointManager {
 //
 // Parameters:
 //   - address: The address where the breakpoint should be set
-func (bm *DefaultBreakpointManager) AddBreakpoint(address uint16) {
+func (bm *defaultBreakpointManager) AddBreakpoint(address uint16) {
 	if !bm.HasBreakpoint(address) {
 		bm.breakpoints = append(bm.breakpoints, address)
 	}
@@ -36,7 +46,7 @@ func (bm *DefaultBreakpointManager) AddBreakpoint(address uint16) {
 //
 // Parameters:
 //   - address: The address where the breakpoint should be removed
-func (bm *DefaultBreakpointManager) RemoveBreakpoint(address uint16) {
+func (bm *defaultBreakpointManager) RemoveBreakpoint(address uint16) {
 	for i, bp := range bm.breakpoints {
 		if bp == address {
 			bm.breakpoints = slices.Delete(bm.breakpoints, i, i+1)
@@ -50,7 +60,7 @@ func (bm *DefaultBreakpointManager) RemoveBreakpoint(address uint16) {
 //
 // Parameters:
 //   - index: The index of the breakpoint to remove
-func (bm *DefaultBreakpointManager) RemoveBreakpointByIndex(index int) {
+func (bm *defaultBreakpointManager) RemoveBreakpointByIndex(index int) {
 	if index >= 0 && index < len(bm.breakpoints) {
 		bm.breakpoints = slices.Delete(bm.breakpoints, index, index+1)
 	}
@@ -63,7 +73,7 @@ func (bm *DefaultBreakpointManager) RemoveBreakpointByIndex(index int) {
 //
 // Returns:
 //   - true if a breakpoint exists at the address, false otherwise
-func (bm *DefaultBreakpointManager) HasBreakpoint(address uint16) bool {
+func (bm *defaultBreakpointManager) HasBreakpoint(address uint16) bool {
 	return slices.Contains(bm.breakpoints, address)
 }
 
@@ -71,7 +81,7 @@ func (bm *DefaultBreakpointManager) HasBreakpoint(address uint16) bool {
 //
 // Returns:
 //   - A slice containing all breakpoint addresses
-func (bm *DefaultBreakpointManager) GetBreakpoints() []uint16 {
+func (bm *defaultBreakpointManager) GetBreakpoints() []uint16 {
 	result := make([]uint16, len(bm.breakpoints))
 	copy(result, bm.breakpoints)
 	return result
@@ -81,11 +91,11 @@ func (bm *DefaultBreakpointManager) GetBreakpoints() []uint16 {
 //
 // Returns:
 //   - The number of breakpoints currently set
-func (bm *DefaultBreakpointManager) GetBreakpointCount() int {
+func (bm *defaultBreakpointManager) GetBreakpointCount() int {
 	return len(bm.breakpoints)
 }
 
 // ClearAllBreakpoints removes all breakpoints.
-func (bm *DefaultBreakpointManager) ClearAllBreakpoints() {
+func (bm *defaultBreakpointManager) ClearAllBreakpoints() {
 	bm.breakpoints = bm.breakpoints[:0]
 }

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/fran150/clementina-6502/pkg/common"
-	"github.com/fran150/clementina-6502/pkg/core/interfaces"
+	"github.com/fran150/clementina-6502/pkg/core"
 	"github.com/rivo/tview"
 )
 
@@ -15,7 +15,7 @@ type SpeedWindow struct {
 	text            *tview.TextView
 	previousT       int64
 	previousC       uint64
-	speedController interfaces.SpeedController
+	speedController core.SpeedController
 	showConfig      bool
 	showConfigStart int64
 }
@@ -28,7 +28,7 @@ type SpeedWindow struct {
 //
 // Returns:
 //   - A pointer to the initialized SpeedWindow
-func NewSpeedWindow(speedController interfaces.SpeedController) *SpeedWindow {
+func NewSpeedWindow(speedController core.SpeedController) *SpeedWindow {
 	text := tview.NewTextView()
 	text.SetTextAlign(tview.AlignCenter).
 		SetScrollable(false).

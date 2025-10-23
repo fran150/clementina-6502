@@ -2,7 +2,7 @@ package beneater
 
 import (
 	"github.com/fran150/clementina-6502/pkg/computers"
-	"github.com/fran150/clementina-6502/pkg/core/interfaces"
+	"github.com/fran150/clementina-6502/pkg/core"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/rivo/tview"
 )
@@ -36,7 +36,7 @@ func NewBenEaterEmulatorConsole(config BenEaterEmulatorConsoleConfig) *BenEaterE
 * Initialization methods
 *************************************************************************************/
 
-func (c *BenEaterEmulatorConsole) SetEmulator(emulator interfaces.Emulator) {
+func (c *BenEaterEmulatorConsole) SetEmulator(emulator core.Emulator) {
 	menuOptions := createMenuOptions(c, emulator)
 
 	wm := c.GetWindowManager()

@@ -2,7 +2,7 @@ package computers
 
 import (
 	"github.com/fran150/clementina-6502/pkg/common"
-	"github.com/fran150/clementina-6502/pkg/core/interfaces"
+	"github.com/fran150/clementina-6502/pkg/core"
 	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/rivo/tview"
@@ -18,7 +18,7 @@ type BaseTerminalEmulatorConsole struct {
 // It contains all the necessary components for managing terminal UI operations.
 type BaseTerminalEmulatorConsoleConfig struct {
 	WindowManager     terminal.WindowManager
-	NavigationManager interfaces.NavigationManager
+	NavigationManager core.NavigationManager
 	InputHandler      terminal.InputHandler
 	App               *tview.Application
 }
@@ -177,7 +177,7 @@ func (c *BaseTerminalEmulatorConsole) GetWindowManager() terminal.WindowManager 
 }
 
 // GetNavigationManager returns the navigation manager.
-func (c *BaseTerminalEmulatorConsole) GetNavigationManager() interfaces.NavigationManager {
+func (c *BaseTerminalEmulatorConsole) GetNavigationManager() core.NavigationManager {
 	return c.config.NavigationManager
 }
 

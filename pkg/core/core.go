@@ -1,8 +1,6 @@
-package interfaces
+package core
 
-import (
-	"github.com/fran150/clementina-6502/pkg/common"
-)
+import "github.com/fran150/clementina-6502/pkg/common"
 
 // Ticker defines the core emulation logic interface.
 // This represents the pure emulation functionality without lifecycle concerns.
@@ -24,6 +22,42 @@ type Renderer interface {
 	// Parameters:
 	//   - context: The current step context for the emulation cycle
 	Draw(context *common.StepContext)
+}
+
+// EmulationConsole represents the console interface for the emulator.
+// This is not the main display but the window that allows the user to interact with the emulator.
+type EmulationConsole interface {
+	// Ticker is used to update the internal state of console's components after each emulation frame
+	Ticker
+	// Renderer is called to draw the console.
+	Renderer
+
+	// Run starts the emulation console and returns an error if startup fails.
+	Run() error
+
+	// Stop gracefully shuts down the emulation console.
+	Stop()
+
+	// SetEmulator assigns an emulator instance to this console.
+	SetEmulator(emulator Emulator)
+}
+
+// SpeedController defines a mechanism for managing emulation speed.
+type SpeedController interface {
+	// SpeedUp increases the emulation speed.
+	SpeedUp()
+
+	// SpeedDown decreases the emulation speed.
+	SpeedDown()
+
+	// GetTargetSpeed returns the current target speed in MHz.
+	GetTargetSpeed() float64
+
+	// SetTargetSpeed sets the target speed in MHz.
+	SetTargetSpeed(speedMhz float64)
+
+	// GetNanosPerCycle returns the nanoseconds per cycle for the current speed.
+	GetNanosPerCycle() float64
 }
 
 // This is the core computer to be emulaterd. It will typically contain the list of componentes
@@ -129,4 +163,46 @@ type Emulator interface {
 
 	// GetBreakpointManager returns the breakpoint manager for debugging functionality.
 	GetBreakpointManager() BreakpointManager
+}
+
+// NavigationManager defines the interface for managing window navigation.
+type NavigationManager interface {
+	// NavigateTo switches to the specified window.
+	NavigateTo(key string)
+
+	// GoBack returns to the previous window.
+	GoBack()
+
+	// GetCurrent returns the currently active window key.
+	GetCurrent() string
+
+	// PushToHistory adds the current window to history and navigates to new window.
+	PushToHistory(key string)
+}
+
+// BreakpointManager defines the contract for managing breakpoints for computer debugging.
+type BreakpointManager interface {
+	// AddBreakpoint adds a breakpoint at the specified address.
+	// If a breakpoint already exists at the address, it won't be added again.
+	AddBreakpoint(address uint16)
+
+	// RemoveBreakpoint removes a breakpoint at the specified address.
+	// If no breakpoint exists at the address, this method has no effect.
+	RemoveBreakpoint(address uint16)
+
+	// RemoveBreakpointByIndex removes a breakpoint at the specified index.
+	// If the index is out of bounds, this method has no effect.
+	RemoveBreakpointByIndex(index int)
+
+	// HasBreakpoint checks if a breakpoint exists at the specified address.
+	HasBreakpoint(address uint16) bool
+
+	// GetBreakpoints returns a copy of all breakpoint addresses.
+	GetBreakpoints() []uint16
+
+	// GetBreakpointCount returns the number of active breakpoints.
+	GetBreakpointCount() int
+
+	// ClearAllBreakpoints removes all breakpoints.
+	ClearAllBreakpoints()
 }

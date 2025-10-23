@@ -2,7 +2,7 @@ package clementina
 
 import (
 	"github.com/fran150/clementina-6502/pkg/computers"
-	"github.com/fran150/clementina-6502/pkg/core/interfaces"
+	"github.com/fran150/clementina-6502/pkg/core"
 	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/rivo/tview"
@@ -37,7 +37,7 @@ func NewClementinaEmulatorConsole(config ClementinaEmulatorConsoleConfig) *Cleme
 * Initialization methods
 *************************************************************************************/
 
-func (c *ClementinaEmulatorConsole) SetEmulator(emulator interfaces.Emulator) {
+func (c *ClementinaEmulatorConsole) SetEmulator(emulator core.Emulator) {
 	menuOptions := createMenuOptions(c, emulator)
 
 	wm := c.GetWindowManager()

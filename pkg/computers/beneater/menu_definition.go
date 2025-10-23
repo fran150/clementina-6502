@@ -1,7 +1,7 @@
 package beneater
 
 import (
-	"github.com/fran150/clementina-6502/pkg/core/interfaces"
+	"github.com/fran150/clementina-6502/pkg/core"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/gdamore/tcell/v2"
 )
@@ -15,7 +15,7 @@ import (
 //
 // Returns:
 //   - A slice of menu options for the options window
-func createMenuOptions(console *BenEaterEmulatorConsole, emulator interfaces.Emulator) []*ui.OptionsWindowMenuOption {
+func createMenuOptions(console *BenEaterEmulatorConsole, emulator core.Emulator) []*ui.OptionsWindowMenuOption {
 	return []*ui.OptionsWindowMenuOption{
 		{
 			Rune:           'e',
