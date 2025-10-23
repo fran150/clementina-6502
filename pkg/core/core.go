@@ -37,9 +37,6 @@ type EmulationConsole interface {
 
 	// Stop gracefully shuts down the emulation console.
 	Stop()
-
-	// SetEmulator assigns an emulator instance to this console.
-	SetEmulator(emulator BaseEmulator)
 }
 
 // SpeedController defines a mechanism for managing emulation speed.
@@ -123,10 +120,6 @@ type EmulationLoop interface {
 	Runnable
 	Pausable
 
-	// SetEmulator sets the emulator instance to be used by the loop.
-	// Loop must be stopped before calling this function.
-	SetEmulator(emulator BaseEmulator)
-
 	// SetPanicHandler sets the panic handler for loop failures.
 	SetPanicHandler(handler func(loopType string, panicData any) bool)
 }
@@ -139,21 +132,6 @@ type BaseEmulator interface {
 	Pausable
 	Steppable
 	Resetable
-
-	// GetComputer returns the computer core instance.
-	GetComputer() ComputerCore
-
-	// GetConsole returns the emulation console instance.
-	GetConsole() EmulationConsole
-
-	// GetLoop returns the emulation loop instance.
-	GetLoop() EmulationLoop
-
-	// GetSpeedController returns the speed controller for managing emulation timing.
-	GetSpeedController() SpeedController
-
-	// GetBreakpointManager returns the breakpoint manager for debugging functionality.
-	GetBreakpointManager() BreakpointManager
 }
 
 // NavigationManager defines the interface for managing window navigation.

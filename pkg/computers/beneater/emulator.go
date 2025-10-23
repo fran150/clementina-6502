@@ -13,34 +13,50 @@ import (
 	"github.com/rivo/tview"
 )
 
+type benEaterEmulator struct {
+	core.BaseEmulator
+	speedController   core.SpeedController
+	breakpointManager core.BreakpointManager
+	computer          *BenEaterComputer
+}
+
 func NewBenEaterEmulator(computer *BenEaterComputer, speed float64, displayFPS int) (core.BaseEmulator, error) {
 	speedController := controllers.NewSpeedController(speed)
 	breakPointManager := managers.NewBreakpointManager()
 	windowManager := terminal.NewDefaultWindowManager()
 	navigationManager := managers.NewNavigationManager()
 
-	console := NewBenEaterEmulatorConsole(BenEaterEmulatorConsoleConfig{
+	emulator := &benEaterEmulator{
+		computer:          computer,
+		speedController:   speedController,
+		breakpointManager: breakPointManager,
+	}
+
+	console := newBenEaterEmulatorConsole(benEaterEmulatorConsoleConfig{
 		BaseTerminalEmulatorConsoleConfig: computers.BaseTerminalEmulatorConsoleConfig{
 			WindowManager:     windowManager,
 			NavigationManager: navigationManager,
 			InputHandler:      terminal.NewDefaultInputHandler(windowManager),
 			App:               tview.NewApplication(),
 		},
-		Computer: computer,
+		emulator: emulator,
 	})
 
 	loop := emulation.NewEmulationLoop(emulation.DefaultEmulationLoopConfig{
 		SpeedController: speedController,
 		DisplayFPS:      displayFPS,
+		Emulator:        emulator,
 	})
 
-	emulator := emulation.NewBaseEmulator(emulation.DefaultEmulatorConfig{
+	emulatorConfig := emulation.DefaultEmulatorConfig{
 		Computer:          computer,
 		Console:           console,
 		Loop:              loop,
 		SpeedController:   speedController,
 		BreakpointManager: breakPointManager,
-	})
+	}
+
+	emulator.BaseEmulator = emulation.NewBaseEmulator(emulatorConfig)
 
 	loop.SetPanicHandler(func(loopType string, panicData any) bool {
 		fmt.Fprintf(os.Stderr, "%s panic: %v\n", loopType, panicData)

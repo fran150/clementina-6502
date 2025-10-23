@@ -8,19 +8,25 @@ import (
 	"github.com/fran150/clementina-6502/pkg/core"
 )
 
+type emulator interface {
+	core.Runnable
+	core.Pausable
+	core.Ticker
+	core.Renderer
+}
+
 // DefaultEmulationLoopConfig contains settings that control the display refresh rate.
 type DefaultEmulationLoopConfig struct {
 	SpeedController core.SpeedController
 	DisplayFPS      int
 	RefreshNanos    int64
+	Emulator        emulator
 }
 
 // defaultEmulationLoop manages the timing and execution of the emulation cycle.
 // It ensures the emulation runs at the specified speed and handles the
 // separation between processing cycles and display updates.
 type defaultEmulationLoop struct {
-	emulator core.BaseEmulator
-
 	config       *DefaultEmulationLoopConfig
 	panicHandler func(loopType string, panicData any) bool
 
@@ -77,7 +83,7 @@ func NewEmulationLoop(config DefaultEmulationLoopConfig) core.EmulationLoop {
 // Panics if called while the emulation loop is running.
 func (e *defaultEmulationLoop) SetEmulator(emulator core.BaseEmulator) {
 	if !e.IsRunning() {
-		e.emulator = emulator
+		e.config.Emulator = emulator
 	} else {
 		panic("Cannot change emulator object while emulator loop is running")
 	}
@@ -125,7 +131,7 @@ func (e *defaultEmulationLoop) IsStopping() bool {
 // Returns:
 //   - A StepContext that can be used to control and monitor the emulation
 func (e *defaultEmulationLoop) Start() (*common.StepContext, error) {
-	if !e.IsRunning() && e.emulator != nil {
+	if !e.IsRunning() && e.config.Emulator != nil {
 		context := common.NewStepContext()
 
 		e.pause = false
@@ -195,7 +201,7 @@ func (e *defaultEmulationLoop) executeLoop(context *common.StepContext) {
 
 		if (context.T-lastTPSExecuted) > targetTPSNano && !e.pause {
 			lastTPSExecuted = context.T
-			e.emulator.Tick(context)
+			e.config.Emulator.Tick(context)
 			context.NextCycle()
 		} else {
 			context.SkipCycle()
@@ -222,7 +228,7 @@ func (e *defaultEmulationLoop) executeDraw(context *common.StepContext) {
 
 	for !e.stop {
 		<-ticker.C
-		e.emulator.Draw(context)
+		e.config.Emulator.Draw(context)
 	}
 }
 

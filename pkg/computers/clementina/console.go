@@ -2,33 +2,55 @@ package clementina
 
 import (
 	"github.com/fran150/clementina-6502/pkg/computers"
-	"github.com/fran150/clementina-6502/pkg/core"
 	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/rivo/tview"
 )
 
-type ClementinaEmulatorConsoleConfig struct {
+type clementinaEmulatorConsoleConfig struct {
 	computers.BaseTerminalEmulatorConsoleConfig
-
-	Computer *ClementinaComputer
+	emulator *clementinaEmulator
 }
 
-type ClementinaEmulatorConsole struct {
+type clementinaEmulatorConsole struct {
 	*computers.BaseTerminalEmulatorConsole
-	computer *ClementinaComputer
-	grid     *tview.Grid
+	grid *tview.Grid
 }
 
-func NewClementinaEmulatorConsole(config ClementinaEmulatorConsoleConfig) *ClementinaEmulatorConsole {
+func newClementinaEmulatorConsole(config clementinaEmulatorConsoleConfig) *clementinaEmulatorConsole {
 
-	console := &ClementinaEmulatorConsole{
+	console := &clementinaEmulatorConsole{
 		BaseTerminalEmulatorConsole: computers.NewBaseTerminalEmulatorConsole(config.BaseTerminalEmulatorConsoleConfig),
-		computer:                    config.Computer,
 		grid:                        tview.NewGrid(),
 	}
 
 	console.initializeMainGrid()
+
+	computer := config.emulator.computer
+	menuOptions := createMenuOptions(console, config.emulator)
+
+	wm := config.WindowManager
+
+	// Initialize all windows
+	wm.AddWindow("code", ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators))
+	wm.AddWindow("speed", ui.NewSpeedWindow(config.emulator.speedController))
+	wm.AddWindow("cpu", ui.NewCpuWindow(computer.chips.cpu))
+	wm.AddWindow("via", ui.NewViaWindow(computer.chips.via))
+	wm.AddWindow("baseram", ui.NewMemoryWindow(computer.chips.baseram))
+	wm.AddWindow("exram", ui.NewMemoryWindow(computer.chips.exram))
+	wm.AddWindow("hiram", ui.NewMemoryWindow(computer.chips.hiram))
+	wm.AddWindow("goto", ui.NewMemoryWindowGoToForm())
+	busWindow := ui.NewBusWindow()
+	wm.AddWindow("bus", busWindow)
+	wm.AddWindow("breakpoint", ui.NewBreakPointForm(config.emulator.breakpointManager))
+	wm.AddWindow("options", ui.NewOptionsWindow(menuOptions))
+
+	initializeBusWindow(computer, busWindow)
+
+	console.initializeLayout()
+
+	// Set initial active window
+	console.ShowWindow("cpu")
 
 	return console
 }
@@ -37,35 +59,8 @@ func NewClementinaEmulatorConsole(config ClementinaEmulatorConsoleConfig) *Cleme
 * Initialization methods
 *************************************************************************************/
 
-func (c *ClementinaEmulatorConsole) SetEmulator(emulator core.BaseEmulator) {
-	menuOptions := createMenuOptions(c, emulator)
-
-	wm := c.GetWindowManager()
-
-	// Initialize all windows
-	wm.AddWindow("code", ui.NewCodeWindow(c.computer.chips.cpu, c.computer.getPotentialOperators))
-	wm.AddWindow("speed", ui.NewSpeedWindow(emulator.GetSpeedController()))
-	wm.AddWindow("cpu", ui.NewCpuWindow(c.computer.chips.cpu))
-	wm.AddWindow("via", ui.NewViaWindow(c.computer.chips.via))
-	wm.AddWindow("baseram", ui.NewMemoryWindow(c.computer.chips.baseram))
-	wm.AddWindow("exram", ui.NewMemoryWindow(c.computer.chips.exram))
-	wm.AddWindow("hiram", ui.NewMemoryWindow(c.computer.chips.hiram))
-	wm.AddWindow("goto", ui.NewMemoryWindowGoToForm())
-	busWindow := ui.NewBusWindow()
-	wm.AddWindow("bus", busWindow)
-	wm.AddWindow("breakpoint", ui.NewBreakPointForm(emulator.GetBreakpointManager()))
-	wm.AddWindow("options", ui.NewOptionsWindow(menuOptions))
-
-	initializeBusWindow(c.computer, busWindow)
-
-	c.initializeLayout()
-
-	// Set initial active window
-	c.ShowWindow("cpu")
-}
-
 // initializeMainGrid sets up the main grid layout for the console.
-func (c *ClementinaEmulatorConsole) initializeMainGrid() {
+func (c *clementinaEmulatorConsole) initializeMainGrid() {
 	c.grid.SetRows(3, 0, 3).
 		SetColumns(25, 0).
 		SetBorder(true).
@@ -88,7 +83,7 @@ func initializeBusWindow(computer *ClementinaComputer, busWindow *ui.BusWindow) 
 }
 
 // initializeLayout sets up the initial layout of console windows.
-func (c *ClementinaEmulatorConsole) initializeLayout() {
+func (c *clementinaEmulatorConsole) initializeLayout() {
 	// Setup initial grid layout
 	wm := c.GetWindowManager()
 	c.grid.AddItem(wm.GetWindow("speed").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
@@ -102,7 +97,7 @@ func (c *ClementinaEmulatorConsole) initializeLayout() {
 *************************************************************************************/
 
 // ShowGotoForm shows the go to form for memory navigation allowing to navigate back.
-func (c *ClementinaEmulatorConsole) ShowGotoForm() {
+func (c *clementinaEmulatorConsole) ShowGotoForm() {
 	activeKey := c.GetNavigationManager().GetCurrent()
 
 	wm := c.GetWindowManager()

@@ -36,9 +36,6 @@ func newBaseEmulator(config DefaultEmulatorConfig) *defaultBaseEmulator {
 		resetting: false,
 	}
 
-	emulator.config.Loop.SetEmulator(emulator)
-	emulator.config.Console.SetEmulator(emulator)
-
 	return emulator
 }
 

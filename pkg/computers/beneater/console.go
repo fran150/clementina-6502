@@ -2,32 +2,54 @@ package beneater
 
 import (
 	"github.com/fran150/clementina-6502/pkg/computers"
-	"github.com/fran150/clementina-6502/pkg/core"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/rivo/tview"
 )
 
-type BenEaterEmulatorConsoleConfig struct {
+type benEaterEmulatorConsoleConfig struct {
 	computers.BaseTerminalEmulatorConsoleConfig
-
-	Computer *BenEaterComputer
+	emulator *benEaterEmulator
 }
 
-type BenEaterEmulatorConsole struct {
+type benEaterEmulatorConsole struct {
 	*computers.BaseTerminalEmulatorConsole
-	computer *BenEaterComputer
-	grid     *tview.Grid
+	grid *tview.Grid
 }
 
 // newMainConsole creates and initializes a new console for the Ben Eater computer.
-func NewBenEaterEmulatorConsole(config BenEaterEmulatorConsoleConfig) *BenEaterEmulatorConsole {
-	console := &BenEaterEmulatorConsole{
+func newBenEaterEmulatorConsole(config benEaterEmulatorConsoleConfig) *benEaterEmulatorConsole {
+	console := &benEaterEmulatorConsole{
 		BaseTerminalEmulatorConsole: computers.NewBaseTerminalEmulatorConsole(config.BaseTerminalEmulatorConsoleConfig),
-		computer:                    config.Computer,
 		grid:                        tview.NewGrid(),
 	}
 
 	console.initializeMainGrid()
+
+	menuOptions := createMenuOptions(console, config.emulator)
+
+	computer := config.emulator.computer
+	wm := console.GetWindowManager()
+
+	// Initialize all windows
+	wm.AddWindow("lcd", ui.NewDisplayWindow(computer.chips.lcd))
+	wm.AddWindow("code", ui.NewCodeWindow(computer.chips.cpu, computer.getPotentialOperators))
+	wm.AddWindow("speed", ui.NewSpeedWindow(config.emulator.speedController))
+	wm.AddWindow("cpu", ui.NewCpuWindow(computer.chips.cpu))
+	wm.AddWindow("via", ui.NewViaWindow(computer.chips.via))
+	wm.AddWindow("lcd_controller", ui.NewLcdWindow(computer.chips.lcd))
+	wm.AddWindow("acia", ui.NewAciaWindow(computer.chips.acia))
+	wm.AddWindow("ram", ui.NewMemoryWindow(computer.chips.ram))
+	wm.AddWindow("rom", ui.NewMemoryWindow(computer.chips.rom))
+	busWindow := ui.NewBusWindow()
+	wm.AddWindow("bus", busWindow)
+	wm.AddWindow("breakpoint", ui.NewBreakPointForm(config.emulator.breakpointManager))
+	wm.AddWindow("options", ui.NewOptionsWindow(menuOptions))
+
+	initializeBusWindow(computer, busWindow)
+	console.initializeLayout()
+
+	// Set initial active window
+	console.ShowWindow("cpu")
 
 	return console
 }
@@ -36,35 +58,8 @@ func NewBenEaterEmulatorConsole(config BenEaterEmulatorConsoleConfig) *BenEaterE
 * Initialization methods
 *************************************************************************************/
 
-func (c *BenEaterEmulatorConsole) SetEmulator(emulator core.BaseEmulator) {
-	menuOptions := createMenuOptions(c, emulator)
-
-	wm := c.GetWindowManager()
-
-	// Initialize all windows
-	wm.AddWindow("lcd", ui.NewDisplayWindow(c.computer.chips.lcd))
-	wm.AddWindow("code", ui.NewCodeWindow(c.computer.chips.cpu, c.computer.getPotentialOperators))
-	wm.AddWindow("speed", ui.NewSpeedWindow(emulator.GetSpeedController()))
-	wm.AddWindow("cpu", ui.NewCpuWindow(c.computer.chips.cpu))
-	wm.AddWindow("via", ui.NewViaWindow(c.computer.chips.via))
-	wm.AddWindow("lcd_controller", ui.NewLcdWindow(c.computer.chips.lcd))
-	wm.AddWindow("acia", ui.NewAciaWindow(c.computer.chips.acia))
-	wm.AddWindow("ram", ui.NewMemoryWindow(c.computer.chips.ram))
-	wm.AddWindow("rom", ui.NewMemoryWindow(c.computer.chips.rom))
-	busWindow := ui.NewBusWindow()
-	wm.AddWindow("bus", busWindow)
-	wm.AddWindow("breakpoint", ui.NewBreakPointForm(emulator.GetBreakpointManager()))
-	wm.AddWindow("options", ui.NewOptionsWindow(menuOptions))
-
-	initializeBusWindow(c.computer, busWindow)
-	c.initializeLayout()
-
-	// Set initial active window
-	c.ShowWindow("cpu")
-}
-
 // initializeMainGrid sets up the main grid layout for the console.
-func (c *BenEaterEmulatorConsole) initializeMainGrid() {
+func (c *benEaterEmulatorConsole) initializeMainGrid() {
 	c.grid.SetRows(4, 3, 0, 3).
 		SetColumns(25, 0).
 		SetBorder(true).
@@ -83,7 +78,7 @@ func initializeBusWindow(computer *BenEaterComputer, busWindow *ui.BusWindow) {
 }
 
 // initializeLayout sets up the initial layout of console windows.
-func (c *BenEaterEmulatorConsole) initializeLayout() {
+func (c *benEaterEmulatorConsole) initializeLayout() {
 	// Setup initial grid layout
 	wm := c.GetWindowManager()
 	c.grid.AddItem(wm.GetWindow("lcd").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).

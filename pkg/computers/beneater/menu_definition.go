@@ -1,7 +1,6 @@
 package beneater
 
 import (
-	"github.com/fran150/clementina-6502/pkg/core"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/gdamore/tcell/v2"
 )
@@ -15,7 +14,7 @@ import (
 //
 // Returns:
 //   - A slice of menu options for the options window
-func createMenuOptions(console *BenEaterEmulatorConsole, emulator core.BaseEmulator) []*ui.OptionsWindowMenuOption {
+func createMenuOptions(console *benEaterEmulatorConsole, emulator *benEaterEmulator) []*ui.OptionsWindowMenuOption {
 	return []*ui.OptionsWindowMenuOption{
 		{
 			Rune:           'e',
@@ -99,7 +98,7 @@ func createMenuOptions(console *BenEaterEmulatorConsole, emulator core.BaseEmula
 							KeyDescription: "Speed Up",
 							Action: func(option *ui.OptionsWindowMenuOption) {
 								console.ShowEmulationSpeedPopup()
-								emulator.GetSpeedController().SpeedUp()
+								emulator.speedController.SpeedUp()
 							},
 							DoNotForward: true,
 						},
@@ -109,7 +108,7 @@ func createMenuOptions(console *BenEaterEmulatorConsole, emulator core.BaseEmula
 							KeyDescription: "Speed Down",
 							Action: func(option *ui.OptionsWindowMenuOption) {
 								console.ShowEmulationSpeedPopup()
-								emulator.GetSpeedController().SpeedDown()
+								emulator.speedController.SpeedDown()
 							},
 							DoNotForward: true,
 						},
@@ -201,7 +200,7 @@ func createMenuOptions(console *BenEaterEmulatorConsole, emulator core.BaseEmula
 //
 // Returns:
 //   - A slice of menu options for memory window navigation
-func createMemoryWindowSubMenu(console *BenEaterEmulatorConsole) []*ui.OptionsWindowMenuOption {
+func createMemoryWindowSubMenu(console *benEaterEmulatorConsole) []*ui.OptionsWindowMenuOption {
 	return []*ui.OptionsWindowMenuOption{
 		{
 			Key:            tcell.KeyUp,
