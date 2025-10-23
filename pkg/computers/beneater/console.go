@@ -1,26 +1,26 @@
 package beneater
 
 import (
-	"github.com/fran150/clementina-6502/pkg/computers"
+	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/rivo/tview"
 )
 
 type benEaterEmulatorConsoleConfig struct {
-	computers.BaseTerminalEmulatorConsoleConfig
+	terminal.EmulatorConsoleConfig
 	emulator *benEaterEmulator
 }
 
 type benEaterEmulatorConsole struct {
-	*computers.BaseTerminalEmulatorConsole
+	*terminal.EmulatorConsole
 	grid *tview.Grid
 }
 
 // newMainConsole creates and initializes a new console for the Ben Eater computer.
 func newBenEaterEmulatorConsole(config benEaterEmulatorConsoleConfig) *benEaterEmulatorConsole {
 	console := &benEaterEmulatorConsole{
-		BaseTerminalEmulatorConsole: computers.NewBaseTerminalEmulatorConsole(config.BaseTerminalEmulatorConsoleConfig),
-		grid:                        tview.NewGrid(),
+		EmulatorConsole: terminal.NewEmulatorConsole(config.EmulatorConsoleConfig),
+		grid:            tview.NewGrid(),
 	}
 
 	console.initializeMainGrid()

@@ -1,27 +1,26 @@
 package clementina
 
 import (
-	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/rivo/tview"
 )
 
 type clementinaEmulatorConsoleConfig struct {
-	computers.BaseTerminalEmulatorConsoleConfig
+	terminal.EmulatorConsoleConfig
 	emulator *clementinaEmulator
 }
 
 type clementinaEmulatorConsole struct {
-	*computers.BaseTerminalEmulatorConsole
+	*terminal.EmulatorConsole
 	grid *tview.Grid
 }
 
 func newClementinaEmulatorConsole(config clementinaEmulatorConsoleConfig) *clementinaEmulatorConsole {
 
 	console := &clementinaEmulatorConsole{
-		BaseTerminalEmulatorConsole: computers.NewBaseTerminalEmulatorConsole(config.BaseTerminalEmulatorConsoleConfig),
-		grid:                        tview.NewGrid(),
+		EmulatorConsole: terminal.NewEmulatorConsole(config.EmulatorConsoleConfig),
+		grid:            tview.NewGrid(),
 	}
 
 	console.initializeMainGrid()

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/fran150/clementina-6502/pkg/computers"
 	"github.com/fran150/clementina-6502/pkg/core"
 	"github.com/fran150/clementina-6502/pkg/core/controllers"
 	"github.com/fran150/clementina-6502/pkg/core/emulation"
@@ -33,7 +32,7 @@ func NewBenEaterEmulator(computer *BenEaterComputer, speed float64, displayFPS i
 	}
 
 	console := newBenEaterEmulatorConsole(benEaterEmulatorConsoleConfig{
-		BaseTerminalEmulatorConsoleConfig: computers.BaseTerminalEmulatorConsoleConfig{
+		EmulatorConsoleConfig: terminal.EmulatorConsoleConfig{
 			WindowManager:     windowManager,
 			NavigationManager: navigationManager,
 			InputHandler:      terminal.NewDefaultInputHandler(windowManager),
