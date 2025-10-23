@@ -39,7 +39,7 @@ type EmulationConsole interface {
 	Stop()
 
 	// SetEmulator assigns an emulator instance to this console.
-	SetEmulator(emulator Emulator)
+	SetEmulator(emulator BaseEmulator)
 }
 
 // SpeedController defines a mechanism for managing emulation speed.
@@ -72,82 +72,73 @@ type ComputerCore interface {
 	Reset(status bool)
 }
 
-// EmulationLoop defines the interface for managing emulation execution.
-// This handles the lifecycle and timing of the emulation process.
-type EmulationLoop interface {
+type Runnable interface {
 	// Start begins the emulation loop and returns the execution context.
 	// Returns nil if the loop is already running.
-	Start() *common.StepContext
+	Start() (*common.StepContext, error)
 
 	// Stop stops the emulation loop.
 	Stop()
-
-	// Pauses execution of the emulation loop
-	Pause()
-
-	// Resumes the execution of the emulation loop if it was previously paused
-	Resume()
 
 	// IsRunning checks if the emulation loop is currently running.
 	IsRunning() bool
 
 	// IsStopping checks if the emulation loop is in the process of stopping.
 	IsStopping() bool
+}
+
+type Pausable interface {
+	// Pauses execution of the emulation loop
+	Pause()
+
+	// Resumes the execution of the emulation loop if it was previously paused
+	Resume()
 
 	// IsPaused returns if the emulation loop is paused
 	IsPaused() bool
-
-	// SetEmulator sets the emulator instance to be used by the loop.
-	// Loop must be stopped before calling this function.
-	SetEmulator(emulator Emulator)
-
-	// SetPanicHandler sets the panic handler for loop failures.
-	SetPanicHandler(handler func(loopType string, panicData any) bool)
 }
 
-// Emulator defines the main emulator interface
-type Emulator interface {
-	Ticker
-	Renderer
-
-	// Run starts the emulator and returns the execution context.
-	// Returns an error if the emulator cannot be started.
-	Run() (*common.StepContext, error)
-
-	// Stop stops the emulator execution.
-	// After signaling the stop, it takes some time to stop the loop, some extra emulation steps or frames might be rendered.
-	// Check IsStopping and IsRunning functions to get the status.
-	Stop()
-
-	// Pause pauses the emulator execution.
-	Pause()
-
-	// Resume resumes the emulator execution if it was previously paused.
-	Resume()
-
+type Steppable interface {
 	// Step executes a single emulation step and then pauses.
 	Step()
 
+	// IsStepping returns true if the emulator is executing a single emulation step and will pause when finished.
+	IsStepping() bool
+}
+
+type Resetable interface {
 	// Reset puts the emulated computer into reset state.
 	Reset()
 
 	// UnReset releases the emulated computer from reset state.
 	UnReset()
 
-	// IsRunning checks if the emulator is currently running.
-	IsRunning() bool
-
-	// IsStopping checks if the emulator is in the process of stopping.
-	IsStopping() bool
-
-	// IsPaused returns true if the emulator is paused.
-	IsPaused() bool
-
-	// IsStepping returns true if the emulator is executing a single emulation step and will pause when finished.
-	IsStepping() bool
-
 	// IsResetting returns true if the emulated computer is in reset state.
 	IsResetting() bool
+}
+
+// EmulationLoop defines the interface for managing emulation execution.
+// This handles the lifecycle and timing of the emulation process.
+type EmulationLoop interface {
+	Runnable
+	Pausable
+
+	// SetEmulator sets the emulator instance to be used by the loop.
+	// Loop must be stopped before calling this function.
+	SetEmulator(emulator BaseEmulator)
+
+	// SetPanicHandler sets the panic handler for loop failures.
+	SetPanicHandler(handler func(loopType string, panicData any) bool)
+}
+
+// BaseEmulator defines the main emulator interface
+type BaseEmulator interface {
+	Ticker
+	Renderer
+	Runnable
+	Pausable
+	Steppable
+	Resetable
 
 	// GetComputer returns the computer core instance.
 	GetComputer() ComputerCore

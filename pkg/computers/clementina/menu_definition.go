@@ -15,7 +15,7 @@ import (
 //
 // Returns:
 //   - A slice of menu options for the options window
-func createMenuOptions(console *ClementinaEmulatorConsole, emulator core.Emulator) []*ui.OptionsWindowMenuOption {
+func createMenuOptions(console *ClementinaEmulatorConsole, emulator core.BaseEmulator) []*ui.OptionsWindowMenuOption {
 	return []*ui.OptionsWindowMenuOption{
 		{
 			Rune:           'e',

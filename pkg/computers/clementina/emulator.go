@@ -13,7 +13,7 @@ import (
 	"github.com/rivo/tview"
 )
 
-func NewClemetinaEmulator(computer *ClementinaComputer, speed float64, displayFPS int) (core.Emulator, error) {
+func NewClemetinaEmulator(computer *ClementinaComputer, speed float64, displayFPS int) (core.BaseEmulator, error) {
 	speedController := controllers.NewSpeedController(speed)
 	breakPointManager := managers.NewBreakpointManager()
 	windowManager := terminal.NewDefaultWindowManager()
@@ -34,7 +34,7 @@ func NewClemetinaEmulator(computer *ClementinaComputer, speed float64, displayFP
 		DisplayFPS:      displayFPS,
 	})
 
-	emulator := emulation.NewDefaultEmulator(emulation.DefaultEmulatorConfig{
+	emulator := emulation.NewBaseEmulator(emulation.DefaultEmulatorConfig{
 		Computer:          computer,
 		Console:           console,
 		Loop:              loop,

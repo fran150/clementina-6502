@@ -15,10 +15,10 @@ type DefaultEmulatorConfig struct {
 	BreakpointManager core.BreakpointManager
 }
 
-// DefaultEmulator is the main emulator implementation that orchestrates the execution
+// defaultBaseEmulator is the main emulator implementation that orchestrates the execution
 // of a 6502 computer system. It manages the emulation loop, console interface,
 // speed control, and breakpoint functionality.
-type DefaultEmulator struct {
+type defaultBaseEmulator struct {
 	config *DefaultEmulatorConfig
 
 	stepping  bool
@@ -29,11 +29,8 @@ type DefaultEmulator struct {
 * Constructor
 *************************************************************************************/
 
-// NewDefaultEmulator creates a new DefaultEmulator instance with the provided configuration.
-// It initializes the emulator with default state values and sets up the bidirectional
-// references between the emulator and its loop and console components.
-func NewDefaultEmulator(config DefaultEmulatorConfig) *DefaultEmulator {
-	emulator := &DefaultEmulator{
+func newBaseEmulator(config DefaultEmulatorConfig) *defaultBaseEmulator {
+	emulator := &defaultBaseEmulator{
 		config:    &config,
 		stepping:  false,
 		resetting: false,
@@ -45,15 +42,25 @@ func NewDefaultEmulator(config DefaultEmulatorConfig) *DefaultEmulator {
 	return emulator
 }
 
+// NewBaseEmulator creates a new DefaultEmulator instance with the provided configuration.
+// It initializes the emulator with default state values and sets up the bidirectional
+// references between the emulator and its loop and console components.
+func NewBaseEmulator(config DefaultEmulatorConfig) core.BaseEmulator {
+	return newBaseEmulator(config)
+}
+
 /************************************************************************************
 * State Management
 *************************************************************************************/
 
-// Run starts the emulator by initializing the emulation loop and console.
+// Start starts the emulator by initializing the emulation loop and console.
 // It returns the step context from the loop and any error that occurred during console startup.
 // If the console fails to start, the loop is stopped and the error is returned.
-func (e *DefaultEmulator) Run() (*common.StepContext, error) {
-	context := e.config.Loop.Start()
+func (e *defaultBaseEmulator) Start() (*common.StepContext, error) {
+	context, err := e.config.Loop.Start()
+	if err != nil {
+		return nil, err
+	}
 
 	if err := e.config.Console.Run(); err != nil {
 		e.config.Loop.Stop()
@@ -65,27 +72,27 @@ func (e *DefaultEmulator) Run() (*common.StepContext, error) {
 
 // Stop terminates the emulator by stopping both the emulation loop and console.
 // This method should be called to cleanly shut down the emulator and release resources.
-func (e *DefaultEmulator) Stop() {
+func (e *defaultBaseEmulator) Stop() {
 	e.config.Loop.Stop()
 	e.config.Console.Stop()
 }
 
 // Pause pauses the emulation loop, stopping the execution of the computer system.
 // The emulator can be resumed later using the Resume method.
-func (e *DefaultEmulator) Pause() {
+func (e *defaultBaseEmulator) Pause() {
 	e.config.Loop.Pause()
 }
 
 // Resume resumes the emulation loop after it has been paused.
 // This continues the execution of the computer system from where it was paused.
-func (e *DefaultEmulator) Resume() {
+func (e *defaultBaseEmulator) Resume() {
 	e.config.Loop.Resume()
 }
 
 // Step executes a single step of the emulation if the emulator is currently paused.
 // After executing one step, the emulator will automatically pause again.
 // If the emulator is not paused, this method has no effect.
-func (e *DefaultEmulator) Step() {
+func (e *defaultBaseEmulator) Step() {
 	if e.IsPaused() {
 		e.stepping = true
 		e.Resume()
@@ -94,14 +101,14 @@ func (e *DefaultEmulator) Step() {
 
 // Reset initiates a reset of the computer system by setting the resetting flag
 // and calling the computer's Reset method with true to begin the reset process.
-func (e *DefaultEmulator) Reset() {
+func (e *defaultBaseEmulator) Reset() {
 	e.resetting = true
 	e.config.Computer.Reset(true)
 }
 
 // UnReset completes the reset process by clearing the resetting flag
 // and calling the computer's Reset method with false to finish the reset.
-func (e *DefaultEmulator) UnReset() {
+func (e *defaultBaseEmulator) UnReset() {
 	e.resetting = false
 	e.config.Computer.Reset(false)
 }
@@ -112,31 +119,31 @@ func (e *DefaultEmulator) UnReset() {
 
 // IsRunning returns true if the emulation loop is currently running.
 // This indicates that the emulator is actively executing the computer system.
-func (e *DefaultEmulator) IsRunning() bool {
+func (e *defaultBaseEmulator) IsRunning() bool {
 	return e.config.Loop.IsRunning()
 }
 
 // IsStopping returns true if the emulation loop is in the process of stopping.
 // This indicates that a stop operation has been initiated but not yet completed.
-func (e *DefaultEmulator) IsStopping() bool {
+func (e *defaultBaseEmulator) IsStopping() bool {
 	return e.config.Loop.IsStopping()
 }
 
 // IsPaused returns true if the emulation loop is currently paused.
 // When paused, the computer system execution is temporarily halted but can be resumed.
-func (e *DefaultEmulator) IsPaused() bool {
+func (e *defaultBaseEmulator) IsPaused() bool {
 	return e.config.Loop.IsPaused()
 }
 
 // IsStepping returns true if the emulator is currently in stepping mode.
 // Stepping mode allows for single-step execution of the computer system.
-func (e *DefaultEmulator) IsStepping() bool {
+func (e *defaultBaseEmulator) IsStepping() bool {
 	return e.stepping
 }
 
 // IsResetting returns true if the computer system is currently being reset.
 // This indicates that a reset operation is in progress.
-func (e *DefaultEmulator) IsResetting() bool {
+func (e *defaultBaseEmulator) IsResetting() bool {
 	return e.resetting
 }
 
@@ -148,7 +155,7 @@ func (e *DefaultEmulator) IsResetting() bool {
 // and updating the console. It handles stepping mode by automatically pausing
 // after a single step, and checks for breakpoints to pause execution when hit.
 // The method also updates the console with the current execution context.
-func (e *DefaultEmulator) Tick(context *common.StepContext) {
+func (e *defaultBaseEmulator) Tick(context *common.StepContext) {
 	e.config.Computer.Tick(context)
 
 	// Clear stepping state
@@ -167,7 +174,7 @@ func (e *DefaultEmulator) Tick(context *common.StepContext) {
 // Draw renders the current state of the emulation by delegating to the console's
 // draw method. This is typically called to update the visual representation
 // of the computer system's current state.
-func (e *DefaultEmulator) Draw(context *common.StepContext) {
+func (e *defaultBaseEmulator) Draw(context *common.StepContext) {
 	e.config.Console.Draw(context)
 }
 
@@ -176,26 +183,26 @@ func (e *DefaultEmulator) Draw(context *common.StepContext) {
 *************************************************************************************/
 
 // GetComputer returns the computer core instance.
-func (e *DefaultEmulator) GetComputer() core.ComputerCore {
+func (e *defaultBaseEmulator) GetComputer() core.ComputerCore {
 	return e.config.Computer
 }
 
 // GetConsole returns the emulation console instance.
-func (e *DefaultEmulator) GetConsole() core.EmulationConsole {
+func (e *defaultBaseEmulator) GetConsole() core.EmulationConsole {
 	return e.config.Console
 }
 
 // GetLoop returns the emulation loop instance.
-func (e *DefaultEmulator) GetLoop() core.EmulationLoop {
+func (e *defaultBaseEmulator) GetLoop() core.EmulationLoop {
 	return e.config.Loop
 }
 
 // GetSpeedController returns the speed controller instance.
-func (e *DefaultEmulator) GetSpeedController() core.SpeedController {
+func (e *defaultBaseEmulator) GetSpeedController() core.SpeedController {
 	return e.config.SpeedController
 }
 
 // GetBreakpointManager returns the breakpoint manager instance.
-func (e *DefaultEmulator) GetBreakpointManager() core.BreakpointManager {
+func (e *defaultBaseEmulator) GetBreakpointManager() core.BreakpointManager {
 	return e.config.BreakpointManager
 }

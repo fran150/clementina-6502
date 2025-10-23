@@ -50,7 +50,7 @@ type ComputerRunner interface {
 }
 
 func runEmulator(cmd *cobra.Command, args []string) {
-	var emulator core.Emulator
+	var emulator core.BaseEmulator
 
 	if model == beneaterModel {
 		var port serial.Port
@@ -119,7 +119,7 @@ func runEmulator(cmd *cobra.Command, args []string) {
 
 	t := time.Now()
 
-	context, err := emulator.Run()
+	context, err := emulator.Start()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error running application: %v\n", err)
 		os.Exit(1)

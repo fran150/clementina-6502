@@ -1,6 +1,7 @@
 package emulation
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/fran150/clementina-6502/pkg/common"
@@ -18,7 +19,7 @@ type DefaultEmulationLoopConfig struct {
 // It ensures the emulation runs at the specified speed and handles the
 // separation between processing cycles and display updates.
 type defaultEmulationLoop struct {
-	emulator core.Emulator
+	emulator core.BaseEmulator
 
 	config       *DefaultEmulationLoopConfig
 	panicHandler func(loopType string, panicData any) bool
@@ -74,7 +75,7 @@ func NewEmulationLoop(config DefaultEmulationLoopConfig) core.EmulationLoop {
 //   - emulator: The emulator instance to set
 //
 // Panics if called while the emulation loop is running.
-func (e *defaultEmulationLoop) SetEmulator(emulator core.Emulator) {
+func (e *defaultEmulationLoop) SetEmulator(emulator core.BaseEmulator) {
 	if !e.IsRunning() {
 		e.emulator = emulator
 	} else {
@@ -123,7 +124,7 @@ func (e *defaultEmulationLoop) IsStopping() bool {
 //
 // Returns:
 //   - A StepContext that can be used to control and monitor the emulation
-func (e *defaultEmulationLoop) Start() *common.StepContext {
+func (e *defaultEmulationLoop) Start() (*common.StepContext, error) {
 	if !e.IsRunning() && e.emulator != nil {
 		context := common.NewStepContext()
 
@@ -133,9 +134,17 @@ func (e *defaultEmulationLoop) Start() *common.StepContext {
 		go e.executeLoop(&context)
 		go e.executeDraw(&context)
 
-		return &context
+		return &context, nil
 	} else {
-		return nil
+		var err error
+
+		if e.IsRunning() {
+			err = fmt.Errorf("cannot start again while loop is running")
+		} else {
+			err = fmt.Errorf("cannot start as emulator is not set")
+		}
+
+		return nil, err
 	}
 }
 

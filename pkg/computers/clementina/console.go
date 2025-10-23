@@ -37,7 +37,7 @@ func NewClementinaEmulatorConsole(config ClementinaEmulatorConsoleConfig) *Cleme
 * Initialization methods
 *************************************************************************************/
 
-func (c *ClementinaEmulatorConsole) SetEmulator(emulator core.Emulator) {
+func (c *ClementinaEmulatorConsole) SetEmulator(emulator core.BaseEmulator) {
 	menuOptions := createMenuOptions(c, emulator)
 
 	wm := c.GetWindowManager()

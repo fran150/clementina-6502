@@ -36,7 +36,7 @@ func NewBenEaterEmulatorConsole(config BenEaterEmulatorConsoleConfig) *BenEaterE
 * Initialization methods
 *************************************************************************************/
 
-func (c *BenEaterEmulatorConsole) SetEmulator(emulator core.Emulator) {
+func (c *BenEaterEmulatorConsole) SetEmulator(emulator core.BaseEmulator) {
 	menuOptions := createMenuOptions(c, emulator)
 
 	wm := c.GetWindowManager()
