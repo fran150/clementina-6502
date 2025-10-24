@@ -10,10 +10,14 @@ type DefaultInputHandler struct {
 	windowManager WindowManager
 }
 
-func NewDefaultInputHandler(windowManager WindowManager) *DefaultInputHandler {
+func newInputHandler(windowManager WindowManager) *DefaultInputHandler {
 	return &DefaultInputHandler{
 		windowManager: windowManager,
 	}
+}
+
+func NewInputHandler(windowManager WindowManager) InputHandler {
+	return newInputHandler(windowManager)
 }
 
 // HandleKey processes a key event and returns the modified event or nil.

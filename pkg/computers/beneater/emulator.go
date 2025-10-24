@@ -22,7 +22,7 @@ type benEaterEmulator struct {
 func NewBenEaterEmulator(computer *BenEaterComputer, speed float64, displayFPS int) (core.BaseEmulator, error) {
 	speedController := controllers.NewSpeedController(speed)
 	breakPointManager := managers.NewBreakpointManager()
-	windowManager := terminal.NewDefaultWindowManager()
+	windowManager := terminal.NewWindowManager()
 	navigationManager := managers.NewNavigationManager()
 
 	emulator := &benEaterEmulator{
@@ -35,7 +35,7 @@ func NewBenEaterEmulator(computer *BenEaterComputer, speed float64, displayFPS i
 		EmulatorConsoleConfig: terminal.EmulatorConsoleConfig{
 			WindowManager:     windowManager,
 			NavigationManager: navigationManager,
-			InputHandler:      terminal.NewDefaultInputHandler(windowManager),
+			InputHandler:      terminal.NewInputHandler(windowManager),
 			App:               tview.NewApplication(),
 		},
 		emulator: emulator,

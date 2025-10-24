@@ -12,14 +12,19 @@ type benEaterEmulatorConsoleConfig struct {
 }
 
 type benEaterEmulatorConsole struct {
-	*terminal.EmulatorConsole
-	grid *tview.Grid
+	terminal.EmulatorConsole
+
+	app           *tview.Application
+	windowManager terminal.WindowManager
+	grid          *tview.Grid
 }
 
 // newMainConsole creates and initializes a new console for the Ben Eater computer.
 func newBenEaterEmulatorConsole(config benEaterEmulatorConsoleConfig) *benEaterEmulatorConsole {
 	console := &benEaterEmulatorConsole{
 		EmulatorConsole: terminal.NewEmulatorConsole(config.EmulatorConsoleConfig),
+		app:             config.App,
+		windowManager:   config.WindowManager,
 		grid:            tview.NewGrid(),
 	}
 
@@ -28,7 +33,7 @@ func newBenEaterEmulatorConsole(config benEaterEmulatorConsoleConfig) *benEaterE
 	menuOptions := createMenuOptions(console, config.emulator)
 
 	computer := config.emulator.computer
-	wm := console.GetWindowManager()
+	wm := config.WindowManager
 
 	// Initialize all windows
 	wm.AddWindow("lcd", ui.NewDisplayWindow(computer.chips.lcd))
@@ -66,7 +71,7 @@ func (c *benEaterEmulatorConsole) initializeMainGrid() {
 		SetTitle("Ben Eater 6502 Computer")
 
 	// Get the tview app from the framework and set the grid as root
-	c.GetApp().SetRoot(c.grid, true)
+	c.app.SetRoot(c.grid, true)
 }
 
 // initializeBusWindow configures the bus window with the computer's buses.
@@ -80,7 +85,7 @@ func initializeBusWindow(computer *BenEaterComputer, busWindow *ui.BusWindow) {
 // initializeLayout sets up the initial layout of console windows.
 func (c *benEaterEmulatorConsole) initializeLayout() {
 	// Setup initial grid layout
-	wm := c.GetWindowManager()
+	wm := c.windowManager
 	c.grid.AddItem(wm.GetWindow("lcd").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
 		AddItem(wm.GetWindow("speed").GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
 		AddItem(wm.GetWindow("code").GetDrawArea(), 2, 0, 1, 1, 0, 0, false).

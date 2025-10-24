@@ -1,6 +1,7 @@
 package clementina
 
 import (
+	"github.com/fran150/clementina-6502/pkg/core"
 	"github.com/fran150/clementina-6502/pkg/terminal"
 	"github.com/fran150/clementina-6502/pkg/terminal/ui"
 	"github.com/rivo/tview"
@@ -12,22 +13,30 @@ type clementinaEmulatorConsoleConfig struct {
 }
 
 type clementinaEmulatorConsole struct {
-	*terminal.EmulatorConsole
+	terminal.EmulatorConsole
+
+	app               *tview.Application
+	windowManager     terminal.WindowManager
+	navigationManager core.NavigationManager
+
 	grid *tview.Grid
 }
 
 func newClementinaEmulatorConsole(config clementinaEmulatorConsoleConfig) *clementinaEmulatorConsole {
 
 	console := &clementinaEmulatorConsole{
-		EmulatorConsole: terminal.NewEmulatorConsole(config.EmulatorConsoleConfig),
-		grid:            tview.NewGrid(),
+		EmulatorConsole:   terminal.NewEmulatorConsole(config.EmulatorConsoleConfig),
+		app:               config.App,
+		windowManager:     config.WindowManager,
+		navigationManager: config.NavigationManager,
+		grid:              tview.NewGrid(),
 	}
 
 	console.initializeMainGrid()
 
-	computer := config.emulator.computer
 	menuOptions := createMenuOptions(console, config.emulator)
 
+	computer := config.emulator.computer
 	wm := config.WindowManager
 
 	// Initialize all windows
@@ -66,7 +75,7 @@ func (c *clementinaEmulatorConsole) initializeMainGrid() {
 		SetTitle("Clementina 6502 Computer")
 
 	// Get the tview app from the framework and set the grid as root
-	c.GetApp().SetRoot(c.grid, true)
+	c.app.SetRoot(c.grid, true)
 }
 
 // initializeBusWindow configures the bus window with the computer's buses.
@@ -84,7 +93,7 @@ func initializeBusWindow(computer *ClementinaComputer, busWindow *ui.BusWindow) 
 // initializeLayout sets up the initial layout of console windows.
 func (c *clementinaEmulatorConsole) initializeLayout() {
 	// Setup initial grid layout
-	wm := c.GetWindowManager()
+	wm := c.windowManager
 	c.grid.AddItem(wm.GetWindow("speed").GetDrawArea(), 0, 0, 1, 1, 0, 0, false).
 		AddItem(wm.GetWindow("code").GetDrawArea(), 1, 0, 1, 1, 0, 0, false).
 		AddItem(wm.GetWindow("options").GetDrawArea(), 2, 0, 1, 2, 0, 0, false).
@@ -97,9 +106,8 @@ func (c *clementinaEmulatorConsole) initializeLayout() {
 
 // ShowGotoForm shows the go to form for memory navigation allowing to navigate back.
 func (c *clementinaEmulatorConsole) ShowGotoForm() {
-	activeKey := c.GetNavigationManager().GetCurrent()
-
-	wm := c.GetWindowManager()
+	wm := c.windowManager
+	activeKey := c.navigationManager.GetCurrent()
 
 	if memoryWindow := terminal.GetWindow[ui.MemoryWindow](wm, activeKey); memoryWindow != nil {
 		if gotoWindow := terminal.GetWindow[ui.MemoryWindowGoToForm](wm, "goto"); gotoWindow != nil {

@@ -4,23 +4,28 @@ import (
 	"github.com/rivo/tview"
 )
 
-// DefaultWindowManager manages console windows and their lifecycle.
-type DefaultWindowManager struct {
+// defaultWindowManager manages console windows and their lifecycle.
+type defaultWindowManager struct {
 	windows map[string]Window
 	tickers map[string]TickerWindow
 	pages   *tview.Pages
 }
 
-// NewDefaultWindowManager creates a new window manager.
-//
-// Returns:
-//   - A pointer to the initialized DefaultWindowManager
-func NewDefaultWindowManager() *DefaultWindowManager {
-	return &DefaultWindowManager{
+func newWindowManager() *defaultWindowManager {
+	return &defaultWindowManager{
 		windows: make(map[string]Window),
 		tickers: make(map[string]TickerWindow),
 		pages:   tview.NewPages(),
 	}
+
+}
+
+// NewWindowManager creates a new window manager.
+//
+// Returns:
+//   - A pointer to the initialized DefaultWindowManager
+func NewWindowManager() WindowManager {
+	return newWindowManager()
 }
 
 // AddWindow adds a new window to the manager.
@@ -28,7 +33,7 @@ func NewDefaultWindowManager() *DefaultWindowManager {
 // Parameters:
 //   - key: The unique identifier for the window
 //   - window: The window instance to add
-func (wm *DefaultWindowManager) AddWindow(key string, window Window) {
+func (wm *defaultWindowManager) AddWindow(key string, window Window) {
 	if _, exists := wm.windows[key]; !exists {
 		wm.windows[key] = window
 
@@ -47,7 +52,7 @@ func (wm *DefaultWindowManager) AddWindow(key string, window Window) {
 //
 // Returns:
 //   - The window instance, or nil if not found
-func (wm *DefaultWindowManager) GetWindow(key string) Window {
+func (wm *defaultWindowManager) GetWindow(key string) Window {
 	if window, exists := wm.windows[key]; exists {
 		return window
 	}
@@ -58,7 +63,7 @@ func (wm *DefaultWindowManager) GetWindow(key string) Window {
 //
 // Parameters:
 //   - key: The unique identifier of the window to remove
-func (wm *DefaultWindowManager) RemoveWindow(key string) {
+func (wm *defaultWindowManager) RemoveWindow(key string) {
 	if _, exists := wm.windows[key]; exists {
 		delete(wm.windows, key)
 		delete(wm.tickers, key)
@@ -68,7 +73,7 @@ func (wm *DefaultWindowManager) RemoveWindow(key string) {
 
 // SwitchToPage changes the currently active page to the window with the
 // specified key.
-func (wm *DefaultWindowManager) SwitchToPage(key string) {
+func (wm *defaultWindowManager) SwitchToPage(key string) {
 	wm.pages.SwitchToPage(key)
 }
 
@@ -84,7 +89,7 @@ func (wm *DefaultWindowManager) SwitchToPage(key string) {
 //	    fmt.Printf("Window: %s\n", key)
 //	    return true // continue iteration
 //	})
-func (wm *DefaultWindowManager) GetAllWindows(fn func(key string, window Window) bool) {
+func (wm *defaultWindowManager) GetAllWindows(fn func(key string, window Window) bool) {
 	for k, v := range wm.windows {
 		if !fn(k, v) {
 			break
@@ -92,7 +97,7 @@ func (wm *DefaultWindowManager) GetAllWindows(fn func(key string, window Window)
 	}
 }
 
-// GetTickers iterates over all ticker windows for read-only access.
+// GetTickerWindows iterates over all ticker windows for read-only access.
 // The callback function receives each key-value pair and should return true to continue iteration.
 //
 // Parameters:
@@ -100,11 +105,11 @@ func (wm *DefaultWindowManager) GetAllWindows(fn func(key string, window Window)
 //
 // Example usage:
 //
-//	wm.GetTickers(func(key string, ticker TickerWindow) bool {
+//	wm.GetTickerWindows(func(key string, ticker TickerWindow) bool {
 //	    fmt.Printf("Ticker: %s\n", key)
 //	    return true // continue iteration
 //	})
-func (wm *DefaultWindowManager) GetTickers(fn func(key string, ticker TickerWindow) bool) {
+func (wm *defaultWindowManager) GetTickerWindows(fn func(key string, ticker TickerWindow) bool) {
 	for k, v := range wm.tickers {
 		if !fn(k, v) {
 			break
@@ -112,7 +117,7 @@ func (wm *DefaultWindowManager) GetTickers(fn func(key string, ticker TickerWind
 	}
 }
 
-func (wm *DefaultWindowManager) GetPages() *tview.Pages {
+func (wm *defaultWindowManager) GetPages() *tview.Pages {
 	return wm.pages
 }
 

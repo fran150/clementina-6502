@@ -174,32 +174,3 @@ func (e *defaultBaseEmulator) Tick(context *common.StepContext) {
 func (e *defaultBaseEmulator) Draw(context *common.StepContext) {
 	e.config.Console.Draw(context)
 }
-
-/************************************************************************************
-* Getters
-*************************************************************************************/
-
-// GetComputer returns the computer core instance.
-func (e *defaultBaseEmulator) GetComputer() core.ComputerCore {
-	return e.config.Computer
-}
-
-// GetConsole returns the emulation console instance.
-func (e *defaultBaseEmulator) GetConsole() core.EmulationConsole {
-	return e.config.Console
-}
-
-// GetLoop returns the emulation loop instance.
-func (e *defaultBaseEmulator) GetLoop() core.EmulationLoop {
-	return e.config.Loop
-}
-
-// GetSpeedController returns the speed controller instance.
-func (e *defaultBaseEmulator) GetSpeedController() core.SpeedController {
-	return e.config.SpeedController
-}
-
-// GetBreakpointManager returns the breakpoint manager instance.
-func (e *defaultBaseEmulator) GetBreakpointManager() core.BreakpointManager {
-	return e.config.BreakpointManager
-}

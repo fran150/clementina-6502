@@ -200,7 +200,7 @@ func createMemoryWindowSubMenu(console *clementinaEmulatorConsole) []*ui.Options
 			KeyName:        "Up",
 			KeyDescription: "Scroll Up",
 			Action: func(option *ui.OptionsWindowMenuOption) {
-				console.ScrollMemoryWindowUp(1)
+				console.ScrollActiveWindowUp(1)
 			},
 			DoNotForward: true,
 		},
@@ -209,7 +209,7 @@ func createMemoryWindowSubMenu(console *clementinaEmulatorConsole) []*ui.Options
 			KeyName:        "Dn",
 			KeyDescription: "Scroll Down",
 			Action: func(option *ui.OptionsWindowMenuOption) {
-				console.ScrollMemoryWindowDown(1)
+				console.ScrollActiveWindowDown(1)
 			},
 			DoNotForward: true,
 		},
@@ -218,7 +218,7 @@ func createMemoryWindowSubMenu(console *clementinaEmulatorConsole) []*ui.Options
 			KeyName:        "Pg Up",
 			KeyDescription: "S. Up Fast",
 			Action: func(option *ui.OptionsWindowMenuOption) {
-				console.ScrollMemoryWindowUp(64)
+				console.ScrollActiveWindowUp(64)
 			},
 		},
 		{
@@ -226,7 +226,7 @@ func createMemoryWindowSubMenu(console *clementinaEmulatorConsole) []*ui.Options
 			KeyName:        "Pg Dn",
 			KeyDescription: "S. Down Fast",
 			Action: func(option *ui.OptionsWindowMenuOption) {
-				console.ScrollMemoryWindowDown(64)
+				console.ScrollActiveWindowDown(64)
 			},
 		},
 		{

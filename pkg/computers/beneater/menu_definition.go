@@ -207,7 +207,7 @@ func createMemoryWindowSubMenu(console *benEaterEmulatorConsole) []*ui.OptionsWi
 			KeyName:        "Up",
 			KeyDescription: "Scroll Up",
 			Action: func(option *ui.OptionsWindowMenuOption) {
-				console.ScrollMemoryWindowUp(1)
+				console.ScrollActiveWindowUp(1)
 			},
 			DoNotForward: true,
 		},
@@ -216,7 +216,7 @@ func createMemoryWindowSubMenu(console *benEaterEmulatorConsole) []*ui.OptionsWi
 			KeyName:        "Dn",
 			KeyDescription: "Scroll Down",
 			Action: func(option *ui.OptionsWindowMenuOption) {
-				console.ScrollMemoryWindowDown(1)
+				console.ScrollActiveWindowDown(1)
 			},
 			DoNotForward: true,
 		},
@@ -225,7 +225,7 @@ func createMemoryWindowSubMenu(console *benEaterEmulatorConsole) []*ui.OptionsWi
 			KeyName:        "Pg Up",
 			KeyDescription: "Scroll Up Fast",
 			Action: func(option *ui.OptionsWindowMenuOption) {
-				console.ScrollMemoryWindowUp(20)
+				console.ScrollActiveWindowUp(20)
 			},
 		},
 		{
@@ -233,7 +233,7 @@ func createMemoryWindowSubMenu(console *benEaterEmulatorConsole) []*ui.OptionsWi
 			KeyName:        "Pg Dn",
 			KeyDescription: "Scroll Down Fast",
 			Action: func(option *ui.OptionsWindowMenuOption) {
-				console.ScrollMemoryWindowDown(20)
+				console.ScrollActiveWindowDown(20)
 			},
 		},
 	}
