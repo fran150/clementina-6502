@@ -8,8 +8,10 @@ import (
 	"github.com/fran150/clementina-6502/pkg/core"
 )
 
-type emulator interface {
-	core.Runnable
+// LoopTarget defines the interface that an emulation target must implement
+// to be used with the emulation loop. It combines the ability to be paused,
+// execute ticks, and render output.
+type LoopTarget interface {
 	core.Pausable
 	core.Ticker
 	core.Renderer
@@ -20,7 +22,7 @@ type DefaultEmulationLoopConfig struct {
 	SpeedController core.SpeedController
 	DisplayFPS      int
 	RefreshNanos    int64
-	Emulator        emulator
+	Emulator        LoopTarget
 }
 
 // defaultEmulationLoop manages the timing and execution of the emulation cycle.
@@ -39,6 +41,14 @@ type defaultEmulationLoop struct {
 /************************************************************************************
 * Constructor
 *************************************************************************************/
+// newEmulationLoop creates a new defaultEmulationLoop instance with the provided configuration.
+// It sets default values for RefreshNanos (15ms) and DisplayFPS (10) if they are not positive.
+//
+// Parameters:
+//   - config: Configuration settings for the emulation loop
+//
+// Returns:
+//   - A pointer to the initialized defaultEmulationLoop
 
 func newEmulationLoop(config DefaultEmulationLoopConfig) *defaultEmulationLoop {
 	if config.RefreshNanos <= 0 {
@@ -73,22 +83,6 @@ func NewEmulationLoop(config DefaultEmulationLoopConfig) core.EmulationLoop {
 /************************************************************************************
 * Setters
 *************************************************************************************/
-
-// SetEmulator sets the emulator instance for the emulation loop.
-// This can only be called when the loop is not running.
-//
-// Parameters:
-//   - emulator: The emulator instance to set
-//
-// Panics if called while the emulation loop is running.
-func (e *defaultEmulationLoop) SetEmulator(emulator core.BaseEmulator) {
-	if !e.IsRunning() {
-		e.config.Emulator = emulator
-	} else {
-		panic("Cannot change emulator object while emulator loop is running")
-	}
-
-}
 
 // SetPanicHandler sets the panic handler. This function will be called for cleanup if
 // any of the emulation loops fail.

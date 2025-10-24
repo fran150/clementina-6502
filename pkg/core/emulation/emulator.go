@@ -28,7 +28,9 @@ type defaultBaseEmulator struct {
 /************************************************************************************
 * Constructor
 *************************************************************************************/
-
+// newBaseEmulator creates a new defaultBaseEmulator instance with the provided configuration.
+// It initializes the emulator with default state values (stepping and resetting set to false).
+// This is an internal constructor function used by NewBaseEmulator.
 func newBaseEmulator(config DefaultEmulatorConfig) *defaultBaseEmulator {
 	emulator := &defaultBaseEmulator{
 		config:    &config,

@@ -7,11 +7,15 @@ import (
 	"github.com/rivo/tview"
 )
 
+// clementinaEmulatorConsoleConfig holds the configuration for creating a new Clementina emulator console.
+// It embeds the base EmulatorConsoleConfig and adds a reference to the Clementina emulator instance.
 type clementinaEmulatorConsoleConfig struct {
 	terminal.EmulatorConsoleConfig
 	emulator *clementinaEmulator
 }
 
+// clementinaEmulatorConsole represents the main console interface for the Clementina 6502 emulator.
+// It manages the terminal UI, window layout, and user interactions for the emulator.
 type clementinaEmulatorConsole struct {
 	terminal.EmulatorConsole
 
@@ -22,6 +26,16 @@ type clementinaEmulatorConsole struct {
 	grid *tview.Grid
 }
 
+// newClementinaEmulatorConsole creates a new instance of the Clementina emulator console.
+// It initializes the console with the provided configuration, sets up the main grid layout,
+// creates menu options, initializes all windows (code, speed, CPU, VIA, memory windows, etc.),
+// configures the bus window, and sets up the initial layout with the CPU window as active.
+//
+// Parameters:
+//   - config: Configuration struct containing emulator console settings and emulator instance
+//
+// Returns:
+//   - *clementinaEmulatorConsole: A fully initialized console ready for user interaction
 func newClementinaEmulatorConsole(config clementinaEmulatorConsoleConfig) *clementinaEmulatorConsole {
 
 	console := &clementinaEmulatorConsole{

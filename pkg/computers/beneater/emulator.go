@@ -12,6 +12,8 @@ import (
 	"github.com/rivo/tview"
 )
 
+// benEaterEmulator implements the core.BaseEmulator interface for Ben Eater's 6502 computer.
+// It provides emulation capabilities with speed control and breakpoint management.
 type benEaterEmulator struct {
 	core.BaseEmulator
 	speedController   core.SpeedController
@@ -19,6 +21,18 @@ type benEaterEmulator struct {
 	computer          *BenEaterComputer
 }
 
+// NewBenEaterEmulator creates a new Ben Eater 6502 computer emulator instance.
+// It initializes all necessary components including speed control, breakpoint management,
+// console interface, and emulation loop with the specified parameters.
+//
+// Parameters:
+//   - computer: The BenEaterComputer instance to emulate
+//   - speed: The emulation speed multiplier (1.0 = real hardware speed)
+//   - displayFPS: The frames per second for display updates
+//
+// Returns:
+//   - core.BaseEmulator: The configured emulator instance
+//   - error: Any error that occurred during initialization
 func NewBenEaterEmulator(computer *BenEaterComputer, speed float64, displayFPS int) (core.BaseEmulator, error) {
 	speedController := controllers.NewSpeedController(speed)
 	breakPointManager := managers.NewBreakpointManager()

@@ -38,16 +38,18 @@ type circuit struct {
 	serial     serial.Port
 }
 
+// BenEaterComputerConfig holds configuration options for creating a new BenEaterComputer.
+// It specifies the serial port and modem line emulation settings.
+type BenEaterComputerConfig struct {
+	Port              serial.Port
+	EmulateModemLines bool
+}
+
 // BenEaterComputer represents a complete emulation of Ben Eater's 6502 computer.
 // It contains all the necessary components and connections to simulate the hardware.
 type BenEaterComputer struct {
 	chips   *chips
 	circuit *circuit
-}
-
-type BenEaterComputerConfig struct {
-	Port              serial.Port
-	EmulateModemLines bool
 }
 
 /*******************************************************************************************

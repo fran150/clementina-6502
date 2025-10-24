@@ -6,11 +6,15 @@ import (
 	"github.com/rivo/tview"
 )
 
+// benEaterEmulatorConsoleConfig holds the configuration needed to create a Ben Eater emulator console.
+// It embeds the base EmulatorConsoleConfig and adds a reference to the specific Ben Eater emulator.
 type benEaterEmulatorConsoleConfig struct {
 	terminal.EmulatorConsoleConfig
 	emulator *benEaterEmulator
 }
 
+// benEaterEmulatorConsole represents the main console interface for the Ben Eater 6502 computer emulator.
+// It provides a terminal-based UI with multiple windows for monitoring and controlling the emulated system.
 type benEaterEmulatorConsole struct {
 	terminal.EmulatorConsole
 

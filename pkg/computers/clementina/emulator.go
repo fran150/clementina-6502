@@ -12,6 +12,9 @@ import (
 	"github.com/rivo/tview"
 )
 
+// clementinaEmulator implements the core.BaseEmulator interface for the Clementina 6502 emulator.
+// It manages the emulation of a Clementina computer system, including speed control,
+// breakpoint management, and the underlying computer hardware simulation.
 type clementinaEmulator struct {
 	core.BaseEmulator
 	speedController   core.SpeedController
@@ -19,6 +22,18 @@ type clementinaEmulator struct {
 	computer          *ClementinaComputer
 }
 
+// NewClemetinaEmulator creates a new instance of the Clementina 6502 emulator.
+// It initializes all necessary components including speed control, breakpoint management,
+// console interface, and emulation loop with the specified configuration.
+
+// Parameters:
+//   - computer: The ClementinaComputer instance to emulate
+//   - speed: The emulation speed multiplier (1.0 = real hardware speed)
+//   - displayFPS: The frames per second for display updates
+//
+// Returns:
+//   - core.BaseEmulator: The configured emulator instance
+//   - error: Any error that occurred during initialization
 func NewClemetinaEmulator(computer *ClementinaComputer, speed float64, displayFPS int) (core.BaseEmulator, error) {
 	speedController := controllers.NewSpeedController(speed)
 	breakPointManager := managers.NewBreakpointManager()
