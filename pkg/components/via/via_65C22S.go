@@ -102,6 +102,14 @@ type via65C22S struct {
 	registerWriteHandlers []func(*via65C22S)
 }
 
+// NewVia65C22S creates and returns a new VIA 65C22S chip instance.
+// The VIA (Versatile Interface Adapter) is a flexible I/O device for use with
+// the 65xx series microprocessor family, providing two programmable 8-bit
+// bidirectional peripheral I/O ports, two 16-bit interval timers/counters,
+// and a serial shift register with various control capabilities.
+//
+// Returns:
+//   - A components.Via65C22 interface implementation representing the VIA chip
 func NewVia65C22S() components.Via65C22 {
 	return newVia65C22S()
 }

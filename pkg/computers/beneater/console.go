@@ -9,7 +9,7 @@ import (
 // benEaterEmulatorConsoleConfig holds the configuration needed to create a Ben Eater emulator console.
 // It embeds the base EmulatorConsoleConfig and adds a reference to the specific Ben Eater emulator.
 type benEaterEmulatorConsoleConfig struct {
-	terminal.EmulatorConsoleConfig
+	terminal.BaseEmulatorConsoleConfig
 	emulator *benEaterEmulator
 }
 
@@ -26,7 +26,7 @@ type benEaterEmulatorConsole struct {
 // newMainConsole creates and initializes a new console for the Ben Eater computer.
 func newBenEaterEmulatorConsole(config benEaterEmulatorConsoleConfig) *benEaterEmulatorConsole {
 	console := &benEaterEmulatorConsole{
-		EmulatorConsole: terminal.NewEmulatorConsole(config.EmulatorConsoleConfig),
+		EmulatorConsole: terminal.NewEmulatorConsole(config.BaseEmulatorConsoleConfig),
 		app:             config.App,
 		windowManager:   config.WindowManager,
 		grid:            tview.NewGrid(),

@@ -69,6 +69,8 @@ type ComputerCore interface {
 	Reset(status bool)
 }
 
+// Runnable defines the interface for managing the execution state of an emulator.
+// This interface provides basic start/stop functionality and status checking.
 type Runnable interface {
 	// Start begins the emulation loop and returns the execution context.
 	// Returns nil if the loop is already running.
@@ -84,6 +86,8 @@ type Runnable interface {
 	IsStopping() bool
 }
 
+// Pausable defines the interface for managing pause/resume functionality of an emulator.
+// This interface provides control over the execution state without stopping the emulator entirely.
 type Pausable interface {
 	// Pauses execution of the emulation loop
 	Pause()
@@ -95,6 +99,8 @@ type Pausable interface {
 	IsPaused() bool
 }
 
+// Steppable defines the interface for managing single-step execution of an emulator.
+// This interface provides control for executing one step at a time for debugging purposes.
 type Steppable interface {
 	// Step executes a single emulation step and then pauses.
 	Step()
@@ -103,6 +109,8 @@ type Steppable interface {
 	IsStepping() bool
 }
 
+// Resetable defines the interface for managing reset functionality of an emulator.
+// This interface provides control over the reset state of the emulated computer.
 type Resetable interface {
 	// Reset puts the emulated computer into reset state.
 	Reset()

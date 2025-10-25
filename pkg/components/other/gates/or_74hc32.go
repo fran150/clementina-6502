@@ -17,6 +17,7 @@ type or74HC32 struct {
 	y [or74HC32NumGates]buses.LineConnector // Pin Y 1 to 4 (0..3)
 }
 
+// NewOr74HC32 creates a new 74HC32 quad OR gate chip
 func NewOr74HC32() components.QuadLogicGate {
 	return newOr74HC32()
 }

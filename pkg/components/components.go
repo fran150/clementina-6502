@@ -122,6 +122,8 @@ type OpCode uint
 // while LDA #$FF uses immediate addressing to load the literal value $FF.
 type Mnemonic string
 
+// CpuInstructionData defines the interface for CPU instruction information.
+// It provides details about a specific instruction including its opcode, mnemonic, and addressing mode.
 type CpuInstructionData interface {
 	OpCode() OpCode
 	Mnemonic() Mnemonic
@@ -132,6 +134,8 @@ type CpuInstructionData interface {
 // These constants are used to access and modify individual flags.
 type StatusBit uint8
 
+// StatusRegister defines the interface for accessing CPU status register flags.
+// It provides methods to check the state of individual status bits in the processor status register.
 type StatusRegister interface {
 	Flag(bit StatusBit) bool
 }

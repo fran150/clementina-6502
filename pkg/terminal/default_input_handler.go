@@ -16,6 +16,13 @@ func newInputHandler(windowManager WindowManager) *DefaultInputHandler {
 	}
 }
 
+// NewInputHandler creates a new DefaultInputHandler instance.
+//
+// Parameters:
+//   - windowManager: The window manager to use for handling input events
+//
+// Returns:
+//   - An InputHandler interface implementation
 func NewInputHandler(windowManager WindowManager) InputHandler {
 	return newInputHandler(windowManager)
 }

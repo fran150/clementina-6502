@@ -10,7 +10,7 @@ import (
 // clementinaEmulatorConsoleConfig holds the configuration for creating a new Clementina emulator console.
 // It embeds the base EmulatorConsoleConfig and adds a reference to the Clementina emulator instance.
 type clementinaEmulatorConsoleConfig struct {
-	terminal.EmulatorConsoleConfig
+	terminal.BaseEmulatorConsoleConfig
 	emulator *clementinaEmulator
 }
 
@@ -39,7 +39,7 @@ type clementinaEmulatorConsole struct {
 func newClementinaEmulatorConsole(config clementinaEmulatorConsoleConfig) *clementinaEmulatorConsole {
 
 	console := &clementinaEmulatorConsole{
-		EmulatorConsole:   terminal.NewEmulatorConsole(config.EmulatorConsoleConfig),
+		EmulatorConsole:   terminal.NewEmulatorConsole(config.BaseEmulatorConsoleConfig),
 		app:               config.App,
 		windowManager:     config.WindowManager,
 		navigationManager: config.NavigationManager,

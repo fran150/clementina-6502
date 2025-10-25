@@ -46,7 +46,7 @@ func NewBenEaterEmulator(computer *BenEaterComputer, speed float64, displayFPS i
 	}
 
 	console := newBenEaterEmulatorConsole(benEaterEmulatorConsoleConfig{
-		EmulatorConsoleConfig: terminal.EmulatorConsoleConfig{
+		BaseEmulatorConsoleConfig: terminal.BaseEmulatorConsoleConfig{
 			WindowManager:     windowManager,
 			NavigationManager: navigationManager,
 			InputHandler:      terminal.NewInputHandler(windowManager),
@@ -55,13 +55,13 @@ func NewBenEaterEmulator(computer *BenEaterComputer, speed float64, displayFPS i
 		emulator: emulator,
 	})
 
-	loop := emulation.NewEmulationLoop(emulation.DefaultEmulationLoopConfig{
+	loop := emulation.NewEmulationLoop(emulation.EmulationLoopConfig{
 		SpeedController: speedController,
 		DisplayFPS:      displayFPS,
 		Emulator:        emulator,
 	})
 
-	emulatorConfig := emulation.DefaultEmulatorConfig{
+	emulatorConfig := emulation.EmulatorConfig{
 		Computer:          computer,
 		Console:           console,
 		Loop:              loop,

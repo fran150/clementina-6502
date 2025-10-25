@@ -61,6 +61,11 @@ type cpu65C02S struct {
 	processorStopped bool
 }
 
+// NewCpu65C02S creates a new instance of the WDC 65C02S processor with default initialization values.
+// This is the public constructor function that returns the CPU as the components.Cpu65C02 interface.
+// The CPU is created with typical reset values: stack pointer at 0xFD, program counter at 0xFFFC,
+// and processor status register with B and I flags set (0x34).
+// Address and data buses are initialized but not connected to any external components.
 func NewCpu65C02S() components.Cpu65C02 {
 	return newCpu65C02S()
 }

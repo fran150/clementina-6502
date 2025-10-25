@@ -7,27 +7,27 @@ import (
 	"github.com/rivo/tview"
 )
 
-// defaultEmulatorConsole provides a base implementation for terminal-based emulator consoles.
-// It manages the terminal UI components including windows, navigation, and input handling.
-type defaultEmulatorConsole struct {
-	config *EmulatorConsoleConfig
-}
-
-// EmulatorConsoleConfig holds the configuration for a BaseTerminalEmulatorConsole.
+// BaseEmulatorConsoleConfig holds the configuration for a BaseTerminalEmulatorConsole.
 // It contains all the necessary components for managing terminal UI operations.
-type EmulatorConsoleConfig struct {
+type BaseEmulatorConsoleConfig struct {
 	WindowManager     WindowManager
 	NavigationManager core.NavigationManager
 	InputHandler      InputHandler
 	App               *tview.Application
 }
 
+// baseEmulatorConsole provides a base implementation for terminal-based emulator consoles.
+// It manages the terminal UI components including windows, navigation, and input handling.
+type baseEmulatorConsole struct {
+	config *BaseEmulatorConsoleConfig
+}
+
 /*********************************************************************************************************
 * Constructor
 **********************************************************************************************************/
 
-func newEmulatorConsole(config EmulatorConsoleConfig) *defaultEmulatorConsole {
-	console := &defaultEmulatorConsole{
+func newEmulatorConsole(config BaseEmulatorConsoleConfig) *baseEmulatorConsole {
+	console := &baseEmulatorConsole{
 		config: &config,
 	}
 
@@ -51,7 +51,7 @@ func newEmulatorConsole(config EmulatorConsoleConfig) *defaultEmulatorConsole {
 //
 // Returns:
 //   - A pointer to the newly created BaseTerminalEmulatorConsole instance
-func NewEmulatorConsole(config EmulatorConsoleConfig) EmulatorConsole {
+func NewEmulatorConsole(config BaseEmulatorConsoleConfig) EmulatorConsole {
 	return newEmulatorConsole(config)
 }
 
@@ -63,7 +63,7 @@ func NewEmulatorConsole(config EmulatorConsoleConfig) EmulatorConsole {
 //
 // Parameters:
 //   - windowKey: The key identifier of the window to show
-func (c *defaultEmulatorConsole) ShowWindow(windowKey string) {
+func (c *baseEmulatorConsole) ShowWindow(windowKey string) {
 	c.config.NavigationManager.NavigateTo(windowKey)
 	c.config.WindowManager.SwitchToPage(windowKey)
 }
@@ -71,21 +71,21 @@ func (c *defaultEmulatorConsole) ShowWindow(windowKey string) {
 // ReturnToPreviousWindow navigates back to the previous window in the navigation history.
 // It uses the navigation manager to go back one step and then switches the window manager
 // to display the current window from the navigation history.
-func (c *defaultEmulatorConsole) ReturnToPreviousWindow() {
+func (c *baseEmulatorConsole) ReturnToPreviousWindow() {
 	c.config.NavigationManager.GoBack()
 	c.config.WindowManager.SwitchToPage(c.config.NavigationManager.GetCurrent())
 }
 
 // SwitchToBreakpointConfigMode switches the console to breakpoint configuration mode.
 // It pushes "breakpoint" to the navigation history and switches to the breakpoint window.
-func (c *defaultEmulatorConsole) SwitchToBreakpointConfigMode() {
+func (c *baseEmulatorConsole) SwitchToBreakpointConfigMode() {
 	c.config.NavigationManager.PushToHistory("breakpoint")
 	c.config.WindowManager.SwitchToPage("breakpoint")
 }
 
 // RemoveSelectedBreakpointAddress removes the currently selected breakpoint address from the breakpoint configuration window.
 // It retrieves the breakpoint window and calls its RemoveSelectedItem method to remove the selected breakpoint.
-func (c *defaultEmulatorConsole) RemoveSelectedBreakpointAddress() {
+func (c *baseEmulatorConsole) RemoveSelectedBreakpointAddress() {
 	if window := GetWindow[ui.BreakPointForm](c.config.WindowManager, "breakpoint"); window != nil {
 		window.RemoveSelectedItem()
 	}
@@ -93,7 +93,7 @@ func (c *defaultEmulatorConsole) RemoveSelectedBreakpointAddress() {
 
 // ShowEmulationSpeedPopup displays the emulation speed configuration popup window.
 // It retrieves the speed window and calls its ShowConfig method to display the speed configuration interface.
-func (c *defaultEmulatorConsole) ShowEmulationSpeedPopup() {
+func (c *baseEmulatorConsole) ShowEmulationSpeedPopup() {
 	if window := GetWindow[ui.SpeedWindow](c.config.WindowManager, "speed"); window != nil {
 		window.ShowConfig()
 	}
@@ -103,7 +103,7 @@ func (c *defaultEmulatorConsole) ShowEmulationSpeedPopup() {
 //
 // Parameters:
 //   - step: The number of lines to scroll up
-func (c *defaultEmulatorConsole) ScrollActiveWindowUp(step uint32) {
+func (c *baseEmulatorConsole) ScrollActiveWindowUp(step uint32) {
 	activeKey := c.config.NavigationManager.GetCurrent()
 
 	if window := GetWindow[ui.MemoryWindow](c.config.WindowManager, activeKey); window != nil {
@@ -115,7 +115,7 @@ func (c *defaultEmulatorConsole) ScrollActiveWindowUp(step uint32) {
 //
 // Parameters:
 //   - step: The number of lines to scroll down
-func (c *defaultEmulatorConsole) ScrollActiveWindowDown(step uint32) {
+func (c *baseEmulatorConsole) ScrollActiveWindowDown(step uint32) {
 	activeKey := c.config.NavigationManager.GetCurrent()
 
 	if window := GetWindow[ui.MemoryWindow](c.config.WindowManager, activeKey); window != nil {
@@ -131,7 +131,7 @@ func (c *defaultEmulatorConsole) ScrollActiveWindowDown(step uint32) {
 //
 // Parameters:
 //   - context: The current step context
-func (c *defaultEmulatorConsole) Tick(context *common.StepContext) {
+func (c *baseEmulatorConsole) Tick(context *common.StepContext) {
 	c.config.WindowManager.GetTickerWindows(func(key string, ticker TickerWindow) bool {
 		ticker.Tick(context)
 		return true // continue iteration
@@ -143,7 +143,7 @@ func (c *defaultEmulatorConsole) Tick(context *common.StepContext) {
 // Parameters:
 //   - context: The current step context containing state information for rendering
 
-func (c *defaultEmulatorConsole) Draw(context *common.StepContext) {
+func (c *baseEmulatorConsole) Draw(context *common.StepContext) {
 	c.config.WindowManager.GetAllWindows(func(key string, window Window) bool {
 		window.Clear()
 		window.Draw(context)
@@ -161,11 +161,11 @@ func (c *defaultEmulatorConsole) Draw(context *common.StepContext) {
 //
 // Returns:
 //   - An error if the application fails to start
-func (c *defaultEmulatorConsole) Run() error {
+func (c *baseEmulatorConsole) Run() error {
 	return c.config.App.Run()
 }
 
 // Stop stops the console application.
-func (c *defaultEmulatorConsole) Stop() {
+func (c *baseEmulatorConsole) Stop() {
 	c.config.App.Stop()
 }

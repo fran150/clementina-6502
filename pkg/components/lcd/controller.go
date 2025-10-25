@@ -72,6 +72,13 @@ type lcdHD44780U struct {
 	instructions [8]func(int64) // Handlers for the different instructions that can be specified to the chip
 }
 
+// NewLcdHD44780U creates a new HD44780U LCD controller instance.
+// The HD44780U is a dot-matrix liquid crystal display controller and driver LSI
+// that displays alphanumerics and symbols. It can be configured to drive a
+// dot-matrix liquid crystal display under the control of a 4- or 8-bit microprocessor.
+//
+// Returns:
+//   - A new LCDController interface implementation
 func NewLcdHD44780U() components.LCDController {
 	return newLcdHD44780U()
 }

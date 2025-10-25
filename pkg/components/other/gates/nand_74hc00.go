@@ -17,6 +17,8 @@ type nand74HC00 struct {
 	y [nand74HC00NumGates]buses.LineConnector // Pin Y 1 to 4 (0..3)
 }
 
+// NewNand74HC00 creates a new 74HC00 quad 2-input NAND gate chip.
+// The 74HC00 contains four independent 2-input NAND gates.
 func NewNand74HC00() components.QuadLogicGate {
 	return newNand74HC00()
 }

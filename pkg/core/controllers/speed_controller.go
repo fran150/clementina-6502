@@ -2,8 +2,8 @@ package controllers
 
 import "github.com/fran150/clementina-6502/pkg/core"
 
-// defaultSpeedController manages emulation speed with non-linear scaling.
-type defaultSpeedController struct {
+// speedController manages emulation speed with non-linear scaling.
+type speedController struct {
 	targetSpeedMhz float64
 	// Cache the reciprocal for performance (1/speed = nanoseconds per cycle)
 	cachedNanosPerCycle float64
@@ -17,8 +17,8 @@ type defaultSpeedController struct {
 //
 // Returns:
 //   - A pointer to the initialized DefaultSpeedController
-func newSpeedController(initialSpeedMhz float64) *defaultSpeedController {
-	sc := &defaultSpeedController{
+func newSpeedController(initialSpeedMhz float64) *speedController {
+	sc := &speedController{
 		targetSpeedMhz: initialSpeedMhz,
 	}
 	sc.updateCache()
@@ -38,7 +38,7 @@ func NewSpeedController(initialSpeedMhz float64) core.SpeedController {
 
 // SpeedUp increases the emulation speed of the computer.
 // Uses progressive scaling: 0.1 for speeds ≥1, 0.01 for 0.1-0.99, 0.001 for 0.01-0.099, etc.
-func (s *defaultSpeedController) SpeedUp() {
+func (s *speedController) SpeedUp() {
 	increment := s.getSpeedIncrement()
 	s.targetSpeedMhz += increment
 	s.updateCache()
@@ -46,20 +46,20 @@ func (s *defaultSpeedController) SpeedUp() {
 
 // SpeedDown decreases the emulation speed of the computer.
 // Uses progressive scaling: 0.1 for speeds >1, 0.01 for 0.1-1.0, 0.001 for 0.01-0.1, etc.
-func (s *defaultSpeedController) SpeedDown() {
+func (s *speedController) SpeedDown() {
 	increment := s.getSpeedIncrement()
 	s.targetSpeedMhz -= increment
 	s.updateCache()
 }
 
 // GetTargetSpeed returns the current target speed in MHz.
-func (s *defaultSpeedController) GetTargetSpeed() float64 {
+func (s *speedController) GetTargetSpeed() float64 {
 	return s.targetSpeedMhz
 }
 
 // SetTargetSpeed sets the target speed in MHz.
 // The speed must be greater than 0, otherwise the request is ignored.
-func (s *defaultSpeedController) SetTargetSpeed(speedMhz float64) {
+func (s *speedController) SetTargetSpeed(speedMhz float64) {
 	if speedMhz > 0 {
 		s.targetSpeedMhz = speedMhz
 		s.updateCache()
@@ -67,7 +67,7 @@ func (s *defaultSpeedController) SetTargetSpeed(speedMhz float64) {
 }
 
 // updateCache updates the cached nanoseconds per cycle calculation
-func (s *defaultSpeedController) updateCache() {
+func (s *speedController) updateCache() {
 	if s.targetSpeedMhz > 0 {
 		// Convert MHz to nanoseconds per cycle: (1 second / 1 microsecond) / speedMhz
 		s.cachedNanosPerCycle = 1000.0 / s.targetSpeedMhz // nanoseconds per cycle
@@ -75,13 +75,13 @@ func (s *defaultSpeedController) updateCache() {
 }
 
 // GetNanosPerCycle returns the cached nanoseconds per cycle for performance.
-func (s *defaultSpeedController) GetNanosPerCycle() float64 {
+func (s *speedController) GetNanosPerCycle() float64 {
 	return s.cachedNanosPerCycle
 }
 
 // getSpeedIncrement calculates the appropriate increment/decrement based on current speed.
 // Returns 0.1 for speeds ≥1, 0.01 for 0.1-0.99, 0.001 for 0.01-0.099, etc.
-func (s *defaultSpeedController) getSpeedIncrement() float64 {
+func (s *speedController) getSpeedIncrement() float64 {
 	if s.targetSpeedMhz >= 1.0 {
 		return 0.1
 	}

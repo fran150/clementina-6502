@@ -47,7 +47,7 @@ func NewClemetinaEmulator(computer *ClementinaComputer, speed float64, displayFP
 	}
 
 	console := newClementinaEmulatorConsole(clementinaEmulatorConsoleConfig{
-		EmulatorConsoleConfig: terminal.EmulatorConsoleConfig{
+		BaseEmulatorConsoleConfig: terminal.BaseEmulatorConsoleConfig{
 			WindowManager:     windowManager,
 			NavigationManager: navigationManager,
 			InputHandler:      terminal.NewInputHandler(windowManager),
@@ -56,13 +56,13 @@ func NewClemetinaEmulator(computer *ClementinaComputer, speed float64, displayFP
 		emulator: emulator,
 	})
 
-	loop := emulation.NewEmulationLoop(emulation.DefaultEmulationLoopConfig{
+	loop := emulation.NewEmulationLoop(emulation.EmulationLoopConfig{
 		SpeedController: speedController,
 		DisplayFPS:      displayFPS,
 		Emulator:        emulator,
 	})
 
-	emulatorConfig := emulation.DefaultEmulatorConfig{
+	emulatorConfig := emulation.EmulatorConfig{
 		Computer:          computer,
 		Console:           console,
 		Loop:              loop,

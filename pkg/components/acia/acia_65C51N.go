@@ -120,6 +120,12 @@ type acia65C51N struct {
 	emulateModemLines bool
 }
 
+// NewAcia65C51 creates a new ACIA 65C51N chip instance with the specified configuration.
+// The emulateModemLines parameter controls whether modem control lines (DSR, DCD, DTR, RTS)
+// are emulated. Setting this to false can improve performance when modem line emulation
+// is not required.
+//
+// Returns a components.Acia65C51 interface that can be used to interact with the ACIA chip.
 func NewAcia65C51(emulateModemLines bool) components.Acia65C51 {
 	return newAcia65C51(emulateModemLines)
 }

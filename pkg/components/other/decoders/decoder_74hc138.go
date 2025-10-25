@@ -20,6 +20,11 @@ type decoder74HC138 struct {
 	ePin [3]buses.LineConnector
 }
 
+// NewDecoder74HC138 creates a new instance of the 74HC138 3-to-8 line decoder/demultiplexer.
+// The 74HC138 takes 3 input lines (A0, A1, A2) and decodes them into one of 8 output lines (Y0-Y7).
+// Outputs are active low - when an input combination is selected, the corresponding output is low (0)
+// while all others are high (1). The chip has three enable inputs (E1, E2, E3) that must be properly
+// configured for the decoder to be active: E1 and E2 must be low, E3 must be high.
 func NewDecoder74HC138() components.Decoder74HC138 {
 	return newDecoder74HC138()
 }

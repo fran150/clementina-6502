@@ -5,8 +5,8 @@ import (
 	"github.com/fran150/clementina-6502/pkg/core"
 )
 
-// defaultNavigationManager manages window navigation and history.
-type defaultNavigationManager struct {
+// navigationManager manages window navigation and history.
+type navigationManager struct {
 	current string
 	history []string
 }
@@ -15,8 +15,8 @@ type defaultNavigationManager struct {
 //
 // Returns:
 //   - A pointer to the initialized DefaultNavigationManager
-func newNavigationManager() *defaultNavigationManager {
-	return &defaultNavigationManager{
+func newNavigationManager() *navigationManager {
+	return &navigationManager{
 		current: "",
 		history: make([]string, 0, 10), // Pre-allocate with reasonable capacity
 	}
@@ -34,13 +34,13 @@ func NewNavigationManager() core.NavigationManager {
 //
 // Parameters:
 //   - key: The key of the window to navigate to
-func (nm *defaultNavigationManager) NavigateTo(key string) {
+func (nm *navigationManager) NavigateTo(key string) {
 	nm.current = key
 }
 
 // GoBack returns to the previous window.
 // If there is no previous window in the history, this method has no effect.
-func (nm *defaultNavigationManager) GoBack() {
+func (nm *navigationManager) GoBack() {
 	if len(nm.history) > 0 {
 		previous, current := slicesext.SlicePop(nm.history)
 		nm.history = previous
@@ -52,7 +52,7 @@ func (nm *defaultNavigationManager) GoBack() {
 //
 // Returns:
 //   - The key of the currently active window
-func (nm *defaultNavigationManager) GetCurrent() string {
+func (nm *navigationManager) GetCurrent() string {
 	return nm.current
 }
 
@@ -60,7 +60,7 @@ func (nm *defaultNavigationManager) GetCurrent() string {
 //
 // Parameters:
 //   - key: The key of the window to navigate to
-func (nm *defaultNavigationManager) PushToHistory(key string) {
+func (nm *navigationManager) PushToHistory(key string) {
 	if nm.current != "" {
 		nm.history = append(nm.history, nm.current)
 	}

@@ -17,6 +17,8 @@ type and74HC08 struct {
 	y [and74HC08NumGates]buses.LineConnector // Pin Y 1 to 4 (0..3)
 }
 
+// NewAnd74HC08 creates a new 74HC08 quad 2-input AND gate chip.
+// The 74HC08 contains four independent 2-input AND gates.
 func NewAnd74HC08() components.QuadLogicGate {
 	return newAnd74HC08()
 }

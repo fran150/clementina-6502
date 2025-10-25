@@ -54,6 +54,10 @@ type ram struct {
 	addressPinsMask uint32                      // Mask for active address pins
 }
 
+// NewRam creates a new RAM chip with the specified size in bytes.
+// It returns a Memory interface that can be used to interact with the RAM chip.
+// The RAM chip supports standard control signals including chip select, output enable,
+// and write enable for proper memory operations.
 func NewRam(size MemorySize) components.Memory {
 	return newRam(size)
 }

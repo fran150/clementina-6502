@@ -4,15 +4,19 @@ import (
 	"github.com/rivo/tview"
 )
 
-// defaultWindowManager manages console windows and their lifecycle.
-type defaultWindowManager struct {
+// windowManager manages console windows and their lifecycle.
+type windowManager struct {
 	windows map[string]Window
 	tickers map[string]TickerWindow
 	pages   *tview.Pages
 }
 
-func newWindowManager() *defaultWindowManager {
-	return &defaultWindowManager{
+// newWindowManager creates a new window manager instance with initialized maps and pages.
+//
+// Returns:
+//   - A pointer to the initialized windowManager
+func newWindowManager() *windowManager {
+	return &windowManager{
 		windows: make(map[string]Window),
 		tickers: make(map[string]TickerWindow),
 		pages:   tview.NewPages(),
@@ -33,7 +37,7 @@ func NewWindowManager() WindowManager {
 // Parameters:
 //   - key: The unique identifier for the window
 //   - window: The window instance to add
-func (wm *defaultWindowManager) AddWindow(key string, window Window) {
+func (wm *windowManager) AddWindow(key string, window Window) {
 	if _, exists := wm.windows[key]; !exists {
 		wm.windows[key] = window
 
@@ -52,7 +56,7 @@ func (wm *defaultWindowManager) AddWindow(key string, window Window) {
 //
 // Returns:
 //   - The window instance, or nil if not found
-func (wm *defaultWindowManager) GetWindow(key string) Window {
+func (wm *windowManager) GetWindow(key string) Window {
 	if window, exists := wm.windows[key]; exists {
 		return window
 	}
@@ -63,7 +67,7 @@ func (wm *defaultWindowManager) GetWindow(key string) Window {
 //
 // Parameters:
 //   - key: The unique identifier of the window to remove
-func (wm *defaultWindowManager) RemoveWindow(key string) {
+func (wm *windowManager) RemoveWindow(key string) {
 	if _, exists := wm.windows[key]; exists {
 		delete(wm.windows, key)
 		delete(wm.tickers, key)
@@ -73,7 +77,7 @@ func (wm *defaultWindowManager) RemoveWindow(key string) {
 
 // SwitchToPage changes the currently active page to the window with the
 // specified key.
-func (wm *defaultWindowManager) SwitchToPage(key string) {
+func (wm *windowManager) SwitchToPage(key string) {
 	wm.pages.SwitchToPage(key)
 }
 
@@ -89,7 +93,7 @@ func (wm *defaultWindowManager) SwitchToPage(key string) {
 //	    fmt.Printf("Window: %s\n", key)
 //	    return true // continue iteration
 //	})
-func (wm *defaultWindowManager) GetAllWindows(fn func(key string, window Window) bool) {
+func (wm *windowManager) GetAllWindows(fn func(key string, window Window) bool) {
 	for k, v := range wm.windows {
 		if !fn(k, v) {
 			break
@@ -109,7 +113,7 @@ func (wm *defaultWindowManager) GetAllWindows(fn func(key string, window Window)
 //	    fmt.Printf("Ticker: %s\n", key)
 //	    return true // continue iteration
 //	})
-func (wm *defaultWindowManager) GetTickerWindows(fn func(key string, ticker TickerWindow) bool) {
+func (wm *windowManager) GetTickerWindows(fn func(key string, ticker TickerWindow) bool) {
 	for k, v := range wm.tickers {
 		if !fn(k, v) {
 			break
@@ -117,7 +121,12 @@ func (wm *defaultWindowManager) GetTickerWindows(fn func(key string, ticker Tick
 	}
 }
 
-func (wm *defaultWindowManager) GetPages() *tview.Pages {
+// GetPages returns the tview.Pages instance managed by this window manager.
+// This provides direct access to the underlying pages container for advanced operations.
+//
+// Returns:
+//   - A pointer to the tview.Pages instance
+func (wm *windowManager) GetPages() *tview.Pages {
 	return wm.pages
 }
 
