@@ -7,6 +7,7 @@ require (
 	github.com/rivo/tview v0.0.0-20241103174730-c76f7879f592
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
+	github.com/warthog618/go-gpiocdev v0.9.1
 	go.bug.st/serial v1.6.2
 )
 

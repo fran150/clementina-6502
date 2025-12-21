@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	clementinaModel string = "clementina"
-	beneaterModel   string = "beneater"
+	clementinaModel    string = "clementina"
+	beneaterModel      string = "beneater"
+	clementinaGPIOModel string = "clementina-gpio"
 )
 
 var (
@@ -35,7 +36,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.Flags().StringVarP(&model, "model", "m", "clementina", "Computer model to emulate (clementina / beneater)")
+	rootCmd.Flags().StringVarP(&model, "model", "m", "clementina", "Computer model to emulate (clementina / beneater / clementina-gpio)")
 	rootCmd.Flags().StringVarP(&serialPort, "port", "p", "", "Serial port to connect to (e.g., /dev/ttys004)")
 	rootCmd.Flags().StringVarP(&romFile, "rom", "r", "./assets/computer/beneater/eater.bin", "ROM file to load")
 	rootCmd.Flags().Float64VarP(&targetMhz, "speed", "s", 1.2, "Target emulation speed in MHz")
@@ -90,6 +91,29 @@ func runEmulator(cmd *cobra.Command, args []string) {
 		emulator, err = beneater.NewBenEaterEmulator(benEaterComputer, targetMhz, targetFps)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating emulator: %v\n", err)
+			os.Exit(1)
+		}
+	} else if model == clementinaGPIOModel {
+		clementinaComputer, err := clementina.NewClementinaComputer()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
+			os.Exit(1)
+		}
+
+		// TODO: Hardcoding a simple loop for now.
+		clementinaComputer.HiRamPoke(0xFFFC, 0x00, 0x00) // Set $E100 in the reset vector
+		clementinaComputer.HiRamPoke(0xFFFD, 0x00, 0xE1)
+
+		clementinaComputer.HiRamPoke(0xE100, 0x00, 0xA9) // LDA #$01
+		clementinaComputer.HiRamPoke(0xE101, 0x00, 0x01)
+		clementinaComputer.HiRamPoke(0xE102, 0x00, 0x1A) // INC A
+		clementinaComputer.HiRamPoke(0xE103, 0x00, 0x4C) // JMP $E102
+		clementinaComputer.HiRamPoke(0xE104, 0x00, 0x02)
+		clementinaComputer.HiRamPoke(0xE105, 0x00, 0xE1)
+
+		emulator, err = clementina.NewClemetinaGPIOEmulator(clementinaComputer, targetFps)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating GPIO emulator: %v\n", err)
 			os.Exit(1)
 		}
 	} else {
