@@ -8,20 +8,9 @@ import (
 	"github.com/warthog618/go-gpiocdev"
 )
 
-var addressBusGPIO = []int{0, 1, 2, 3, 4, 5, 6, 7}
-var dataBusGPIO = []int{8, 9, 10, 11, 12, 13, 14, 15}
-
-const picoRAMEnableGPIO = 16
-const resetOutGPIO = 17
-const writeEnableGPIO = 18
-const outputEnableGPIO = 19
-
-const hiRAMCSGPIO = 20
-const io0CSGPIO = 21
-
-const irqOutGPIO = 26
-
 type MiaConnector struct {
+	gpioController *common.GPIOController
+
 	addressBus *buses.BusConnector[uint8]
 	dataBus    *buses.BusConnector[uint8]
 
@@ -29,31 +18,29 @@ type MiaConnector struct {
 	reset        buses.LineConnector
 	writeEnable  buses.LineConnector
 	outputEnable buses.LineConnector
-	romCS        buses.LineConnector
-	videoCS      buses.LineConnector
-	genCS        buses.LineConnector
+	hiRAMCS      buses.LineConnector
+	io0CS        buses.LineConnector
 	irqOut       buses.LineConnector
 }
 
-func NewMiaConnector() *MiaConnector {
-	// Initialize GPIO pins as inputs with no pull-up/pull-down
-	allPins := append(addressBusGPIO, dataBusGPIO...)
-	allPins = append(allPins, picoRAMEnableGPIO, resetOutGPIO, writeEnableGPIO, outputEnableGPIO, hiRAMCSGPIO, io0CSGPIO, irqOutGPIO)
-
-	for _, pin := range allPins {
-		gpiocdev.RequestLine("gpiochip0", pin, gpiocdev.AsInput)
+func NewMiaConnector(chipName string) *MiaConnector {
+	gpioController, err := common.GetGPIOController(chipName)
+	// TODO: Might want to handle this error better
+	if err != nil {
+		panic(err)
 	}
 
 	return &MiaConnector{
+		gpioController: gpioController,
+
 		addressBus:   buses.NewBusConnector[uint8](),
 		dataBus:      buses.NewBusConnector[uint8](),
 		hiRAMEnable:  buses.NewConnectorEnabledLow(),
 		reset:        buses.NewConnectorEnabledLow(),
 		writeEnable:  buses.NewConnectorEnabledLow(),
 		outputEnable: buses.NewConnectorEnabledLow(),
-		romCS:        buses.NewConnectorEnabledLow(),
-		videoCS:      buses.NewConnectorEnabledLow(),
-		genCS:        buses.NewConnectorEnabledLow(),
+		hiRAMCS:      buses.NewConnectorEnabledLow(),
+		io0CS:        buses.NewConnectorEnabledLow(),
 		irqOut:       buses.NewConnectorEnabledLow(),
 	}
 }
@@ -82,16 +69,12 @@ func (c *MiaConnector) OutputEnable() buses.LineConnector {
 	return c.outputEnable
 }
 
-func (c *MiaConnector) RomCS() buses.LineConnector {
-	return c.romCS
+func (c *MiaConnector) HiRAMCS() buses.LineConnector {
+	return c.hiRAMCS
 }
 
-func (c *MiaConnector) VideoCS() buses.LineConnector {
-	return c.videoCS
-}
-
-func (c *MiaConnector) GenCS() buses.LineConnector {
-	return c.genCS
+func (c *MiaConnector) IO0CS() buses.LineConnector {
+	return c.io0CS
 }
 
 func (c *MiaConnector) IrqOut() buses.LineConnector {
@@ -99,5 +82,52 @@ func (c *MiaConnector) IrqOut() buses.LineConnector {
 }
 
 func (c *MiaConnector) Tick(context *common.StepContext) {
+	c.gpioController.WriteEnable().SetValue(getLineStatusForGPIO(c.writeEnable.GetLine()))
+	c.gpioController.OutputEnable().SetValue(getLineStatusForGPIO(c.outputEnable.GetLine()))
+	c.gpioController.HiRAMCS().SetValue(getLineStatusForGPIO(c.hiRAMCS.GetLine()))
+	c.gpioController.Io0CS().SetValue(getLineStatusForGPIO(c.io0CS.GetLine()))
 
+	c.hiRAMEnable.GetLine().Set(getLineStatusForEmulator(c.gpioController.HiRAMEnable()))
+	c.reset.GetLine().Set(getLineStatusForEmulator(c.gpioController.Reset()))
+
+	// Open collector logic. The line will be pulled low, the MIA will not drive the line high at any point.
+	if !getLineStatusForEmulator(c.gpioController.IrqOut()) {
+		c.irqOut.GetLine().Set(false)
+	}
+
+	common.WriteGPIOBus(c.gpioController.AddressBus(), c.addressBus.Read())
+
+	if c.outputEnable.Enabled() && !c.writeEnable.Enabled() && (c.hiRAMCS.Enabled() || c.io0CS.Enabled()) {
+		common.SetBusDirection(c.gpioController.DataBus(), false)
+		dataValue := common.ReadGPIOBus(c.gpioController.DataBus())
+		c.dataBus.Write(dataValue)
+	} else if !c.outputEnable.Enabled() && c.writeEnable.Enabled() && (c.hiRAMCS.Enabled() || c.io0CS.Enabled()) {
+		common.SetBusDirection(c.gpioController.DataBus(), true)
+		dataValue := c.dataBus.Read()
+		common.WriteGPIOBus(c.gpioController.DataBus(), dataValue)
+	} else {
+		common.SetBusDirection(c.gpioController.DataBus(), false)
+	}
+}
+
+func getLineStatusForGPIO(line buses.Line) int {
+	if line.Status() {
+		return 1
+	} else {
+		return 0
+	}
+}
+
+func getLineStatusForEmulator(line *gpiocdev.Line) bool {
+	value, err := line.Value()
+	// TODO: Might want to handle this error better
+	if err != nil {
+		panic(err)
+	}
+
+	if value == 0 {
+		return false
+	} else {
+		return true
+	}
 }

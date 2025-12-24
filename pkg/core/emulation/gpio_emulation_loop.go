@@ -11,12 +11,11 @@ import (
 	"github.com/fran150/clementina-6502/pkg/core"
 )
 
-const chipName = "gpiochip0"
-
 // GPIOEmulationLoopConfig contains settings for GPIO-controlled emulation.
 type GPIOEmulationLoopConfig struct {
 	DisplayFPS int
 	Emulator   LoopTarget
+	chipName   string
 }
 
 // gpioEmulationLoop manages GPIO-controlled emulation execution.
@@ -37,7 +36,7 @@ func NewGPIOEmulationLoop(config GPIOEmulationLoopConfig) core.EmulationLoop {
 		config.DisplayFPS = 10
 	}
 
-	gpioController, err := common.GetGPIOInterface(chipName)
+	gpioController, err := common.GetGPIOController(config.chipName)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize GPIO interface: %v", err))
 	}
@@ -130,8 +129,8 @@ func (g *gpioEmulationLoop) executeGPIOLoop(context *common.StepContext) {
 				continue
 			}
 
-			// Step on rising edge (0 -> 1)
-			if lastState == 0 && currentState == 1 {
+			// Step on falling edge (1 -> 0)
+			if lastState == 1 && currentState == 0 {
 				g.config.Emulator.Tick(context)
 				context.NextCycle()
 			} else {
@@ -140,8 +139,6 @@ func (g *gpioEmulationLoop) executeGPIOLoop(context *common.StepContext) {
 
 			lastState = currentState
 		}
-
-		time.Sleep(100 * time.Microsecond)
 	}
 }
 
