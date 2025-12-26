@@ -4,8 +4,8 @@ package common
 
 import "github.com/warthog618/go-gpiocdev"
 
-var dataLinesGPIO = [8]int{2, 3, 4, 17, 27, 22, 10, 9}
-var addressLinesGPIO = [8]int{11, 5, 6, 13, 19, 26, 21, 20}
+var addressLinesGPIO = [8]int{2, 3, 4, 17, 27, 22, 10, 9}
+var dataLinesGPIO = [8]int{11, 5, 6, 13, 19, 26, 20, 21}
 
 var hiRAMEnableGPIO = 16
 var resetGPIO = 12
@@ -13,12 +13,12 @@ var writeEnableGPIO = 7
 var outputEnableGPIO = 8
 var hiRAMCSGPIO = 25
 var io0CSGPIO = 24
-var irqOutGPIO = 23
-var clockGPIO = 18
+var irqOutGPIO = 18
+var clockGPIO = 14
 
 type GPIOController struct {
-	addressBus   [8]*gpiocdev.Line
-	dataBus      [8]*gpiocdev.Line
+	addressBus   *gpiocdev.Lines
+	dataBus      *gpiocdev.Lines
 	hiRAMEnable  *gpiocdev.Line
 	reset        *gpiocdev.Line
 	writeEnable  *gpiocdev.Line
@@ -34,8 +34,8 @@ var gpioInterfaceInstance *GPIOController
 func GetGPIOController(chipName string) (*GPIOController, error) {
 	if gpioInterfaceInstance == nil {
 		var chip *gpiocdev.Chip
-		var addressBus [8]*gpiocdev.Line
-		var dataBus [8]*gpiocdev.Line
+		var addressBus *gpiocdev.Lines
+		var dataBus *gpiocdev.Lines
 		var hiRAMEnable *gpiocdev.Line
 		var reset *gpiocdev.Line
 		var writeEnable *gpiocdev.Line
@@ -51,11 +51,11 @@ func GetGPIOController(chipName string) (*GPIOController, error) {
 			return nil, err
 		}
 
-		if addressBus, err = requestBusLines(chip, addressLinesGPIO, gpiocdev.AsOutput(0)); err != nil {
+		if addressBus, err = gpiocdev.RequestLines(chipName, addressLinesGPIO[:], gpiocdev.AsOutput(0)); err != nil {
 			return nil, err
 		}
 
-		if dataBus, err = requestBusLines(chip, dataLinesGPIO, gpiocdev.AsInput); err != nil {
+		if dataBus, err = gpiocdev.RequestLines(chipName, dataLinesGPIO[:], gpiocdev.AsInput); err != nil {
 			return nil, err
 		}
 
@@ -108,24 +108,11 @@ func GetGPIOController(chipName string) (*GPIOController, error) {
 	return gpioInterfaceInstance, nil
 }
 
-func requestBusLines(chip *gpiocdev.Chip, gpioPinMap [8]int, options ...gpiocdev.LineReqOption) ([8]*gpiocdev.Line, error) {
-	var busLines [8]*gpiocdev.Line
-	var err error
-
-	for i := range 8 {
-		if busLines[i], err = chip.RequestLine(gpioPinMap[i], options...); err != nil {
-			return [8]*gpiocdev.Line{}, err
-		}
-	}
-
-	return busLines, nil
-}
-
-func (g *GPIOController) AddressBus() [8]*gpiocdev.Line {
+func (g *GPIOController) AddressBus() *gpiocdev.Lines {
 	return g.addressBus
 }
 
-func (g *GPIOController) DataBus() [8]*gpiocdev.Line {
+func (g *GPIOController) DataBus() *gpiocdev.Lines {
 	return g.dataBus
 }
 
@@ -176,32 +163,37 @@ func SetBusDirection(bus [8]*gpiocdev.Line, asOutput bool) error {
 	return nil
 }
 
-func WriteGPIOBus(bus [8]*gpiocdev.Line, value uint8) {
+func WriteGPIOBus(bus *gpiocdev.Lines, value uint8) {
+	values := make([]int, 8)
+
 	for i := range 8 {
-		bus[i].SetValue(int(value & (1 << i)))
+		values[i] = (int(value & (1 << i)))
 	}
+
+	bus.SetValues(values)
 }
 
-func ReadGPIOBus(bus [8]*gpiocdev.Line) uint8 {
+func ReadGPIOBus(bus *gpiocdev.Lines) uint8 {
 	var value uint8 = 0
-	for i := range 8 {
-		value, err := bus[i].Value()
-		if err != nil {
-			panic(err)
-		}
+	values := make([]int, 8)
 
-		if value != 0 {
+	err := bus.Values(values)
+	if err != nil {
+		panic(err)
+	}
+
+	for i := range 8 {
+		if values[i] != 0 {
 			value |= (1 << i)
 		}
 	}
+
 	return value
 }
 
 func (g *GPIOController) Close() {
-	for i := range 8 {
-		g.addressBus[i].Close()
-		g.dataBus[i].Close()
-	}
+	g.addressBus.Close()
+	g.dataBus.Close()
 	g.hiRAMEnable.Close()
 	g.reset.Close()
 	g.writeEnable.Close()

@@ -3,6 +3,8 @@
 package pico
 
 import (
+	"time"
+
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/warthog618/go-gpiocdev"
@@ -88,25 +90,28 @@ func (c *MiaConnector) Tick(context *common.StepContext) {
 	c.gpioController.Io0CS().SetValue(getLineStatusForGPIO(c.io0CS.GetLine()))
 
 	c.hiRAMEnable.GetLine().Set(getLineStatusForEmulator(c.gpioController.HiRAMEnable()))
-	c.reset.GetLine().Set(getLineStatusForEmulator(c.gpioController.Reset()))
+	//c.reset.GetLine().Set(getLineStatusForEmulator(c.gpioController.Reset()))
 
 	// Open collector logic. The line will be pulled low, the MIA will not drive the line high at any point.
-	if !getLineStatusForEmulator(c.gpioController.IrqOut()) {
-		c.irqOut.GetLine().Set(false)
-	}
+	// if !getLineStatusForEmulator(c.gpioController.IrqOut()) {
+	// 	c.irqOut.GetLine().Set(false)
+	// }
 
-	common.WriteGPIOBus(c.gpioController.AddressBus(), c.addressBus.Read())
+	address := c.addressBus.Read()
+	common.WriteGPIOBus(c.gpioController.AddressBus(), address)
 
 	if c.outputEnable.Enabled() && !c.writeEnable.Enabled() && (c.hiRAMCS.Enabled() || c.io0CS.Enabled()) {
-		common.SetBusDirection(c.gpioController.DataBus(), false)
+		//	common.SetBusDirection(c.gpioController.DataBus(), false)
+		time.Sleep(100 * time.Millisecond) // Small delay to allow the GPIO lines to stabilize
 		dataValue := common.ReadGPIOBus(c.gpioController.DataBus())
+
 		c.dataBus.Write(dataValue)
 	} else if !c.outputEnable.Enabled() && c.writeEnable.Enabled() && (c.hiRAMCS.Enabled() || c.io0CS.Enabled()) {
-		common.SetBusDirection(c.gpioController.DataBus(), true)
+		//	common.SetBusDirection(c.gpioController.DataBus(), true)
 		dataValue := c.dataBus.Read()
 		common.WriteGPIOBus(c.gpioController.DataBus(), dataValue)
 	} else {
-		common.SetBusDirection(c.gpioController.DataBus(), false)
+		//common.SetBusDirection(c.gpioController.DataBus(), false)
 	}
 }
 

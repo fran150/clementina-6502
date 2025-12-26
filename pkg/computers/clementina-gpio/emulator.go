@@ -1,6 +1,6 @@
 //go:build (linux && arm) || (linux && arm64)
 
-package clementina
+package clementinagpio
 
 import (
 	"fmt"
@@ -19,7 +19,7 @@ type clementinaGPIOEmulator struct {
 	core.BaseEmulator
 	speedController   core.SpeedController
 	breakpointManager core.BreakpointManager
-	computer          *ClementinaComputer
+	computer          *ClementinaGPIOComputer
 }
 
 // NewClemetinaGPIOEmulator creates a new GPIO-controlled Clementina 6502 emulator.
@@ -32,7 +32,7 @@ type clementinaGPIOEmulator struct {
 // Returns:
 //   - core.BaseEmulator: The configured GPIO emulator instance
 //   - error: Any error that occurred during initialization
-func NewClemetinaGPIOEmulator(computer *ClementinaComputer, displayFPS int) (core.BaseEmulator, error) {
+func NewClemetinaGPIOEmulator(computer *ClementinaGPIOComputer, displayFPS int) (core.BaseEmulator, error) {
 	speedController := controllers.NewSpeedController(1.0) // Dummy speed controller for UI compatibility
 	breakPointManager := managers.NewBreakpointManager()
 	windowManager := terminal.NewWindowManager()
@@ -44,22 +44,20 @@ func NewClemetinaGPIOEmulator(computer *ClementinaComputer, displayFPS int) (cor
 		breakpointManager: breakPointManager,
 	}
 
-	// Cast to *clementinaEmulator for console compatibility
-	regularEmulator := (*clementinaEmulator)(emulator)
-
-	console := newClementinaEmulatorConsole(clementinaEmulatorConsoleConfig{
+	console := newClementinaGPIOEmulatorConsole(clementinaGPIOEmulatorConsoleConfig{
 		BaseEmulatorConsoleConfig: terminal.BaseEmulatorConsoleConfig{
 			WindowManager:     windowManager,
 			NavigationManager: navigationManager,
 			InputHandler:      terminal.NewInputHandler(windowManager),
 			App:               tview.NewApplication(),
 		},
-		emulator: regularEmulator,
+		emulator: emulator,
 	})
 
 	loop := emulation.NewGPIOEmulationLoop(emulation.GPIOEmulationLoopConfig{
 		DisplayFPS: displayFPS,
 		Emulator:   emulator,
+		ChipName:   "gpiochip0",
 	})
 
 	emulatorConfig := emulation.EmulatorConfig{
