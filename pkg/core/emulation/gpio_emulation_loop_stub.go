@@ -13,6 +13,7 @@ import (
 type GPIOEmulationLoopConfig struct {
 	DisplayFPS int
 	Emulator   LoopTarget
+	ChipName   string
 }
 
 // NewGPIOEmulationLoop creates a stub that returns an error on non-Linux systems.

@@ -17,20 +17,18 @@ import (
 // $0000 - $7FFF Base RAM (32 KB)
 type ClementinaCSLogic struct {
 	// Exponsed line connectors
-	a1         [6]buses.LineConnector // A10 to A15 address lines
-	picoHiRAME buses.LineConnector    // Allows Pico to enable / disable high RAM
+	a1 [6]buses.LineConnector // A10 to A15 address lines
 
 	// Exposed lines
-	ioOE   buses.Bus[uint8] // I/O output enable
-	exRAME buses.Line       // External RAM enable (512 KB banked in 16 KB windows)
-	hiRAME buses.Line       // High RAM enable (32 KB banked in 8 KB windows)
+	ioCS    buses.Bus[uint8] // I/O output enable
+	exRAMCS buses.Line       // External RAM enable (512 KB banked in 16 KB windows)
+	miaCS   buses.Line       // High RAM enable (32 KB banked in 8 KB windows)
 
 	// Internal components
-	addressDecoder components.Decoder74HC138 // Address decoder to slice RAM space in 16 KB windows
-	ioDecoder      components.Decoder74HC138 // I/O decoder to slice I/O space in 8 slots of 1KB each
-	andGate        components.QuadLogicGate  // Gates for logic operations
-	orGate         components.QuadLogicGate  // Gates for logic operations
-
+	addressDecoder       components.Decoder74HC138 // Address decoder to slice RAM space in 16 KB windows
+	ioDecoder            components.Decoder74HC138 // I/O decoder to slice I/O space in 8 slots of 1KB each
+	andGate              components.LogicGateArray
+	inverter             components.InverterArray
 	addressDecoderOutput buses.Bus[uint8]
 	vcc                  buses.Line // Lines connected to VCC (will always be high)
 	ground               buses.Line // Lines connected to ground (will always be low)
@@ -44,7 +42,7 @@ func NewClementinaCSLogic() *ClementinaCSLogic {
 	csLogic.addressDecoder = decoders.NewDecoder74HC138()
 	csLogic.ioDecoder = decoders.NewDecoder74HC138()
 	csLogic.andGate = gates.NewAnd74HC08()
-	csLogic.orGate = gates.NewOr74HC32()
+	csLogic.inverter = gates.NewNot74HC04()
 
 	csLogic.addressDecoderOutput = buses.New8BitStandaloneBus() // Output bus for the address decoder
 	csLogic.vcc = buses.NewStandaloneLine(true)                 // VCC line, always high
@@ -58,9 +56,6 @@ func NewClementinaCSLogic() *ClementinaCSLogic {
 	csLogic.a1[4] = csLogic.addressDecoder.APin(1)
 	csLogic.a1[5] = csLogic.addressDecoder.EPin(2)
 
-	// Expose connectors for Pico HiRAM enable on the B pin of the OR gate
-	csLogic.picoHiRAME = csLogic.orGate.BPin(0)
-
 	// Address decoder connections
 	csLogic.addressDecoder.APin(2).Connect(csLogic.ground)
 	csLogic.addressDecoder.EPin(0).Connect(csLogic.ground)
@@ -72,19 +67,19 @@ func NewClementinaCSLogic() *ClementinaCSLogic {
 	csLogic.andGate.BPin(0).Connect(csLogic.addressDecoderOutput.GetBusLine(1))
 	csLogic.ioDecoder.EPin(0).Connect(csLogic.addressDecoderOutput.GetBusLine(2))
 	csLogic.ioDecoder.EPin(1).Connect(csLogic.addressDecoderOutput.GetBusLine(2))
-	csLogic.orGate.APin(0).Connect(csLogic.addressDecoderOutput.GetBusLine(3))
+	csLogic.inverter.APin(0).Connect(csLogic.addressDecoderOutput.GetBusLine(3))
 
 	// Complete remaining connections on io decoder
 	csLogic.ioDecoder.EPin(2).Connect(csLogic.vcc)
 
-	csLogic.ioOE = buses.New8BitStandaloneBus()
-	csLogic.exRAME = buses.NewStandaloneLine(true)
-	csLogic.hiRAME = buses.NewStandaloneLine(true)
+	csLogic.ioCS = buses.New8BitStandaloneBus()
+	csLogic.exRAMCS = buses.NewStandaloneLine(true)
+	csLogic.miaCS = buses.NewStandaloneLine(false)
 
 	// Connect output lines
-	csLogic.ioDecoder.YPin().Connect(csLogic.ioOE)
-	csLogic.andGate.YPin(0).Connect(csLogic.exRAME)
-	csLogic.orGate.YPin(0).Connect(csLogic.hiRAME)
+	csLogic.ioDecoder.YPin().Connect(csLogic.ioCS)
+	csLogic.andGate.YPin(0).Connect(csLogic.exRAMCS)
+	csLogic.inverter.YPin(0).Connect(csLogic.miaCS)
 
 	return csLogic
 }
@@ -103,37 +98,23 @@ func (circuit *ClementinaCSLogic) A1(index int) buses.LineConnector {
 	return nil
 }
 
-// PicoHiRAME returns the connector for the Pico HiRAM enable line.
-// This line is used by the Pico to enable or disable the high RAM.
-// If the line is low the pico is enabling the high RAM.
-// When the clementina computer starts the Pico will respond to requests
-// in high RAM space and keep this line high disabling access to HiRAM.
-// This will be used to copy the kernel to the RAM
-// avoiding the need to use ROMs. After the pico finishes the startup
-// process it will enable the high RAM lowering this line and start
-// the execution of the Clementina 6502 kernel.
-func (circuit *ClementinaCSLogic) PicoHiRAME() buses.LineConnector {
-	return circuit.picoHiRAME
-}
-
-// IOOE returns the connector for the I/O output enable bus.
+// IOCS returns the connector for the I/O chip select bus.
 // Each line can be used to map a device in one of the 8 I/O slots.
 // Each device will have 1K of available address space.
-func (circuit *ClementinaCSLogic) IOOE() buses.Bus[uint8] {
-	return circuit.ioOE
+func (circuit *ClementinaCSLogic) IOCS() buses.Bus[uint8] {
+	return circuit.ioCS
 }
 
-// ExRAME returns the connector for the external RAM enable line.
+// ExRAMCS returns the connector for the external RAM chip select line.
 // The extended RAM maps to a 512 KB space banked in 16 KB windows.
-func (circuit *ClementinaCSLogic) ExRAME() buses.Line {
-	return circuit.exRAME
+func (circuit *ClementinaCSLogic) ExRAMCS() buses.Line {
+	return circuit.exRAMCS
 }
 
-// HiRAME returns the connector for the high RAM enable line.
-// This line is used to enable or disable the high RAM.
-// Hi RAM maps to a 32 KB space banked in 8 KB windows.
-func (circuit *ClementinaCSLogic) HiRAME() buses.Line {
-	return circuit.hiRAME
+// MiaCS returns the connector for the MIA CS line
+// This line is used to enable or disable the MIA chip (PICO).
+func (circuit *ClementinaCSLogic) MiaCS() buses.Line {
+	return circuit.miaCS
 }
 
 // Tick executes one emulation step.
@@ -142,7 +123,7 @@ func (circuit *ClementinaCSLogic) HiRAME() buses.Line {
 //   - stepContext: The current step context for the emulation cycle
 func (circuit *ClementinaCSLogic) Tick(stepContext *common.StepContext) {
 	circuit.addressDecoder.Tick(stepContext)
-	circuit.andGate.Tick(stepContext)
 	circuit.ioDecoder.Tick(stepContext)
-	circuit.orGate.Tick(stepContext)
+	circuit.andGate.Tick(stepContext)
+	circuit.inverter.Tick(stepContext)
 }

@@ -305,13 +305,38 @@ type Decoder74HC138 interface {
 	EPin(index int) buses.LineConnector
 }
 
-// QuadLogicGate defines the interface for a quad logic gate component.
+// LogicGateArray defines the interface for a 2 input one output logic gate component arrays.
 // It provides methods to access the A, B, and Y pins and to execute a tick.
-// It is used by various logic gate implementations like NAND, AND, etc.
-type QuadLogicGate interface {
+// It is used by various logic gate implementations like NAND, AND, OR, etc.
+type LogicGateArray interface {
 	core.Ticker
 
 	APin(index int) buses.LineConnector
 	BPin(index int) buses.LineConnector
 	YPin(index int) buses.LineConnector
+}
+
+// InverterArray defines the interface for inverter array chips.
+// It provides methods to access A pins and inverted pins Y.
+// It is used by array of inverters like the 74HC04.
+type InverterArray interface {
+	core.Ticker
+
+	APin(index int) buses.LineConnector
+	YPin(index int) buses.LineConnector
+}
+
+// Multiple inteface adapter or Mia chip. This chip generates the clock
+// signal, controls the 6502 interrupt vector providing a loader program
+// that allows to load kernel in ram. It also, handles other things like
+// video, terminal, etc through a windowed memory interface.
+type MiaChip interface {
+	core.Ticker
+
+	AddressBus() *buses.BusConnector[uint8]
+	DataBus() *buses.BusConnector[uint8]
+	MiaCS() buses.LineConnector
+	Reset() buses.LineConnector
+	WriteEnable() buses.LineConnector
+	Irq() buses.LineConnector
 }

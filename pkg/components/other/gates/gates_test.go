@@ -34,7 +34,7 @@ func newLogicGatesTestCircuit(gatesNum int) *logicGatesTestCircuit {
 	return circuit
 }
 
-func (circuit *logicGatesTestCircuit) wire(chip components.QuadLogicGate) {
+func (circuit *logicGatesTestCircuit) wire(chip components.LogicGateArray) {
 	for i := range circuit.size {
 		chip.APin(i).Connect(circuit.a[i])
 		chip.BPin(i).Connect(circuit.b[i])
@@ -48,7 +48,7 @@ type logicGatesTestCase struct {
 	y bool
 }
 
-func (testCase *logicGatesTestCase) test(t *testing.T, circuit *logicGatesTestCircuit, chip components.QuadLogicGate, index int, step *common.StepContext) {
+func (testCase *logicGatesTestCase) test(t *testing.T, circuit *logicGatesTestCircuit, chip components.LogicGateArray, index int, step *common.StepContext) {
 	circuit.a[index].Set(testCase.a)
 	circuit.b[index].Set(testCase.b)
 

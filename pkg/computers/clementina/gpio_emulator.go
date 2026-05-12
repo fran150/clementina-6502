@@ -32,7 +32,7 @@ type clementinaGPIOEmulator struct {
 // Returns:
 //   - core.BaseEmulator: The configured GPIO emulator instance
 //   - error: Any error that occurred during initialization
-func NewClemetinaGPIOEmulator(computer *ClementinaComputer, displayFPS int) (core.BaseEmulator, error) {
+func NewClemetinaGPIOEmulator(computer *ClementinaComputer, displayFPS int, chipName string) (core.BaseEmulator, error) {
 	speedController := controllers.NewSpeedController(1.0) // Dummy speed controller for UI compatibility
 	breakPointManager := managers.NewBreakpointManager()
 	windowManager := terminal.NewWindowManager()
@@ -60,6 +60,7 @@ func NewClemetinaGPIOEmulator(computer *ClementinaComputer, displayFPS int) (cor
 	loop := emulation.NewGPIOEmulationLoop(emulation.GPIOEmulationLoopConfig{
 		DisplayFPS: displayFPS,
 		Emulator:   emulator,
+		ChipName:   chipName,
 	})
 
 	emulatorConfig := emulation.EmulatorConfig{

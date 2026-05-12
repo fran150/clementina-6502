@@ -9,6 +9,6 @@ import (
 )
 
 // NewClemetinaGPIOEmulator returns an error on non-Linux systems.
-func NewClemetinaGPIOEmulator(computer *ClementinaComputer, displayFPS int) (core.BaseEmulator, error) {
+func NewClemetinaGPIOEmulator(computer *ClementinaComputer, displayFPS int, chipName string) (core.BaseEmulator, error) {
 	return nil, fmt.Errorf("GPIO emulation is only supported on Linux systems (Raspberry Pi)")
 }

@@ -76,7 +76,7 @@ func TestCpuWindow_Draw(t *testing.T) {
 		xRegister:               0x24,
 		yRegister:               0x12,
 		stackPointer:            0xFF,
-		processorStatusRegister: cpu.NewStatusRegister(0b10101010), // Alternating bits
+		processorStatusRegister: cpu.NewStatusRegister(0b10101010), // B and unused bits are always set.
 	}
 
 	window := NewCpuWindow(mockCpu)
@@ -106,9 +106,9 @@ func TestCpuWindow_Draw(t *testing.T) {
 	greenCount := strings.Count(text, "[green]")
 	redCount := strings.Count(text, "[red]")
 
-	// Since the status register is 0b10101010, we should have 4 green and 4 red flags
-	assert.Equal(t, 4, greenCount, "Should have 4 green (set) flags")
-	assert.Equal(t, 4, redCount, "Should have 4 red (unset) flags")
+	// NewStatusRegister forces the B and unused bits on, so 0b10101010 is rendered as 0b10111010.
+	assert.Equal(t, 5, greenCount, "Should have 5 green (set) flags")
+	assert.Equal(t, 3, redCount, "Should have 3 red (unset) flags")
 
 	// Verify color usage
 	assert.Contains(t, text, "[yellow]")

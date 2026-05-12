@@ -42,10 +42,16 @@ func (m *mockCpu) GetProcessorStatusRegister() components.StatusRegister {
 func (m *mockCpu) GetCurrentAddressMode() components.AddressModeData { return nil }
 
 // Implement the methods that we'll actually use in tests
-func (m *mockCpu) IsReadingOpcode() bool                                { return m.isReadingOpcode }
-func (m *mockCpu) GetCurrentInstruction() components.CpuInstructionData { return m.currentInstruction }
-func (m *mockCpu) GetProgramCounter() uint16                            { return m.programCounter }
-func (m *mockCpu) ForceProgramCounter(value uint16)                     { m.programCounter = value }
+func (m *mockCpu) IsReadingOpcode() bool { return m.isReadingOpcode }
+func (m *mockCpu) GetCurrentInstruction() components.CpuInstructionData {
+	if m.currentInstruction == nil {
+		return nil
+	}
+
+	return m.currentInstruction
+}
+func (m *mockCpu) GetProgramCounter() uint16        { return m.programCounter }
+func (m *mockCpu) ForceProgramCounter(value uint16) { m.programCounter = value }
 
 func TestCodeWindow_NewCodeWindow(t *testing.T) {
 	mockCpu := &mockCpu{}

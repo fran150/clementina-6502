@@ -14,14 +14,14 @@ import (
 )
 
 const (
-	clementinaModel    string = "clementina"
-	beneaterModel      string = "beneater"
+	beneaterModel       string = "beneater"
 	clementinaGPIOModel string = "clementina-gpio"
 )
 
 var (
 	model             string
 	serialPort        string
+	gpioChipName      string
 	romFile           string
 	targetMhz         float64
 	targetFps         int
@@ -38,6 +38,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.Flags().StringVarP(&model, "model", "m", "clementina", "Computer model to emulate (clementina / beneater / clementina-gpio)")
 	rootCmd.Flags().StringVarP(&serialPort, "port", "p", "", "Serial port to connect to (e.g., /dev/ttys004)")
+	rootCmd.Flags().StringVar(&gpioChipName, "gpio-chip", "gpiochip4", "GPIO chip to use for clementina-gpio")
 	rootCmd.Flags().StringVarP(&romFile, "rom", "r", "./assets/computer/beneater/eater.bin", "ROM file to load")
 	rootCmd.Flags().Float64VarP(&targetMhz, "speed", "s", 1.2, "Target emulation speed in MHz")
 	rootCmd.Flags().IntVarP(&targetFps, "fps", "f", 15, "Target display refresh rate")
@@ -53,7 +54,8 @@ type ComputerRunner interface {
 func runEmulator(cmd *cobra.Command, args []string) {
 	var emulator core.BaseEmulator
 
-	if model == beneaterModel {
+	switch model {
+	case beneaterModel:
 		var port serial.Port
 
 		if serialPort != "" {
@@ -93,46 +95,24 @@ func runEmulator(cmd *cobra.Command, args []string) {
 			fmt.Fprintf(os.Stderr, "Error creating emulator: %v\n", err)
 			os.Exit(1)
 		}
-	} else if model == clementinaGPIOModel {
-		clementinaComputer, err := clementina.NewClementinaComputer()
+	case clementinaGPIOModel:
+		clementinaComputer, err := clementina.NewClementinaGPIOComputer(gpioChipName)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
 			os.Exit(1)
 		}
 
-		// TODO: Hardcoding a simple loop for now.
-		clementinaComputer.HiRamPoke(0xFFFC, 0x00, 0x00) // Set $E100 in the reset vector
-		clementinaComputer.HiRamPoke(0xFFFD, 0x00, 0xE1)
-
-		clementinaComputer.HiRamPoke(0xE100, 0x00, 0xA9) // LDA #$01
-		clementinaComputer.HiRamPoke(0xE101, 0x00, 0x01)
-		clementinaComputer.HiRamPoke(0xE102, 0x00, 0x1A) // INC A
-		clementinaComputer.HiRamPoke(0xE103, 0x00, 0x4C) // JMP $E102
-		clementinaComputer.HiRamPoke(0xE104, 0x00, 0x02)
-		clementinaComputer.HiRamPoke(0xE105, 0x00, 0xE1)
-
-		emulator, err = clementina.NewClemetinaGPIOEmulator(clementinaComputer, targetFps)
+		emulator, err = clementina.NewClemetinaGPIOEmulator(clementinaComputer, targetFps, gpioChipName)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating GPIO emulator: %v\n", err)
 			os.Exit(1)
 		}
-	} else {
+	default:
 		clementinaComputer, err := clementina.NewClementinaComputer()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
 			os.Exit(1)
 		}
-
-		// TODO: Hardcoding a simple loop for now.
-		clementinaComputer.HiRamPoke(0xFFFC, 0x00, 0x00) // Set $E100 in the reset vector
-		clementinaComputer.HiRamPoke(0xFFFD, 0x00, 0xE1)
-
-		clementinaComputer.HiRamPoke(0xE100, 0x00, 0xA9) // LDA #$01
-		clementinaComputer.HiRamPoke(0xE101, 0x00, 0x01)
-		clementinaComputer.HiRamPoke(0xE102, 0x00, 0x1A) // INC A
-		clementinaComputer.HiRamPoke(0xE103, 0x00, 0x4C) // JMP $E102
-		clementinaComputer.HiRamPoke(0xE104, 0x00, 0x02)
-		clementinaComputer.HiRamPoke(0xE105, 0x00, 0xE1)
 
 		emulator, err = clementina.NewClemetinaEmulator(clementinaComputer, targetMhz, targetFps)
 		if err != nil {

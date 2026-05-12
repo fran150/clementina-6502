@@ -60,7 +60,6 @@ func newClementinaEmulatorConsole(config clementinaEmulatorConsoleConfig) *cleme
 	wm.AddWindow("via", ui.NewViaWindow(computer.chips.via))
 	wm.AddWindow("baseram", ui.NewMemoryWindow(computer.chips.baseram))
 	wm.AddWindow("exram", ui.NewMemoryWindow(computer.chips.exram))
-	wm.AddWindow("hiram", ui.NewMemoryWindow(computer.chips.hiram))
 	wm.AddWindow("goto", ui.NewMemoryWindowGoToForm())
 	busWindow := ui.NewBusWindow()
 	wm.AddWindow("bus", busWindow)

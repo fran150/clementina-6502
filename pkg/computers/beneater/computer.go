@@ -18,7 +18,7 @@ type chips struct {
 	via  components.Via65C22
 	lcd  components.LCDController
 	acia components.Acia65C51
-	nand components.QuadLogicGate
+	nand components.LogicGateArray
 }
 
 type circuit struct {

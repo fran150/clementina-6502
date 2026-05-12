@@ -1,29 +1,35 @@
 package clementina
 
 import (
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/components/cpu"
 	"github.com/fran150/clementina-6502/pkg/components/memory"
+	"github.com/fran150/clementina-6502/pkg/components/mia"
 	"github.com/fran150/clementina-6502/pkg/components/via"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina/modules"
 )
 
-// NewClementinaComputer creates and initializes a new instance of the Clementina 6502 computer emulation.
-// It sets up all hardware components and connects them according to the design.
-//
-// Parameters:
-//   - config: Configuration for the computer settings
-//
-// Returns:
-//   - A pointer to the initialized ClementinaComputer
-//   - An error if initialization fails
 func NewClementinaComputer() (*ClementinaComputer, error) {
+	return newClementinaComputer(mia.NewEmulatedMia())
+}
+
+func NewClementinaGPIOComputer(chipName string) (*ClementinaComputer, error) {
+	chip, err := mia.NewPicoMia(chipName)
+	if err != nil {
+		return nil, err
+	}
+
+	return newClementinaComputer(chip)
+}
+
+func newClementinaComputer(mia components.MiaChip) (*ClementinaComputer, error) {
 	chips := &chips{
 		cpu:      cpu.NewCpu65C02S(),
 		baseram:  memory.NewRam(memory.RAM_SIZE_32K),
 		exram:    memory.NewRam(memory.RAM_SIZE_512K),
-		hiram:    memory.NewRam(memory.RAM_SIZE_32K),
 		via:      via.NewVia65C22S(),
+		mia:      mia,
 		csLogic:  modules.NewClementinaCSLogic(),
 		oeRWSync: modules.NewClementinaOERWPHISync(),
 	}
@@ -44,25 +50,16 @@ func NewClementinaComputer() (*ClementinaComputer, error) {
 			},
 		},
 
-		// HiRAM mapped bus uses A0 - A12 from the address bus
-		// and A13 - A14 is mapped to PORTA 5 - 6
-		hiRam: mapperFunctions[uint16, uint16]{
-			MapToSource: func(value uint16, current []uint16) []uint16 {
-				address := (current[0] & 0xE000) | (value & 0x1FFF)  // Replace A0 - A12
-				portA := (current[1] & 0x9F) | ((value & 0x60) >> 8) // Replace A5 - A6
-
-				return []uint16{address, portA}
+		// Bus for MIA uses only 5 pins from address bus
+		mia: mapperFunctions[uint8, uint16]{
+			MapToSource: func(value uint8, current []uint16) []uint16 {
+				return []uint16{uint16(value) & 0x1F}
 			},
-			MapFromSource: func(value []uint16) uint16 {
-				address := value[0]
-				portA := value[1]
-
-				address &= 0x1FFF // Remove A13 - A15
-				portA &= 0x60     // Keep only PA5 - PA6
-
-				return (portA << 8) | address // PA5 - PA6 | A12 - A0
+			MapFromSource: func(value []uint16) uint8 {
+				return uint8(value[0])
 			},
 		},
+
 		// ExRAM mapped bus uses A0 - A13 from the address bus
 		// and A14 - A15 is mapped to PORTA 0 - 2
 		exRam: mapperFunctions[uint16, uint16]{
@@ -106,10 +103,10 @@ func NewClementinaComputer() (*ClementinaComputer, error) {
 	)
 
 	// Create the bus for the HiRAM
-	hiRamBus := buses.New16BitMappedBus(
+	miaBus := buses.New8BitMappedBus(
 		[]buses.Bus[uint16]{addressBus, bigPortABus},
-		mappers.hiRam.MapToSource,
-		mappers.hiRam.MapFromSource,
+		mappers.mia.MapToSource,
+		mappers.mia.MapFromSource,
 	)
 
 	// Create the bus for the ExRAM (connects to pins 0 to 15 of the chip)
@@ -133,13 +130,13 @@ func NewClementinaComputer() (*ClementinaComputer, error) {
 		cpuIRQ:       buses.NewStandaloneLine(true),
 		cpuReset:     buses.NewStandaloneLine(true),
 		cpuRW:        buses.NewStandaloneLine(true),
-		hiramBus:     hiRamBus,
+		miaBus:       miaBus,
 		exramBus:     exRamBus,
 		exramBusHigh: exRamBusHigh,
 		portABus:     portABus,
 		bigPortA:     bigPortABus,
 		portBBus:     portBBus,
-		picoHiRAME:   buses.NewStandaloneLine(false), // TODO: Must default to true
+		miaCS:        buses.NewStandaloneLine(true),
 		vcc:          buses.NewStandaloneLine(true),
 		ground:       buses.NewStandaloneLine(false),
 	}
@@ -175,7 +172,6 @@ func NewClementinaComputer() (*ClementinaComputer, error) {
 	chips.csLogic.A1(3).Connect(addressBus13)
 	chips.csLogic.A1(4).Connect(addressBus14)
 	chips.csLogic.A1(5).Connect(addressBus15)
-	chips.csLogic.PicoHiRAME().Connect(circuit.picoHiRAME)
 
 	// Connect the CPU to the OE/RW sync module
 	chips.oeRWSync.CpuRW().Connect(circuit.cpuRW)
@@ -187,18 +183,19 @@ func NewClementinaComputer() (*ClementinaComputer, error) {
 	chips.baseram.OutputEnable().Connect(chips.oeRWSync.OE())
 	chips.baseram.ChipSelect().Connect(addressBus15)
 
-	// HiRAM connections
-	chips.hiram.AddressBus().Connect(circuit.hiramBus)
-	chips.hiram.DataBus().Connect(circuit.dataBus)
-	chips.hiram.WriteEnable().Connect(chips.oeRWSync.RW())
-	chips.hiram.OutputEnable().Connect(chips.oeRWSync.OE())
-	chips.hiram.ChipSelect().Connect(chips.csLogic.HiRAME())
+	// MIA connections
+	chips.mia.AddressBus().Connect(circuit.miaBus)
+	chips.mia.DataBus().Connect(circuit.dataBus)
+	chips.mia.MiaCS().Connect(chips.csLogic.MiaCS())
+	chips.mia.Reset().Connect(circuit.cpuReset)
+	chips.mia.WriteEnable().Connect(chips.oeRWSync.RW())
+	chips.mia.Irq().Connect(circuit.cpuIRQ)
 
 	// VIA connections
 	chips.via.DataBus().Connect(circuit.dataBus)
 	chips.via.IrqRequest().Connect(circuit.cpuIRQ)
 	chips.via.ReadWrite().Connect(circuit.cpuRW)
-	chips.via.ChipSelect2().Connect(chips.csLogic.IOOE().GetBusLine(0))
+	chips.via.ChipSelect2().Connect(chips.csLogic.IOCS().GetBusLine(0))
 	chips.via.ChipSelect1().Connect(circuit.vcc)
 	chips.via.Reset().Connect(circuit.cpuReset)
 	chips.via.RegisterSelect(3).Connect(addressBus3)
@@ -213,7 +210,7 @@ func NewClementinaComputer() (*ClementinaComputer, error) {
 	chips.exram.DataBus().Connect(circuit.dataBus)
 	chips.exram.WriteEnable().Connect(chips.oeRWSync.RW())
 	chips.exram.OutputEnable().Connect(chips.oeRWSync.OE())
-	chips.exram.ChipSelect().Connect(chips.csLogic.ExRAME())
+	chips.exram.ChipSelect().Connect(chips.csLogic.ExRAMCS())
 
 	computer := &ClementinaComputer{
 		chips:   chips,

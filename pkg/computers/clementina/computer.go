@@ -18,7 +18,7 @@ type mapperFunctions[T uint8 | uint16, S uint8 | uint16] struct {
 
 type mappers struct {
 	portA   mapperFunctions[uint16, uint8]
-	hiRam   mapperFunctions[uint16, uint16]
+	mia     mapperFunctions[uint8, uint16]
 	exRam   mapperFunctions[uint16, uint16]
 	exRamHi mapperFunctions[uint16, uint16]
 }
@@ -26,9 +26,9 @@ type mappers struct {
 type chips struct {
 	cpu      components.Cpu65C02
 	baseram  components.Memory
-	hiram    components.Memory
 	exram    components.Memory
 	via      components.Via65C22
+	mia      components.MiaChip
 	csLogic  *modules.ClementinaCSLogic
 	oeRWSync *modules.ClementinaOERWPHISync
 }
@@ -40,14 +40,14 @@ type circuit struct {
 	cpuReset   *buses.StandaloneLine
 	cpuRW      *buses.StandaloneLine
 
-	hiramBus     buses.Bus[uint16]
+	miaBus       buses.Bus[uint8]
 	exramBus     buses.Bus[uint16]
 	exramBusHigh buses.Bus[uint16]
 	portABus     buses.Bus[uint8]
 	bigPortA     buses.Bus[uint16]
 	portBBus     buses.Bus[uint8]
 
-	picoHiRAME *buses.StandaloneLine
+	miaCS *buses.StandaloneLine
 
 	vcc    *buses.StandaloneLine
 	ground *buses.StandaloneLine
@@ -80,7 +80,7 @@ func (c *ClementinaComputer) Tick(context *common.StepContext) {
 	c.chips.via.Tick(context)
 
 	c.chips.baseram.Tick(context)
-	c.chips.hiram.Tick(context)
+	c.chips.mia.Tick(context)
 	c.chips.exram.Tick(context)
 
 	c.chips.cpu.PostTick(context)
@@ -132,21 +132,19 @@ func (c *ClementinaComputer) getPotentialOperators(programCounter uint16) [2]uin
 		address = uint32(addressLow) | (uint32(addressHi) << 16)
 
 		chip = c.chips.exram
-	case programCounter >= 0xE000:
-		portA := c.circuit.portABus.Read()
-		portA16Bits := c.mappers.portA.MapFromSource([]uint8{portA})
-
-		address = uint32(c.mappers.hiRam.MapFromSource([]uint16{programCounter, portA16Bits}))
-
-		chip = c.chips.hiram
-
-		// TODO: Add logic for reading when PICO is enabled
 	}
 
-	op1 := chip.Peek(address)
-	op2 := chip.Peek(address + 1)
+	// TODO: Add mapping for MIA
 
-	return [2]uint8{op1, op2}
+	if chip != nil {
+		op1 := chip.Peek(address)
+		op2 := chip.Peek(address + 1)
+
+		return [2]uint8{op1, op2}
+	} else {
+		return [2]uint8{0, 0}
+	}
+
 }
 
 // BaseRamPoke writes a value directly to the base RAM at the specified address.
@@ -170,17 +168,4 @@ func (c *ClementinaComputer) ExRamPoke(address uint16, bank uint8, value uint8) 
 	bank = bank & 0x1F
 	mapped := c.mappers.exRam.MapFromSource([]uint16{address, uint16(bank)})
 	c.chips.exram.Poke(mapped, value)
-}
-
-// HiRamPoke writes a value directly to the high RAM at the specified address and bank.
-// This bypasses normal CPU memory access and is used for debugging or initialization.
-//
-// Parameters:
-//   - address: The 16-bit address in high RAM to write to
-//   - bank: The bank number (4 banks of 8K)
-//   - value: The 8-bit value to write
-func (c *ClementinaComputer) HiRamPoke(address uint16, bank uint8, value uint8) {
-	bank = (bank & 0x03) << 5
-	mapped := c.mappers.hiRam.MapFromSource([]uint16{address, uint16(bank)})
-	c.chips.hiram.Poke(mapped, value)
 }

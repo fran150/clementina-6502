@@ -18,7 +18,7 @@ type or74HC32 struct {
 }
 
 // NewOr74HC32 creates a new 74HC32 quad OR gate chip
-func NewOr74HC32() components.QuadLogicGate {
+func NewOr74HC32() components.LogicGateArray {
 	return newOr74HC32()
 }
 

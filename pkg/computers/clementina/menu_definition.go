@@ -158,15 +158,6 @@ func createMenuOptions(console *clementinaEmulatorConsole, emulator *clementinaE
 				{
 					Key:            tcell.KeyF5,
 					KeyName:        "F5",
-					KeyDescription: "Hi RAM",
-					Action: func(option *ui.OptionsWindowMenuOption) {
-						console.ShowWindow("hiram")
-					},
-					SubMenu: createMemoryWindowSubMenu(console),
-				},
-				{
-					Key:            tcell.KeyF6,
-					KeyName:        "F6",
 					KeyDescription: "Buses",
 					Action: func(option *ui.OptionsWindowMenuOption) {
 						console.ShowWindow("bus")

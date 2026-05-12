@@ -15,7 +15,7 @@ import (
 type GPIOEmulationLoopConfig struct {
 	DisplayFPS int
 	Emulator   LoopTarget
-	chipName   string
+	ChipName   string
 }
 
 // gpioEmulationLoop manages GPIO-controlled emulation execution.
@@ -36,7 +36,7 @@ func NewGPIOEmulationLoop(config GPIOEmulationLoopConfig) core.EmulationLoop {
 		config.DisplayFPS = 10
 	}
 
-	gpioController, err := common.GetGPIOController(config.chipName)
+	gpioController, err := common.GetGPIOController(config.ChipName)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize GPIO interface: %v", err))
 	}
@@ -123,7 +123,7 @@ func (g *gpioEmulationLoop) executeGPIOLoop(context *common.StepContext) {
 
 	for !g.stop {
 		if !g.pause {
-			currentState, err := g.gpioController.Clock().Value()
+			currentState, err := g.gpioController.Phi2().Value()
 			if err != nil {
 				log.Printf("Error reading GPIO: %v", err)
 				continue

@@ -11,53 +11,49 @@ import (
 type csLogicTestCircuit struct {
 	addressBus buses.Bus[uint16]
 
-	picoHiRAME buses.Line
-
 	csLogic *ClementinaCSLogic
 }
 
 func newCSLogicTestCircuit() *csLogicTestCircuit {
+	// Creates the test circuit logic that contains a bus and the CS Logic circuit.
 	circuit := &csLogicTestCircuit{
 		addressBus: buses.New16BitStandaloneBus(),
 		csLogic:    NewClementinaCSLogic(),
 	}
 
+	// Connects all CS logic address line to individual lines on the bus.
 	for i := uint8(15); i >= 10; i-- {
 		circuit.csLogic.A1(int(i - 10)).Connect(circuit.addressBus.GetBusLine(i))
 	}
 
-	circuit.picoHiRAME = buses.NewStandaloneLine(false)
-
-	circuit.csLogic.PicoHiRAME().Connect(circuit.picoHiRAME)
-
 	return circuit
 }
 
+// Structure to store test cases
 type csLogicTestCase struct {
 	inputValue uint16
-	picoHiRAME bool
 
-	expectedIOOE   uint8
-	expectedExRAME bool
-	expectedHiRAME bool
+	expectedIOCS    uint8
+	expectedExRAMCS bool
+	expectedMiaCS   bool
 }
 
+// Runs the current test case
 func (tc *csLogicTestCase) test(t *testing.T, circuit *csLogicTestCircuit, step *common.StepContext) {
 	circuit.addressBus.Write(tc.inputValue)
-	circuit.picoHiRAME.Set(tc.picoHiRAME)
 
 	circuit.csLogic.Tick(step)
 
-	if circuit.csLogic.IOOE().Read() != tc.expectedIOOE {
-		t.Errorf("For adddess $%04X expected IOOE to be %02X, got %02X", tc.inputValue, tc.expectedIOOE, circuit.csLogic.IOOE().Read())
+	if circuit.csLogic.IOCS().Read() != tc.expectedIOCS {
+		t.Errorf("For adddess $%04X expected IOCS to be %02X, got %02X", tc.inputValue, tc.expectedIOCS, circuit.csLogic.IOCS().Read())
 	}
 
-	if circuit.csLogic.ExRAME().Status() != tc.expectedExRAME {
-		t.Errorf("For adddess $%04X expected ExRAME to be %t, got %t", tc.inputValue, tc.expectedExRAME, circuit.csLogic.ExRAME().Status())
+	if circuit.csLogic.ExRAMCS().Status() != tc.expectedExRAMCS {
+		t.Errorf("For adddess $%04X expected ExRAMCS to be %t, got %t", tc.inputValue, tc.expectedExRAMCS, circuit.csLogic.ExRAMCS().Status())
 	}
 
-	if circuit.csLogic.HiRAME().Status() != tc.expectedHiRAME {
-		t.Errorf("For adddess $%04X expected HiRAME to be %t, got %t", tc.inputValue, tc.expectedHiRAME, circuit.csLogic.HiRAME().Status())
+	if circuit.csLogic.MiaCS().Status() != tc.expectedMiaCS {
+		t.Errorf("For adddess $%04X expected MIACS to be %t, got %t", tc.inputValue, tc.expectedMiaCS, circuit.csLogic.MiaCS().Status())
 	}
 }
 
@@ -65,13 +61,14 @@ func TestClementinaCSLogicMemoryMapBaseMem(t *testing.T) {
 	step := common.NewStepContext()
 	circuit := newCSLogicTestCircuit()
 
+	// $0000-$7FFF: base RAM range. IOCS stays inactive, ExRAMCS stays inactive,
+	// and active-high MIASEL stays low.
 	for i := uint16(0x0000); i < 0x8000; i++ {
 		csLogicTestCase := csLogicTestCase{
-			inputValue:     i,
-			picoHiRAME:     false,
-			expectedIOOE:   0xFF,
-			expectedExRAME: true,
-			expectedHiRAME: true,
+			inputValue:      i,
+			expectedIOCS:    0xFF,
+			expectedExRAMCS: true,
+			expectedMiaCS:   false,
 		}
 
 		csLogicTestCase.test(t, circuit, &step)
@@ -82,13 +79,14 @@ func TestClementinaCSLogicMemoryMapExtendedMem(t *testing.T) {
 	step := common.NewStepContext()
 	circuit := newCSLogicTestCircuit()
 
+	// $8000-$BFFF: extended RAM range. ExRAMCS is asserted low, while IOCS
+	// stays inactive and active-high MIASEL stays low.
 	for i := uint16(0x8000); i < 0xC000; i++ {
 		csLogicTestCase := csLogicTestCase{
-			inputValue:     i,
-			picoHiRAME:     false,
-			expectedIOOE:   0xFF,
-			expectedExRAME: false,
-			expectedHiRAME: true,
+			inputValue:      i,
+			expectedIOCS:    0xFF,
+			expectedExRAMCS: false,
+			expectedMiaCS:   false,
 		}
 
 		csLogicTestCase.test(t, circuit, &step)
@@ -102,14 +100,15 @@ func TestClementinaCSLogicMemoryMapIOMem(t *testing.T) {
 	io := uint8(1)
 	base := uint16(0xC000)
 
+	// $C000-$DFFF: I/O range split into eight 1 KB slots. Exactly one active-low
+	// IOCS line is asserted per slot; ExRAMCS and active-high MIASEL stay inactive.
 	for range 8 {
 		for i := base; i < (base + 1023); i++ {
 			csLogicTestCase := csLogicTestCase{
-				inputValue:     i,
-				picoHiRAME:     false,
-				expectedIOOE:   ^io,
-				expectedExRAME: true,
-				expectedHiRAME: true,
+				inputValue:      i,
+				expectedIOCS:    ^io,
+				expectedExRAMCS: true,
+				expectedMiaCS:   false,
 			}
 
 			csLogicTestCase.test(t, circuit, &step)
@@ -124,29 +123,15 @@ func TestClementinaCSLogicMemoryMapHiMem(t *testing.T) {
 	step := common.NewStepContext()
 	circuit := newCSLogicTestCircuit()
 
-	// HiRAM is enabled for addresses from 0xE000 to 0xFFFF when pico is enabling
-	// with picoHiRAME low.
+	// $E000-$FFFF: MIA range. Active-high MIASEL is asserted, while IOCS and
+	// ExRAMCS stay inactive.
 	// The for checks != 0x0000 as after 0xFFFF the address wraps around to 0x0000
 	for i := uint16(0xE000); i != 0x0000; i++ {
 		csLogicTestCase := csLogicTestCase{
-			inputValue:     i,
-			picoHiRAME:     false,
-			expectedIOOE:   0xFF,
-			expectedExRAME: true,
-			expectedHiRAME: false,
-		}
-
-		csLogicTestCase.test(t, circuit, &step)
-	}
-
-	// When pico is not enabling the HiRAM chip is disabled
-	for i := uint16(0xE000); i != 0x0000; i++ {
-		csLogicTestCase := csLogicTestCase{
-			inputValue:     i,
-			picoHiRAME:     true,
-			expectedIOOE:   0xFF,
-			expectedExRAME: true,
-			expectedHiRAME: true,
+			inputValue:      i,
+			expectedIOCS:    0xFF,
+			expectedExRAMCS: true,
+			expectedMiaCS:   true,
 		}
 
 		csLogicTestCase.test(t, circuit, &step)
@@ -156,5 +141,7 @@ func TestClementinaCSLogicMemoryMapHiMem(t *testing.T) {
 func TestClementinaCSLogicAccessingIncorrectAddressLineReturnsNull(t *testing.T) {
 	circuit := newCSLogicTestCircuit()
 
+	// Only A10-A15 are exposed by this module; out-of-range address line indexes
+	// should not return a connector.
 	assert.Nil(t, circuit.csLogic.A1(8))
 }

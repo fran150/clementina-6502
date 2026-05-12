@@ -19,7 +19,7 @@ type and74HC08 struct {
 
 // NewAnd74HC08 creates a new 74HC08 quad 2-input AND gate chip.
 // The 74HC08 contains four independent 2-input AND gates.
-func NewAnd74HC08() components.QuadLogicGate {
+func NewAnd74HC08() components.LogicGateArray {
 	return newAnd74HC08()
 }
 
