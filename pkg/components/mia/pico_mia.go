@@ -32,7 +32,7 @@ func NewPicoMia(chipName string) (components.MiaChip, error) {
 
 		addressBus:  buses.NewBusConnector[uint8](),
 		dataBus:     buses.NewBusConnector[uint8](),
-		miaCS:       buses.NewConnectorEnabledLow(),
+		miaCS:       buses.NewConnectorEnabledHigh(),
 		reset:       buses.NewConnectorEnabledLow(),
 		writeEnable: buses.NewConnectorEnabledLow(),
 		irq:         buses.NewConnectorEnabledLow(),

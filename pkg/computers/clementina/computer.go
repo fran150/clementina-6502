@@ -107,7 +107,7 @@ func (c *ClementinaComputer) Reset(status bool) {
 ********************************************************************************************/
 
 // getPotentialOperators retrieves the next two bytes from memory at the given program counter.
-// It handles different memory regions (base RAM, extended RAM, high RAM) based on the address.
+// It handles mapped Clementina memory regions that support side-effect-free peeking.
 //
 // Parameters:
 //   - programCounter: The 16-bit program counter address
@@ -115,36 +115,38 @@ func (c *ClementinaComputer) Reset(status bool) {
 // Returns:
 //   - An array of two bytes representing the potential operands
 func (c *ClementinaComputer) getPotentialOperators(programCounter uint16) [2]uint8 {
-	var chip components.Memory
-	var address uint32
+	op1, _ := c.peekMappedMemory(programCounter)
+	op2, _ := c.peekMappedMemory(programCounter + 1)
 
+	return [2]uint8{op1, op2}
+}
+
+// peekMappedMemory returns a byte from the current Clementina memory map without bus side effects.
+func (c *ClementinaComputer) peekMappedMemory(address uint16) (uint8, bool) {
 	switch {
-	case programCounter < 0x8000:
-		address = uint32(programCounter & 0x7FFF)
-		chip = c.chips.baseram
+	case address < 0x8000:
+		return c.chips.baseram.Peek(uint32(address & 0x7FFF)), true
 
-	case programCounter >= 0x8000 && programCounter < 0xC000:
-		portA := c.circuit.portABus.Read()
-		portA16Bits := c.mappers.portA.MapFromSource([]uint8{portA})
-		addressLow := c.mappers.exRam.MapFromSource([]uint16{programCounter, portA16Bits})
-		addressHi := c.mappers.exRamHi.MapFromSource([]uint16{portA16Bits})
+	case address >= 0x8000 && address < 0xC000:
+		return c.chips.exram.Peek(c.mapExRAMAddress(address)), true
 
-		address = uint32(addressLow) | (uint32(addressHi) << 16)
-
-		chip = c.chips.exram
+	case address >= 0xE000:
+		if mia, ok := c.chips.mia.(interface{ Peek(uint16) uint8 }); ok {
+			return mia.Peek(address), true
+		}
 	}
 
-	// TODO: Add mapping for MIA
+	return 0, false
+}
 
-	if chip != nil {
-		op1 := chip.Peek(address)
-		op2 := chip.Peek(address + 1)
+// mapExRAMAddress maps a CPU address in the extended RAM window to the physical RAM offset.
+func (c *ClementinaComputer) mapExRAMAddress(address uint16) uint32 {
+	portA := c.circuit.portABus.Read()
+	portA16Bits := c.mappers.portA.MapFromSource([]uint8{portA})
+	addressLow := c.mappers.exRam.MapFromSource([]uint16{address, portA16Bits})
+	addressHi := c.mappers.exRamHi.MapFromSource([]uint16{portA16Bits})
 
-		return [2]uint8{op1, op2}
-	} else {
-		return [2]uint8{0, 0}
-	}
-
+	return uint32(addressLow) | (uint32(addressHi) << 16)
 }
 
 // BaseRamPoke writes a value directly to the base RAM at the specified address.

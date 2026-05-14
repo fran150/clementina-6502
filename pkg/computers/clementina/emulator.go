@@ -78,5 +78,7 @@ func NewClemetinaEmulator(computer *ClementinaComputer, speed float64, displayFP
 		return false
 	})
 
+	emulator.Pause()
+
 	return emulator, nil
 }
