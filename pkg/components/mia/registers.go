@@ -8,6 +8,7 @@ const (
 	miaAddressMask   = 0x00FFFFFF
 
 	miaKernelTargetAddress = 0x4000
+	miaCPUResetPulseCycles = 4
 )
 
 const (

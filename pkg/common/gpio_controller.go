@@ -9,18 +9,20 @@ var dataLinesGPIO = []int{2, 3, 4, 17, 27, 22, 10, 9}
 
 var miaCSGPIO = 21
 var resbGPIO = 20
+var resetRequestGPIO = 26
 var weGPIO = 16
 var irqbGPIO = 12
 var phi2GPIO = 1
 
 type GPIOController struct {
-	addressBus  *gpiocdev.Lines
-	dataBus     *gpiocdev.Lines
-	miaCS       *gpiocdev.Line
-	reset       *gpiocdev.Line
-	writeEnable *gpiocdev.Line
-	irq         *gpiocdev.Line
-	phi2        *gpiocdev.Line
+	addressBus   *gpiocdev.Lines
+	dataBus      *gpiocdev.Lines
+	miaCS        *gpiocdev.Line
+	reset        *gpiocdev.Line
+	resetRequest *gpiocdev.Line
+	writeEnable  *gpiocdev.Line
+	irq          *gpiocdev.Line
+	phi2         *gpiocdev.Line
 }
 
 var gpioInterfaceInstance *GPIOController
@@ -32,6 +34,7 @@ func GetGPIOController(chipName string) (*GPIOController, error) {
 		var dataBus *gpiocdev.Lines
 		var miaCS *gpiocdev.Line
 		var reset *gpiocdev.Line
+		var resetRequest *gpiocdev.Line
 		var writeEnable *gpiocdev.Line
 		var irq *gpiocdev.Line
 		var phi2 *gpiocdev.Line
@@ -50,11 +53,15 @@ func GetGPIOController(chipName string) (*GPIOController, error) {
 			return nil, err
 		}
 
-		if miaCS, err = chip.RequestLine(miaCSGPIO, gpiocdev.AsInput); err != nil {
+		if miaCS, err = chip.RequestLine(miaCSGPIO, gpiocdev.AsOutput(0)); err != nil {
 			return nil, err
 		}
 
 		if reset, err = chip.RequestLine(resbGPIO, gpiocdev.AsInput); err != nil {
+			return nil, err
+		}
+
+		if resetRequest, err = chip.RequestLine(resetRequestGPIO, gpiocdev.AsOutput(1)); err != nil {
 			return nil, err
 		}
 
@@ -71,13 +78,14 @@ func GetGPIOController(chipName string) (*GPIOController, error) {
 		}
 
 		gpioInterfaceInstance = &GPIOController{
-			addressBus:  addressBus,
-			dataBus:     dataBus,
-			miaCS:       miaCS,
-			reset:       reset,
-			writeEnable: writeEnable,
-			irq:         irq,
-			phi2:        phi2,
+			addressBus:   addressBus,
+			dataBus:      dataBus,
+			miaCS:        miaCS,
+			reset:        reset,
+			resetRequest: resetRequest,
+			writeEnable:  writeEnable,
+			irq:          irq,
+			phi2:         phi2,
 		}
 	}
 
@@ -100,6 +108,10 @@ func (g *GPIOController) Reset() *gpiocdev.Line {
 	return g.reset
 }
 
+func (g *GPIOController) ResetRequest() *gpiocdev.Line {
+	return g.resetRequest
+}
+
 func (g *GPIOController) WriteEnable() *gpiocdev.Line {
 	return g.writeEnable
 }
@@ -117,6 +129,7 @@ func (g *GPIOController) Close() {
 	g.dataBus.Close()
 	g.miaCS.Close()
 	g.reset.Close()
+	g.resetRequest.Close()
 	g.writeEnable.Close()
 	g.irq.Close()
 	g.phi2.Close()

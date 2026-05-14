@@ -9,28 +9,30 @@ import (
 )
 
 type emulatedMiaTestCircuit struct {
-	chip       *emulated_mia
-	addressBus buses.Bus[uint8]
-	dataBus    buses.Bus[uint8]
-	cs         *buses.StandaloneLine
-	rw         *buses.StandaloneLine
-	reset      *buses.StandaloneLine
-	irq        *buses.StandaloneLine
-	step       common.StepContext
+	chip         *emulated_mia
+	addressBus   buses.Bus[uint8]
+	dataBus      buses.Bus[uint8]
+	cs           *buses.StandaloneLine
+	rw           *buses.StandaloneLine
+	reset        *buses.StandaloneLine
+	resetRequest *buses.StandaloneLine
+	irq          *buses.StandaloneLine
+	step         common.StepContext
 }
 
 // newEmulatedMiaTestCircuit wires an emulated MIA into standalone test buses.
 func newEmulatedMiaTestCircuit() *emulatedMiaTestCircuit {
 	chip := NewEmulatedMia().(*emulated_mia)
 	circuit := &emulatedMiaTestCircuit{
-		chip:       chip,
-		addressBus: buses.New8BitStandaloneBus(),
-		dataBus:    buses.New8BitStandaloneBus(),
-		cs:         buses.NewStandaloneLine(true),
-		rw:         buses.NewStandaloneLine(true),
-		reset:      buses.NewStandaloneLine(true),
-		irq:        buses.NewStandaloneLine(true),
-		step:       common.NewStepContext(),
+		chip:         chip,
+		addressBus:   buses.New8BitStandaloneBus(),
+		dataBus:      buses.New8BitStandaloneBus(),
+		cs:           buses.NewStandaloneLine(true),
+		rw:           buses.NewStandaloneLine(true),
+		reset:        buses.NewStandaloneLine(true),
+		resetRequest: buses.NewStandaloneLine(true),
+		irq:          buses.NewStandaloneLine(true),
+		step:         common.NewStepContext(),
 	}
 
 	chip.AddressBus().Connect(circuit.addressBus)
@@ -38,6 +40,7 @@ func newEmulatedMiaTestCircuit() *emulatedMiaTestCircuit {
 	chip.MiaCS().Connect(circuit.cs)
 	chip.WriteEnable().Connect(circuit.rw)
 	chip.Reset().Connect(circuit.reset)
+	chip.ResetRequest().Connect(circuit.resetRequest)
 	chip.Irq().Connect(circuit.irq)
 
 	return circuit
@@ -101,7 +104,7 @@ func TestEmulatedMiaFastLoaderInitialization(t *testing.T) {
 	assert.True(t, circuit.irq.Status())
 }
 
-// TestEmulatedMiaResetRestoresFastLoader verifies reset exits normal mode and re-seeds loader registers.
+// TestEmulatedMiaResetRestoresFastLoader verifies MIA reset request exits normal mode and re-seeds loader registers.
 func TestEmulatedMiaResetRestoresFastLoader(t *testing.T) {
 	circuit := newEmulatedMiaTestCircuit()
 	chip := circuit.chip
@@ -115,15 +118,46 @@ func TestEmulatedMiaResetRestoresFastLoader(t *testing.T) {
 
 	assert.Equal(t, uint8(0x00), circuit.read(miaRegIdxAPort))
 
-	circuit.reset.Set(false)
+	circuit.resetRequest.Set(false)
 	chip.Tick(&circuit.step)
-	circuit.reset.Set(true)
+	circuit.resetRequest.Set(true)
 
 	assert.Equal(t, miaStateLoader, chip.state)
 	assert.False(t, chip.canUpdateKernelPointer)
-	assert.Equal(t, uint8(0xA9), circuit.read(miaRegIdxAPort))
-	assert.Equal(t, miaKernelData[0], circuit.read(miaRegIdxASelector))
+	assert.False(t, circuit.reset.Status())
+	assert.Equal(t, uint8(0xA9), chip.readRegister(miaRegIdxAPort))
+	assert.Equal(t, miaKernelData[0], chip.readRegister(miaRegIdxASelector))
 	assert.Equal(t, uint16(0xFFE0), chip.readRegisterWord(miaRegResetVectorLSB))
+}
+
+// TestEmulatedMiaResetRequestPulsesCPUReset verifies MIA drives RESB for enough cycles.
+func TestEmulatedMiaResetRequestPulsesCPUReset(t *testing.T) {
+	circuit := newEmulatedMiaTestCircuit()
+
+	circuit.resetRequest.Set(false)
+	circuit.chip.Tick(&circuit.step)
+
+	assert.False(t, circuit.reset.Status())
+
+	circuit.resetRequest.Set(true)
+	for i := uint8(0); i < miaCPUResetPulseCycles-1; i++ {
+		circuit.chip.Tick(&circuit.step)
+		assert.False(t, circuit.reset.Status())
+	}
+
+	circuit.chip.Tick(&circuit.step)
+	assert.True(t, circuit.reset.Status())
+}
+
+// TestEmulatedMiaHeldResetRequestKeepsCPUResetAsserted verifies held input holds RESB low.
+func TestEmulatedMiaHeldResetRequestKeepsCPUResetAsserted(t *testing.T) {
+	circuit := newEmulatedMiaTestCircuit()
+
+	circuit.resetRequest.Set(false)
+	for range miaCPUResetPulseCycles + 2 {
+		circuit.chip.Tick(&circuit.step)
+		assert.False(t, circuit.reset.Status())
+	}
 }
 
 // TestEmulatedMiaDoesNotDriveDataBusWhenChipIsInactive verifies inactive CS behavior.

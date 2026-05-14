@@ -337,6 +337,7 @@ type MiaChip interface {
 	DataBus() *buses.BusConnector[uint8]
 	MiaCS() buses.LineConnector
 	Reset() buses.LineConnector
+	ResetRequest() buses.LineConnector
 	WriteEnable() buses.LineConnector
 	Irq() buses.LineConnector
 }

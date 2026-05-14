@@ -34,11 +34,12 @@ type chips struct {
 }
 
 type circuit struct {
-	addressBus buses.Bus[uint16]
-	dataBus    buses.Bus[uint8]
-	cpuIRQ     *buses.StandaloneLine
-	cpuReset   *buses.StandaloneLine
-	cpuRW      *buses.StandaloneLine
+	addressBus      buses.Bus[uint16]
+	dataBus         buses.Bus[uint8]
+	cpuIRQ          *buses.StandaloneLine
+	cpuReset        *buses.StandaloneLine
+	miaResetRequest *buses.StandaloneLine
+	cpuRW           *buses.StandaloneLine
 
 	miaBus       buses.Bus[uint8]
 	exramBus     buses.Bus[uint16]
@@ -99,7 +100,7 @@ func (c *ClementinaComputer) GetProgramCounter() uint16 {
 // Parameters:
 //   - status: true to reset the computer, false to release from reset
 func (c *ClementinaComputer) Reset(status bool) {
-	c.circuit.cpuReset.Set(!status)
+	c.circuit.miaResetRequest.Set(!status)
 }
 
 /*******************************************************************************************

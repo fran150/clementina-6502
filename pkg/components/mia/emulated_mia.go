@@ -10,10 +10,11 @@ type emulated_mia struct {
 	addressBus *buses.BusConnector[uint8]
 	dataBus    *buses.BusConnector[uint8]
 
-	miaCS       buses.LineConnector
-	reset       buses.LineConnector
-	writeEnable buses.LineConnector
-	irq         buses.LineConnector
+	miaCS        buses.LineConnector
+	reset        buses.LineConnector
+	resetRequest buses.LineConnector
+	writeEnable  buses.LineConnector
+	irq          buses.LineConnector
 
 	registers [miaRegisterCount]uint8
 	memory    []uint8
@@ -25,18 +26,21 @@ type emulated_mia struct {
 	kernelTargetAddress    uint16
 	canUpdateKernelPointer bool
 	irqAsserted            bool
+	cpuResetCycles         uint8
+	resetRequestAsserted   bool
 }
 
 // NewEmulatedMia creates a software implementation of the Clementina MIA chip.
 func NewEmulatedMia() components.MiaChip {
 	chip := &emulated_mia{
-		addressBus:  buses.NewBusConnector[uint8](),
-		dataBus:     buses.NewBusConnector[uint8](),
-		miaCS:       buses.NewConnectorEnabledHigh(),
-		reset:       buses.NewConnectorEnabledLow(),
-		writeEnable: buses.NewConnectorEnabledLow(),
-		irq:         buses.NewConnectorEnabledLow(),
-		memory:      make([]uint8, miaRAMSize),
+		addressBus:   buses.NewBusConnector[uint8](),
+		dataBus:      buses.NewBusConnector[uint8](),
+		miaCS:        buses.NewConnectorEnabledHigh(),
+		reset:        buses.NewConnectorEnabledLow(),
+		resetRequest: buses.NewConnectorEnabledLow(),
+		writeEnable:  buses.NewConnectorEnabledLow(),
+		irq:          buses.NewConnectorEnabledLow(),
+		memory:       make([]uint8, miaRAMSize),
 
 		state:               miaStateLoader,
 		kernelTargetAddress: miaKernelTargetAddress,
@@ -62,9 +66,14 @@ func (c *emulated_mia) MiaCS() buses.LineConnector {
 	return c.miaCS
 }
 
-// Reset returns the CPU reset line connector observed by the MIA.
+// Reset returns the active-low CPU reset line driven by the MIA.
 func (c *emulated_mia) Reset() buses.LineConnector {
 	return c.reset
+}
+
+// ResetRequest returns the active-low input that asks MIA to reset the computer.
+func (c *emulated_mia) ResetRequest() buses.LineConnector {
+	return c.resetRequest
 }
 
 // WriteEnable returns the active-low write enable connector.
@@ -84,8 +93,7 @@ func (c *emulated_mia) Peek(address uint16) uint8 {
 
 // Tick processes one bus cycle against the MIA register window.
 func (c *emulated_mia) Tick(context *common.StepContext) {
-	if c.reset.Enabled() {
-		c.init()
+	if c.handleResetRequest() {
 		c.driveIRQLine()
 		return
 	}
@@ -108,6 +116,35 @@ func (c *emulated_mia) Tick(context *common.StepContext) {
 	}
 
 	c.driveIRQLine()
+}
+
+// handleResetRequest applies the MIA-controlled system reset behavior.
+func (c *emulated_mia) handleResetRequest() bool {
+	resetRequested := c.resetRequest.Enabled()
+
+	if resetRequested && !c.resetRequestAsserted {
+		c.init()
+		c.cpuResetCycles = miaCPUResetPulseCycles
+	}
+
+	c.resetRequestAsserted = resetRequested
+	cpuResetAsserted := resetRequested || c.cpuResetCycles > 0
+	c.driveResetLine(cpuResetAsserted)
+
+	if c.cpuResetCycles > 0 {
+		c.cpuResetCycles--
+	}
+
+	return cpuResetAsserted
+}
+
+// driveResetLine writes MIA's active-low CPU reset output.
+func (c *emulated_mia) driveResetLine(asserted bool) {
+	if c.reset.GetLine() == nil {
+		return
+	}
+
+	c.reset.SetEnable(asserted)
 }
 
 // init initializes MIA internal state to match the Pico firmware startup path.

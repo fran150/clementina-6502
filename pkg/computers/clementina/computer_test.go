@@ -47,6 +47,30 @@ func TestClementinaResetRestoresMiaLoaderWindow(t *testing.T) {
 	assert.Equal(t, [2]uint8{0xA9, 0xA9}, computer.getPotentialOperators(0xFFE0))
 }
 
+// TestClementinaResetIsDrivenByMia verifies the computer reset input goes through MIA.
+func TestClementinaResetIsDrivenByMia(t *testing.T) {
+	computer, err := NewClementinaComputer()
+	require.NoError(t, err)
+
+	step := common.NewStepContext()
+
+	computer.Reset(true)
+	assert.False(t, computer.circuit.miaResetRequest.Status())
+	assert.True(t, computer.circuit.cpuReset.Status())
+
+	computer.Tick(&step)
+	assert.False(t, computer.circuit.cpuReset.Status())
+
+	computer.Reset(false)
+	for range 4 {
+		computer.Tick(&step)
+		step.NextCycle()
+	}
+
+	assert.True(t, computer.circuit.miaResetRequest.Status())
+	assert.True(t, computer.circuit.cpuReset.Status())
+}
+
 // TestClementinaResetFetchesMiaLoaderOpcode verifies the CPU fetches the loader after reset.
 func TestClementinaResetFetchesMiaLoaderOpcode(t *testing.T) {
 	computer, err := NewClementinaComputer()

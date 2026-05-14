@@ -15,10 +15,11 @@ type pico_mia struct {
 	addressBus *buses.BusConnector[uint8]
 	dataBus    *buses.BusConnector[uint8]
 
-	miaCS       buses.LineConnector
-	reset       buses.LineConnector
-	writeEnable buses.LineConnector
-	irq         buses.LineConnector
+	miaCS        buses.LineConnector
+	reset        buses.LineConnector
+	resetRequest buses.LineConnector
+	writeEnable  buses.LineConnector
+	irq          buses.LineConnector
 }
 
 func NewPicoMia(chipName string) (components.MiaChip, error) {
@@ -30,12 +31,13 @@ func NewPicoMia(chipName string) (components.MiaChip, error) {
 	return &pico_mia{
 		gpioController: gpioController,
 
-		addressBus:  buses.NewBusConnector[uint8](),
-		dataBus:     buses.NewBusConnector[uint8](),
-		miaCS:       buses.NewConnectorEnabledHigh(),
-		reset:       buses.NewConnectorEnabledLow(),
-		writeEnable: buses.NewConnectorEnabledLow(),
-		irq:         buses.NewConnectorEnabledLow(),
+		addressBus:   buses.NewBusConnector[uint8](),
+		dataBus:      buses.NewBusConnector[uint8](),
+		miaCS:        buses.NewConnectorEnabledHigh(),
+		reset:        buses.NewConnectorEnabledLow(),
+		resetRequest: buses.NewConnectorEnabledLow(),
+		writeEnable:  buses.NewConnectorEnabledLow(),
+		irq:          buses.NewConnectorEnabledLow(),
 	}, nil
 }
 
@@ -53,6 +55,10 @@ func (c *pico_mia) MiaCS() buses.LineConnector {
 
 func (c *pico_mia) Reset() buses.LineConnector {
 	return c.reset
+}
+
+func (c *pico_mia) ResetRequest() buses.LineConnector {
+	return c.resetRequest
 }
 
 func (c *pico_mia) WriteEnable() buses.LineConnector {
@@ -83,6 +89,10 @@ func (c *pico_mia) driveOutputLines() error {
 	}
 
 	if err := driveGPIOLine(c.miaCS.GetLine(), c.gpioController.MiaCS()); err != nil {
+		return err
+	}
+
+	if err := driveGPIOLine(c.resetRequest.GetLine(), c.gpioController.ResetRequest()); err != nil {
 		return err
 	}
 

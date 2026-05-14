@@ -125,20 +125,21 @@ func newClementinaComputer(mia components.MiaChip) (*ClementinaComputer, error) 
 
 	// Create the circuit which contains all the buses and lines
 	circuit := &circuit{
-		addressBus:   addressBus,
-		dataBus:      buses.New8BitStandaloneBus(),
-		cpuIRQ:       buses.NewStandaloneLine(true),
-		cpuReset:     buses.NewStandaloneLine(true),
-		cpuRW:        buses.NewStandaloneLine(true),
-		miaBus:       miaBus,
-		exramBus:     exRamBus,
-		exramBusHigh: exRamBusHigh,
-		portABus:     portABus,
-		bigPortA:     bigPortABus,
-		portBBus:     portBBus,
-		miaCS:        buses.NewStandaloneLine(true),
-		vcc:          buses.NewStandaloneLine(true),
-		ground:       buses.NewStandaloneLine(false),
+		addressBus:      addressBus,
+		dataBus:         buses.New8BitStandaloneBus(),
+		cpuIRQ:          buses.NewStandaloneLine(true),
+		cpuReset:        buses.NewStandaloneLine(true),
+		miaResetRequest: buses.NewStandaloneLine(true),
+		cpuRW:           buses.NewStandaloneLine(true),
+		miaBus:          miaBus,
+		exramBus:        exRamBus,
+		exramBusHigh:    exRamBusHigh,
+		portABus:        portABus,
+		bigPortA:        bigPortABus,
+		portBBus:        portBBus,
+		miaCS:           buses.NewStandaloneLine(true),
+		vcc:             buses.NewStandaloneLine(true),
+		ground:          buses.NewStandaloneLine(false),
 	}
 
 	// Get references to the specific address bus lines
@@ -188,6 +189,7 @@ func newClementinaComputer(mia components.MiaChip) (*ClementinaComputer, error) 
 	chips.mia.DataBus().Connect(circuit.dataBus)
 	chips.mia.MiaCS().Connect(chips.csLogic.MiaCS())
 	chips.mia.Reset().Connect(circuit.cpuReset)
+	chips.mia.ResetRequest().Connect(circuit.miaResetRequest)
 	chips.mia.WriteEnable().Connect(chips.oeRWSync.RW())
 	chips.mia.Irq().Connect(circuit.cpuIRQ)
 
