@@ -2,6 +2,7 @@ package emulation
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/fran150/clementina-6502/pkg/common"
@@ -32,10 +33,10 @@ type emulationLoop struct {
 	config       *EmulationLoopConfig
 	panicHandler func(loopType string, panicData any) bool
 
-	tickLoopRunning bool
-	drawLoopRunning bool
-	stop            bool
-	pause           bool
+	tickLoopRunning atomic.Bool
+	drawLoopRunning atomic.Bool
+	stop            atomic.Bool
+	pause           atomic.Bool
 }
 
 /************************************************************************************
@@ -59,12 +60,12 @@ func newEmulationLoop(config EmulationLoopConfig) *emulationLoop {
 		config.DisplayFPS = 10
 	}
 
-	return &emulationLoop{
-		config:          &config,
-		tickLoopRunning: false,
-		drawLoopRunning: false,
-		stop:            true,
+	loop := &emulationLoop{
+		config: &config,
 	}
+	loop.stop.Store(true)
+
+	return loop
 }
 
 // NewEmulationLoop creates a new emulation loop with the specified components.
@@ -100,18 +101,18 @@ func (e *emulationLoop) SetPanicHandler(handler func(loopType string, panicData 
 // IsRunning checks if the emulation loop is currently running.
 // Returns true if the loop is not stopped.
 func (e *emulationLoop) IsRunning() bool {
-	return e.drawLoopRunning || e.tickLoopRunning
+	return e.drawLoopRunning.Load() || e.tickLoopRunning.Load()
 }
 
 // IsPaused checks if the emulation loop is currently paused.
 // Returns true if the loop is paused.
 func (e *emulationLoop) IsPaused() bool {
-	return e.pause
+	return e.pause.Load()
 }
 
 // IsStopping checks if the emulation loop is in the process of stopping.
 func (e *emulationLoop) IsStopping() bool {
-	return e.stop && e.IsRunning()
+	return e.stop.Load() && e.IsRunning()
 }
 
 /************************************************************************************
@@ -128,11 +129,12 @@ func (e *emulationLoop) Start() (*common.StepContext, error) {
 	if !e.IsRunning() && e.config.Emulator != nil {
 		context := common.NewStepContext()
 
-		e.pause = false
-		e.stop = false
+		e.pause.Store(false)
+		e.stop.Store(false)
+		e.tickLoopRunning.Store(true)
+		e.drawLoopRunning.Store(true)
 
 		go e.executeLoop(&context)
-		go e.executeDraw(&context)
 
 		return &context, nil
 	} else {
@@ -151,19 +153,19 @@ func (e *emulationLoop) Start() (*common.StepContext, error) {
 // Stop signals the emulation loop to stop execution.
 // This will cause both the tick and draw loops to exit gracefully.
 func (e *emulationLoop) Stop() {
-	e.stop = true
+	e.stop.Store(true)
 }
 
 // Resume resumes the emulation loop execution after it has been paused.
 // This allows the tick loop to continue processing CPU cycles.
 func (e *emulationLoop) Resume() {
-	e.pause = false
+	e.pause.Store(false)
 }
 
 // Pause pauses the emulation loop execution.
 // The tick loop will stop processing CPU cycles but the draw loop continues.
 func (e *emulationLoop) Pause() {
-	e.pause = true
+	e.pause.Store(true)
 }
 
 /************************************************************************************
@@ -176,7 +178,8 @@ func (e *emulationLoop) Pause() {
 //   - context: The step context for emulation state
 func (e *emulationLoop) executeLoop(context *common.StepContext) {
 	defer func() {
-		e.tickLoopRunning = false
+		e.tickLoopRunning.Store(false)
+		e.drawLoopRunning.Store(false)
 		if r := recover(); r != nil {
 			e.handlePanic("Loop", r)
 		}
@@ -184,45 +187,33 @@ func (e *emulationLoop) executeLoop(context *common.StepContext) {
 
 	var lastTPSExecuted, targetTPSNano int64
 	var lastSpeedCheck int64
+	drawInterval := time.Second / time.Duration(e.config.DisplayFPS)
+	nextDraw := time.Now().Add(drawInterval)
 
-	e.tickLoopRunning = true
+	e.tickLoopRunning.Store(true)
+	e.drawLoopRunning.Store(true)
 
-	for !e.stop {
+	for !e.stop.Load() {
+		if time.Now().After(nextDraw) {
+			e.config.Emulator.Draw(context)
+			nextDraw = nextDraw.Add(drawInterval)
+			if time.Now().After(nextDraw) {
+				nextDraw = time.Now().Add(drawInterval)
+			}
+		}
+
 		if (context.T - lastSpeedCheck) > e.config.RefreshNanos {
 			targetTPSNano = int64(e.config.SpeedController.GetNanosPerCycle())
 			lastSpeedCheck = context.T
 		}
 
-		if (context.T-lastTPSExecuted) > targetTPSNano && !e.pause {
+		if (context.T-lastTPSExecuted) > targetTPSNano && !e.pause.Load() {
 			lastTPSExecuted = context.T
 			e.config.Emulator.Tick(context)
 			context.NextCycle()
 		} else {
 			context.SkipCycle()
 		}
-	}
-}
-
-// executeDraw runs the display update loop at the configured frame rate.
-//
-// Parameters:
-//   - context: The step context for emulation state
-func (e *emulationLoop) executeDraw(context *common.StepContext) {
-	defer func() {
-		e.drawLoopRunning = false
-		if r := recover(); r != nil {
-			e.handlePanic("Draw", r)
-		}
-	}()
-
-	ticker := time.NewTicker(time.Second / time.Duration(e.config.DisplayFPS))
-	defer ticker.Stop()
-
-	e.drawLoopRunning = true
-
-	for !e.stop {
-		<-ticker.C
-		e.config.Emulator.Draw(context)
 	}
 }
 

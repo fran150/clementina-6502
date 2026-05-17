@@ -6,6 +6,7 @@ package acia
 import (
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fran150/clementina-6502/pkg/common"
@@ -113,9 +114,12 @@ type acia65C51N struct {
 
 	rxMutex *sync.Mutex
 	txMutex *sync.Mutex
+	stateMu *sync.Mutex
 	wg      *sync.WaitGroup
 
-	running bool
+	running        atomic.Bool
+	pollersStarted atomic.Bool
+	txNotify       chan struct{}
 
 	emulateModemLines bool
 }
@@ -155,19 +159,14 @@ func newAcia65C51(emulateModemLines bool) *acia65C51N {
 
 		rxMutex: &sync.Mutex{},
 		txMutex: &sync.Mutex{},
+		stateMu: &sync.Mutex{},
 		wg:      &sync.WaitGroup{},
 
-		running: true,
+		txNotify: make(chan struct{}, 1),
 
 		emulateModemLines: emulateModemLines,
 	}
-
-	// Start background pollers to read and write from the serial
-	// port in a non blocking way
-	acia.wg.Add(1)
-	go acia.writeBytes()
-	acia.wg.Add(1)
-	go acia.readBytes()
+	acia.running.Store(true)
 
 	return acia
 }
@@ -197,13 +196,38 @@ func (acia *acia65C51N) ConnectToPort(port serial.Port) error {
 		}
 	}
 
+	acia.startPollers()
+
 	return nil
 }
 
 // Free resources used by the emulation. In particular it will stop the R/W pollers
 func (acia *acia65C51N) Close() {
-	acia.running = false
+	acia.running.Store(false)
+	acia.notifyTX()
 	acia.wg.Wait()
+}
+
+func (acia *acia65C51N) startPollers() {
+	if !acia.pollersStarted.CompareAndSwap(false, true) {
+		return
+	}
+
+	acia.wg.Add(1)
+	go acia.writeBytes()
+	acia.wg.Add(1)
+	go acia.readBytes()
+}
+
+func (acia *acia65C51N) notifyTX() {
+	if acia.txNotify == nil {
+		return
+	}
+
+	select {
+	case acia.txNotify <- struct{}{}:
+	default:
+	}
 }
 
 /************************************************************************************
@@ -296,6 +320,9 @@ func (via *acia65C51N) ConnectRegisterSelectLines(lines [numOfRSLines]buses.Line
 
 // Executes one emulation step
 func (acia *acia65C51N) Tick(context *common.StepContext) {
+	acia.stateMu.Lock()
+	defer acia.stateMu.Unlock()
+
 	// If the ACIA is configured to emulate modem lines
 	// it will evaluate the status of the DSR and DCD lines. This is slow (at least when used with SOCAT)
 	// so it can be disabled for faster emulation
@@ -344,12 +371,18 @@ func (acia *acia65C51N) Tick(context *common.StepContext) {
 // This register contains information about the current state of the ACIA,
 // including transmit/receive status and error flags.
 func (acia *acia65C51N) GetStatusRegister() uint8 {
+	acia.lockState()
+	defer acia.unlockState()
+
 	return acia.statusRegister
 }
 
 // Returns the current value of the ACIA control register.
 // This register controls the baud rate and other communication parameters.
 func (acia *acia65C51N) GetControlRegister() uint8 {
+	acia.lockState()
+	defer acia.unlockState()
+
 	return acia.controlRegister
 }
 
@@ -357,18 +390,27 @@ func (acia *acia65C51N) GetControlRegister() uint8 {
 // This register controls the operation modes, interrupt enables, and other
 // control functions of the ACIA.
 func (acia *acia65C51N) GetCommandRegister() uint8 {
+	acia.lockState()
+	defer acia.unlockState()
+
 	return acia.commandRegister
 }
 
 // Returns the current value in the transmit data register.
 // This register holds the byte that is being or will be transmitted.
 func (acia *acia65C51N) GetTXRegister() uint8 {
+	acia.lockState()
+	defer acia.unlockState()
+
 	return acia.txRegister
 }
 
 // Returns the current value in the receive data register.
 // This register contains the most recently received byte of data.
 func (acia *acia65C51N) GetRXRegister() uint8 {
+	acia.lockState()
+	defer acia.unlockState()
+
 	return acia.rxRegister
 }
 
@@ -376,6 +418,9 @@ func (acia *acia65C51N) GetRXRegister() uint8 {
 // ready to accept new data for transmission.
 // Returns true if empty, false if it contains data to be transmitted.
 func (acia *acia65C51N) IsTXRegisterEmpty() bool {
+	acia.lockState()
+	defer acia.unlockState()
+
 	return acia.txRegisterEmpty
 }
 
@@ -383,12 +428,27 @@ func (acia *acia65C51N) IsTXRegisterEmpty() bool {
 // Returns true if empty (no data received), false if it contains received data
 // that needs to be read.
 func (acia *acia65C51N) IsRXRegisterEmpty() bool {
+	acia.lockState()
+	defer acia.unlockState()
+
 	return acia.rxRegisterEmpty
 }
 
 /************************************************************************************
 * Internal functions
 *************************************************************************************/
+
+func (acia *acia65C51N) lockState() {
+	if acia.stateMu != nil {
+		acia.stateMu.Lock()
+	}
+}
+
+func (acia *acia65C51N) unlockState() {
+	if acia.stateMu != nil {
+		acia.stateMu.Unlock()
+	}
+}
 
 // Returns a byte that respresents the status of the RS lines in where
 // RS0 is bit 0 and RS1 is bit 1

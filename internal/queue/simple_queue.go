@@ -21,6 +21,9 @@ func NewQueue[T any]() *SimpleQueue[T] {
 
 // Size returns the current number of elements in the queue
 func (queue *SimpleQueue[T]) Size() int {
+	queue.mu.Lock()
+	defer queue.mu.Unlock()
+
 	return len(queue.values)
 }
 
@@ -45,10 +48,19 @@ func (queue *SimpleQueue[T]) DeQueue() T {
 
 // IsEmpty returns true if the queue contains no elements
 func (queue *SimpleQueue[T]) IsEmpty() bool {
+	queue.mu.Lock()
+	defer queue.mu.Unlock()
+
 	return len(queue.values) == 0
 }
 
 // GetValues returns a slice containing all elements currently in the queue
 func (queue *SimpleQueue[T]) GetValues() []T {
-	return queue.values
+	queue.mu.Lock()
+	defer queue.mu.Unlock()
+
+	values := make([]T, len(queue.values))
+	copy(values, queue.values)
+
+	return values
 }

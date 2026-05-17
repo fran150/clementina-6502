@@ -1,6 +1,8 @@
 package testutils
 
 import (
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fran150/clementina-6502/internal/queue"
@@ -24,6 +26,8 @@ const (
 // SerialPortMock implements a mock of the serial port interface for testing purposes.
 // It simulates serial port behavior including data transmission, reception, and modem status lines.
 type SerialPortMock struct {
+	mu sync.RWMutex
+
 	Mode   *serial.Mode
 	Status serial.ModemStatusBits
 	DTR    bool
@@ -37,9 +41,9 @@ type SerialPortMock struct {
 
 	previousTick time.Time
 
-	stop bool
+	stop atomic.Bool
 
-	MakeCallsFailFrom failInFunction
+	makeCallsFailFrom atomic.Int32
 
 	readTimeout time.Duration
 }
@@ -61,22 +65,27 @@ func NewPortMock(mode *serial.Mode) *SerialPortMock {
 		TerminalTxBuffer: queue.NewQueue[byte](),
 		PortRxBuffer:     queue.NewQueue[byte](),
 		TerminalRxBuffer: queue.NewQueue[byte](),
-
-		MakeCallsFailFrom: FailInNone,
 	}
 }
 
 // Returns error if the mock is configured to fail
 func (port *SerialPortMock) checkError(calledFrom failInFunction) error {
-	if port.MakeCallsFailFrom == calledFrom {
+	if failInFunction(port.makeCallsFailFrom.Load()) == calledFrom {
 		return serial.PortError{}
 	} else {
 		return nil
 	}
 }
 
+func (port *SerialPortMock) SetFailure(calledFrom failInFunction) {
+	port.makeCallsFailFrom.Store(int32(calledFrom))
+}
+
 // SetMode sets all parameters of the serial port
 func (port *SerialPortMock) SetMode(mode *serial.Mode) error {
+	port.mu.Lock()
+	defer port.mu.Unlock()
+
 	port.Mode = mode
 
 	return port.checkError(FailInSetMode)
@@ -90,8 +99,8 @@ func (port *SerialPortMock) SetMode(mode *serial.Mode) error {
 func (port *SerialPortMock) Read(p []byte) (n int, err error) {
 	t := time.Now()
 
-	for port.PortRxBuffer.IsEmpty() && !port.stop {
-		if port.readTimeout > 0 && time.Since(t) > port.readTimeout {
+	for port.PortRxBuffer.IsEmpty() && !port.stop.Load() {
+		if port.getReadTimeout() > 0 && time.Since(t) > port.getReadTimeout() {
 			break
 		}
 
@@ -134,12 +143,18 @@ func (port *SerialPortMock) ResetOutputBuffer() error {
 
 // SetDTR sets the modem status bit DataTerminalReady
 func (port *SerialPortMock) SetDTR(dtr bool) error {
+	port.mu.Lock()
+	defer port.mu.Unlock()
+
 	port.DTR = dtr
 	return port.checkError(FailInSetDTR)
 }
 
 // SetRTS sets the modem status bit RequestToSend
 func (port *SerialPortMock) SetRTS(rts bool) error {
+	port.mu.Lock()
+	defer port.mu.Unlock()
+
 	port.RTS = rts
 	return port.checkError(FailInSetRTS)
 }
@@ -147,19 +162,27 @@ func (port *SerialPortMock) SetRTS(rts bool) error {
 // GetModemStatusBits returns a ModemStatusBits structure containing the
 // modem status bits for the serial port (CTS, DSR, etc...)
 func (port *SerialPortMock) GetModemStatusBits() (*serial.ModemStatusBits, error) {
-	return &port.Status, port.checkError(FailInGetModemStatusBits)
+	port.mu.RLock()
+	defer port.mu.RUnlock()
+
+	status := port.Status
+
+	return &status, port.checkError(FailInGetModemStatusBits)
 }
 
 // SetReadTimeout sets the timeout for the Read operation or use serial.NoTimeout
 // to disable read timeout.
 func (port *SerialPortMock) SetReadTimeout(t time.Duration) error {
+	port.mu.Lock()
+	defer port.mu.Unlock()
+
 	port.readTimeout = t
 	return port.checkError(FailInSetReadTimeout)
 }
 
 // Close the serial port
 func (port *SerialPortMock) Close() error {
-	port.stop = true
+	port.stop.Store(true)
 	return nil
 }
 
@@ -171,9 +194,9 @@ func (port *SerialPortMock) Break(time.Duration) error {
 // Tick processes the serial port communication for one cycle.
 // It handles the transmission and reception of data based on the configured baud rate.
 func (port *SerialPortMock) Tick() {
-	for !port.stop {
+	for !port.stop.Load() {
 		// Must be read every cycle to update in case of changes
-		bytesPerSecond := float64(port.Mode.BaudRate) / 8.0
+		bytesPerSecond := float64(port.getMode().BaudRate) / 8.0
 		period := 1.0 / bytesPerSecond
 		duration := time.Duration(period * float64(time.Second))
 
@@ -218,4 +241,68 @@ func (port *SerialPortMock) TerminalSend(values []byte) {
 	for _, value := range values {
 		port.TerminalTxBuffer.Queue(value)
 	}
+}
+
+func (port *SerialPortMock) SetCTS(value bool) {
+	port.mu.Lock()
+	defer port.mu.Unlock()
+
+	port.Status.CTS = value
+}
+
+func (port *SerialPortMock) SetDSR(value bool) {
+	port.mu.Lock()
+	defer port.mu.Unlock()
+
+	port.Status.DSR = value
+}
+
+func (port *SerialPortMock) SetDCD(value bool) {
+	port.mu.Lock()
+	defer port.mu.Unlock()
+
+	port.Status.DCD = value
+}
+
+func (port *SerialPortMock) GetDTR() bool {
+	port.mu.RLock()
+	defer port.mu.RUnlock()
+
+	return port.DTR
+}
+
+func (port *SerialPortMock) GetRTS() bool {
+	port.mu.RLock()
+	defer port.mu.RUnlock()
+
+	return port.RTS
+}
+
+func (port *SerialPortMock) GetMode() *serial.Mode {
+	port.mu.RLock()
+	defer port.mu.RUnlock()
+
+	mode := *port.Mode
+
+	return &mode
+}
+
+func (port *SerialPortMock) getMode() *serial.Mode {
+	port.mu.RLock()
+	defer port.mu.RUnlock()
+
+	if port.Mode == nil {
+		return &serial.Mode{}
+	}
+
+	mode := *port.Mode
+
+	return &mode
+}
+
+func (port *SerialPortMock) getReadTimeout() time.Duration {
+	port.mu.RLock()
+	defer port.mu.RUnlock()
+
+	return port.readTimeout
 }

@@ -8,6 +8,7 @@ func writeTransmitData(acia *acia65C51N) {
 
 	acia.txRegister = acia.dataBus.Read()
 	acia.txRegisterEmpty = false
+	acia.notifyTX()
 }
 
 // Writing any value to the status register causes a soft reset

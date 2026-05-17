@@ -116,17 +116,18 @@ func (c *pico_mia) driveBuses() error {
 		return err
 	}
 
-	if c.miaCS.Enabled() && !c.writeEnable.Enabled() {
-		// Read mode -> emulation must drive GPIO bus for MIA to read data
+	switch picoDataBusDirectionForCycle(c.miaCS.Enabled(), c.writeEnable.Enabled()) {
+	case picoDataBusOutput:
+		// CPU write mode -> emulation must drive GPIO bus for MIA to read data.
 		if err := driveGPIOBus(c.dataBus, c.gpioController.DataBus()); err != nil {
 			return err
 		}
-	} else if c.miaCS.Enabled() && c.writeEnable.Enabled() {
-		// Write mode -> emulation must read the bus to get data set by MIA
+	case picoDataBusInput:
+		// CPU read mode -> emulation must read the bus driven by MIA.
 		if err := driveEmulatorBus(c.gpioController.DataBus(), c.dataBus); err != nil {
 			return err
 		}
-	} else {
+	case picoDataBusHighZ:
 		if err := c.gpioController.DataBus().Reconfigure(gpiocdev.AsInput); err != nil {
 			return err
 		}

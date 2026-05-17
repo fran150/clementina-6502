@@ -1,5 +1,7 @@
 package acia
 
+import "time"
+
 // writeBytes is a goroutine that handles the transmission of bytes through the ACIA.
 // It continuously monitors the transmit register and sends data through the serial port
 // when the following conditions are met:
@@ -10,15 +12,34 @@ package acia
 func (acia *acia65C51N) writeBytes() {
 	defer acia.wg.Done()
 
-	for acia.running {
-		if acia.port != nil && !acia.txRegisterEmpty {
-			if acia.isCTSEnabled() {
-				acia.txRegisterEmpty = true
+	for acia.running.Load() {
+		select {
+		case <-acia.txNotify:
+		case <-time.After(50 * time.Millisecond):
+		}
 
-				_, err := acia.port.Write([]byte{acia.txRegister})
-				if err != nil {
-					panic(err)
-				}
+		for acia.running.Load() {
+			acia.stateMu.Lock()
+			ready := acia.port != nil && !acia.txRegisterEmpty
+			acia.stateMu.Unlock()
+
+			if !ready {
+				break
+			}
+
+			if !acia.isCTSEnabled() {
+				time.Sleep(10 * time.Millisecond)
+				continue
+			}
+
+			acia.stateMu.Lock()
+			value := acia.txRegister
+			acia.txRegisterEmpty = true
+			acia.stateMu.Unlock()
+
+			_, err := acia.port.Write([]byte{value})
+			if err != nil {
+				panic(err)
 			}
 		}
 	}
@@ -40,7 +61,7 @@ func (acia *acia65C51N) readBytes() {
 
 	buff := make([]byte, 1)
 
-	for acia.running {
+	for acia.running.Load() {
 		if acia.port != nil {
 			n, err := acia.port.Read(buff)
 			if err != nil {
@@ -48,7 +69,7 @@ func (acia *acia65C51N) readBytes() {
 			}
 
 			if n > 0 {
-				acia.rxMutex.Lock()
+				acia.stateMu.Lock()
 
 				if !acia.rxRegisterEmpty {
 					acia.statusRegister |= statusOverrun
@@ -56,18 +77,18 @@ func (acia *acia65C51N) readBytes() {
 
 				acia.rxRegisterEmpty = false
 				acia.rxRegister = uint8(buff[0])
-
-				acia.rxMutex.Unlock()
+				rxRegister := acia.rxRegister
 
 				if acia.isReceiverEchoModeEnabled() {
-					acia.txMutex.Lock()
-
-					acia.txRegister = acia.rxRegister
+					acia.txRegister = rxRegister
 					acia.txRegisterEmpty = false
-
-					acia.txMutex.Unlock()
+					acia.notifyTX()
 				}
+
+				acia.stateMu.Unlock()
 			}
+		} else {
+			time.Sleep(time.Millisecond)
 		}
 	}
 }

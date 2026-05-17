@@ -47,10 +47,6 @@ func newTestCircuit() (*acia65C51N, *testCircuit, *testutils.SerialPortMock) {
 
 	mock := testutils.NewPortMock(&serial.Mode{})
 
-	// Start a go soubrouting used to write or read bytes
-	// to and from the serial port.
-	go mock.Tick()
-
 	return acia, &circuit, mock
 }
 
@@ -60,6 +56,10 @@ func (circuit *testCircuit) wire(acia *acia65C51N, mock *testutils.SerialPortMoc
 	if err := acia.ConnectToPort(mock); err != nil {
 		return err
 	}
+
+	// Start a go subroutine used to write or read bytes to and from the
+	// serial port after ConnectToPort has configured the mock mode.
+	go mock.Tick()
 
 	acia.DataBus().Connect(circuit.dataBus)
 
@@ -184,9 +184,9 @@ func enableChip(circuit *testCircuit) {
 
 // Tests that the modem lines updates the status registers accordingly and the
 // IRQ behaviour of these lines. This function is used to perform the same batch of tests on the DCD and DSR lines
-func testModemStatusLine(t *testing.T, acia *acia65C51N, circuit *testCircuit, modemLine *bool, flag uint8, step *common.StepContext) {
+func testModemStatusLine(t *testing.T, acia *acia65C51N, circuit *testCircuit, setModemLine func(bool), flag uint8, step *common.StepContext) {
 	// Modem enables line, this should trigger an interrupt
-	*modemLine = true
+	setModemLine(true)
 	disableChipAndStepTime(acia, circuit, step)
 	assert.Equal(t, false, circuit.irq.Status())
 
@@ -197,7 +197,7 @@ func testModemStatusLine(t *testing.T, acia *acia65C51N, circuit *testCircuit, m
 	assert.Equal(t, true, circuit.irq.Status())
 
 	// Modem disables line, this should trigger an interrupt
-	*modemLine = false
+	setModemLine(false)
 	disableChipAndStepTime(acia, circuit, step)
 	assert.Equal(t, false, circuit.irq.Status())
 
@@ -211,12 +211,12 @@ func testModemStatusLine(t *testing.T, acia *acia65C51N, circuit *testCircuit, m
 	// Register is interrogated by the processor.
 
 	// Modem re-enables line again, this should trigger an interrupt
-	*modemLine = true
+	setModemLine(true)
 	disableChipAndStepTime(acia, circuit, step)
 	assert.Equal(t, false, circuit.irq.Status())
 
 	// Modem disables line, interrupt was not yet handled, this should not change the status register
-	*modemLine = false
+	setModemLine(false)
 	enableChip(circuit)
 	status = readFromAcia(acia, circuit, 0x01, step)
 	// Status register reads DCD flag high and interrupt flag, IRQ line is cleared after reading
@@ -281,7 +281,7 @@ func TestWriteToTXWithCTSDisabled(t *testing.T) {
 
 	// Disables CTS from the serial port, this means that the other side is not ready to receive and the
 	// transmitter is automatically disabled.
-	mock.Status.CTS = false
+	mock.SetCTS(false)
 
 	// Writes to acia at 100 bauds, default speed for acia is 115200, so this will be well within
 	// this speed to avoid overruns. Run 2 extra cycles to allow last written byte to be transmitted
@@ -391,8 +391,8 @@ func TestWriteToControlConfiguresCorrectStopBit(t *testing.T) {
 
 	for _, test := range tests {
 		writeToAcia(acia, circuit, 0x03, test.value, &step)
-		assert.Equal(t, test.expectedDataBits, mock.Mode.DataBits)
-		assert.Equal(t, test.expectedStopBits, mock.Mode.StopBits)
+		assert.Equal(t, test.expectedDataBits, mock.GetMode().DataBits)
+		assert.Equal(t, test.expectedStopBits, mock.GetMode().StopBits)
 	}
 }
 
@@ -446,7 +446,7 @@ func TestReadFromRxPollingStatusRegister(t *testing.T) {
 
 	// Enable DTR and interrupts
 	writeToAcia(acia, circuit, 0x02, 0x01, &step)
-	assert.Equal(t, true, mock.DTR)
+	assert.Equal(t, true, mock.GetDTR())
 	assert.Equal(t, true, circuit.irq.Status())
 
 	// Set the bauds to 75
@@ -506,7 +506,7 @@ func TestReadFromRxUsingIRQ(t *testing.T) {
 
 	// Enable DTR and interrupts
 	writeToAcia(acia, circuit, 0x02, 0x01, &step)
-	assert.Equal(t, true, mock.DTR)
+	assert.Equal(t, true, mock.GetDTR())
 	assert.Equal(t, true, circuit.irq.Status())
 
 	// Set the bauds to 75
@@ -570,7 +570,7 @@ func TestReadFromRxUsingIRQAndReceiverEchoModeEnabled(t *testing.T) {
 
 	// Enable DTR (0x01), interrupts and Receiver Echo Mode (0x10)
 	writeToAcia(acia, circuit, 0x02, 0x11, &step)
-	assert.Equal(t, true, mock.DTR)
+	assert.Equal(t, true, mock.GetDTR())
 	assert.Equal(t, true, circuit.irq.Status())
 
 	// Set the bauds to 75
@@ -637,7 +637,7 @@ func TestReadFromRxOverrunning(t *testing.T) {
 		// First execution happens immediately so it will not overrun.
 		if i > 0 {
 			// Validates that the overrun flag is high
-			assert.Equal(t, statusOverrun, acia.statusRegister&statusOverrun)
+			assert.Equal(t, statusOverrun, acia.GetStatusRegister()&statusOverrun)
 		}
 
 		// Read from ACIA
@@ -763,7 +763,7 @@ func TestInterruptFromModemLines(t *testing.T) {
 
 	// Enable DTR and interrupts
 	writeToAcia(acia, circuit, 0x02, 0x01, &step)
-	assert.Equal(t, true, mock.DTR)
+	assert.Equal(t, true, mock.GetDTR())
 	assert.Equal(t, true, circuit.irq.Status())
 
 	// From manual: Whenever either of these inputs change state [DCD, DSR], an
@@ -773,8 +773,8 @@ func TestInterruptFromModemLines(t *testing.T) {
 	// Register is interrogated by the processor. At that time, another interrupt will immediately occur and the
 	// status bits reflect the new input levels.
 
-	testModemStatusLine(t, acia, circuit, &mock.Status.DCD, statusDCD, &step)
-	testModemStatusLine(t, acia, circuit, &mock.Status.DSR, statusDSR, &step)
+	testModemStatusLine(t, acia, circuit, mock.SetDCD, statusDCD, &step)
+	testModemStatusLine(t, acia, circuit, mock.SetDSR, statusDSR, &step)
 }
 
 /****************************************************************************************************************
@@ -791,14 +791,14 @@ func TestCPUControlledLinesToModem(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, false, mock.RTS)
-	assert.Equal(t, false, mock.DTR)
+	assert.Equal(t, false, mock.GetRTS())
+	assert.Equal(t, false, mock.GetDTR())
 
 	// Enable RTS (0x08) and DTR (0x01)
 	writeToAcia(acia, circuit, 0x02, 0x09, &step)
 
-	assert.Equal(t, true, mock.RTS)
-	assert.Equal(t, true, mock.DTR)
+	assert.Equal(t, true, mock.GetRTS())
+	assert.Equal(t, true, mock.GetDTR())
 }
 
 func TestCTSStatusWhenNotConnected(t *testing.T) {
@@ -812,13 +812,14 @@ func TestCTSStatusWhenNotConnected(t *testing.T) {
 
 	// CTS is considered ready when there is an error reading the status. This if to support tesing using SOCAT
 	// or tool that don't handle the lines.
-	mock.MakeCallsFailFrom = testutils.FailInGetModemStatusBits
+	mock.SetFailure(testutils.FailInGetModemStatusBits)
 	assert.Equal(t, true, acia.isCTSEnabled())
 
 	// CTS is considered not ready when serial port is not connected, this will disable
 	// transmitter
-	acia.port = nil
-	assert.Equal(t, false, acia.isCTSEnabled())
+	notConnected := newAcia65C51(false)
+	defer notConnected.Close()
+	assert.Equal(t, false, notConnected.isCTSEnabled())
 }
 
 /****************************************************************************************************************
@@ -830,7 +831,7 @@ func TestPanicsWhenFailsToSetModeWhenConnectingToSerial(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	mock.MakeCallsFailFrom = testutils.FailInSetMode
+	mock.SetFailure(testutils.FailInSetMode)
 
 	err := circuit.wire(acia, mock)
 
@@ -848,13 +849,13 @@ func TestPanicsWhenFailsToSetDTRandRTS(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mock.MakeCallsFailFrom = testutils.FailInSetDTR
+	mock.SetFailure(testutils.FailInSetDTR)
 
 	assert.Panics(t, func() {
 		writeToAcia(acia, circuit, 0x03, 0x01, &step)
 	})
 
-	mock.MakeCallsFailFrom = testutils.FailInSetRTS
+	mock.SetFailure(testutils.FailInSetRTS)
 
 	assert.Panics(t, func() {
 		writeToAcia(acia, circuit, 0x03, 0x08, &step)
@@ -873,14 +874,14 @@ func TestReturnsFalseWhenFailsToGetModemStatusLines(t *testing.T) {
 	}
 
 	// First set mock values to true
-	mock.Status.DCD = true
-	mock.Status.DSR = true
+	mock.SetDCD(true)
+	mock.SetDSR(true)
 
 	status := readFromAcia(acia, circuit, 0x01, &step)
 	assert.Equal(t, uint8(statusDSR|statusDCD), (status & (statusDSR | statusDCD)))
 
 	// Make calls fails
-	mock.MakeCallsFailFrom = testutils.FailInGetModemStatusBits
+	mock.SetFailure(testutils.FailInGetModemStatusBits)
 
 	status = readFromAcia(acia, circuit, 0x01, &step)
 	assert.Equal(t, uint8(0x00), (status & (statusDSR | statusDCD)))
@@ -898,9 +899,9 @@ func TestPanicsWhenPollerFailsToRead(t *testing.T) {
 	// stop
 	acia.Close()
 
-	acia.running = true
+	acia.running.Store(true)
 	acia.rxRegisterEmpty = true
-	mock.MakeCallsFailFrom = testutils.FailInRead
+	mock.SetFailure(testutils.FailInRead)
 
 	// Manually call the poller to assert the panic
 	assert.Panics(t, acia.readBytes)
@@ -918,9 +919,9 @@ func TestPanicsWhenPollerFailsToWrite(t *testing.T) {
 	// stop
 	acia.Close()
 
-	acia.running = true
+	acia.running.Store(true)
 	acia.txRegisterEmpty = false
-	mock.MakeCallsFailFrom = testutils.FailInWrite
+	mock.SetFailure(testutils.FailInWrite)
 
 	// Manually call the poller to assert the panic
 	assert.Panics(t, acia.writeBytes)
@@ -937,7 +938,7 @@ func TestPanicsWhenFailsToSetModeWhenChangingControlRegister(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mock.MakeCallsFailFrom = testutils.FailInSetMode
+	mock.SetFailure(testutils.FailInSetMode)
 
 	assert.Panics(t, func() {
 		writeToAcia(acia, circuit, 0x03, 0xFF, &step)
@@ -949,7 +950,7 @@ func TestPanicsWhenFailsToSetReadTimeout(t *testing.T) {
 	defer acia.Close()
 	defer mock.Close()
 
-	mock.MakeCallsFailFrom = testutils.FailInSetReadTimeout
+	mock.SetFailure(testutils.FailInSetReadTimeout)
 
 	err := circuit.wire(acia, mock)
 	assert.Error(t, err)
@@ -969,14 +970,14 @@ func TestConnectToPortModemLinesError(t *testing.T) {
 	newAcia := newAcia65C51(true)
 
 	// Make SetDTR fail
-	mock.MakeCallsFailFrom = testutils.FailInSetDTR
+	mock.SetFailure(testutils.FailInSetDTR)
 
 	// Attempt to connect - should fail due to modem lines error
 	err := newAcia.ConnectToPort(mock)
 	assert.Error(t, err, "Expected error when setting modem lines fails")
 
 	// Make SetRTS fail
-	mock.MakeCallsFailFrom = testutils.FailInSetRTS
+	mock.SetFailure(testutils.FailInSetRTS)
 
 	// Attempt to connect again - should fail due to modem lines error
 	err = newAcia.ConnectToPort(mock)
@@ -992,7 +993,7 @@ func TestConnectToPortSkipsModemLinesWhenDisabled(t *testing.T) {
 	newAcia := newAcia65C51(false)
 
 	// Make modem line operations fail
-	mock.MakeCallsFailFrom = testutils.FailInSetDTR
+	mock.SetFailure(testutils.FailInSetDTR)
 
 	// Should succeed because modem lines are disabled
 	err := newAcia.ConnectToPort(mock)
