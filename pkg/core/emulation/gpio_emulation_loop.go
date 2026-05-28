@@ -13,14 +13,26 @@ import (
 	"github.com/fran150/clementina-6502/pkg/core"
 )
 
-// GPIOEmulationLoopConfig contains settings for GPIO-controlled emulation.
+/*******************************************************************************************
+* Structs definition
+********************************************************************************************/
+
+// GPIOEmulationLoopConfig contains the settings for GPIO-controlled emulation.
 type GPIOEmulationLoopConfig struct {
+	// DisplayFPS sets how often the draw loop refreshes the UI.
 	DisplayFPS int
-	Emulator   LoopTarget
-	ChipName   string
+
+	// Emulator is the target controlled by the external PHI2 clock.
+	Emulator LoopTarget
+
+	// ChipName is the Linux GPIO chip name used to access the Raspberry Pi pins.
+	ChipName string
 }
 
-// gpioEmulationLoop manages GPIO-controlled emulation execution.
+// gpioEmulationLoop manages emulation driven by an external GPIO clock.
+// The GPIO loop advances Tick/PostTick phases from PHI2 falling edges while the
+// draw loop refreshes the UI on a fixed timer. Both loops share one StepContext,
+// so stepMu serializes access to the emulator state.
 type gpioEmulationLoop struct {
 	config          *GPIOEmulationLoopConfig
 	panicHandler    func(loopType string, panicData any) bool
@@ -33,7 +45,19 @@ type gpioEmulationLoop struct {
 	gpioController *common.GPIOController
 }
 
-// NewGPIOEmulationLoop creates a new GPIO-controlled emulation loop.
+/*******************************************************************************************
+* Constructor
+********************************************************************************************/
+
+// NewGPIOEmulationLoop creates a GPIO-controlled emulation loop.
+// It opens the configured GPIO controller immediately because this loop cannot run
+// without access to the physical PHI2, bus, and control lines.
+//
+// Parameters:
+//   - config: The GPIO emulation loop settings
+//
+// Returns:
+//   - The initialized emulation loop
 func NewGPIOEmulationLoop(config GPIOEmulationLoopConfig) core.EmulationLoop {
 	if config.DisplayFPS <= 0 {
 		config.DisplayFPS = 10
@@ -53,27 +77,48 @@ func NewGPIOEmulationLoop(config GPIOEmulationLoopConfig) core.EmulationLoop {
 	return loop
 }
 
-// SetPanicHandler sets the panic handler function.
+/*******************************************************************************************
+* EmulationLoop Interface methods
+********************************************************************************************/
+
+// SetPanicHandler sets the panic handler used by the GPIO and draw goroutines.
+//
+// Parameters:
+//   - handler: The function called before a loop panic is re-raised
 func (g *gpioEmulationLoop) SetPanicHandler(handler func(loopType string, panicData any) bool) {
 	g.panicHandler = handler
 }
 
-// IsRunning checks if the emulation loop is currently running.
+// IsRunning returns true when either the GPIO loop or draw loop is running.
+//
+// Returns:
+//   - true if at least one loop goroutine is active
 func (g *gpioEmulationLoop) IsRunning() bool {
 	return g.drawLoopRunning.Load() || g.gpioLoopRunning.Load()
 }
 
-// IsPaused checks if the emulation loop is currently paused.
+// IsPaused returns true when the GPIO loop is paused.
+//
+// Returns:
+//   - true if the loop is paused
 func (g *gpioEmulationLoop) IsPaused() bool {
 	return g.pause.Load()
 }
 
-// IsStopping checks if the emulation loop is in the process of stopping.
+// IsStopping returns true when a stop was requested while a loop is still running.
+//
+// Returns:
+//   - true if the loop is stopping
 func (g *gpioEmulationLoop) IsStopping() bool {
 	return g.stop.Load() && g.IsRunning()
 }
 
 // Start begins the GPIO-controlled emulation loop.
+// It starts one goroutine for external PHI2 edges and one goroutine for drawing.
+//
+// Returns:
+//   - The shared step context used by the loop goroutines
+//   - An error if the loop is already running or no emulator is configured
 func (g *gpioEmulationLoop) Start() (*common.StepContext, error) {
 	if !g.IsRunning() && g.config.Emulator != nil {
 		context := common.NewStepContext()
@@ -99,22 +144,34 @@ func (g *gpioEmulationLoop) Start() (*common.StepContext, error) {
 	return nil, err
 }
 
-// Stop signals the emulation loop to stop execution.
+// Stop signals the GPIO and draw loops to stop.
 func (g *gpioEmulationLoop) Stop() {
 	g.stop.Store(true)
 }
 
-// Resume resumes the emulation loop execution.
+// Resume allows the GPIO loop to start new cycles again.
 func (g *gpioEmulationLoop) Resume() {
 	g.pause.Store(false)
 }
 
-// Pause pauses the emulation loop execution.
+// Pause prevents the GPIO loop from starting a new cycle.
+// A pending PostTick is still allowed to complete so the emulator does not stop
+// halfway through an external bus transaction.
 func (g *gpioEmulationLoop) Pause() {
 	g.pause.Store(true)
 }
 
+/*******************************************************************************************
+* Execution methods
+********************************************************************************************/
+
 // executeGPIOLoop runs the GPIO-controlled emulation loop.
+// The external PHI2 signal owns the cycle pacing. This loop polls PHI2 and advances
+// the emulator only on a falling edge. When paused, it stops polling unless a Tick
+// already ran and the matching PostTick still needs to complete.
+//
+// Parameters:
+//   - context: The shared step context
 func (g *gpioEmulationLoop) executeGPIOLoop(context *common.StepContext) {
 	defer func() {
 		g.gpioLoopRunning.Store(false)
@@ -125,18 +182,19 @@ func (g *gpioEmulationLoop) executeGPIOLoop(context *common.StepContext) {
 
 	g.gpioLoopRunning.Store(true)
 	var lastState int
+	stepper := gpioCycleStepper{}
 
 	for !g.stop.Load() {
-		if !g.pause.Load() {
+		if !g.pause.Load() || stepper.pendingPostTick {
 			currentState, err := g.gpioController.Phi2().Value()
 			if err != nil {
 				log.Printf("Error reading GPIO: %v", err)
 				continue
 			}
 
-			// Step on falling edge (1 -> 0)
+			// External PHI2 falling edge is the emulator phase boundary.
 			if lastState == 1 && currentState == 0 {
-				g.tickStep(context)
+				g.tickStep(context, &stepper)
 			} else {
 				g.skipStep(context)
 			}
@@ -146,14 +204,25 @@ func (g *gpioEmulationLoop) executeGPIOLoop(context *common.StepContext) {
 	}
 }
 
-func (g *gpioEmulationLoop) tickStep(context *common.StepContext) {
+// tickStep advances the emulator on a GPIO clock edge.
+// stepMu keeps Tick/PostTick from racing the draw loop while both goroutines use the
+// same emulator state and step context.
+//
+// Parameters:
+//   - context: The shared step context
+//   - stepper: The GPIO cycle stepper that tracks the pending cycle phase
+func (g *gpioEmulationLoop) tickStep(context *common.StepContext, stepper *gpioCycleStepper) {
 	g.stepMu.Lock()
 	defer g.stepMu.Unlock()
 
-	g.config.Emulator.Tick(context)
-	context.NextCycle()
+	stepper.step(context, g.config.Emulator, g.pause.Load())
 }
 
+// skipStep updates timing when polling did not find a GPIO clock edge.
+// This keeps the current wall-clock time fresh without incrementing the emulated cycle.
+//
+// Parameters:
+//   - context: The shared step context
 func (g *gpioEmulationLoop) skipStep(context *common.StepContext) {
 	g.stepMu.Lock()
 	defer g.stepMu.Unlock()
@@ -162,6 +231,11 @@ func (g *gpioEmulationLoop) skipStep(context *common.StepContext) {
 }
 
 // executeDraw runs the display update loop.
+// Drawing is timer-driven rather than GPIO-driven so the UI can refresh even when the
+// external computer clock is slow or paused.
+//
+// Parameters:
+//   - context: The shared step context
 func (g *gpioEmulationLoop) executeDraw(context *common.StepContext) {
 	defer func() {
 		g.drawLoopRunning.Store(false)
@@ -184,6 +258,10 @@ func (g *gpioEmulationLoop) executeDraw(context *common.StepContext) {
 	}
 }
 
+// drawStep draws the emulator output while holding the shared step lock.
+//
+// Parameters:
+//   - context: The shared step context
 func (g *gpioEmulationLoop) drawStep(context *common.StepContext) {
 	g.stepMu.Lock()
 	defer g.stepMu.Unlock()
@@ -191,7 +269,15 @@ func (g *gpioEmulationLoop) drawStep(context *common.StepContext) {
 	g.config.Emulator.Draw(context)
 }
 
-// handlePanic triggers the execution of a handler before panicking.
+/*******************************************************************************************
+* Miscellaneous functions
+********************************************************************************************/
+
+// handlePanic stops the loop and calls the configured panic handler.
+//
+// Parameters:
+//   - loopType: The loop where the panic happened
+//   - r: The recovered panic value
 func (g *gpioEmulationLoop) handlePanic(loopType string, r any) {
 	g.Stop()
 	if g.panicHandler != nil {

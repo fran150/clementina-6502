@@ -67,7 +67,7 @@ type ClementinaComputer struct {
 * ComputerCore Interface methods
 ********************************************************************************************/
 
-// Tick advances the computer's state by one cycle.
+// Tick starts one computer cycle by driving buses and control lines.
 //
 // Parameters:
 //   - context: The current step context
@@ -83,7 +83,14 @@ func (c *ClementinaComputer) Tick(context *common.StepContext) {
 	c.chips.baseram.Tick(context)
 	c.chips.mia.Tick(context)
 	c.chips.exram.Tick(context)
+}
 
+// PostTick completes one computer cycle after components react to the bus.
+//
+// Parameters:
+//   - context: The current step context
+func (c *ClementinaComputer) PostTick(context *common.StepContext) {
+	c.chips.mia.PostTick(context)
 	c.chips.cpu.PostTick(context)
 }
 

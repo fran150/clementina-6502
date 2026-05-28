@@ -126,6 +126,9 @@ func (c *emulated_mia) Tick(context *common.StepContext) {
 	c.driveIRQLine()
 }
 
+// PostTick completes the MIA cycle. The emulated MIA resolves its cycle during Tick.
+func (c *emulated_mia) PostTick(context *common.StepContext) {}
+
 // handleResetRequest applies the MIA-controlled system reset behavior.
 func (c *emulated_mia) handleResetRequest() bool {
 	resetRequested := c.resetRequest.Enabled()

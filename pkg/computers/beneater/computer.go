@@ -56,7 +56,7 @@ type BenEaterComputer struct {
 * ComputerCore Interface methods
 ********************************************************************************************/
 
-// Tick advances the computer's state by one cycle.
+// Tick starts one computer cycle by driving buses and control lines.
 //
 // Parameters:
 //   - context: The current step context
@@ -69,7 +69,13 @@ func (c *BenEaterComputer) Tick(context *common.StepContext) {
 	c.chips.via.Tick(context)
 	c.chips.lcd.Tick(context)
 	c.chips.acia.Tick(context)
+}
 
+// PostTick completes one computer cycle after components react to the bus.
+//
+// Parameters:
+//   - context: The current step context
+func (c *BenEaterComputer) PostTick(context *common.StepContext) {
 	c.chips.cpu.PostTick(context)
 }
 

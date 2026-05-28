@@ -150,13 +150,19 @@ func (e *baseEmulator) IsResetting() bool {
 * Loop methods
 *************************************************************************************/
 
-// Tick executes one emulation cycle by advancing the computer system by one step
-// and updating the console. It handles stepping mode by automatically pausing
-// after a single step, and checks for breakpoints to pause execution when hit.
-// The method also updates the console with the current execution context.
+// Tick starts one emulation cycle by letting the computer drive buses and lines.
 func (e *baseEmulator) Tick(context *common.StepContext) {
 	e.config.Computer.Tick(context)
+}
 
+// PostTick completes one emulation cycle and updates emulator state.
+func (e *baseEmulator) PostTick(context *common.StepContext) {
+	e.config.Computer.PostTick(context)
+	e.afterComputerTick(context)
+}
+
+// afterComputerTick handles debugger and console updates after a completed cycle.
+func (e *baseEmulator) afterComputerTick(context *common.StepContext) {
 	// Clear stepping state
 	if e.IsStepping() {
 		e.Pause()

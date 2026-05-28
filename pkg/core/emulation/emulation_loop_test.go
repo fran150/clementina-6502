@@ -31,6 +31,13 @@ func (t *serializedLoopTarget) Tick(context *common.StepContext) {
 	time.Sleep(time.Millisecond)
 }
 
+func (t *serializedLoopTarget) PostTick(context *common.StepContext) {
+	t.enter()
+	defer t.exit()
+
+	time.Sleep(time.Millisecond)
+}
+
 func (t *serializedLoopTarget) Draw(context *common.StepContext) {
 	t.enter()
 	defer t.exit()

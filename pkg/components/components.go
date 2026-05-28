@@ -1,18 +1,12 @@
 package components
 
 import (
-	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/core"
 	"go.bug.st/serial"
 )
 
 // Core interfaces for composition
-
-// PostTicker defines components that need post-tick processing
-type PostTicker interface {
-	PostTick(context *common.StepContext)
-}
 
 // Resettable defines components that can be reset
 type Resettable interface {
@@ -178,7 +172,7 @@ type Cpu65C02 interface {
 	ReadWriteControlled
 	Resettable
 	core.Ticker
-	PostTicker
+	core.PostTicker
 	CpuControlLines
 	CpuRegisters
 	CpuState
@@ -332,6 +326,7 @@ type InverterArray interface {
 // video, terminal, etc through a windowed memory interface.
 type MiaChip interface {
 	core.Ticker
+	core.PostTicker
 
 	AddressBus() *buses.BusConnector[uint8]
 	DataBus() *buses.BusConnector[uint8]

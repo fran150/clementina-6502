@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/fran150/clementina-6502/pkg/common"
-	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,7 +40,7 @@ func TestClementinaResetRestoresMiaLoaderWindow(t *testing.T) {
 	assert.Equal(t, [2]uint8{0x00, 0xA9}, computer.getPotentialOperators(0xFFE0))
 
 	computer.Reset(true)
-	computer.Tick(&step)
+	tickComputer(computer, &step)
 	computer.Reset(false)
 
 	assert.Equal(t, [2]uint8{0xA9, 0xA9}, computer.getPotentialOperators(0xFFE0))
@@ -58,12 +57,12 @@ func TestClementinaResetIsDrivenByMia(t *testing.T) {
 	assert.False(t, computer.circuit.miaResetRequest.Status())
 	assert.True(t, computer.circuit.cpuReset.Status())
 
-	computer.Tick(&step)
+	tickComputer(computer, &step)
 	assert.False(t, computer.circuit.cpuReset.Status())
 
 	computer.Reset(false)
 	for range 4 {
-		computer.Tick(&step)
+		tickComputer(computer, &step)
 		step.NextCycle()
 	}
 
@@ -81,7 +80,7 @@ func TestClementinaResetFetchesMiaLoaderOpcode(t *testing.T) {
 
 	computer.Reset(true)
 	for range 3 {
-		computer.Tick(&step)
+		tickComputer(computer, &step)
 		step.NextCycle()
 	}
 	computer.Reset(false)
@@ -89,13 +88,12 @@ func TestClementinaResetFetchesMiaLoaderOpcode(t *testing.T) {
 	for range 20 {
 		computer.Tick(&step)
 
-		instruction := computer.chips.cpu.GetCurrentInstruction()
 		if computer.circuit.addressBus.Read() == 0xFFE0 && computer.chips.cpu.IsReadingOpcode() {
-			require.NotNil(t, instruction)
-			assert.Equal(t, components.OpCode(0xA9), instruction.OpCode())
+			assert.Equal(t, uint8(0xA9), computer.circuit.dataBus.Read())
 			return
 		}
 
+		computer.PostTick(&step)
 		step.NextCycle()
 	}
 
@@ -111,7 +109,7 @@ func TestClementinaKernelJumpOperands(t *testing.T) {
 
 	computer.Reset(true)
 	for range 3 {
-		computer.Tick(&step)
+		tickComputer(computer, &step)
 		step.NextCycle()
 	}
 	computer.Reset(false)
@@ -127,10 +125,16 @@ func TestClementinaKernelJumpOperands(t *testing.T) {
 			return
 		}
 
+		computer.PostTick(&step)
 		step.NextCycle()
 	}
 
 	t.Fatal("CPU did not reach kernel JMP at $400C")
+}
+
+func tickComputer(computer *ClementinaComputer, step *common.StepContext) {
+	computer.Tick(step)
+	computer.PostTick(step)
 }
 
 func writeMiaByte(computer *ClementinaComputer, step *common.StepContext, address uint16, value uint8) {

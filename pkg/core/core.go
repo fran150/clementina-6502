@@ -5,12 +5,21 @@ import "github.com/fran150/clementina-6502/pkg/common"
 // Ticker defines the core emulation logic interface.
 // This represents the pure emulation functionality without lifecycle concerns.
 type Ticker interface {
-	// Tick processes one clock cycle of the computer system.
-	// This includes updating all components like CPU, memory, and peripherals.
+	// Tick prepares one clock cycle of the computer system.
+	// Components should drive their output buses and control lines here.
 	//
 	// Parameters:
 	//   - context: The current step context for the emulation cycle
 	Tick(context *common.StepContext)
+}
+
+// PostTicker defines the second half of an emulated clock cycle.
+type PostTicker interface {
+	// PostTick completes one clock cycle after all components observe Tick.
+	//
+	// Parameters:
+	//   - context: The current step context for the emulation cycle
+	PostTick(context *common.StepContext)
 }
 
 // Renderer defines the display rendering interface.
@@ -61,6 +70,7 @@ type SpeedController interface {
 // that form the computer and their wiring
 type ComputerCore interface {
 	Ticker
+	PostTicker
 
 	// GetProgramCounter returns the current program counter value.
 	GetProgramCounter() uint16
@@ -135,6 +145,7 @@ type EmulationLoop interface {
 // BaseEmulator defines the main emulator interface
 type BaseEmulator interface {
 	Ticker
+	PostTicker
 	Renderer
 	Runnable
 	Pausable

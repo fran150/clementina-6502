@@ -9,12 +9,11 @@ import (
 	"github.com/fran150/clementina-6502/pkg/core"
 )
 
-// LoopTarget defines the interface that an emulation target must implement
-// to be used with the emulation loop. It combines the ability to be paused,
-// execute ticks, and render output.
+// LoopTarget defines the interface an emulation loop can run.
 type LoopTarget interface {
 	core.Pausable
 	core.Ticker
+	core.PostTicker
 	core.Renderer
 }
 
@@ -210,6 +209,7 @@ func (e *emulationLoop) executeLoop(context *common.StepContext) {
 		if (context.T-lastTPSExecuted) > targetTPSNano && !e.pause.Load() {
 			lastTPSExecuted = context.T
 			e.config.Emulator.Tick(context)
+			e.config.Emulator.PostTick(context)
 			context.NextCycle()
 		} else {
 			context.SkipCycle()
