@@ -38,7 +38,7 @@ func (c *emulated_mia) setIRQStatus(value uint16) {
 // irqInit initializes IRQ registers and the emulated IRQ output latch.
 func (c *emulated_mia) irqInit() {
 	c.writeRegisterWord(miaRegIRQMaskLSB, 0x0000)
-	c.setIRQStatus(miaIRQTriggered)
+	c.setIRQStatus(0x0000)
 	c.irqAsserted = false
 }
 
@@ -97,6 +97,9 @@ func (q *miaErrorQueue) Pull(chip *emulated_mia) uint8 {
 
 	value := q.buf[head]
 	q.first = (head + 1) & 0x0F
+	if q.first == q.last {
+		chip.statusClear(miaStatusErrors)
+	}
 
 	return value
 }

@@ -2,6 +2,19 @@ package mia
 
 // getCfg returns the value exposed by a MIA configuration register id.
 func (c *emulated_mia) getCfg(id uint8) uint8 {
+	if id >= 0x20 {
+		switch id {
+		case miaCfgSpeedL:
+			return byteFrom24(c.appliedPhi2Hz, 0)
+		case miaCfgSpeedM:
+			return byteFrom24(c.appliedPhi2Hz, 1)
+		case miaCfgSpeedH:
+			return byteFrom24(c.appliedPhi2Hz, 2)
+		default:
+			return 0
+		}
+	}
+
 	indexID := (id >> 4) & 0x01
 	field := id & 0x0F
 	entry := c.indexes[indexID]
@@ -38,6 +51,20 @@ func (c *emulated_mia) getCfg(id uint8) uint8 {
 
 // setCfg updates the MIA index field selected by a configuration register id.
 func (c *emulated_mia) setCfg(id uint8, value uint8) {
+	if id >= 0x20 {
+		switch id {
+		case miaCfgSpeedL:
+			c.stagePhi2HzByte(0, value)
+		case miaCfgSpeedM:
+			c.stagePhi2HzByte(1, value)
+		case miaCfgSpeedH:
+			c.stagePhi2HzByte(2, value)
+			c.commitPhi2Hz()
+		}
+
+		return
+	}
+
 	indexID := (id >> 4) & 0x01
 	field := id & 0x0F
 	entry := &c.indexes[indexID]
@@ -82,4 +109,38 @@ func setByteIn24(current uint32, index uint8, value uint8) uint32 {
 	next := (current &^ mask) | (uint32(value) << shift)
 
 	return next & miaAddressMask
+}
+
+// speedResetRuntimeState resets staged PHI2 changes while keeping the applied speed.
+func (c *emulated_mia) speedResetRuntimeState() {
+	c.stagedPhi2Hz = c.appliedPhi2Hz
+	c.requestedPhi2Hz = c.appliedPhi2Hz
+	c.speedChangeRequested = false
+	c.statusClear(miaStatusSpeedChanging)
+}
+
+// stagePhi2HzByte updates one byte of the staged PHI2 frequency.
+func (c *emulated_mia) stagePhi2HzByte(index uint8, value uint8) {
+	c.stagedPhi2Hz = setByteIn24(c.stagedPhi2Hz, index, value)
+}
+
+// commitPhi2Hz requests applying the staged PHI2 frequency.
+func (c *emulated_mia) commitPhi2Hz() {
+	c.requestedPhi2Hz = c.stagedPhi2Hz
+	c.statusSet(miaStatusSpeedChanging)
+	c.speedChangeRequested = true
+}
+
+// speedService applies a pending PHI2 speed change and raises the completion IRQ flag.
+func (c *emulated_mia) speedService() {
+	if !c.speedChangeRequested {
+		return
+	}
+
+	c.speedChangeRequested = false
+	c.appliedPhi2Hz = c.requestedPhi2Hz
+	c.stagedPhi2Hz = c.appliedPhi2Hz
+	c.requestedPhi2Hz = c.appliedPhi2Hz
+	c.statusClear(miaStatusSpeedChanging)
+	c.irqSetFlag(miaIRQSpeedChanged)
 }

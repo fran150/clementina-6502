@@ -1,7 +1,8 @@
 package mia
 
 const (
-	miaRAMSize       = 256 * 1024
+	miaRAMSize       = 128 * 1024
+	miaRAMMask       = miaRAMSize - 1
 	miaRegisterCount = 32
 	miaRegisterMask  = 0x1F
 	miaIndexCount    = 256
@@ -9,13 +10,20 @@ const (
 
 	miaKernelTargetAddress = 0x4000
 	miaCPUResetPulseCycles = 4
+	miaDefaultPhi2Hz       = 2000
+)
+
+const (
+	miaCfgSpeedL uint8 = 0x20
+	miaCfgSpeedM uint8 = 0x21
+	miaCfgSpeedH uint8 = 0x22
 )
 
 const (
 	miaRegIdxAPort uint8 = iota
 	miaRegIdxASelector
-	miaRegCfgPort
 	miaRegCfgSelector
+	miaRegCfgPort
 	miaRegIdxBPort
 	miaRegIdxBSelector
 	miaRegCmdParam1
@@ -54,18 +62,20 @@ const (
 )
 
 const (
-	miaStatusMasterMode uint16 = 1 << 0
-	miaStatusErrors     uint16 = 1 << 1
-	miaStatusCmdRunning uint16 = 1 << 2
-	miaStatusDMARunning uint16 = 1 << 3
+	miaStatusMasterMode    uint16 = 1 << 0
+	miaStatusErrors        uint16 = 1 << 1
+	miaStatusCmdRunning    uint16 = 1 << 2
+	miaStatusDMARunning    uint16 = 1 << 3
+	miaStatusSpeedChanging uint16 = 1 << 4
 )
 
 const (
-	miaIRQError     uint16 = 1 << 0
-	miaIRQIdxAWrap  uint16 = 1 << 1
-	miaIRQIdxBWrap  uint16 = 1 << 2
-	miaIRQCommand   uint16 = 1 << 3
-	miaIRQTriggered uint16 = 1 << 15
+	miaIRQError        uint16 = 1 << 0
+	miaIRQIdxAWrap     uint16 = 1 << 1
+	miaIRQIdxBWrap     uint16 = 1 << 2
+	miaIRQCommand      uint16 = 1 << 3
+	miaIRQSpeedChanged uint16 = 1 << 4
+	miaIRQTriggered    uint16 = 1 << 15
 )
 
 var miaKernelData = [...]uint8{

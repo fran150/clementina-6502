@@ -12,7 +12,7 @@ var resbGPIO = 20
 var resetRequestGPIO = 26
 var weGPIO = 16
 var irqbGPIO = 12
-var phi2GPIO = 1
+var phi2GPIO = 18
 
 type GPIOController struct {
 	addressBus   *gpiocdev.Lines

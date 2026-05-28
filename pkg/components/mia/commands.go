@@ -12,12 +12,12 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 
 	switch id {
 	case 0x00:
-		c.resetIndex(c.readRegister(miaRegIdxBSelector))
-	case 0x01:
 		c.resetIndex(c.readRegister(miaRegIdxASelector))
+	case 0x01:
+		c.resetIndex(c.readRegister(miaRegIdxBSelector))
 	case 0x02:
 		indexID := params[0]
-		c.indexes[indexID].currentAddr = c.indexes[indexID].limitAddr
+		c.resetIndex(indexID)
 	case 0x03:
 		indexID := params[0]
 		c.indexes[indexID].defaultAddr = c.indexes[indexID].currentAddr
@@ -25,8 +25,8 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 		indexID := params[0]
 		c.indexes[indexID].limitAddr = c.indexes[indexID].currentAddr
 	case 0x05:
-		for i := uint8(0); i < 255; i++ {
-			c.indexes[i].currentAddr = c.indexes[i].limitAddr
+		for i := range c.indexes {
+			c.indexes[i].currentAddr = c.indexes[i].defaultAddr
 		}
 	case 0x06:
 		c.writeRegister(miaRegIdxAPort, c.indexRead(params[0]))

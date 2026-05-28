@@ -55,18 +55,32 @@ func (c *emulated_mia) resetIndex(indexID uint8) {
 
 // stepIndex applies step, wrap, and IRQ side effects for an indexed access.
 func (c *emulated_mia) stepIndex(entry *miaIndex, enableFlag uint8, window miaIndexWindow) {
+	isBackward := bitSet(entry.flags, miaIndexFlagStepDir)
+
 	if bitSet(entry.flags, enableFlag) {
-		if bitSet(entry.flags, miaIndexFlagStepDir) {
-			entry.currentAddr += uint32(entry.step)
-		} else {
+		if isBackward {
 			entry.currentAddr -= uint32(entry.step)
+		} else {
+			entry.currentAddr += uint32(entry.step)
 		}
 	}
 
-	entry.currentAddr &= miaAddressMask
+	if !bitSet(entry.flags, miaIndexFlagWrap) {
+		return
+	}
 
-	if entry.currentAddr >= entry.limitAddr && bitSet(entry.flags, miaIndexFlagWrap) {
+	wrapped := false
+	if isBackward {
+		if entry.currentAddr < entry.defaultAddr {
+			entry.currentAddr = entry.limitAddr - 1
+			wrapped = true
+		}
+	} else if entry.currentAddr >= entry.limitAddr {
 		entry.currentAddr = entry.defaultAddr
+		wrapped = true
+	}
+
+	if wrapped && bitSet(entry.flags, miaIndexFlagWrapIRQ) {
 		c.irqSetFlag(c.wrapIRQFlag(window))
 	}
 }
@@ -82,7 +96,7 @@ func (c *emulated_mia) wrapIRQFlag(window miaIndexWindow) uint16 {
 
 // memoryOffset converts a MIA 24-bit address into an offset in emulated MIA RAM.
 func (c *emulated_mia) memoryOffset(address uint32) int {
-	return int(address & uint32(len(c.memory)-1))
+	return int(address & miaRAMMask)
 }
 
 // bitSet reports whether a bit is set in an 8-bit value.

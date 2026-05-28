@@ -28,6 +28,11 @@ type emulated_mia struct {
 	irqAsserted            bool
 	cpuResetCycles         uint8
 	resetRequestAsserted   bool
+	resetReleasePending    bool
+	stagedPhi2Hz           uint32
+	requestedPhi2Hz        uint32
+	appliedPhi2Hz          uint32
+	speedChangeRequested   bool
 }
 
 // NewEmulatedMia creates a software implementation of the Clementina MIA chip.
@@ -44,6 +49,7 @@ func NewEmulatedMia() components.MiaChip {
 
 		state:               miaStateLoader,
 		kernelTargetAddress: miaKernelTargetAddress,
+		appliedPhi2Hz:       miaDefaultPhi2Hz,
 	}
 
 	chip.init()
@@ -98,6 +104,8 @@ func (c *emulated_mia) Tick(context *common.StepContext) {
 		return
 	}
 
+	c.speedService()
+
 	if !c.miaCS.Enabled() {
 		c.driveIRQLine()
 		return
@@ -123,19 +131,40 @@ func (c *emulated_mia) handleResetRequest() bool {
 	resetRequested := c.resetRequest.Enabled()
 
 	if resetRequested && !c.resetRequestAsserted {
+		c.resetRequestAsserted = true
+		c.resetReleasePending = false
+		c.cpuResetCycles = 0
 		c.init()
-		c.cpuResetCycles = miaCPUResetPulseCycles
 	}
 
-	c.resetRequestAsserted = resetRequested
-	cpuResetAsserted := resetRequested || c.cpuResetCycles > 0
-	c.driveResetLine(cpuResetAsserted)
+	if resetRequested {
+		c.driveResetLine(true)
+		return true
+	}
 
-	if c.cpuResetCycles > 0 {
+	if c.resetRequestAsserted {
+		c.resetRequestAsserted = false
+		c.scheduleCPUResetRelease()
+	}
+
+	if c.resetReleasePending && c.cpuResetCycles > 0 {
 		c.cpuResetCycles--
 	}
 
+	if c.resetReleasePending && c.cpuResetCycles == 0 {
+		c.resetReleasePending = false
+	}
+
+	cpuResetAsserted := c.resetReleasePending
+	c.driveResetLine(cpuResetAsserted)
+
 	return cpuResetAsserted
+}
+
+// scheduleCPUResetRelease keeps RESB asserted for the configured reset pulse length.
+func (c *emulated_mia) scheduleCPUResetRelease() {
+	c.resetReleasePending = true
+	c.cpuResetCycles = miaCPUResetPulseCycles
 }
 
 // driveResetLine writes MIA's active-low CPU reset output.
@@ -155,8 +184,11 @@ func (c *emulated_mia) init() {
 	c.state = miaStateLoader
 	c.canUpdateKernelPointer = false
 	c.irqAsserted = false
+	c.resetReleasePending = false
+	c.cpuResetCycles = 0
 
 	c.irqInit()
+	c.speedResetRuntimeState()
 	c.fastLoaderInit()
 }
 
@@ -226,9 +258,9 @@ func (c *emulated_mia) afterNormalWrite(address uint8, data uint8) {
 		c.writeRegister(miaRegIdxAPort, c.indexRead(selector))
 	case miaRegIdxASelector:
 		c.writeRegister(miaRegIdxAPort, c.indexRead(data))
-	case miaRegCfgPort:
-		c.writeRegister(miaRegCfgPort, c.getCfg(data))
 	case miaRegCfgSelector:
+		c.writeRegister(miaRegCfgPort, c.getCfg(data))
+	case miaRegCfgPort:
 		c.setCfg(c.readRegister(miaRegCfgSelector), data)
 	case miaRegIdxBPort:
 		selector := c.readRegister(miaRegIdxBSelector)
@@ -256,13 +288,30 @@ func (c *emulated_mia) advanceKernelLoader() {
 	if c.kernelIndex < uint32(len(miaKernelData)) {
 		c.writeRegister(miaRegIdxASelector, miaKernelData[c.kernelIndex])
 		c.kernelIndex++
-		c.writeRegisterWord(miaRegCfgSelector, c.readRegisterWord(miaRegCfgSelector)+1)
+		c.writeRegisterWord(0x03, c.readRegisterWord(0x03)+1)
 	} else {
 		c.writeRegister(miaRegCmdTrigger, 0x00)
-		c.state = miaStateNormal
+		c.enterNormalMode()
 	}
 
 	c.canUpdateKernelPointer = false
+}
+
+// enterNormalMode replaces the loader register window with normal MIA registers.
+func (c *emulated_mia) enterNormalMode() {
+	c.driveResetLine(true)
+
+	c.registers = [miaRegisterCount]uint8{}
+	c.errors = miaErrorQueue{}
+
+	c.irqInit()
+	c.speedResetRuntimeState()
+
+	c.writeRegisterWord(miaRegResetVectorLSB, c.kernelTargetAddress)
+
+	c.state = miaStateNormal
+	c.statusSet(miaStatusMasterMode)
+	c.scheduleCPUResetRelease()
 }
 
 // fastLoaderInit seeds the MIA register window with the Pico fast-loader program.
@@ -275,8 +324,8 @@ func (c *emulated_mia) fastLoaderInit() {
 		c.kernelIndex++
 	}
 
-	c.writeRegister(miaRegCfgPort, 0x8D)
-	c.writeRegister(miaRegCfgSelector, uint8(c.kernelTargetAddress))
+	c.writeRegister(0x02, 0x8D)
+	c.writeRegister(0x03, uint8(c.kernelTargetAddress))
 	c.writeRegister(miaRegIdxBPort, uint8(c.kernelTargetAddress>>8))
 
 	c.writeRegister(miaRegIdxBSelector, 0x8D)
@@ -287,8 +336,8 @@ func (c *emulated_mia) fastLoaderInit() {
 	c.writeRegister(miaRegCmdTrigger, 0xF6)
 
 	c.writeRegister(miaRegStatusLSB, 0x4C)
-	c.writeRegister(miaRegStatusMSB, uint8(c.kernelTargetAddress))
-	c.writeRegister(miaRegErrorLSB, uint8(c.kernelTargetAddress>>8))
+	c.writeRegister(miaRegStatusMSB, 0xEA)
+	c.writeRegister(miaRegErrorLSB, 0xFF)
 
 	c.writeRegister(miaRegResetVectorLSB, 0xE0)
 	c.writeRegister(miaRegResetVectorMSB, 0xFF)

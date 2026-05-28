@@ -42,8 +42,19 @@ func newEmulatedMiaTestCircuit() *emulatedMiaTestCircuit {
 	chip.Reset().Connect(circuit.reset)
 	chip.ResetRequest().Connect(circuit.resetRequest)
 	chip.Irq().Connect(circuit.irq)
+	circuit.idle(miaCPUResetPulseCycles + 1)
 
 	return circuit
+}
+
+// idle advances MIA service cycles without selecting the chip.
+func (c *emulatedMiaTestCircuit) idle(cycles int) {
+	c.cs.Set(false)
+	for range cycles {
+		c.chip.Tick(&c.step)
+		c.step.NextCycle()
+	}
+	c.cs.Set(true)
 }
 
 // read performs a selected CPU read cycle against the emulated MIA.
@@ -77,8 +88,8 @@ func TestEmulatedMiaFastLoaderInitialization(t *testing.T) {
 	expected := map[uint8]uint8{
 		miaRegIdxAPort:       0xA9,
 		miaRegIdxASelector:   miaKernelData[0],
-		miaRegCfgPort:        0x8D,
-		miaRegCfgSelector:    0x00,
+		0x02:                 0x8D,
+		0x03:                 0x00,
 		miaRegIdxBPort:       0x40,
 		miaRegIdxBSelector:   0x8D,
 		miaRegCmdParam1:      0xF1,
@@ -86,10 +97,10 @@ func TestEmulatedMiaFastLoaderInitialization(t *testing.T) {
 		miaRegCmdParam3:      0x80,
 		miaRegCmdTrigger:     0xF6,
 		miaRegStatusLSB:      0x4C,
-		miaRegStatusMSB:      0x00,
-		miaRegErrorLSB:       0x40,
+		miaRegStatusMSB:      0xEA,
+		miaRegErrorLSB:       0xFF,
 		miaRegIRQStatusLSB:   0x00,
-		miaRegIRQStatusMSB:   0x80,
+		miaRegIRQStatusMSB:   0x00,
 		miaRegResetVectorLSB: 0xE0,
 		miaRegResetVectorMSB: 0xFF,
 		miaRegIRQVectorLSB:   0x00,
@@ -140,7 +151,7 @@ func TestEmulatedMiaResetRequestPulsesCPUReset(t *testing.T) {
 	assert.False(t, circuit.reset.Status())
 
 	circuit.resetRequest.Set(true)
-	for i := uint8(0); i < miaCPUResetPulseCycles-1; i++ {
+	for range miaCPUResetPulseCycles - 1 {
 		circuit.chip.Tick(&circuit.step)
 		assert.False(t, circuit.reset.Status())
 	}
@@ -203,12 +214,12 @@ func TestEmulatedMiaLoaderAdvancesKernelAfterReadThenWrite(t *testing.T) {
 	circuit.write(miaRegIRQStatusMSB, 0x00)
 
 	assert.Equal(t, miaKernelData[1], chip.readRegister(miaRegIdxASelector))
-	assert.Equal(t, uint16(0x4001), chip.readRegisterWord(miaRegCfgSelector))
+	assert.Equal(t, uint16(0x4001), chip.readRegisterWord(0x03))
 
 	circuit.write(miaRegIRQStatusMSB, 0x00)
 
 	assert.Equal(t, miaKernelData[1], chip.readRegister(miaRegIdxASelector))
-	assert.Equal(t, uint16(0x4001), chip.readRegisterWord(miaRegCfgSelector))
+	assert.Equal(t, uint16(0x4001), chip.readRegisterWord(0x03))
 
 	for chip.state == miaStateLoader {
 		circuit.read(miaRegIdxASelector)
@@ -218,7 +229,9 @@ func TestEmulatedMiaLoaderAdvancesKernelAfterReadThenWrite(t *testing.T) {
 	assert.Equal(t, miaStateNormal, chip.state)
 	assert.Equal(t, uint32(len(miaKernelData)), chip.kernelIndex)
 	assert.Equal(t, uint8(0x00), chip.readRegister(miaRegCmdTrigger))
-	assert.Equal(t, uint8(0x4C), chip.readRegister(miaRegStatusLSB))
+	assert.Equal(t, miaStatusMasterMode, chip.status())
+	assert.Equal(t, uint16(miaKernelTargetAddress), chip.readRegisterWord(miaRegResetVectorLSB))
+	assert.False(t, circuit.reset.Status())
 }
 
 // TestEmulatedMiaLoaderStoresFinalKernelByteBeforeExiting verifies the final byte is still looped through.
@@ -235,13 +248,15 @@ func TestEmulatedMiaLoaderStoresFinalKernelByteBeforeExiting(t *testing.T) {
 	assert.Equal(t, uint32(len(miaKernelData)), chip.kernelIndex)
 	assert.Equal(t, miaKernelData[len(miaKernelData)-1], chip.readRegister(miaRegIdxASelector))
 	assert.Equal(t, uint8(0xF6), chip.readRegister(miaRegCmdTrigger))
-	assert.Equal(t, uint16(miaKernelTargetAddress+len(miaKernelData)-1), chip.readRegisterWord(miaRegCfgSelector))
+	assert.Equal(t, uint16(miaKernelTargetAddress+len(miaKernelData)-1), chip.readRegisterWord(0x03))
 
 	circuit.read(miaRegIdxASelector)
 	circuit.write(miaRegIRQStatusMSB, 0x00)
 
 	assert.Equal(t, miaStateNormal, chip.state)
 	assert.Equal(t, uint8(0x00), chip.readRegister(miaRegCmdTrigger))
+	assert.Equal(t, miaStatusMasterMode, chip.status())
+	assert.Equal(t, uint16(miaKernelTargetAddress), chip.readRegisterWord(miaRegResetVectorLSB))
 }
 
 // TestEmulatedMiaIndexedPortReadStepsAfterCpuReceivesCurrentValue verifies read step timing.
@@ -254,7 +269,7 @@ func TestEmulatedMiaIndexedPortReadStepsAfterCpuReceivesCurrentValue(t *testing.
 		currentAddr: 0,
 		limitAddr:   3,
 		step:        1,
-		flags:       (1 << miaIndexFlagReadStep) | (1 << miaIndexFlagStepDir),
+		flags:       1 << miaIndexFlagReadStep,
 	}
 	chip.memory[0] = 0x11
 	chip.memory[1] = 0x22
@@ -277,7 +292,7 @@ func TestEmulatedMiaIndexedPortWriteStoresThenSteps(t *testing.T) {
 		currentAddr: 0,
 		limitAddr:   3,
 		step:        1,
-		flags:       (1 << miaIndexFlagWriteStep) | (1 << miaIndexFlagStepDir),
+		flags:       1 << miaIndexFlagWriteStep,
 	}
 	chip.memory[1] = 0xBB
 
@@ -287,6 +302,114 @@ func TestEmulatedMiaIndexedPortWriteStoresThenSteps(t *testing.T) {
 	assert.Equal(t, uint8(0xAA), chip.memory[0])
 	assert.Equal(t, uint32(1), chip.indexes[4].currentAddr)
 	assert.Equal(t, uint8(0xBB), chip.readRegister(miaRegIdxAPort))
+}
+
+// TestEmulatedMiaCommandResetIndexesMatchesFirmware verifies reset commands use defaults.
+func TestEmulatedMiaCommandResetIndexesMatchesFirmware(t *testing.T) {
+	circuit := newEmulatedMiaTestCircuit()
+	chip := circuit.chip
+	chip.state = miaStateNormal
+
+	chip.indexes[1] = miaIndex{currentAddr: 0x20, defaultAddr: 0x10}
+	chip.indexes[2] = miaIndex{currentAddr: 0x40, defaultAddr: 0x30}
+	chip.indexes[3] = miaIndex{currentAddr: 0x60, defaultAddr: 0x50}
+	chip.indexes[255] = miaIndex{currentAddr: 0x90, defaultAddr: 0x80}
+
+	circuit.write(miaRegIdxASelector, 1)
+	circuit.write(miaRegCmdTrigger, 0x00)
+	assert.Equal(t, uint32(0x10), chip.indexes[1].currentAddr)
+
+	circuit.write(miaRegIdxBSelector, 2)
+	circuit.write(miaRegCmdTrigger, 0x01)
+	assert.Equal(t, uint32(0x30), chip.indexes[2].currentAddr)
+
+	circuit.write(miaRegCmdParam1, 3)
+	circuit.write(miaRegCmdTrigger, 0x02)
+	assert.Equal(t, uint32(0x50), chip.indexes[3].currentAddr)
+
+	circuit.write(miaRegCmdTrigger, 0x05)
+	assert.Equal(t, uint32(0x80), chip.indexes[255].currentAddr)
+}
+
+// TestEmulatedMiaIndexWrapDirectionAndIRQGating verifies forward/backward wrap behavior.
+func TestEmulatedMiaIndexWrapDirectionAndIRQGating(t *testing.T) {
+	circuit := newEmulatedMiaTestCircuit()
+	chip := circuit.chip
+	chip.state = miaStateNormal
+
+	chip.indexes[7] = miaIndex{
+		currentAddr: 2,
+		defaultAddr: 0,
+		limitAddr:   3,
+		step:        1,
+		flags:       (1 << miaIndexFlagReadStep) | (1 << miaIndexFlagWrap),
+	}
+	chip.memory[2] = 0x77
+	circuit.write(miaRegIdxASelector, 7)
+
+	assert.Equal(t, uint8(0x77), circuit.read(miaRegIdxAPort))
+	assert.Equal(t, uint32(0), chip.indexes[7].currentAddr)
+	assert.Zero(t, chip.irqStatus()&miaIRQIdxAWrap)
+
+	chip.indexes[8] = miaIndex{
+		currentAddr: 5,
+		defaultAddr: 5,
+		limitAddr:   8,
+		step:        1,
+		flags:       (1 << miaIndexFlagReadStep) | (1 << miaIndexFlagStepDir) | (1 << miaIndexFlagWrap) | (1 << miaIndexFlagWrapIRQ),
+	}
+	chip.memory[5] = 0x88
+	circuit.write(miaRegIdxASelector, 8)
+
+	assert.Equal(t, uint8(0x88), circuit.read(miaRegIdxAPort))
+	assert.Equal(t, uint32(7), chip.indexes[8].currentAddr)
+	assert.Equal(t, miaIRQIdxAWrap, chip.irqStatus()&miaIRQIdxAWrap)
+}
+
+// TestEmulatedMiaMemoryMirrorsAt128KiB verifies indexed RAM access mirrors like Pico RAM.
+func TestEmulatedMiaMemoryMirrorsAt128KiB(t *testing.T) {
+	chip := newEmulatedMiaTestCircuit().chip
+
+	chip.indexes[9].currentAddr = miaRAMSize + 3
+	chip.memory[3] = 0x66
+
+	assert.Equal(t, uint8(0x66), chip.indexRead(9))
+}
+
+// TestEmulatedMiaCfgSelectorAndPortUseNaturalOrder verifies CFG bus semantics.
+func TestEmulatedMiaCfgSelectorAndPortUseNaturalOrder(t *testing.T) {
+	circuit := newEmulatedMiaTestCircuit()
+	chip := circuit.chip
+	chip.state = miaStateNormal
+
+	circuit.write(miaRegCfgSelector, 0x00)
+	assert.Equal(t, uint8(0x00), circuit.read(miaRegCfgPort))
+
+	circuit.write(miaRegCfgPort, 0x56)
+	assert.Equal(t, uint8(0x56), circuit.read(miaRegCfgPort))
+	assert.Equal(t, uint32(0x56), chip.indexes[0].currentAddr)
+
+	circuit.write(miaRegCfgSelector, miaCfgSpeedL)
+	assert.Equal(t, uint8(0xD0), circuit.read(miaRegCfgPort))
+	circuit.write(miaRegCfgPort, 0x34)
+	assert.Equal(t, uint8(0x34), circuit.read(miaRegCfgPort))
+
+	circuit.write(miaRegCfgSelector, miaCfgSpeedM)
+	assert.Equal(t, uint8(0x07), circuit.read(miaRegCfgPort))
+	circuit.write(miaRegCfgPort, 0x12)
+
+	circuit.write(miaRegCfgSelector, miaCfgSpeedH)
+	assert.Equal(t, uint8(0x00), circuit.read(miaRegCfgPort))
+	circuit.write(miaRegCfgPort, 0x00)
+
+	assert.Equal(t, miaStatusSpeedChanging, chip.status()&miaStatusSpeedChanging)
+	assert.Equal(t, uint32(miaDefaultPhi2Hz), chip.appliedPhi2Hz)
+
+	circuit.idle(1)
+
+	assert.Zero(t, chip.status()&miaStatusSpeedChanging)
+	assert.Equal(t, uint32(0x1234), chip.appliedPhi2Hz)
+	assert.Equal(t, miaIRQSpeedChanged, chip.irqStatus()&miaIRQSpeedChanged)
 }
 
 // TestEmulatedMiaDMACommandCopiesMemoryAndQueuesErrors verifies DMA command side effects.
@@ -313,4 +436,5 @@ func TestEmulatedMiaDMACommandCopiesMemoryAndQueuesErrors(t *testing.T) {
 
 	assert.Equal(t, miaStatusErrors, chip.status()&miaStatusErrors)
 	assert.Equal(t, miaErrorDMASizeZero, chip.errors.Pull(chip))
+	assert.Zero(t, chip.status()&miaStatusErrors)
 }
