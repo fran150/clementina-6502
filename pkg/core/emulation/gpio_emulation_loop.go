@@ -181,7 +181,11 @@ func (g *gpioEmulationLoop) executeGPIOLoop(context *common.StepContext) {
 	}()
 
 	g.gpioLoopRunning.Store(true)
-	var lastState int
+	lastState, err := g.gpioController.Phi2().Value()
+	if err != nil {
+		log.Printf("Error reading initial GPIO: %v", err)
+		lastState = 0
+	}
 	stepper := gpioCycleStepper{}
 
 	for !g.stop.Load() {
