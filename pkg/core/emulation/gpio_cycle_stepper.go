@@ -3,7 +3,7 @@ package emulation
 import "github.com/fran150/clementina-6502/pkg/common"
 
 // gpioCycleStepper tracks the split GPIO clock cycle.
-// The GPIO loop receives one event per external rising PHI2 edge. A full emulator cycle
+// The GPIO loop receives one event per external falling PHI2 edge. A full emulator cycle
 // needs two phases: Tick drives the buses, and PostTick lets components consume the values
 // that were driven. pendingPostTick records that Tick already ran and the next GPIO edge
 // must finish that same cycle before starting a new one.

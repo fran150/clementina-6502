@@ -30,7 +30,7 @@ type GPIOEmulationLoopConfig struct {
 }
 
 // gpioEmulationLoop manages emulation driven by an external GPIO clock.
-// The GPIO loop advances Tick/PostTick phases from PHI2 rising edges while the
+// The GPIO loop advances Tick/PostTick phases from PHI2 falling edges while the
 // draw loop refreshes the UI on a fixed timer. Both loops share one StepContext,
 // so stepMu serializes access to the emulator state.
 type gpioEmulationLoop struct {
@@ -167,7 +167,7 @@ func (g *gpioEmulationLoop) Pause() {
 
 // executeGPIOLoop runs the GPIO-controlled emulation loop.
 // The external PHI2 signal owns the cycle pacing. This loop polls PHI2 and advances
-// the emulator only on a rising edge. When paused, it stops polling unless a Tick
+// the emulator only on a falling edge. When paused, it stops polling unless a Tick
 // already ran and the matching PostTick still needs to complete.
 //
 // Parameters:
@@ -192,8 +192,8 @@ func (g *gpioEmulationLoop) executeGPIOLoop(context *common.StepContext) {
 				continue
 			}
 
-			// External PHI2 rising edge is the emulator phase boundary.
-			if lastState == 0 && currentState == 1 {
+			// External PHI2 falling edge is the emulator phase boundary.
+			if lastState == 1 && currentState == 0 {
 				g.tickStep(context, &stepper)
 			} else {
 				g.skipStep(context)
