@@ -1,18 +1,11 @@
 package clementina
 
 import (
-	"log"
-	"os"
-
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina/modules"
 )
-
-const clementinaDebugBusLogPath = "/tmp/clementina-emulator-bus.log"
-
-var clementinaDebugBusLog = newClementinaDebugBusLog()
 
 /*******************************************************************************************
 * Structs definition
@@ -84,14 +77,12 @@ func (c *ClementinaComputer) Tick(context *common.StepContext) {
 
 	c.chips.csLogic.Tick(context)
 	c.chips.oeRWSync.Tick(context)
-	c.logDebugBusCycle(context, "tick-lines")
 
 	c.chips.via.Tick(context)
 
 	c.chips.baseram.Tick(context)
 	c.chips.mia.Tick(context)
 	c.chips.exram.Tick(context)
-	c.logDebugBusCycle(context, "tick-end")
 }
 
 // PostTick completes one computer cycle after components react to the bus.
@@ -99,11 +90,8 @@ func (c *ClementinaComputer) Tick(context *common.StepContext) {
 // Parameters:
 //   - context: The current step context
 func (c *ClementinaComputer) PostTick(context *common.StepContext) {
-	c.logDebugBusCycle(context, "post-start")
 	c.chips.mia.PostTick(context)
-	c.logDebugBusCycle(context, "post-mia")
 	c.chips.cpu.PostTick(context)
-	c.logDebugBusCycle(context, "post-cpu")
 }
 
 // GetProgramCounter returns the current program counter value from the CPU.
@@ -120,49 +108,6 @@ func (c *ClementinaComputer) GetProgramCounter() uint16 {
 //   - status: true to reset the computer, false to release from reset
 func (c *ClementinaComputer) Reset(status bool) {
 	c.circuit.miaResetRequest.Set(!status)
-}
-
-func (c *ClementinaComputer) logDebugBusCycle(context *common.StepContext, phase string) {
-	if clementinaDebugBusLog == nil {
-		return
-	}
-
-	address := c.circuit.addressBus.Read()
-	lowAddress := address & 0x1F
-	if lowAddress != 0x11 && address < 0xFFE0 && address != 0x4000 {
-		return
-	}
-
-	clementinaDebugBusLog.Printf(
-		"BUS %s cycle=%d pc=%04X addr=%04X low=%02X data=%02X cpu_rwb=%d mia_cs=%d mia_write=%d rw_line=%d reset=%d",
-		phase,
-		context.Cycle,
-		c.chips.cpu.GetProgramCounter(),
-		address,
-		lowAddress,
-		c.circuit.dataBus.Read(),
-		boolToBit(c.circuit.cpuRW.Status()),
-		boolToBit(c.chips.mia.MiaCS().Enabled()),
-		boolToBit(c.chips.mia.WriteEnable().Enabled()),
-		boolToBit(c.chips.oeRWSync.RW().Status()),
-		boolToBit(c.circuit.cpuReset.Status()),
-	)
-}
-
-func newClementinaDebugBusLog() *log.Logger {
-	file, err := os.OpenFile(clementinaDebugBusLogPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
-	if err != nil {
-		return nil
-	}
-
-	return log.New(file, "", log.LstdFlags|log.Lmicroseconds)
-}
-
-func boolToBit(value bool) int {
-	if value {
-		return 1
-	}
-	return 0
 }
 
 /*******************************************************************************************
