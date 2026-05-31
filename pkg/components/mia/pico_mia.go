@@ -3,11 +3,20 @@
 package mia
 
 import (
+	"log"
+	"os"
+
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/warthog618/go-gpiocdev"
 )
+
+// Temporary GPIO bring-up logging for the physical Pico MIA bridge.
+const picoMIADebugGPIO = true
+const picoMIAGPIOLogPath = "/tmp/clementina-pico-mia-gpio.log"
+
+var picoMIAGPIOLog = newPicoMIAGPIOLog()
 
 /*******************************************************************************************
 * Structs definition
@@ -108,10 +117,6 @@ func (c *pico_mia) Irq() buses.LineConnector {
 // Parameters:
 //   - context: The current step context
 func (c *pico_mia) Tick(context *common.StepContext) {
-	if err := c.driveOutputLines(); err != nil {
-		panic(err)
-	}
-
 	if err := c.driveAddressBus(); err != nil {
 		panic(err)
 	}
@@ -119,6 +124,12 @@ func (c *pico_mia) Tick(context *common.StepContext) {
 	if err := c.prepareDataBus(); err != nil {
 		panic(err)
 	}
+
+	if err := c.driveOutputLines(); err != nil {
+		panic(err)
+	}
+
+	c.logGPIOCycle("tick")
 }
 
 // PostTick completes one MIA bus cycle by sampling GPIO inputs from the Pico.
@@ -133,6 +144,8 @@ func (c *pico_mia) PostTick(context *common.StepContext) {
 	if err := c.completeDataBus(); err != nil {
 		panic(err)
 	}
+
+	c.logGPIOCycle("post")
 }
 
 /*******************************************************************************************
@@ -199,8 +212,8 @@ func (c *pico_mia) prepareDataBus() error {
 			return err
 		}
 	case picoDataBusInput:
-		// CPU reads from MIA, Pi samples the Pico-driven data bus.
-		if err := driveEmulatorBus(c.gpioController.DataBus(), c.dataBus); err != nil {
+		// CPU reads from MIA, so release the Pi data pins until PostTick samples them.
+		if err := c.gpioController.DataBus().Reconfigure(gpiocdev.AsInput); err != nil {
 			return err
 		}
 	case picoDataBusHighZ:
@@ -242,6 +255,59 @@ func driveGPIOLine(source buses.Line, dest *gpiocdev.Line) error {
 	}
 
 	return err
+}
+
+func (c *pico_mia) logGPIOCycle(phase string) {
+	if !picoMIADebugGPIO || picoMIAGPIOLog == nil {
+		return
+	}
+
+	addr := c.addressBus.Read()
+	selected := c.miaCS.Enabled()
+	write := c.writeEnable.Enabled()
+
+	if addr != 0x11 && !(selected && write) {
+		return
+	}
+
+	gpioCS := -1
+	gpioRWB := -1
+
+	if value, err := c.gpioController.MiaCS().Value(); err == nil {
+		gpioCS = value
+	}
+
+	if value, err := c.gpioController.WriteEnable().Value(); err == nil {
+		gpioRWB = value
+	}
+
+	rwb := 1
+	direction := "READ"
+	if write {
+		rwb = 0
+		direction = "WRITE"
+	}
+
+	picoMIAGPIOLog.Printf(
+		"PICO_MIA %s emu_cs=%d emu_rwb=%d(%s) addr=%02X data=%02X gpio_cs=%d gpio_rwb=%d",
+		phase,
+		boolToBit(selected),
+		rwb,
+		direction,
+		addr,
+		c.dataBus.Read(),
+		gpioCS,
+		gpioRWB,
+	)
+}
+
+func newPicoMIAGPIOLog() *log.Logger {
+	file, err := os.OpenFile(picoMIAGPIOLogPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return nil
+	}
+
+	return log.New(file, "", log.LstdFlags|log.Lmicroseconds)
 }
 
 // driveEmulatorLine writes one GPIO line value to one emulator line.
@@ -321,4 +387,11 @@ func driveEmulatorBus(source *gpiocdev.Lines, dest *buses.BusConnector[uint8]) e
 	dest.Write(value)
 
 	return nil
+}
+
+func boolToBit(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
 }
