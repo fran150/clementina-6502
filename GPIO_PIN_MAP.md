@@ -35,7 +35,7 @@ Wire the Raspberry Pi 5 40-pin header in physical pin order:
 | 9 | GND | Optional GND |
 | 10 | GPIO15 | NC |
 | 11 | GPIO17 | Pico pin 15 / GP11 / `D3` |
-| 12 | GPIO18 | Pico pin 27 / GP21 / `PHI2` |
+| 12 | GPIO18 | Pico pin 27 / GP21 / `PHI2` RED |
 | 13 | GPIO27 | Pico pin 16 / GP12 / `D4` |
 | 14 | GND | Optional GND |
 | 15 | GPIO22 | Pico pin 17 / GP13 / `D5` |
@@ -55,15 +55,15 @@ Wire the Raspberry Pi 5 40-pin header in physical pin order:
 | 29 | GPIO5 | Pico pin 22 / GP17 / `A1` |
 | 30 | GND | Optional GND |
 | 31 | GPIO6 | Pico pin 24 / GP18 / `A2` |
-| 32 | GPIO12 | Pico pin 29 / GP22 / `IRQB` |
+| 32 | GPIO12 | Pico pin 29 / GP22 / `IRQB` GREEN |
 | 33 | GPIO13 | Pico pin 25 / GP19 / `A3` |
 | 34 | GND | Optional GND |
 | 35 | GPIO19 | Pico pin 26 / GP20 / `A4` |
-| 36 | GPIO16 | Pico pin 10 / GP7 / `R/W` |
-| 37 | GPIO26 | Pico pin 32 / GP27 / `MIA_RESETB` |
-| 38 | GPIO20 | Pico pin 31 / GP26 / `RESB` |
+| 36 | GPIO16 | Pico pin 10 / GP7 / `R/W` YELLOW |
+| 37 | GPIO26 | Pico pin 32 / GP27 / `MIA_RESETB` GREY |
+| 38 | GPIO20 | Pico pin 31 / GP26 / `RESB` BLACK |
 | 39 | GND | Optional GND |
-| 40 | GPIO21 | Pico pin 9 / GP6 / `MIA_CS` |
+| 40 | GPIO21 | Pico pin 9 / GP6 / `MIA_CS` WHITE |
 
 ## Pico Header Order
 

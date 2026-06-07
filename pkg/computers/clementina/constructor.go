@@ -14,6 +14,15 @@ func NewClementinaComputer() (*ClementinaComputer, error) {
 	return newClementinaComputer(mia.NewEmulatedMia())
 }
 
+func NewClementinaComputerWithVideoUDP(bindAddress string) (*ClementinaComputer, error) {
+	chip, err := mia.NewEmulatedMiaWithVideoUDP(bindAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	return newClementinaComputer(chip)
+}
+
 func NewClementinaGPIOComputer(chipName string) (*ClementinaComputer, error) {
 	chip, err := mia.NewPicoMia(chipName)
 	if err != nil {

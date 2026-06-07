@@ -62,11 +62,13 @@ const (
 )
 
 const (
-	miaStatusMasterMode    uint16 = 1 << 0
-	miaStatusErrors        uint16 = 1 << 1
-	miaStatusCmdRunning    uint16 = 1 << 2
-	miaStatusDMARunning    uint16 = 1 << 3
-	miaStatusSpeedChanging uint16 = 1 << 4
+	miaStatusMasterMode     uint16 = 1 << 0
+	miaStatusErrors         uint16 = 1 << 1
+	miaStatusCmdRunning     uint16 = 1 << 2
+	miaStatusDMARunning     uint16 = 1 << 3
+	miaStatusSpeedChanging  uint16 = 1 << 4
+	miaStatusVideoRequested uint16 = 1 << 5
+	miaStatusVideoSent      uint16 = 1 << 6
 )
 
 const (
@@ -75,6 +77,9 @@ const (
 	miaIRQIdxBWrap     uint16 = 1 << 2
 	miaIRQCommand      uint16 = 1 << 3
 	miaIRQSpeedChanged uint16 = 1 << 4
+	miaIRQVideoRequest uint16 = 1 << 5
+	miaIRQVideoSent    uint16 = 1 << 6
+	miaIRQVideoAcked   uint16 = 1 << 7
 	miaIRQTriggered    uint16 = 1 << 15
 )
 

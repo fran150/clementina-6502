@@ -110,6 +110,13 @@ func (c *ClementinaComputer) Reset(status bool) {
 	c.circuit.miaResetRequest.Set(!status)
 }
 
+// Close releases optional background resources owned by Clementina components.
+func (c *ClementinaComputer) Close() {
+	if closer, ok := c.chips.mia.(interface{ Close() }); ok {
+		closer.Close()
+	}
+}
+
 /*******************************************************************************************
 * Miscellaneous functions
 ********************************************************************************************/

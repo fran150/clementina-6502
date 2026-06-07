@@ -1,12 +1,16 @@
 package mia
 
 import (
+	"sync"
+
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 )
 
 type emulated_mia struct {
+	mu sync.Mutex
+
 	addressBus *buses.BusConnector[uint8]
 	dataBus    *buses.BusConnector[uint8]
 
@@ -33,6 +37,8 @@ type emulated_mia struct {
 	requestedPhi2Hz        uint32
 	appliedPhi2Hz          uint32
 	speedChangeRequested   bool
+
+	video miaVideoState
 }
 
 // NewEmulatedMia creates a software implementation of the Clementina MIA chip.
@@ -55,6 +61,16 @@ func NewEmulatedMia() components.MiaChip {
 	chip.init()
 
 	return chip
+}
+
+// NewEmulatedMiaWithVideoUDP creates an emulated MIA and starts its UDP video service.
+func NewEmulatedMiaWithVideoUDP(bindAddress string) (components.MiaChip, error) {
+	chip := NewEmulatedMia().(*emulated_mia)
+	if err := chip.StartVideoUDP(bindAddress); err != nil {
+		return nil, err
+	}
+
+	return chip, nil
 }
 
 // AddressBus returns the 5-bit MIA register address bus connector.
@@ -94,11 +110,17 @@ func (c *emulated_mia) Irq() buses.LineConnector {
 
 // Peek returns a side-effect-free byte from the MIA register window.
 func (c *emulated_mia) Peek(address uint16) uint8 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	return c.readRegister(uint8(address))
 }
 
 // Tick processes one bus cycle against the MIA register window.
 func (c *emulated_mia) Tick(context *common.StepContext) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.handleResetRequest() {
 		c.driveIRQLine()
 		return
@@ -192,6 +214,7 @@ func (c *emulated_mia) init() {
 
 	c.irqInit()
 	c.speedResetRuntimeState()
+	c.videoResetRuntimeState()
 	c.fastLoaderInit()
 }
 

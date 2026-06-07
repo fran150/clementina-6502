@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components/mia"
 	"github.com/fran150/clementina-6502/pkg/computers/beneater"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina"
 	"github.com/fran150/clementina-6502/pkg/core"
@@ -23,6 +24,7 @@ var (
 	serialPort        string
 	gpioChipName      string
 	romFile           string
+	videoUDPAddress   string
 	targetMhz         float64
 	targetFps         int
 	emulateModemLines bool
@@ -39,6 +41,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&model, "model", "m", "clementina", "Computer model to emulate (clementina / beneater / clementina-gpio)")
 	rootCmd.Flags().StringVarP(&serialPort, "port", "p", "", "Serial port to connect to (e.g., /dev/ttys004)")
 	rootCmd.Flags().StringVar(&gpioChipName, "gpio-chip", "gpiochip4", "GPIO chip to use for clementina-gpio")
+	rootCmd.Flags().StringVar(&videoUDPAddress, "video-udp", mia.DefaultVideoUDPAddress, "UDP address for emulated Clementina MIA video; empty disables video UDP")
 	rootCmd.Flags().StringVarP(&romFile, "rom", "r", "./assets/computer/beneater/eater.bin", "ROM file to load")
 	rootCmd.Flags().Float64VarP(&targetMhz, "speed", "s", 1.2, "Target emulation speed in MHz")
 	rootCmd.Flags().IntVarP(&targetFps, "fps", "f", 15, "Target display refresh rate")
@@ -108,11 +111,18 @@ func runEmulator(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 	default:
-		clementinaComputer, err := clementina.NewClementinaComputer()
+		var clementinaComputer *clementina.ClementinaComputer
+		var err error
+		if videoUDPAddress == "" {
+			clementinaComputer, err = clementina.NewClementinaComputer()
+		} else {
+			clementinaComputer, err = clementina.NewClementinaComputerWithVideoUDP(videoUDPAddress)
+		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
 			os.Exit(1)
 		}
+		defer clementinaComputer.Close()
 
 		emulator, err = clementina.NewClemetinaEmulator(clementinaComputer, targetMhz, targetFps)
 		if err != nil {

@@ -30,7 +30,9 @@ func (c *emulated_mia) indexRead(indexID uint8) uint8 {
 
 // indexWrite stores a byte at the address pointed to by the selected MIA memory index.
 func (c *emulated_mia) indexWrite(indexID uint8, value uint8) {
-	c.memory[c.memoryOffset(c.indexes[indexID].currentAddr)] = value
+	offset := c.memoryOffset(c.indexes[indexID].currentAddr)
+	c.memory[offset] = value
+	c.videoMarkDirty(uint32(offset))
 }
 
 // indexStepAndRead steps an index for a read access and returns the new pointed byte.
@@ -44,7 +46,9 @@ func (c *emulated_mia) indexStepAndRead(indexID uint8, window miaIndexWindow) ui
 // indexWriteAndStep writes through an index and then steps it for a write access.
 func (c *emulated_mia) indexWriteAndStep(indexID uint8, value uint8, window miaIndexWindow) {
 	entry := &c.indexes[indexID]
-	c.memory[c.memoryOffset(entry.currentAddr)] = value
+	offset := c.memoryOffset(entry.currentAddr)
+	c.memory[offset] = value
+	c.videoMarkDirty(uint32(offset))
 	c.stepIndex(entry, miaIndexFlagWriteStep, window)
 }
 
