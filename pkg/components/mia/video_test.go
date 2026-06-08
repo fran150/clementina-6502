@@ -85,8 +85,15 @@ func TestEmulatedMiaVideoUDPFullRefreshAckAndEmptyRequest(t *testing.T) {
 		defer chip.mu.Unlock()
 		return !chip.video.pendingValid &&
 			chip.video.clientFrameID == firstFrameHeader.frameID &&
-			chip.status()&(miaStatusVideoRequested|miaStatusVideoSent) == 0
+			chip.status()&(miaStatusVideoRequested|miaStatusVideoSent) == 0 &&
+			chip.irqStatus()&miaIRQVideoAcked == miaIRQVideoAcked
 	}, time.Second, time.Millisecond)
+
+	chip.mu.Lock()
+	chip.writeRegister(miaRegIRQStatusLSB, chip.readRegister(miaRegIRQStatusLSB)&^uint8(miaIRQVideoAcked))
+	chip.irqEval()
+	assert.Zero(t, chip.irqStatus()&miaIRQVideoAcked)
+	chip.mu.Unlock()
 
 	binary.LittleEndian.PutUint32(requestPayload, firstFrameHeader.frameID)
 	sendMiaVideoPacket(t, client, serverAddr, buildMiaVideoClientPacket(miaVideoPacketRequestFrame, welcomeHeader.sessionID, 4, 0, 0x1235, requestPayload))

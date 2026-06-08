@@ -100,8 +100,8 @@ func TestClementinaResetFetchesMiaLoaderOpcode(t *testing.T) {
 	t.Fatal("CPU did not fetch an opcode from the MIA reset vector")
 }
 
-// TestClementinaKernelJumpOperands verifies the loader writes the full JMP $4002 operand.
-func TestClementinaKernelJumpOperands(t *testing.T) {
+// TestClementinaKernelVideoLoopLoads verifies the loader writes the video bootstrap.
+func TestClementinaKernelVideoLoopLoads(t *testing.T) {
 	computer, err := NewClementinaComputer()
 	require.NoError(t, err)
 
@@ -114,22 +114,24 @@ func TestClementinaKernelJumpOperands(t *testing.T) {
 	}
 	computer.Reset(false)
 
-	for range 500 {
-		computer.Tick(&step)
+	for range 6000 {
+		tickComputer(computer, &step)
 
-		if computer.circuit.addressBus.Read() == 0x400C && computer.chips.cpu.IsReadingOpcode() {
-			assert.Equal(t, uint8(0x4C), computer.chips.baseram.Peek(0x400C))
-			assert.Equal(t, uint8(0x02), computer.chips.baseram.Peek(0x400D))
-			assert.Equal(t, uint8(0x40), computer.chips.baseram.Peek(0x400E))
-			assert.Equal(t, [2]uint8{0x02, 0x40}, computer.getPotentialOperators(0x400D))
+		if computer.chips.baseram.Peek(0x408C) == 0x4C &&
+			computer.chips.baseram.Peek(0x408D) == 0x72 &&
+			computer.chips.baseram.Peek(0x408E) == 0x40 {
+			assert.Equal(t, uint8(0xA9), computer.chips.baseram.Peek(0x4000))
+			assert.Equal(t, uint8(0x40), computer.chips.baseram.Peek(0x4001))
+			assert.Equal(t, uint8(0x8D), computer.chips.baseram.Peek(0x4002))
+			assert.Equal(t, uint8(0xF0), computer.chips.baseram.Peek(0x4073))
+			assert.Equal(t, [2]uint8{0x72, 0x40}, computer.getPotentialOperators(0x408D))
 			return
 		}
 
-		computer.PostTick(&step)
 		step.NextCycle()
 	}
 
-	t.Fatal("CPU did not reach kernel JMP at $400C")
+	t.Fatal("MIA loader did not write the video bootstrap loop")
 }
 
 func tickComputer(computer *ClementinaComputer, step *common.StepContext) {
