@@ -1,12 +1,16 @@
 package mia
 
 import (
+	"fmt"
+	"os"
 	"sync"
 
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 )
+
+var kernelSync sync.Once
 
 type emulated_mia struct {
 	mu sync.Mutex
@@ -43,6 +47,16 @@ type emulated_mia struct {
 
 // NewEmulatedMia creates a software implementation of the Clementina MIA chip.
 func NewEmulatedMia() components.MiaChip {
+	kernelSync.Do(func() {
+		if len(miaKernelData) == 0 {
+			data, err := os.ReadFile("assets/computer/mia/kernel.bin")
+			if err != nil {
+				panic(fmt.Sprintf("mia: failed to load kernel.bin: %v. Ensure the file exists at the correct path.", err))
+			}
+			miaKernelData = data
+		}
+	})
+
 	chip := &emulated_mia{
 		addressBus:   buses.NewBusConnector[uint8](),
 		dataBus:      buses.NewBusConnector[uint8](),
