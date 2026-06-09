@@ -27,6 +27,9 @@ type pico_mia struct {
 	resetRequest buses.LineConnector
 	writeEnable  buses.LineConnector
 	irq          buses.LineConnector
+
+	addressBusConfigured bool
+	currentDataDir       picoDataBusDirection
 }
 
 /*******************************************************************************************
@@ -57,6 +60,9 @@ func NewPicoMia(chipName string) (components.MiaChip, error) {
 		resetRequest: buses.NewConnectorEnabledLow(),
 		writeEnable:  buses.NewConnectorEnabledLow(),
 		irq:          buses.NewConnectorEnabledLow(),
+
+		// Initialize to a value that forces the first configuration
+		currentDataDir: 0xFF,
 	}, nil
 }
 
@@ -184,6 +190,13 @@ func (c *pico_mia) driveInputLines() error {
 // Returns:
 //   - An error if the GPIO bus write fails
 func (c *pico_mia) driveAddressBus() error {
+	if !c.addressBusConfigured {
+		if err := c.gpioController.AddressBus().Reconfigure(gpiocdev.AsOutput(0)); err != nil {
+			return err
+		}
+		c.addressBusConfigured = true
+	}
+
 	return driveGPIOBus(c.addressBus, c.gpioController.AddressBus())
 }
 
@@ -192,21 +205,25 @@ func (c *pico_mia) driveAddressBus() error {
 // Returns:
 //   - An error if GPIO direction or data access fails
 func (c *pico_mia) prepareDataBus() error {
-	switch picoDataBusDirectionForCycle(c.miaCS.Enabled(), c.writeEnable.Enabled()) {
-	case picoDataBusOutput:
-		// CPU writes to MIA, Pi drives the data bus.
-		if err := driveGPIOBus(c.dataBus, c.gpioController.DataBus()); err != nil {
+	targetDir := picoDataBusDirectionForCycle(c.miaCS.Enabled(), c.writeEnable.Enabled())
+
+	if targetDir != c.currentDataDir {
+		var err error
+		switch targetDir {
+		case picoDataBusOutput:
+			err = c.gpioController.DataBus().Reconfigure(gpiocdev.AsOutput(0))
+		case picoDataBusInput, picoDataBusHighZ:
+			err = c.gpioController.DataBus().Reconfigure(gpiocdev.AsInput)
+		}
+
+		if err != nil {
 			return err
 		}
-	case picoDataBusInput:
-		// CPU reads from MIA, so release the Pi data pins until PostTick samples them.
-		if err := c.gpioController.DataBus().Reconfigure(gpiocdev.AsInput); err != nil {
-			return err
-		}
-	case picoDataBusHighZ:
-		if err := c.gpioController.DataBus().Reconfigure(gpiocdev.AsInput); err != nil {
-			return err
-		}
+		c.currentDataDir = targetDir
+	}
+
+	if targetDir == picoDataBusOutput {
+		return driveGPIOBus(c.dataBus, c.gpioController.DataBus())
 	}
 
 	return nil
@@ -217,7 +234,7 @@ func (c *pico_mia) prepareDataBus() error {
 // Returns:
 //   - An error if the GPIO bus read fails
 func (c *pico_mia) completeDataBus() error {
-	if picoDataBusDirectionForCycle(c.miaCS.Enabled(), c.writeEnable.Enabled()) != picoDataBusInput {
+	if c.currentDataDir != picoDataBusInput {
 		return nil
 	}
 
@@ -285,10 +302,6 @@ func driveGPIOBus(source *buses.BusConnector[uint8], dest *gpiocdev.Lines) error
 		}
 	}
 
-	if err := dest.Reconfigure(gpiocdev.AsOutput(0)); err != nil {
-		return err
-	}
-
 	return dest.SetValues(buffer)
 }
 
@@ -301,10 +314,6 @@ func driveGPIOBus(source *buses.BusConnector[uint8], dest *gpiocdev.Lines) error
 // Returns:
 //   - An error if GPIO direction or value reads fail
 func driveEmulatorBus(source *gpiocdev.Lines, dest *buses.BusConnector[uint8]) error {
-	if err := source.Reconfigure(gpiocdev.AsInput); err != nil {
-		return err
-	}
-
 	buffer := make([]int, len(source.Offsets()))
 	var value uint8 = 0
 
