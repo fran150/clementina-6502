@@ -128,6 +128,7 @@ type SpeedConfigurator interface {
 type EmulatorConsole interface {
 	core.Ticker
 	core.Renderer
+	core.SplitRenderer
 	TerminalApplication
 	ScrollableActiveWindow
 	BreakpointConfigurator

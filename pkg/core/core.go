@@ -33,6 +33,21 @@ type Renderer interface {
 	Draw(context *common.StepContext)
 }
 
+// SplitRenderer separates drawing into a state-reading phase and a terminal-output
+// phase. Externally clocked loops (e.g. GPIO) use this to keep the slow terminal
+// flush out of the lock that serializes emulation cycles, so rendering a frame does
+// not stall the clock-response loop.
+type SplitRenderer interface {
+	// RefreshDisplay populates the UI from the current emulator state. It reads
+	// emulator state and must be serialized against Tick/PostTick, but it is fast
+	// and does not touch the terminal.
+	RefreshDisplay(context *common.StepContext)
+
+	// FlushDisplay writes the already-populated UI to the terminal. It is the slow
+	// part of drawing and must run WITHOUT holding the emulation step lock.
+	FlushDisplay()
+}
+
 // EmulationConsole represents the console interface for the emulator.
 // This is not the main display but the window that allows the user to interact with the emulator.
 type EmulationConsole interface {

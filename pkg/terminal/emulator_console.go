@@ -144,12 +144,31 @@ func (c *baseEmulatorConsole) Tick(context *common.StepContext) {
 //   - context: The current step context containing state information for rendering
 
 func (c *baseEmulatorConsole) Draw(context *common.StepContext) {
+	c.RefreshDisplay(context)
+	c.FlushDisplay()
+}
+
+// RefreshDisplay populates the window widgets from the current emulator state.
+// It reads emulator state, so callers that run it concurrently with the emulation
+// loop must serialize it against Tick/PostTick. It does NOT touch the terminal, so
+// it is fast and safe to hold a lock around.
+//
+// Parameters:
+//   - context: The current step context containing state information for rendering
+func (c *baseEmulatorConsole) RefreshDisplay(context *common.StepContext) {
 	c.config.WindowManager.GetAllWindows(func(key string, window Window) bool {
 		window.Clear()
 		window.Draw(context)
 		return true // continue iteration
 	})
+}
 
+// FlushDisplay renders the already-populated widgets to the terminal.
+// This is the slow part of drawing (full-screen diff plus terminal I/O), but it only
+// touches the UI, never emulator state, so it must be called WITHOUT holding any lock
+// the emulation loop needs. Keeping it out of that lock is what allows the externally
+// clocked GPIO loop to respond to clock edges while a frame is being written.
+func (c *baseEmulatorConsole) FlushDisplay() {
 	c.config.App.Draw()
 }
 

@@ -1,5 +1,7 @@
 package mia
 
+import "github.com/fran150/clementina-6502/assets"
+
 const (
 	miaRAMSize       = 128 * 1024
 	miaRAMMask       = miaRAMSize - 1
@@ -85,5 +87,6 @@ const (
 
 // MIA ROM bootstrap installed at $4000. It enables video, initializes palette
 // bank 0 with a few RGB565 colors, then polls the latched video ACK event before
-// moving the backdrop color to the next palette entry.
-var miaKernelData []byte
+// moving the backdrop color to the next palette entry. Embedded at build time so
+// it does not depend on the working directory or external files at runtime.
+var miaKernelData = assets.MiaKernel

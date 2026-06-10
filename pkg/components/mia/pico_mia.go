@@ -30,6 +30,11 @@ type pico_mia struct {
 
 	addressBusConfigured bool
 	currentDataDir       picoDataBusDirection
+
+	// busBuf is a reusable scratch buffer for GPIO bus reads/writes. It avoids a
+	// per-cycle heap allocation (and the resulting GC pressure) in the hot path.
+	// Sized to the widest bus (the 8-bit data bus); callers slice it to width.
+	busBuf []int
 }
 
 /*******************************************************************************************
@@ -63,6 +68,8 @@ func NewPicoMia(chipName string) (components.MiaChip, error) {
 
 		// Initialize to a value that forces the first configuration
 		currentDataDir: 0xFF,
+
+		busBuf: make([]int, 8),
 	}, nil
 }
 
@@ -197,7 +204,7 @@ func (c *pico_mia) driveAddressBus() error {
 		c.addressBusConfigured = true
 	}
 
-	return driveGPIOBus(c.addressBus, c.gpioController.AddressBus())
+	return driveGPIOBus(c.addressBus, c.gpioController.AddressBus(), c.busBuf)
 }
 
 // prepareDataBus sets the Pi data bus direction for the current MIA cycle.
@@ -223,7 +230,7 @@ func (c *pico_mia) prepareDataBus() error {
 	}
 
 	if targetDir == picoDataBusOutput {
-		return driveGPIOBus(c.dataBus, c.gpioController.DataBus())
+		return driveGPIOBus(c.dataBus, c.gpioController.DataBus(), c.busBuf)
 	}
 
 	return nil
@@ -238,7 +245,7 @@ func (c *pico_mia) completeDataBus() error {
 		return nil
 	}
 
-	return driveEmulatorBus(c.gpioController.DataBus(), c.dataBus)
+	return driveEmulatorBus(c.gpioController.DataBus(), c.dataBus, c.busBuf)
 }
 
 // driveGPIOLine writes one emulator line value to one GPIO line.
@@ -289,16 +296,20 @@ func driveEmulatorLine(source *gpiocdev.Line, dest buses.Line) error {
 // Parameters:
 //   - source: The emulator bus to read
 //   - dest: The GPIO lines to write
+//   - scratch: A reusable buffer (at least len(dest) wide) to avoid per-cycle allocation
 //
 // Returns:
 //   - An error if GPIO direction or value writes fail
-func driveGPIOBus(source *buses.BusConnector[uint8], dest *gpiocdev.Lines) error {
-	buffer := make([]int, len(dest.Offsets()))
+func driveGPIOBus(source *buses.BusConnector[uint8], dest *gpiocdev.Lines, scratch []int) error {
+	buffer := scratch[:len(dest.Offsets())]
 	value := source.Read()
 
-	for i := range len(buffer) {
+	for i := range buffer {
+		// The buffer is reused across cycles, so set both branches explicitly.
 		if value&(1<<i) != 0 {
 			buffer[i] = 1
+		} else {
+			buffer[i] = 0
 		}
 	}
 
@@ -310,11 +321,12 @@ func driveGPIOBus(source *buses.BusConnector[uint8], dest *gpiocdev.Lines) error
 // Parameters:
 //   - source: The GPIO lines to read
 //   - dest: The emulator bus to write
+//   - scratch: A reusable buffer (at least len(source) wide) to avoid per-cycle allocation
 //
 // Returns:
 //   - An error if GPIO direction or value reads fail
-func driveEmulatorBus(source *gpiocdev.Lines, dest *buses.BusConnector[uint8]) error {
-	buffer := make([]int, len(source.Offsets()))
+func driveEmulatorBus(source *gpiocdev.Lines, dest *buses.BusConnector[uint8], scratch []int) error {
+	buffer := scratch[:len(source.Offsets())]
 	var value uint8 = 0
 
 	if err := source.Values(buffer); err != nil {

@@ -5,6 +5,7 @@ package emulation
 import (
 	"fmt"
 	"log"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -27,6 +28,15 @@ type GPIOEmulationLoopConfig struct {
 
 	// ChipName is the Linux GPIO chip name used to access the Raspberry Pi pins.
 	ChipName string
+
+	// RefreshDisplay populates the UI from emulator state. It is run while holding
+	// the step lock so it sees a consistent cycle, but it must be fast (no terminal
+	// I/O). When nil, the loop falls back to Emulator.Draw under the lock.
+	RefreshDisplay func(context *common.StepContext)
+
+	// FlushDisplay writes the populated UI to the terminal. It is run WITHOUT the
+	// step lock so the slow terminal write never blocks the clock-response loop.
+	FlushDisplay func()
 }
 
 // gpioEmulationLoop manages emulation driven by an external GPIO clock.
@@ -173,6 +183,14 @@ func (g *gpioEmulationLoop) Pause() {
 // Parameters:
 //   - context: The shared step context
 func (g *gpioEmulationLoop) executeGPIOLoop(context *common.StepContext) {
+	// Pin this goroutine to a dedicated OS thread. The external clock has no
+	// wait-state handshake, so the Pico samples the bus a fixed time after each
+	// edge; pinning keeps the Go scheduler from migrating or descheduling the
+	// response loop mid-cycle, which would show up as missed edges and force a
+	// slower clock. For best results also isolate a core (isolcpus / taskset).
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	defer func() {
 		g.gpioLoopRunning.Store(false)
 		if r := recover(); r != nil {
@@ -221,12 +239,13 @@ func (g *gpioEmulationLoop) tickStep(context *common.StepContext, stepper *gpioC
 // skipStep updates timing when polling did not find a GPIO clock edge.
 // This keeps the current wall-clock time fresh without incrementing the emulated cycle.
 //
+// This runs on the vast majority of poll iterations, so it deliberately does NOT take
+// stepMu: SkipCycle only refreshes a wall-clock timestamp used for display, and taking
+// the lock here would make the hot polling path contend with drawing on every sample.
+//
 // Parameters:
 //   - context: The shared step context
 func (g *gpioEmulationLoop) skipStep(context *common.StepContext) {
-	g.stepMu.Lock()
-	defer g.stepMu.Unlock()
-
 	context.SkipCycle()
 }
 
@@ -263,6 +282,21 @@ func (g *gpioEmulationLoop) executeDraw(context *common.StepContext) {
 // Parameters:
 //   - context: The shared step context
 func (g *gpioEmulationLoop) drawStep(context *common.StepContext) {
+	// Fast path: split the draw so only the state-reading refresh holds stepMu,
+	// while the slow terminal flush runs unlocked. This is what keeps a frame
+	// render from freezing the clock-response loop (and capping the clock rate).
+	if g.config.RefreshDisplay != nil {
+		g.stepMu.Lock()
+		g.config.RefreshDisplay(context)
+		g.stepMu.Unlock()
+
+		if g.config.FlushDisplay != nil {
+			g.config.FlushDisplay()
+		}
+		return
+	}
+
+	// Fallback: no split renderer wired, draw entirely under the lock.
 	g.stepMu.Lock()
 	defer g.stepMu.Unlock()
 

@@ -61,6 +61,11 @@ func NewClemetinaGPIOEmulator(computer *ClementinaComputer, displayFPS int, chip
 		DisplayFPS: displayFPS,
 		Emulator:   emulator,
 		ChipName:   chipName,
+		// Split drawing: RefreshDisplay reads emulator state (held under the step
+		// lock), FlushDisplay does the slow terminal write (unlocked) so it never
+		// blocks the external clock-response loop.
+		RefreshDisplay: console.RefreshDisplay,
+		FlushDisplay:   console.FlushDisplay,
 	})
 
 	emulatorConfig := emulation.EmulatorConfig{
