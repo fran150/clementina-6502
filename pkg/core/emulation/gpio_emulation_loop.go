@@ -202,13 +202,24 @@ func (g *gpioEmulationLoop) executeGPIOLoop(context *common.StepContext) {
 	var lastState int
 	stepper := gpioCycleStepper{}
 
+	// Use the direct RP1 register read when mmap is available (~150 ns vs ~1.5 µs
+	// chardev). At 1 µs poll intervals the chardev path misses edges at >~300 kHz;
+	// the mmap path can keep up to ~1–2 MHz before other per-cycle work dominates.
+	readPhi2 := func() int {
+		if g.gpioController.HasFastGPIO() {
+			return g.gpioController.ReadPhi2Fast()
+		}
+		v, err := g.gpioController.Phi2().Value()
+		if err != nil {
+			log.Printf("Error reading GPIO: %v", err)
+			return lastState // hold last known state on error
+		}
+		return v
+	}
+
 	for !g.stop.Load() {
 		if !g.pause.Load() || stepper.pendingPostTick {
-			currentState, err := g.gpioController.Phi2().Value()
-			if err != nil {
-				log.Printf("Error reading GPIO: %v", err)
-				continue
-			}
+			currentState := readPhi2()
 
 			// External PHI2 falling edge is the emulator phase boundary.
 			if lastState == 1 && currentState == 0 {

@@ -28,13 +28,15 @@ type pico_mia struct {
 	writeEnable  buses.LineConnector
 	irq          buses.LineConnector
 
+	// useFastGPIO is true when the RP1 mmap path was initialised successfully.
+	// The hot path (Tick / PostTick) branches on this once-set flag so that the
+	// chardev fallback remains available on hardware where /dev/gpiomem0 is absent.
+	useFastGPIO bool
+
+	// chardev-only fields — used only when useFastGPIO is false.
 	addressBusConfigured bool
 	currentDataDir       picoDataBusDirection
-
-	// busBuf is a reusable scratch buffer for GPIO bus reads/writes. It avoids a
-	// per-cycle heap allocation (and the resulting GC pressure) in the hot path.
-	// Sized to the widest bus (the 8-bit data bus); callers slice it to width.
-	busBuf []int
+	busBuf               []int
 }
 
 /*******************************************************************************************
@@ -66,10 +68,11 @@ func NewPicoMia(chipName string) (components.MiaChip, error) {
 		writeEnable:  buses.NewConnectorEnabledLow(),
 		irq:          buses.NewConnectorEnabledLow(),
 
-		// Initialize to a value that forces the first configuration
-		currentDataDir: 0xFF,
+		useFastGPIO: gpioController.HasFastGPIO(),
 
-		busBuf: make([]int, 8),
+		// chardev fallback fields
+		currentDataDir: 0xFF,
+		busBuf:         make([]int, 8),
 	}, nil
 }
 
@@ -117,85 +120,130 @@ func (c *pico_mia) Irq() buses.LineConnector {
 ********************************************************************************************/
 
 // Tick starts one MIA bus cycle by driving GPIO outputs for the Pico to sample.
-//
-// Parameters:
-//   - context: The current step context
 func (c *pico_mia) Tick(context *common.StepContext) {
+	if c.useFastGPIO {
+		c.tickFast()
+		return
+	}
+
 	if err := c.driveAddressBus(); err != nil {
 		panic(err)
 	}
-
 	if err := c.prepareDataBus(); err != nil {
 		panic(err)
 	}
-
 	if err := c.driveOutputLines(); err != nil {
 		panic(err)
 	}
 }
 
 // PostTick completes one MIA bus cycle by sampling GPIO inputs from the Pico.
-//
-// Parameters:
-//   - context: The current step context
 func (c *pico_mia) PostTick(context *common.StepContext) {
+	if c.useFastGPIO {
+		c.postTickFast()
+		return
+	}
+
 	if err := c.driveInputLines(); err != nil {
 		panic(err)
 	}
-
 	if err := c.completeDataBus(); err != nil {
 		panic(err)
 	}
 }
 
 /*******************************************************************************************
-* GPIO line helpers
+* Fast (mmap) hot path
+*
+* Each operation is a direct RP1 register read or write — no system calls, no kernel
+* transitions. Direction changes (data bus input ↔ output) are single register writes
+* (~150 ns) instead of Reconfigure() ioctl calls (~39 µs).
 ********************************************************************************************/
 
-// driveOutputLines drives emulator-owned control lines onto Raspberry Pi GPIO.
-//
-// Returns:
-//   - An error if any GPIO write fails
+// tickFast drives all emulator outputs onto the GPIO bus in the fast (mmap) path.
+func (c *pico_mia) tickFast() {
+	gc := c.gpioController
+
+	// Drive the 5-bit address bus.
+	gc.WriteAddressBusFast(c.addressBus.Read())
+
+	// Drive the 3 output control lines.
+	if c.writeEnable.GetLine() != nil {
+		we := 0
+		if c.writeEnable.GetLine().Status() {
+			we = 1
+		}
+		gc.WriteWeFast(we)
+	}
+	if c.miaCS.GetLine() != nil {
+		cs := 0
+		if c.miaCS.GetLine().Status() {
+			cs = 1
+		}
+		gc.WriteMiacsFast(cs)
+	}
+	if c.resetRequest.GetLine() != nil {
+		rr := 0
+		if c.resetRequest.GetLine().Status() {
+			rr = 1
+		}
+		gc.WriteResetReqFast(rr)
+	}
+
+	// Set data bus direction and drive value when the CPU is writing.
+	targetDir := picoDataBusDirectionForCycle(c.miaCS.Enabled(), c.writeEnable.Enabled())
+	if targetDir == picoDataBusOutput {
+		gc.SetDataBusOutputFast(c.dataBus.Read())
+	} else {
+		gc.SetDataBusInputFast()
+	}
+}
+
+// postTickFast samples all GPIO inputs into the emulator in the fast (mmap) path.
+func (c *pico_mia) postTickFast() {
+	gc := c.gpioController
+
+	// Sample the two input control lines.
+	if c.reset.GetLine() != nil {
+		c.reset.GetLine().Set(gc.ReadResetFast() != 0)
+	}
+	if c.irq.GetLine() != nil {
+		c.irq.GetLine().Set(gc.ReadIrqFast() != 0)
+	}
+
+	// Sample the data bus when the CPU is reading from MIA.
+	if picoDataBusDirectionForCycle(c.miaCS.Enabled(), c.writeEnable.Enabled()) == picoDataBusInput {
+		c.dataBus.Write(gc.ReadDataBusFast())
+	}
+}
+
+/*******************************************************************************************
+* Chardev (gpiocdev) fallback — used when /dev/gpiomem0 is unavailable.
+********************************************************************************************/
+
 func (c *pico_mia) driveOutputLines() error {
 	if err := driveGPIOLine(c.writeEnable.GetLine(), c.gpioController.WriteEnable()); err != nil {
 		return err
 	}
-
 	if err := driveGPIOLine(c.miaCS.GetLine(), c.gpioController.MiaCS()); err != nil {
 		return err
 	}
-
 	if err := driveGPIOLine(c.resetRequest.GetLine(), c.gpioController.ResetRequest()); err != nil {
 		return err
 	}
-
 	return nil
 }
 
-// driveInputLines samples Pico-owned control lines into the emulator.
-//
-// Returns:
-//   - An error if any GPIO read fails
 func (c *pico_mia) driveInputLines() error {
 	if err := driveEmulatorLine(c.gpioController.Reset(), c.reset.GetLine()); err != nil {
 		return err
 	}
-
 	if err := driveEmulatorLine(c.gpioController.Irq(), c.Irq().GetLine()); err != nil {
 		return err
 	}
-
 	return nil
 }
 
-/*******************************************************************************************
-* GPIO bus helpers
-********************************************************************************************/
-
-// driveAddressBus drives the low MIA address bits onto Raspberry Pi GPIO.
-//
-// Returns:
-//   - An error if the GPIO bus write fails
 func (c *pico_mia) driveAddressBus() error {
 	if !c.addressBusConfigured {
 		if err := c.gpioController.AddressBus().Reconfigure(gpiocdev.AsOutput(0)); err != nil {
@@ -203,14 +251,9 @@ func (c *pico_mia) driveAddressBus() error {
 		}
 		c.addressBusConfigured = true
 	}
-
 	return driveGPIOBus(c.addressBus, c.gpioController.AddressBus(), c.busBuf)
 }
 
-// prepareDataBus sets the Pi data bus direction for the current MIA cycle.
-//
-// Returns:
-//   - An error if GPIO direction or data access fails
 func (c *pico_mia) prepareDataBus() error {
 	targetDir := picoDataBusDirectionForCycle(c.miaCS.Enabled(), c.writeEnable.Enabled())
 
@@ -222,7 +265,6 @@ func (c *pico_mia) prepareDataBus() error {
 		case picoDataBusInput, picoDataBusHighZ:
 			err = c.gpioController.DataBus().Reconfigure(gpiocdev.AsInput)
 		}
-
 		if err != nil {
 			return err
 		}
@@ -232,114 +274,61 @@ func (c *pico_mia) prepareDataBus() error {
 	if targetDir == picoDataBusOutput {
 		return driveGPIOBus(c.dataBus, c.gpioController.DataBus(), c.busBuf)
 	}
-
 	return nil
 }
 
-// completeDataBus samples the Pico data bus after a CPU read cycle.
-//
-// Returns:
-//   - An error if the GPIO bus read fails
 func (c *pico_mia) completeDataBus() error {
 	if c.currentDataDir != picoDataBusInput {
 		return nil
 	}
-
 	return driveEmulatorBus(c.gpioController.DataBus(), c.dataBus, c.busBuf)
 }
 
-// driveGPIOLine writes one emulator line value to one GPIO line.
-//
-// Parameters:
-//   - source: The emulator line to read
-//   - dest: The GPIO line to write
-//
-// Returns:
-//   - An error if the GPIO write fails
+/*******************************************************************************************
+* GPIO line / bus helpers (shared by chardev fallback)
+********************************************************************************************/
+
 func driveGPIOLine(source buses.Line, dest *gpiocdev.Line) error {
-	var err error = nil
-
 	if source.Status() {
-		err = dest.SetValue(1)
-	} else {
-		err = dest.SetValue(0)
+		return dest.SetValue(1)
 	}
-
-	return err
+	return dest.SetValue(0)
 }
 
-// driveEmulatorLine writes one GPIO line value to one emulator line.
-//
-// Parameters:
-//   - source: The GPIO line to read
-//   - dest: The emulator line to write
-//
-// Returns:
-//   - An error if the GPIO read fails
 func driveEmulatorLine(source *gpiocdev.Line, dest buses.Line) error {
 	value, err := source.Value()
 	if err != nil {
 		return err
 	}
-
-	if value == 1 {
-		dest.Set(true)
-	} else {
-		dest.Set(false)
-	}
-
+	dest.Set(value == 1)
 	return nil
 }
 
-// driveGPIOBus writes one emulator bus value to a GPIO bus.
-//
-// Parameters:
-//   - source: The emulator bus to read
-//   - dest: The GPIO lines to write
-//   - scratch: A reusable buffer (at least len(dest) wide) to avoid per-cycle allocation
-//
-// Returns:
-//   - An error if GPIO direction or value writes fail
 func driveGPIOBus(source *buses.BusConnector[uint8], dest *gpiocdev.Lines, scratch []int) error {
 	buffer := scratch[:len(dest.Offsets())]
 	value := source.Read()
-
 	for i := range buffer {
-		// The buffer is reused across cycles, so set both branches explicitly.
 		if value&(1<<i) != 0 {
 			buffer[i] = 1
 		} else {
 			buffer[i] = 0
 		}
 	}
-
 	return dest.SetValues(buffer)
 }
 
-// driveEmulatorBus writes one GPIO bus value to an emulator bus.
-//
-// Parameters:
-//   - source: The GPIO lines to read
-//   - dest: The emulator bus to write
-//   - scratch: A reusable buffer (at least len(source) wide) to avoid per-cycle allocation
-//
-// Returns:
-//   - An error if GPIO direction or value reads fail
 func driveEmulatorBus(source *gpiocdev.Lines, dest *buses.BusConnector[uint8], scratch []int) error {
 	buffer := scratch[:len(source.Offsets())]
-	var value uint8 = 0
+	var value uint8
 
 	if err := source.Values(buffer); err != nil {
 		return err
 	}
-
 	for i, bit := range buffer {
 		if bit != 0 {
 			value |= 1 << i
 		}
 	}
-
 	dest.Write(value)
-
 	return nil
 }
