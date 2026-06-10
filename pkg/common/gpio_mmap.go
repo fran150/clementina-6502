@@ -77,7 +77,7 @@ type rp1MmapGPIO struct {
 // The caller must ensure that any gpiocdev (chardev) setup for the same pins is
 // completed before calling InitPin, so that FUNCSEL is already programmed by the kernel.
 func newRp1MmapGPIO() (*rp1MmapGPIO, error) {
-	f, err := os.OpenFile("/dev/gpiomem0", os.O_RDWR|os.O_SYNC, 0)
+	f, err := os.OpenFile("/dev/gpiomem0", os.O_RDWR, 0)
 	if err != nil {
 		return nil, fmt.Errorf("open /dev/gpiomem0: %w (user must be in the gpio group)", err)
 	}
