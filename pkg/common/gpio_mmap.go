@@ -15,16 +15,15 @@ package common
 //	STATUS bit 17: INFROMPAD — current logic level driven by the pad.
 //	  Always readable regardless of pin direction or function.
 //
-//	CTRL bits [4:0]:   FUNCSEL — peripheral function (5 = SIO/GPIO).
-//	CTRL bits [13:12]: OUTOVER — output override:
+//	CTRL bits [4:0]:  FUNCSEL — peripheral function (5 = SIO/GPIO).
+//	CTRL bits [9:8]:  OUTOVER — output override:
 //	  0 = normal (follow FUNCSEL output), 2 = force low, 3 = force high.
-//	CTRL bits [15:14]: OEOVER  — output-enable override:
+//	CTRL bits [11:10]: OEOVER  — output-enable override:
 //	  0 = normal (follow FUNCSEL OE), 2 = force OE=0 (input), 3 = force OE=1 (output).
 //
-// IMPORTANT: if a pin behaves incorrectly after this driver initialises it, the most
-// likely cause is that the OUTOVER or OEOVER bit positions above differ from your
-// hardware revision's RP1-TRM. Dump the raw CTRL register value (printCtrl) and
-// compare bit-by-bit against the datasheet to find the correct positions.
+// These positions match the RP2040 GPIO_CTRL layout (RP1 is register-compatible).
+// If a pin behaves incorrectly the most likely cause is OUTOVER/OEOVER at wrong
+// positions; compare the raw CTRL value against your RP1-TRM revision to verify.
 
 import (
 	"fmt"
@@ -44,13 +43,13 @@ const (
 	rp1FuncselShift = 0
 	rp1FuncselMask  = uint32(0x1F) // bits [4:0]
 
-	rp1OutoverShift = 12
-	rp1OutoverMask  = uint32(0x3) << rp1OutoverShift // bits [13:12]
+	rp1OutoverShift = 8
+	rp1OutoverMask  = uint32(0x3) << rp1OutoverShift // bits [9:8]
 	rp1OutoverLow   = uint32(2) << rp1OutoverShift    // force pad low
 	rp1OutoverHigh  = uint32(3) << rp1OutoverShift    // force pad high
 
-	rp1OeoverShift  = 14
-	rp1OeoverMask   = uint32(0x3) << rp1OeoverShift // bits [15:14]
+	rp1OeoverShift  = 10
+	rp1OeoverMask   = uint32(0x3) << rp1OeoverShift // bits [11:10]
 	rp1OeoverInput  = uint32(2) << rp1OeoverShift    // force OE=0  (input)
 	rp1OeoverOutput = uint32(3) << rp1OeoverShift    // force OE=1  (output)
 
