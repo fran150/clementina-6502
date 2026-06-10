@@ -68,7 +68,7 @@ func NewPicoMia(chipName string) (components.MiaChip, error) {
 		writeEnable:  buses.NewConnectorEnabledLow(),
 		irq:          buses.NewConnectorEnabledLow(),
 
-		useFastGPIO: gpioController.HasFastGPIO(),
+		useFastGPIO: gpioController.HasFastGPIOWrites(),
 
 		// chardev fallback fields
 		currentDataDir: 0xFF,

@@ -129,9 +129,16 @@ func (g *GPIOController) initMmapPins() {
 	g.mmap.InitPin(phi2GPIO, false, 0)
 }
 
-// HasFastGPIO returns true when the RP1 mmap path is available.
+// HasFastGPIO returns true when the RP1 mmap path is available for reads.
+// This is sufficient for fast PHI2 polling and input sampling.
 func (g *GPIOController) HasFastGPIO() bool {
 	return g.mmap != nil
+}
+
+// HasFastGPIOWrites returns true when the mmap path supports writes (RDWR mapping).
+// Tick/PostTick use this to decide whether to skip the chardev output path.
+func (g *GPIOController) HasFastGPIOWrites() bool {
+	return g.mmap != nil && g.mmap.Writable()
 }
 
 /*******************************************************************************************
