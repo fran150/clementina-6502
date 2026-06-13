@@ -34,8 +34,6 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 		c.writeRegister(miaRegIdxBPort, c.indexRead(params[0]))
 	case 0x10:
 		c.dmaTransfer(c.indexes[params[0]].currentAddr, c.indexes[params[1]].currentAddr, uint16(params[2]))
-	case 0x40:
-		c.videoEnable()
 	case 0x42:
 		c.videoForceFullRefresh()
 	case 0x43:
@@ -43,6 +41,7 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 	}
 
 	c.statusClear(miaStatusCmdRunning)
+	c.irqSetFlag(miaIRQCommand)
 }
 
 // dmaTransfer copies a bounded byte range inside emulated MIA RAM.
@@ -66,6 +65,7 @@ func (c *emulated_mia) dmaTransfer(srcOffset uint32, dstOffset uint32, length ui
 	copy(c.memory[dstOffset:dstOffset+uint32(length)], c.memory[srcOffset:srcOffset+uint32(length)])
 	c.videoMarkDirtyRange(dstOffset, uint32(length))
 	c.statusClear(miaStatusDMARunning)
+	c.irqSetFlag(miaIRQCommand)
 
 	return true
 }

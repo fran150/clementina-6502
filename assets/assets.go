@@ -13,3 +13,9 @@ import _ "embed"
 //
 //go:embed computer/mia/kernel.bin
 var MiaKernel []byte
+
+// MiaPETSCIICharset is the MEGA65 open-roms PETSCII-compatible character ROM
+// used to initialize MIA video CHR bank 0.
+//
+//go:embed computer/mia/chargen_openroms.rom
+var MiaPETSCIICharset []byte

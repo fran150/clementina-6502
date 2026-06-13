@@ -5,6 +5,7 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina/modules"
+	"go.bug.st/serial"
 )
 
 /*******************************************************************************************
@@ -115,6 +116,42 @@ func (c *ClementinaComputer) Close() {
 	if closer, ok := c.chips.mia.(interface{ Close() }); ok {
 		closer.Close()
 	}
+}
+
+// ConnectMiaConsole connects a host serial port to the emulated MIA console.
+func (c *ClementinaComputer) ConnectMiaConsole(port serial.Port) error {
+	connectable, ok := c.chips.mia.(interface {
+		ConnectToPort(serial.Port) error
+	})
+	if !ok {
+		return nil
+	}
+
+	return connectable.ConnectToPort(port)
+}
+
+// RequestMiaPhi2Hz requests a PHI2 frequency change through the emulated MIA.
+func (c *ClementinaComputer) RequestMiaPhi2Hz(hz uint32) {
+	configurable, ok := c.chips.mia.(interface {
+		RequestPhi2Hz(uint32)
+	})
+	if !ok {
+		return
+	}
+
+	configurable.RequestPhi2Hz(hz)
+}
+
+// SetMiaPhi2HzChangedHandler subscribes to PHI2 requests made through MIA.
+func (c *ClementinaComputer) SetMiaPhi2HzChangedHandler(handler func(uint32)) {
+	configurable, ok := c.chips.mia.(interface {
+		SetPhi2HzChangedHandler(func(uint32))
+	})
+	if !ok {
+		return
+	}
+
+	configurable.SetPhi2HzChangedHandler(handler)
 }
 
 /*******************************************************************************************

@@ -97,6 +97,33 @@ func (c *emulated_mia) setCfg(id uint8, value uint8) {
 	}
 }
 
+// RequestPhi2Hz asks the emulated MIA to change PHI2 as if firmware wrote the
+// speed configuration registers.
+func (c *emulated_mia) RequestPhi2Hz(hz uint32) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.stagedPhi2Hz = hz
+	c.commitPhi2Hz()
+}
+
+// AppliedPhi2Hz returns the last PHI2 frequency acknowledged by the emulated MIA.
+func (c *emulated_mia) AppliedPhi2Hz() uint32 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.appliedPhi2Hz
+}
+
+// SetPhi2HzChangedHandler installs a callback invoked when MIA receives a PHI2
+// change request. The callback receives the clamped target frequency in Hz.
+func (c *emulated_mia) SetPhi2HzChangedHandler(handler func(uint32)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.phi2HzChanged = handler
+}
+
 // byteFrom24 returns one byte from a 24-bit little-endian value.
 func byteFrom24(value uint32, index uint8) uint8 {
 	return uint8(value >> (index * 8))
@@ -129,6 +156,7 @@ func (c *emulated_mia) commitPhi2Hz() {
 	c.requestedPhi2Hz = c.stagedPhi2Hz
 	c.statusSet(miaStatusSpeedChanging)
 	c.speedChangeRequested = true
+	c.notifyPhi2HzChanged(clampPhi2Hz(c.requestedPhi2Hz))
 }
 
 // speedService applies a pending PHI2 speed change and raises the completion IRQ flag.
@@ -138,9 +166,29 @@ func (c *emulated_mia) speedService() {
 	}
 
 	c.speedChangeRequested = false
-	c.appliedPhi2Hz = c.requestedPhi2Hz
+	c.appliedPhi2Hz = clampPhi2Hz(c.requestedPhi2Hz)
 	c.stagedPhi2Hz = c.appliedPhi2Hz
 	c.requestedPhi2Hz = c.appliedPhi2Hz
 	c.statusClear(miaStatusSpeedChanging)
 	c.irqSetFlag(miaIRQSpeedChanged)
+}
+
+func (c *emulated_mia) notifyPhi2HzChanged(hz uint32) {
+	if c.phi2HzChanged == nil {
+		return
+	}
+
+	c.phi2HzChanged(hz)
+}
+
+func clampPhi2Hz(value uint32) uint32 {
+	if value < miaMinPhi2Hz {
+		return miaMinPhi2Hz
+	}
+
+	if value > miaMaxPhi2Hz {
+		return miaMaxPhi2Hz
+	}
+
+	return value
 }

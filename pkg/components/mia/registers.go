@@ -12,7 +12,9 @@ const (
 
 	miaKernelTargetAddress = 0x4000
 	miaCPUResetPulseCycles = 4
-	miaDefaultPhi2Hz       = 2000
+	miaDefaultPhi2Hz       = 1200000
+	miaMinPhi2Hz           = 1
+	miaMaxPhi2Hz           = 8000000
 )
 
 const (
@@ -85,8 +87,6 @@ const (
 	miaIRQTriggered    uint16 = 1 << 15
 )
 
-// MIA ROM bootstrap installed at $4000. It enables video, initializes palette
-// bank 0 with a few RGB565 colors, then polls the latched video ACK event before
-// moving the backdrop color to the next palette entry. Embedded at build time so
-// it does not depend on the working directory or external files at runtime.
+// MIA ROM bootstrap installed at $4000. Embedded at build time so it does not
+// depend on the working directory or external files at runtime.
 var miaKernelData = assets.MiaKernel

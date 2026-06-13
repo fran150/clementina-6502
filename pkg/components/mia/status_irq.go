@@ -44,11 +44,12 @@ func (c *emulated_mia) irqInit() {
 
 // irqEval updates IRQ_TRIGGERED and the emulated IRQ output from status and mask bits.
 func (c *emulated_mia) irqEval() {
-	if c.irqStatus()&c.irqMask() != 0 {
-		c.setIRQStatus(c.irqStatus() | miaIRQTriggered)
+	status := c.irqStatus()
+	if status&c.irqMask()&^miaIRQTriggered != 0 {
+		c.setIRQStatus(status | miaIRQTriggered)
 		c.irqAsserted = true
 	} else {
-		c.setIRQStatus(c.irqStatus() &^ miaIRQTriggered)
+		c.setIRQStatus(status &^ miaIRQTriggered)
 		c.irqAsserted = false
 	}
 }
@@ -56,6 +57,12 @@ func (c *emulated_mia) irqEval() {
 // irqSetFlag sets an IRQ status bit and re-evaluates the IRQ output.
 func (c *emulated_mia) irqSetFlag(flag uint16) {
 	c.setIRQStatus(c.irqStatus() | flag)
+	c.irqEval()
+}
+
+// irqClearStatus acknowledges all latched IRQ sources and deasserts the output.
+func (c *emulated_mia) irqClearStatus() {
+	c.setIRQStatus(0x0000)
 	c.irqEval()
 }
 
@@ -81,25 +88,31 @@ func (q *miaErrorQueue) Push(chip *emulated_mia, value uint8) {
 		return
 	}
 
+	wasEmpty := q.first == q.last
 	chip.statusSet(miaStatusErrors)
 	chip.irqSetFlag(miaIRQError)
 	q.buf[q.last] = value
 	q.last = next
+	if wasEmpty {
+		chip.writeRegisterWord(miaRegErrorLSB, uint16(value))
+	}
 }
 
-// Pull removes and returns the oldest MIA error code, or zero if the queue is empty.
-func (q *miaErrorQueue) Pull(chip *emulated_mia) uint8 {
-	head := q.first
-	if head == q.last {
+// Consume advances after the CPU reads the visible error register and preloads
+// the next queued error, or zero when the queue drains.
+func (q *miaErrorQueue) Consume(chip *emulated_mia) uint8 {
+	if q.first != q.last {
+		q.first = (q.first + 1) & 0x0F
+	}
+
+	if q.first == q.last {
 		chip.statusClear(miaStatusErrors)
+		chip.writeRegisterWord(miaRegErrorLSB, 0)
 		return 0
 	}
 
-	value := q.buf[head]
-	q.first = (head + 1) & 0x0F
-	if q.first == q.last {
-		chip.statusClear(miaStatusErrors)
-	}
+	next := q.buf[q.first]
+	chip.writeRegisterWord(miaRegErrorLSB, uint16(next))
 
-	return value
+	return next
 }

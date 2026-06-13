@@ -6,18 +6,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fran150/clementina-6502/assets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestEmulatedMiaVideoEnableConfiguresIndexesAndDirtyTracking(t *testing.T) {
+func TestEmulatedMiaVideoStartupConfiguresIndexesFontAndDirtyTracking(t *testing.T) {
 	circuit := newEmulatedMiaTestCircuit()
 	chip := circuit.chip
 	chip.state = miaStateNormal
 
-	circuit.write(miaRegCmdTrigger, 0x40)
-
 	assert.Equal(t, uint8(miaVideoLayoutVersion), chip.memory[miaVideoLocalVersionOffset])
+	require.GreaterOrEqual(t, len(assets.MiaPETSCIICharset), miaPETSCIIPlaneSize*2)
+	assert.Equal(t, reverseByte(assets.MiaPETSCIICharset[0]), chip.memory[miaVideoCHROffset])
+	assert.Equal(t, reverseByte(assets.MiaPETSCIICharset[miaPETSCIIPlaneSize]), chip.memory[miaVideoCHROffset+0x800])
 	assert.Len(t, chip.videoScanDirtyPages(chip.video.activeMap), miaVideoSyncPageCount)
 	assert.Equal(t, miaIndex{
 		currentAddr: 0x00024,
@@ -90,8 +92,7 @@ func TestEmulatedMiaVideoUDPFullRefreshAckAndEmptyRequest(t *testing.T) {
 	}, time.Second, time.Millisecond)
 
 	chip.mu.Lock()
-	chip.writeRegister(miaRegIRQStatusLSB, chip.readRegister(miaRegIRQStatusLSB)&^uint8(miaIRQVideoAcked))
-	chip.irqEval()
+	chip.irqClearStatus()
 	assert.Zero(t, chip.irqStatus()&miaIRQVideoAcked)
 	chip.mu.Unlock()
 

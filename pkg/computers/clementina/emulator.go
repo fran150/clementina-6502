@@ -35,7 +35,7 @@ type clementinaEmulator struct {
 //   - core.BaseEmulator: The configured emulator instance
 //   - error: Any error that occurred during initialization
 func NewClemetinaEmulator(computer *ClementinaComputer, speed float64, displayFPS int) (core.BaseEmulator, error) {
-	speedController := controllers.NewSpeedController(speed)
+	speedController := newMiaSyncedSpeedController(computer, controllers.NewSpeedController(speed))
 	breakPointManager := managers.NewBreakpointManager()
 	windowManager := terminal.NewWindowManager()
 	navigationManager := managers.NewNavigationManager()

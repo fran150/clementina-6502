@@ -1,11 +1,16 @@
 package clementina
 
 import (
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/fran150/clementina-6502/assets"
+	"github.com/fran150/clementina-6502/internal/testutils"
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.bug.st/serial"
 )
 
 // TestClementinaPotentialOperatorsReadsMiaRange verifies debugger operand lookup in MIA memory.
@@ -13,8 +18,9 @@ func TestClementinaPotentialOperatorsReadsMiaRange(t *testing.T) {
 	computer, err := NewClementinaComputer()
 	require.NoError(t, err)
 
-	assert.Equal(t, [2]uint8{0xA9, 0xA9}, computer.getPotentialOperators(0xFFE0))
-	assert.Equal(t, [2]uint8{0xA9, 0x8D}, computer.getPotentialOperators(0xFFE1))
+	require.NotEmpty(t, assets.MiaKernel)
+	assert.Equal(t, [2]uint8{0xA9, assets.MiaKernel[0]}, computer.getPotentialOperators(0xFFE0))
+	assert.Equal(t, [2]uint8{assets.MiaKernel[0], 0x8D}, computer.getPotentialOperators(0xFFE1))
 	assert.Equal(t, [2]uint8{0x00, 0x40}, computer.getPotentialOperators(0xFFE3))
 }
 
@@ -37,13 +43,14 @@ func TestClementinaResetRestoresMiaLoaderWindow(t *testing.T) {
 
 	writeMiaByte(computer, &step, 0xFFE0, 0x00)
 
-	assert.Equal(t, [2]uint8{0x00, 0xA9}, computer.getPotentialOperators(0xFFE0))
+	require.NotEmpty(t, assets.MiaKernel)
+	assert.Equal(t, [2]uint8{0x00, assets.MiaKernel[0]}, computer.getPotentialOperators(0xFFE0))
 
 	computer.Reset(true)
 	tickComputer(computer, &step)
 	computer.Reset(false)
 
-	assert.Equal(t, [2]uint8{0xA9, 0xA9}, computer.getPotentialOperators(0xFFE0))
+	assert.Equal(t, [2]uint8{0xA9, assets.MiaKernel[0]}, computer.getPotentialOperators(0xFFE0))
 }
 
 // TestClementinaResetIsDrivenByMia verifies the computer reset input goes through MIA.
@@ -100,10 +107,11 @@ func TestClementinaResetFetchesMiaLoaderOpcode(t *testing.T) {
 	t.Fatal("CPU did not fetch an opcode from the MIA reset vector")
 }
 
-// TestClementinaKernelVideoLoopLoads verifies the loader writes the video bootstrap.
-func TestClementinaKernelVideoLoopLoads(t *testing.T) {
+// TestClementinaKernelLoads verifies the MIA loader writes the embedded kernel.
+func TestClementinaKernelLoads(t *testing.T) {
 	computer, err := NewClementinaComputer()
 	require.NoError(t, err)
+	require.NotEmpty(t, assets.MiaKernel)
 
 	step := common.NewStepContext()
 
@@ -114,24 +122,65 @@ func TestClementinaKernelVideoLoopLoads(t *testing.T) {
 	}
 	computer.Reset(false)
 
-	for range 6000 {
+	kernelStart := uint32(0x4000)
+	kernelEnd := kernelStart + uint32(len(assets.MiaKernel))
+	for range 12000 {
 		tickComputer(computer, &step)
 
-		if computer.chips.baseram.Peek(0x408C) == 0x4C &&
-			computer.chips.baseram.Peek(0x408D) == 0x72 &&
-			computer.chips.baseram.Peek(0x408E) == 0x40 {
-			assert.Equal(t, uint8(0xA9), computer.chips.baseram.Peek(0x4000))
-			assert.Equal(t, uint8(0x40), computer.chips.baseram.Peek(0x4001))
-			assert.Equal(t, uint8(0x8D), computer.chips.baseram.Peek(0x4002))
-			assert.Equal(t, uint8(0xF0), computer.chips.baseram.Peek(0x4073))
-			assert.Equal(t, [2]uint8{0x72, 0x40}, computer.getPotentialOperators(0x408D))
+		if computer.chips.baseram.Peek(kernelEnd-1) == assets.MiaKernel[len(assets.MiaKernel)-1] {
+			for i, expected := range assets.MiaKernel {
+				assert.Equalf(t, expected, computer.chips.baseram.Peek(kernelStart+uint32(i)), "kernel byte %d", i)
+			}
 			return
 		}
 
 		step.NextCycle()
 	}
 
-	t.Fatal("MIA loader did not write the video bootstrap loop")
+	t.Fatal("MIA loader did not write the embedded kernel")
+}
+
+func TestClementinaMiaConsoleSpeedUpdatesEmulatorTarget(t *testing.T) {
+	computer, err := NewClementinaComputer()
+	require.NoError(t, err)
+
+	emulator, err := NewClemetinaEmulator(computer, 1.2, 15)
+	require.NoError(t, err)
+	clementinaEmulator := emulator.(*clementinaEmulator)
+
+	mock := testutils.NewPortMock(&serial.Mode{})
+	require.NoError(t, computer.ConnectMiaConsole(mock))
+	t.Cleanup(func() {
+		computer.Close()
+		_ = mock.Close()
+	})
+
+	waitForClementinaMiaConsoleOutput(t, mock, "> ")
+	sendClementinaMiaConsoleInput(mock, "speed 2500000\n")
+
+	require.Eventually(t, func() bool {
+		return clementinaEmulator.speedController.GetTargetSpeed() == 2.5
+	}, time.Second, 10*time.Millisecond)
+}
+
+func TestClementinaEmulatorSpeedUpdatesMiaPhi2(t *testing.T) {
+	computer, err := NewClementinaComputer()
+	require.NoError(t, err)
+	t.Cleanup(computer.Close)
+
+	emulator, err := NewClemetinaEmulator(computer, 1.2, 15)
+	require.NoError(t, err)
+	clementinaEmulator := emulator.(*clementinaEmulator)
+
+	clementinaEmulator.speedController.SetTargetSpeed(2.5)
+
+	step := common.NewStepContext()
+	tickComputer(computer, &step)
+
+	phi2Reader := computer.chips.mia.(interface {
+		AppliedPhi2Hz() uint32
+	})
+	assert.Equal(t, uint32(2_500_000), phi2Reader.AppliedPhi2Hz())
 }
 
 func tickComputer(computer *ClementinaComputer, step *common.StepContext) {
@@ -147,4 +196,18 @@ func writeMiaByte(computer *ClementinaComputer, step *common.StepContext, addres
 	computer.chips.oeRWSync.Tick(step)
 	computer.chips.mia.Tick(step)
 	computer.circuit.cpuRW.Set(true)
+}
+
+func sendClementinaMiaConsoleInput(mock *testutils.SerialPortMock, value string) {
+	for _, b := range []byte(value) {
+		mock.PortRxBuffer.Queue(b)
+	}
+}
+
+func waitForClementinaMiaConsoleOutput(t *testing.T, mock *testutils.SerialPortMock, value string) {
+	t.Helper()
+
+	require.Eventually(t, func() bool {
+		return strings.Contains(string(mock.PortTxBuffer.GetValues()), value)
+	}, time.Second, 10*time.Millisecond)
 }

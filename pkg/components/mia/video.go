@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"net"
 	"time"
+
+	"github.com/fran150/clementina-6502/assets"
 )
 
 const (
@@ -21,6 +23,7 @@ const (
 	miaVideoUDPPayloadSize  = 512
 	miaVideoRecordsPerChunk = (miaVideoUDPPayloadSize - miaVideoHeaderSize) / miaVideoPageRecordSize
 	miaVideoLayoutVersion   = 1
+	miaPETSCIIPlaneSize     = 2048
 
 	miaVideoLocalVersionOffset    = 0x00000
 	miaVideoLocalFrameIDOffset    = 0x00004
@@ -146,6 +149,8 @@ func (c *emulated_mia) VideoUDPAddress() string {
 
 // Close stops background services owned by the emulated MIA.
 func (c *emulated_mia) Close() {
+	c.consoleClose()
+
 	c.mu.Lock()
 	conn := c.video.conn
 	c.video.conn = nil
@@ -676,6 +681,7 @@ func (c *emulated_mia) videoReleasePendingResponse(acknowledged bool) {
 func (c *emulated_mia) videoEnable() {
 	clear(c.memory[:miaVideoStateSize])
 	c.memory[miaVideoLocalVersionOffset] = miaVideoLayoutVersion
+	c.videoLoadDefaultFont()
 	c.video.frameID = 0
 	c.video.clientFrameID = 0
 	c.videoSetFrameID(0)
@@ -689,6 +695,17 @@ func (c *emulated_mia) videoEnable() {
 	c.statusClear(miaStatusVideoRequested | miaStatusVideoSent)
 	c.videoConfigureIndexes()
 	c.videoMarkAllSyncPagesDirty()
+}
+
+func (c *emulated_mia) videoLoadDefaultFont() {
+	if len(assets.MiaPETSCIICharset) < miaPETSCIIPlaneSize*2 {
+		return
+	}
+
+	for i := 0; i < miaPETSCIIPlaneSize; i++ {
+		c.memory[miaVideoCHROffset+i] = reverseByte(assets.MiaPETSCIICharset[i])
+		c.memory[miaVideoCHROffset+0x800+i] = reverseByte(assets.MiaPETSCIICharset[miaPETSCIIPlaneSize+i])
+	}
 }
 
 func (c *emulated_mia) videoForceFullRefresh() {
@@ -827,4 +844,10 @@ func (c *emulated_mia) videoSetFrameID(frameID uint32) {
 
 func (c *emulated_mia) videoSetLastResponseDirtyPages(count uint16) {
 	binary.LittleEndian.PutUint16(c.memory[miaVideoLocalDirtyPagesOffset:miaVideoLocalDirtyPagesOffset+2], count)
+}
+
+func reverseByte(value byte) byte {
+	value = (value&0xF0)>>4 | (value&0x0F)<<4
+	value = (value&0xCC)>>2 | (value&0x33)<<2
+	return (value&0xAA)>>1 | (value&0x55)<<1
 }

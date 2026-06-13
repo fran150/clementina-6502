@@ -1,9 +1,15 @@
 package controllers
 
-import "github.com/fran150/clementina-6502/pkg/core"
+import (
+	"sync"
+
+	"github.com/fran150/clementina-6502/pkg/core"
+)
 
 // speedController manages emulation speed with non-linear scaling.
 type speedController struct {
+	mu sync.RWMutex
+
 	targetSpeedMhz float64
 	// Cache the reciprocal for performance (1/speed = nanoseconds per cycle)
 	cachedNanosPerCycle float64
@@ -39,6 +45,9 @@ func NewSpeedController(initialSpeedMhz float64) core.SpeedController {
 // SpeedUp increases the emulation speed of the computer.
 // Uses progressive scaling: 0.1 for speeds ≥1, 0.01 for 0.1-0.99, 0.001 for 0.01-0.099, etc.
 func (s *speedController) SpeedUp() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	increment := s.getSpeedIncrement()
 	s.targetSpeedMhz += increment
 	s.updateCache()
@@ -47,6 +56,9 @@ func (s *speedController) SpeedUp() {
 // SpeedDown decreases the emulation speed of the computer.
 // Uses progressive scaling: 0.1 for speeds >1, 0.01 for 0.1-1.0, 0.001 for 0.01-0.1, etc.
 func (s *speedController) SpeedDown() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	increment := s.getSpeedIncrement()
 	s.targetSpeedMhz -= increment
 	s.updateCache()
@@ -54,12 +66,18 @@ func (s *speedController) SpeedDown() {
 
 // GetTargetSpeed returns the current target speed in MHz.
 func (s *speedController) GetTargetSpeed() float64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.targetSpeedMhz
 }
 
 // SetTargetSpeed sets the target speed in MHz.
 // The speed must be greater than 0, otherwise the request is ignored.
 func (s *speedController) SetTargetSpeed(speedMhz float64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if speedMhz > 0 {
 		s.targetSpeedMhz = speedMhz
 		s.updateCache()
@@ -76,6 +94,9 @@ func (s *speedController) updateCache() {
 
 // GetNanosPerCycle returns the cached nanoseconds per cycle for performance.
 func (s *speedController) GetNanosPerCycle() float64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.cachedNanosPerCycle
 }
 

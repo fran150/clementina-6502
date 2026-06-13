@@ -124,6 +124,24 @@ func runEmulator(cmd *cobra.Command, args []string) {
 		}
 		defer clementinaComputer.Close()
 
+		if serialPort != "" {
+			port, err := serial.Open(serialPort, &serial.Mode{
+				BaudRate: 115200,
+				DataBits: 8,
+				Parity:   serial.NoParity,
+				StopBits: serial.OneStopBit,
+			})
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error creating MIA console port: %v\n", err)
+				os.Exit(1)
+			}
+
+			if err := clementinaComputer.ConnectMiaConsole(port); err != nil {
+				fmt.Fprintf(os.Stderr, "Error connecting MIA console port: %v\n", err)
+				os.Exit(1)
+			}
+		}
+
 		emulator, err = clementina.NewClemetinaEmulator(clementinaComputer, targetMhz, targetFps)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating emulator: %v\n", err)

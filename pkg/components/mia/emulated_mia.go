@@ -37,8 +37,11 @@ type emulated_mia struct {
 	requestedPhi2Hz        uint32
 	appliedPhi2Hz          uint32
 	speedChangeRequested   bool
+	phi2HzChanged          func(uint32)
 
 	video miaVideoState
+
+	console miaConsoleState
 }
 
 // NewEmulatedMia creates a software implementation of the Clementina MIA chip.
@@ -137,7 +140,9 @@ func (c *emulated_mia) Tick(context *common.StepContext) {
 
 	if c.writeEnable.Enabled() {
 		data := c.dataBus.Read()
-		c.writeRegister(address, data)
+		if !c.normalIRQStatusWriteIgnored(address) {
+			c.writeRegister(address, data)
+		}
 		c.afterWrite(address, data)
 	} else {
 		data := c.readRegister(address)
@@ -215,6 +220,7 @@ func (c *emulated_mia) init() {
 	c.irqInit()
 	c.speedResetRuntimeState()
 	c.videoResetRuntimeState()
+	c.videoEnable()
 	c.fastLoaderInit()
 }
 
@@ -258,7 +264,9 @@ func (c *emulated_mia) afterRead(address uint8) {
 			selector := c.readRegister(miaRegIdxBSelector)
 			c.writeRegister(miaRegIdxBPort, c.indexStepAndRead(selector, miaIndexWindowB))
 		case miaRegErrorLSB:
-			c.writeRegisterWord(miaRegErrorLSB, uint16(c.errors.Pull(c)))
+			c.errors.Consume(c)
+		case miaRegIRQStatusLSB:
+			c.irqClearStatus()
 		}
 	}
 }
@@ -300,9 +308,19 @@ func (c *emulated_mia) afterNormalWrite(address uint8, data uint8) {
 			c.readRegister(miaRegCmdParam2),
 			c.readRegister(miaRegCmdParam3),
 		})
-	case miaRegIRQMaskLSB, miaRegIRQMaskMSB, miaRegIRQStatusLSB, miaRegIRQStatusMSB:
+	case miaRegIRQMaskLSB, miaRegIRQMaskMSB:
 		c.irqEval()
 	}
+}
+
+// normalIRQStatusWriteIgnored reports whether a normal-mode CPU write targets
+// the read-to-clear IRQ status register. Firmware owns these bytes internally.
+func (c *emulated_mia) normalIRQStatusWriteIgnored(address uint8) bool {
+	if c.state != miaStateNormal {
+		return false
+	}
+
+	return address == miaRegIRQStatusLSB || address == miaRegIRQStatusMSB
 }
 
 // advanceKernelLoader moves the boot-loader data register to the next kernel byte.
@@ -334,6 +352,9 @@ func (c *emulated_mia) enterNormalMode() {
 	c.speedResetRuntimeState()
 
 	c.writeRegisterWord(miaRegResetVectorLSB, c.kernelTargetAddress)
+	c.writeRegisterWord(miaRegNMIVectorLSB, c.kernelTargetAddress)
+	c.writeRegisterWord(miaRegIRQVectorLSB, c.kernelTargetAddress)
+	c.videoEnable()
 
 	c.state = miaStateNormal
 	c.statusSet(miaStatusMasterMode)
