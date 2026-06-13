@@ -18,6 +18,7 @@ const (
 	miaConsoleSerialBaud    = 115200
 	miaMonitorDefaultDump   = 128
 	miaMonitorDefaultDisasm = 16
+	miaConsoleCtrlQ         = 0x11
 )
 
 type miaConsoleMode uint8
@@ -25,6 +26,7 @@ type miaConsoleMode uint8
 const (
 	miaConsoleModeNormal miaConsoleMode = iota
 	miaConsoleModeMonitor
+	miaConsoleModeInput
 )
 
 type miaConsoleWifiMode uint8
@@ -118,6 +120,11 @@ func (c *emulated_mia) consoleReadLoop() {
 }
 
 func (c *emulated_mia) consoleHandleByte(value byte) {
+	if c.console.mode == miaConsoleModeInput {
+		c.consoleHandleInputByte(value)
+		return
+	}
+
 	switch {
 	case value == '\r' || value == '\n':
 		if value == '\n' && c.console.lastCR {
@@ -146,13 +153,41 @@ func (c *emulated_mia) consoleHandleByte(value byte) {
 	}
 }
 
-func (c *emulated_mia) consoleWritePrompt() {
-	if c.console.mode == miaConsoleModeMonitor {
-		c.consoleWriteString("MON> ")
+// consoleHandleInputByte forwards a terminal byte to the input text FIFO while
+// console input capture is active. Ctrl+Q returns the terminal to command mode.
+func (c *emulated_mia) consoleHandleInputByte(value byte) {
+	if value == miaConsoleCtrlQ {
+		c.mu.Lock()
+		c.inputConsoleEndCapture()
+		c.mu.Unlock()
+
+		c.console.mode = miaConsoleModeNormal
+		c.console.line = c.console.line[:0]
+		c.consoleWriteString("\nConsole input ended.\n")
+		c.consoleWritePrompt()
 		return
 	}
 
-	c.consoleWriteString("> ")
+	if value == '\n' {
+		value = '\r'
+	} else if value == 127 {
+		value = '\b'
+	}
+
+	c.mu.Lock()
+	c.inputConsoleByte(value)
+	c.mu.Unlock()
+}
+
+func (c *emulated_mia) consoleWritePrompt() {
+	switch c.console.mode {
+	case miaConsoleModeMonitor:
+		c.consoleWriteString("MON> ")
+	case miaConsoleModeInput:
+		// No prompt is shown while capturing console input.
+	default:
+		c.consoleWriteString("> ")
+	}
 }
 
 func (c *emulated_mia) consoleWriteString(value string) {
@@ -197,6 +232,8 @@ func (c *emulated_mia) consoleDispatch(line string) string {
 		return c.consoleSpeed(args)
 	case "wifi":
 		return c.consoleWifi(args)
+	case "input":
+		return c.consoleInput(args)
 	case "monitor":
 		c.console.mode = miaConsoleModeMonitor
 		return c.consoleMonitorBanner()
@@ -213,6 +250,7 @@ func (c *emulated_mia) consoleHelp() string {
 	out.WriteString("  status     Show MIA status and Wi-Fi state\n")
 	out.WriteString("  speed      speed HZ  - set PHI2 clock frequency\n")
 	out.WriteString("  wifi       wifi [status|off|connect|ap]\n")
+	out.WriteString("  input      input [status|console|wifi]\n")
 	out.WriteString("  monitor    Enter 65C02 machine language monitor\n")
 	out.WriteString("  quit       Reboot to BOOTSEL\n")
 	out.WriteString("  help       Show this help\n")
@@ -242,6 +280,7 @@ func (c *emulated_mia) consoleStatus() string {
 	fmt.Fprintf(&out, "  IDXA:   index %d\n", idxa)
 	fmt.Fprintf(&out, "  IDXB:   index %d\n", idxb)
 	out.WriteString(c.consoleWifiStatus())
+	out.WriteString(c.consoleInputStatus())
 
 	return out.String()
 }
@@ -366,6 +405,63 @@ func (c *emulated_mia) consoleWifiStatus() string {
 	default:
 		return "Wi-Fi: off\n"
 	}
+}
+
+func (c *emulated_mia) consoleInput(args string) string {
+	args = strings.TrimSpace(args)
+	if args == "" || args == "status" {
+		return c.consoleInputStatus() + "Usage: input [status|console|wifi]\n"
+	}
+
+	switch args {
+	case "console":
+		c.mu.Lock()
+		ok := c.inputSetMode(miaInputModeConsole)
+		c.mu.Unlock()
+		if !ok {
+			return "Input: console mode is not available.\n"
+		}
+		c.console.mode = miaConsoleModeInput
+		return "Console input active. Press Ctrl+Q to return to commands.\n"
+	case "wifi":
+		c.mu.Lock()
+		ok := c.inputSetMode(miaInputModeWifi)
+		address := c.input.bindAddress
+		c.mu.Unlock()
+		if !ok {
+			return "Input: Wi-Fi mode is not available.\n"
+		}
+		return fmt.Sprintf("Input: Wi-Fi mode active on UDP %s.\n", address)
+	default:
+		return "Usage: input [status|console|wifi]\n"
+	}
+}
+
+func (c *emulated_mia) consoleInputStatus() string {
+	c.mu.Lock()
+	mode := c.input.mode
+	udpReady := c.input.udpReady
+	wifiActive := c.input.wifiActive
+	status := c.registers[miaRegInputStatus]
+	count := c.registers[miaRegInputCharCount]
+	c.mu.Unlock()
+
+	var out strings.Builder
+	fmt.Fprintf(&out, "Input: %s", inputModeName(mode))
+	if mode == miaInputModeWifi {
+		udp := "unavailable"
+		if udpReady {
+			udp = "ready"
+		}
+		client := "none"
+		if wifiActive {
+			client = "active"
+		}
+		fmt.Fprintf(&out, "  UDP:%s  client:%s", udp, client)
+	}
+	fmt.Fprintf(&out, "  status:0x%02X  chars:%d\n", status, count)
+
+	return out.String()
 }
 
 func splitConsoleCommand(line string) (string, string) {

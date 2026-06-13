@@ -41,6 +41,8 @@ type emulated_mia struct {
 
 	video miaVideoState
 
+	input miaInputState
+
 	console miaConsoleState
 }
 
@@ -71,6 +73,27 @@ func NewEmulatedMiaWithVideoUDP(bindAddress string) (components.MiaChip, error) 
 	chip := NewEmulatedMia().(*emulated_mia)
 	if err := chip.StartVideoUDP(bindAddress); err != nil {
 		return nil, err
+	}
+
+	return chip, nil
+}
+
+// NewEmulatedMiaWithUDP creates an emulated MIA and starts its UDP video and
+// Wi-Fi input services. An empty address disables the matching service.
+func NewEmulatedMiaWithUDP(videoAddress, inputAddress string) (components.MiaChip, error) {
+	chip := NewEmulatedMia().(*emulated_mia)
+
+	if videoAddress != "" {
+		if err := chip.StartVideoUDP(videoAddress); err != nil {
+			return nil, err
+		}
+	}
+
+	if inputAddress != "" {
+		if err := chip.StartInputUDP(inputAddress); err != nil {
+			chip.Close()
+			return nil, err
+		}
 	}
 
 	return chip, nil
@@ -130,6 +153,7 @@ func (c *emulated_mia) Tick(context *common.StepContext) {
 	}
 
 	c.speedService()
+	c.inputService()
 
 	if !c.miaCS.Enabled() {
 		c.driveIRQLine()
@@ -140,7 +164,7 @@ func (c *emulated_mia) Tick(context *common.StepContext) {
 
 	if c.writeEnable.Enabled() {
 		data := c.dataBus.Read()
-		if !c.normalIRQStatusWriteIgnored(address) {
+		if !c.normalReadOnlyWriteIgnored(address) {
 			c.writeRegister(address, data)
 		}
 		c.afterWrite(address, data)
@@ -221,6 +245,7 @@ func (c *emulated_mia) init() {
 	c.speedResetRuntimeState()
 	c.videoResetRuntimeState()
 	c.videoEnable()
+	c.inputResetRuntimeState()
 	c.fastLoaderInit()
 }
 
@@ -267,6 +292,8 @@ func (c *emulated_mia) afterRead(address uint8) {
 			c.errors.Consume(c)
 		case miaRegIRQStatusLSB:
 			c.irqClearStatus()
+		case miaRegInputChar:
+			c.inputOnCharRead()
 		}
 	}
 }
@@ -313,14 +340,21 @@ func (c *emulated_mia) afterNormalWrite(address uint8, data uint8) {
 	}
 }
 
-// normalIRQStatusWriteIgnored reports whether a normal-mode CPU write targets
-// the read-to-clear IRQ status register. Firmware owns these bytes internally.
-func (c *emulated_mia) normalIRQStatusWriteIgnored(address uint8) bool {
+// normalReadOnlyWriteIgnored reports whether a normal-mode CPU write targets a
+// register that MIA owns internally: the read-to-clear IRQ status register and
+// the input status/char/count registers. Firmware keeps these read-only.
+func (c *emulated_mia) normalReadOnlyWriteIgnored(address uint8) bool {
 	if c.state != miaStateNormal {
 		return false
 	}
 
-	return address == miaRegIRQStatusLSB || address == miaRegIRQStatusMSB
+	switch address {
+	case miaRegIRQStatusLSB, miaRegIRQStatusMSB,
+		miaRegInputStatus, miaRegInputChar, miaRegInputCharCount:
+		return true
+	default:
+		return false
+	}
 }
 
 // advanceKernelLoader moves the boot-loader data register to the next kernel byte.
@@ -355,6 +389,7 @@ func (c *emulated_mia) enterNormalMode() {
 	c.writeRegisterWord(miaRegNMIVectorLSB, c.kernelTargetAddress)
 	c.writeRegisterWord(miaRegIRQVectorLSB, c.kernelTargetAddress)
 	c.videoEnable()
+	c.inputResetRuntimeState()
 
 	c.state = miaStateNormal
 	c.statusSet(miaStatusMasterMode)

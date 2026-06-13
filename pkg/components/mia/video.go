@@ -152,13 +152,20 @@ func (c *emulated_mia) Close() {
 	c.consoleClose()
 
 	c.mu.Lock()
-	conn := c.video.conn
+	videoConn := c.video.conn
 	c.video.conn = nil
 	c.video.bindAddress = ""
+	inputConn := c.input.conn
+	c.input.conn = nil
+	c.input.bindAddress = ""
+	c.input.udpReady = false
 	c.mu.Unlock()
 
-	if conn != nil {
-		conn.Close()
+	if videoConn != nil {
+		videoConn.Close()
+	}
+	if inputConn != nil {
+		inputConn.Close()
 	}
 }
 

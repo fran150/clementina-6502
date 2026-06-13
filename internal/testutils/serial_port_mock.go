@@ -113,7 +113,7 @@ func (port *SerialPortMock) Read(p []byte) (n int, err error) {
 		i++
 	}
 
-	return len(p), port.checkError(FailInRead)
+	return i, port.checkError(FailInRead)
 }
 
 // Send the content of the data byte array to the serial port.

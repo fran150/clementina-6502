@@ -188,9 +188,9 @@ func TestEmulatedMiaDoesNotDriveDataBusWhenChipIsInactive(t *testing.T) {
 func TestEmulatedMiaReadsAndWritesRegisters(t *testing.T) {
 	circuit := newEmulatedMiaTestCircuit()
 
-	circuit.write(miaRegReserved12, 0xAB)
+	circuit.write(miaRegReserved15, 0xAB)
 
-	assert.Equal(t, uint8(0xAB), circuit.read(miaRegReserved12))
+	assert.Equal(t, uint8(0xAB), circuit.read(miaRegReserved15))
 }
 
 // TestEmulatedMiaPeekReadsRegistersWithoutSideEffects verifies debugger register access.

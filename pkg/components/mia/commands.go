@@ -38,6 +38,10 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 		c.videoForceFullRefresh()
 	case 0x43:
 		c.videoSetMode(params[0])
+	case 0x50:
+		c.inputSetMode(miaInputMode(params[0]))
+	case 0x51:
+		c.inputSetProbe(params[0], params[1])
 	}
 
 	c.statusClear(miaStatusCmdRunning)

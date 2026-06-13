@@ -23,6 +23,22 @@ func NewClementinaComputerWithVideoUDP(bindAddress string) (*ClementinaComputer,
 	return newClementinaComputer(chip)
 }
 
+// NewClementinaComputerWithUDP creates a Clementina computer whose emulated MIA
+// runs the UDP video and Wi-Fi input services. An empty address disables the
+// matching service; if both are empty no UDP service is started.
+func NewClementinaComputerWithUDP(videoAddress, inputAddress string) (*ClementinaComputer, error) {
+	if videoAddress == "" && inputAddress == "" {
+		return NewClementinaComputer()
+	}
+
+	chip, err := mia.NewEmulatedMiaWithUDP(videoAddress, inputAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	return newClementinaComputer(chip)
+}
+
 func NewClementinaGPIOComputer(chipName string) (*ClementinaComputer, error) {
 	chip, err := mia.NewPicoMia(chipName)
 	if err != nil {

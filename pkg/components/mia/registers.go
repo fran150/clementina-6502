@@ -42,9 +42,9 @@ const (
 	miaRegIRQMaskMSB
 	miaRegIRQStatusLSB
 	miaRegIRQStatusMSB
-	miaRegReserved12
-	miaRegReserved13
-	miaRegReserved14
+	miaRegInputStatus
+	miaRegInputChar
+	miaRegInputCharCount
 	miaRegReserved15
 	miaRegReserved16
 	miaRegReserved17
@@ -76,15 +76,18 @@ const (
 )
 
 const (
-	miaIRQError        uint16 = 1 << 0
-	miaIRQIdxAWrap     uint16 = 1 << 1
-	miaIRQIdxBWrap     uint16 = 1 << 2
-	miaIRQCommand      uint16 = 1 << 3
-	miaIRQSpeedChanged uint16 = 1 << 4
-	miaIRQVideoRequest uint16 = 1 << 5
-	miaIRQVideoSent    uint16 = 1 << 6
-	miaIRQVideoAcked   uint16 = 1 << 7
-	miaIRQTriggered    uint16 = 1 << 15
+	miaIRQError         uint16 = 1 << 0
+	miaIRQIdxAWrap      uint16 = 1 << 1
+	miaIRQIdxBWrap      uint16 = 1 << 2
+	miaIRQCommand       uint16 = 1 << 3
+	miaIRQSpeedChanged  uint16 = 1 << 4
+	miaIRQVideoRequest  uint16 = 1 << 5
+	miaIRQVideoSent     uint16 = 1 << 6
+	miaIRQVideoAcked    uint16 = 1 << 7
+	miaIRQInputKeyboard uint16 = 1 << 8
+	miaIRQInputMouse    uint16 = 1 << 9
+	miaIRQInputGamepad  uint16 = 1 << 10
+	miaIRQTriggered     uint16 = 1 << 15
 )
 
 // MIA ROM bootstrap installed at $4000. Embedded at build time so it does not

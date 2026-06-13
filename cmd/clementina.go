@@ -25,6 +25,7 @@ var (
 	gpioChipName      string
 	romFile           string
 	videoUDPAddress   string
+	inputUDPAddress   string
 	targetMhz         float64
 	targetFps         int
 	emulateModemLines bool
@@ -42,6 +43,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&serialPort, "port", "p", "", "Serial port to connect to (e.g., /dev/ttys004)")
 	rootCmd.Flags().StringVar(&gpioChipName, "gpio-chip", "gpiochip4", "GPIO chip to use for clementina-gpio")
 	rootCmd.Flags().StringVar(&videoUDPAddress, "video-udp", mia.DefaultVideoUDPAddress, "UDP address for emulated Clementina MIA video; empty disables video UDP")
+	rootCmd.Flags().StringVar(&inputUDPAddress, "input-udp", mia.DefaultInputUDPAddress, "UDP address for emulated Clementina MIA input; empty disables input UDP")
 	rootCmd.Flags().StringVarP(&romFile, "rom", "r", "./assets/computer/beneater/eater.bin", "ROM file to load")
 	rootCmd.Flags().Float64VarP(&targetMhz, "speed", "s", 1.2, "Target emulation speed in MHz")
 	rootCmd.Flags().IntVarP(&targetFps, "fps", "f", 15, "Target display refresh rate")
@@ -65,7 +67,7 @@ func runEmulator(cmd *cobra.Command, args []string) {
 			var err error
 
 			port, err = serial.Open(serialPort, &serial.Mode{
-				BaudRate: 19200,
+				BaudRate: 230400,
 				DataBits: 8,
 				Parity:   serial.NoParity,
 				StopBits: serial.OneStopBit,
@@ -111,13 +113,7 @@ func runEmulator(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 	default:
-		var clementinaComputer *clementina.ClementinaComputer
-		var err error
-		if videoUDPAddress == "" {
-			clementinaComputer, err = clementina.NewClementinaComputer()
-		} else {
-			clementinaComputer, err = clementina.NewClementinaComputerWithVideoUDP(videoUDPAddress)
-		}
+		clementinaComputer, err := clementina.NewClementinaComputerWithUDP(videoUDPAddress, inputUDPAddress)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
 			os.Exit(1)
