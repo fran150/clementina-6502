@@ -21,6 +21,7 @@ const (
 	miaErrorInputProbeInvalid    uint8 = 0x51
 	miaErrorInputUDPAllocFailed  uint8 = 0x52
 	miaErrorInputUDPBindFailed   uint8 = 0x53
+	miaErrorAudioQueueOverflow   uint8 = 0x60
 )
 
 // executeCommand runs the MIA command identified by the trigger register value.
@@ -69,6 +70,12 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 		if !c.inputSetProbe(params[0], params[1]) {
 			c.errors.Push(c, miaErrorInputProbeInvalid)
 		}
+	case 0x60:
+		c.audioEnable()
+	case 0x61:
+		c.audioStop()
+	case 0x62:
+		c.audioReset()
 	default:
 		// Unassigned command ids report ERROR_CMD_UNKNOWN, matching the firmware
 		// command table where every unregistered id maps to command_empty.

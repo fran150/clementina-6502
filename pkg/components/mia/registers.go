@@ -74,6 +74,7 @@ const (
 	miaStatusVideoRequested uint16 = 1 << 5
 	miaStatusVideoSent      uint16 = 1 << 6
 	miaStatusExecPaused     uint16 = 1 << 7
+	miaStatusAudioActive    uint16 = 1 << 8
 )
 
 const (

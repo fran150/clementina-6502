@@ -58,6 +58,8 @@ func (c *emulated_mia) consoleStatus(args string) string {
 		return c.consoleVideoDetail()
 	case "input":
 		return c.consoleInputDetail()
+	case "audio":
+		return c.consoleAudioDetail()
 	case "wifi":
 		return c.consoleWifiDetail()
 	case "irq":
@@ -76,7 +78,7 @@ func (c *emulated_mia) consoleStatus(args string) string {
 		return c.consoleStatusIndex(strings.TrimLeft(args[5:], " \t"))
 	}
 
-	return "Usage: status [video|input|wifi|irq|speed|exec|errors|mem|index [id]]\n"
+	return "Usage: status [video|input|audio|wifi|irq|speed|exec|errors|mem|index [id]]\n"
 }
 
 // consoleStatusSummary renders the compact dashboard, mirroring cmd_status_summary.
@@ -131,6 +133,7 @@ func (c *emulated_mia) consoleStatusSummary() string {
 	out.WriteString(c.consoleWifiStatus())
 	out.WriteString(c.consoleVideoSummary())
 	out.WriteString(c.consoleInputStatus())
+	out.WriteString(c.consoleAudioSummary())
 
 	return out.String()
 }

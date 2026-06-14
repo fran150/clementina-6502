@@ -236,6 +236,8 @@ func (c *emulated_mia) consoleDispatch(line string) string {
 		return c.consoleWifi(args)
 	case "input":
 		return c.consoleInput(args)
+	case "audio":
+		return c.consoleAudio(args)
 	case "exec":
 		return c.consoleExec(args)
 	case "monitor":
@@ -251,11 +253,12 @@ func (c *emulated_mia) consoleDispatch(line string) string {
 func (c *emulated_mia) consoleHelp() string {
 	var out strings.Builder
 	out.WriteString("Commands:\n")
-	out.WriteString("  status     status [video|input|wifi|irq|speed|exec|mem|index]\n")
+	out.WriteString("  status     status [video|input|audio|wifi|irq|speed|exec|mem|index]\n")
 	out.WriteString("  errors     errors [list|clear]\n")
 	out.WriteString("  speed      speed HZ  - set PHI2 clock frequency\n")
 	out.WriteString("  wifi       wifi [status|off|connect|ap]\n")
 	out.WriteString("  input      input [status|console|wifi]\n")
+	out.WriteString("  audio      audio [status|enable|stop|reset]\n")
 	out.WriteString("  exec       exec [status|pause|resume]\n")
 	out.WriteString("  monitor    Enter 65C02 machine language monitor\n")
 	out.WriteString("  quit       Reboot to BOOTSEL\n")
@@ -273,6 +276,7 @@ func writeStatusFlags(out *strings.Builder, status uint16) {
 		{miaStatusVideoRequested, "VID_REQ"},
 		{miaStatusVideoSent, "VID_SENT"},
 		{miaStatusExecPaused, "PAUSED"},
+		{miaStatusAudioActive, "AUDIO"},
 	})
 }
 
@@ -355,6 +359,8 @@ func errorName(code uint8) string {
 		return "ERROR_INPUT_UDP_ALLOC_FAILED"
 	case miaErrorInputUDPBindFailed:
 		return "ERROR_INPUT_UDP_BIND_FAILED"
+	case miaErrorAudioQueueOverflow:
+		return "ERROR_AUDIO_QUEUE_OVERFLOW"
 	default:
 		return "UNKNOWN_ERROR"
 	}

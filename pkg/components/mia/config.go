@@ -171,6 +171,7 @@ func (c *emulated_mia) speedService() {
 	c.requestedPhi2Hz = c.appliedPhi2Hz
 	c.statusClear(miaStatusSpeedChanging)
 	c.irqSetFlag(miaIRQSpeedChanged)
+	c.audioReclock()
 }
 
 func (c *emulated_mia) notifyPhi2HzChanged(hz uint32) {

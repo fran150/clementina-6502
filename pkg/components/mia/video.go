@@ -150,6 +150,7 @@ func (c *emulated_mia) VideoUDPAddress() string {
 // Close stops background services owned by the emulated MIA.
 func (c *emulated_mia) Close() {
 	c.consoleClose()
+	c.audioClose()
 
 	c.mu.Lock()
 	videoConn := c.video.conn

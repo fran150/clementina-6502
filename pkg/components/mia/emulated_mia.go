@@ -45,6 +45,8 @@ type emulated_mia struct {
 
 	input miaInputState
 
+	audio miaAudioState
+
 	console miaConsoleState
 }
 
@@ -249,6 +251,7 @@ func (c *emulated_mia) init() {
 	c.videoResetRuntimeState()
 	c.videoEnable()
 	c.inputResetRuntimeState()
+	c.audioResetRuntimeState()
 	c.fastLoaderInit()
 }
 
@@ -394,6 +397,7 @@ func (c *emulated_mia) enterNormalMode() {
 	c.writeRegisterWord(miaRegIRQVectorLSB, c.kernelTargetAddress)
 	c.videoEnable()
 	c.inputResetRuntimeState()
+	c.audioResetRuntimeState()
 
 	c.state = miaStateNormal
 	c.statusSet(miaStatusMasterMode)
