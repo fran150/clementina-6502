@@ -81,21 +81,39 @@ type miaErrorQueue struct {
 	buf   [16]uint8
 }
 
-// Push appends an error code to the MIA error queue if space is available.
+// Push appends an error code to the MIA error queue. If the queue is full, the
+// oldest unread entry is discarded and the queued value becomes
+// ERROR_QUEUE_OVERFLOW. This keeps producers non-blocking while making loss
+// visible to the 6502, matching the firmware error_push semantics.
 func (q *miaErrorQueue) Push(chip *emulated_mia, value uint8) {
 	next := (q.last + 1) & 0x0F
+	wasEmpty := q.first == q.last
+	overwroteHead := false
+
 	if next == q.first {
-		return
+		q.first = (q.first + 1) & 0x0F
+		value = miaErrorQueueOverflow
+		overwroteHead = true
 	}
 
-	wasEmpty := q.first == q.last
-	chip.statusSet(miaStatusErrors)
-	chip.irqSetFlag(miaIRQError)
 	q.buf[q.last] = value
 	q.last = next
+	chip.statusSet(miaStatusErrors)
+	chip.irqSetFlag(miaIRQError)
+
 	if wasEmpty {
 		chip.writeRegisterWord(miaRegErrorLSB, uint16(value))
+	} else if overwroteHead {
+		chip.writeRegisterWord(miaRegErrorLSB, uint16(q.buf[q.first]))
 	}
+}
+
+// reset clears the error queue, the CPU-visible ERROR register, and the error
+// status bit. It mirrors the firmware error_reset and backs 'errors clear'.
+func (q *miaErrorQueue) reset(chip *emulated_mia) {
+	*q = miaErrorQueue{}
+	chip.writeRegisterWord(miaRegErrorLSB, 0)
+	chip.statusClear(miaStatusErrors)
 }
 
 // Consume advances after the CPU reads the visible error register and preloads

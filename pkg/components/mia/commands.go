@@ -1,9 +1,26 @@
 package mia
 
+// MIA error codes. These mirror the Pico firmware err.h definitions one-for-one
+// so the 6502-visible ERROR register and the console 'errors' command report the
+// same codes. Some codes only originate on real hardware paths the emulator does
+// not exercise (Wi-Fi/CYW43 setup, UDP bind failures, the core1->core0 command
+// FIFO); they are defined for naming parity and so the console can decode them.
 const (
-	miaErrorDMASizeZero       uint8 = 0x10
-	miaErrorDMASourceOverflow uint8 = 0x11
-	miaErrorDMATargetOverflow uint8 = 0x12
+	miaErrorMIACannotAllocateRAM uint8 = 0x01
+	miaErrorQueueOverflow        uint8 = 0x02
+	miaErrorDMASizeZero          uint8 = 0x10
+	miaErrorDMASourceOverflow    uint8 = 0x11
+	miaErrorDMATargetOverflow    uint8 = 0x12
+	miaErrorCmdQueueFull         uint8 = 0x20
+	miaErrorCmdUnknown           uint8 = 0x21
+	miaErrorWifiInitFailed       uint8 = 0x30
+	miaErrorWifiConnectFailed    uint8 = 0x31
+	miaErrorVideoUDPAllocFailed  uint8 = 0x40
+	miaErrorVideoUDPBindFailed   uint8 = 0x41
+	miaErrorInputModeUnavailable uint8 = 0x50
+	miaErrorInputProbeInvalid    uint8 = 0x51
+	miaErrorInputUDPAllocFailed  uint8 = 0x52
+	miaErrorInputUDPBindFailed   uint8 = 0x53
 )
 
 // executeCommand runs the MIA command identified by the trigger register value.
@@ -39,9 +56,17 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 	case 0x43:
 		c.videoSetMode(params[0])
 	case 0x50:
-		c.inputSetMode(miaInputMode(params[0]))
+		if !c.inputSetMode(miaInputMode(params[0])) {
+			c.errors.Push(c, miaErrorInputModeUnavailable)
+		}
 	case 0x51:
-		c.inputSetProbe(params[0], params[1])
+		if !c.inputSetProbe(params[0], params[1]) {
+			c.errors.Push(c, miaErrorInputProbeInvalid)
+		}
+	default:
+		// Unassigned command ids report ERROR_CMD_UNKNOWN, matching the firmware
+		// command table where every unregistered id maps to command_empty.
+		c.errors.Push(c, miaErrorCmdUnknown)
 	}
 
 	c.statusClear(miaStatusCmdRunning)

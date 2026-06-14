@@ -228,6 +228,8 @@ func (c *emulated_mia) consoleDispatch(line string) string {
 		return c.consoleHelp()
 	case "status":
 		return c.consoleStatus()
+	case "errors":
+		return c.consoleErrors(args)
 	case "speed":
 		return c.consoleSpeed(args)
 	case "wifi":
@@ -248,6 +250,7 @@ func (c *emulated_mia) consoleHelp() string {
 	var out strings.Builder
 	out.WriteString("Commands:\n")
 	out.WriteString("  status     Show MIA status and Wi-Fi state\n")
+	out.WriteString("  errors     errors [list|clear]\n")
 	out.WriteString("  speed      speed HZ  - set PHI2 clock frequency\n")
 	out.WriteString("  wifi       wifi [status|off|connect|ap]\n")
 	out.WriteString("  input      input [status|console|wifi]\n")
@@ -318,6 +321,90 @@ func writeStatusFlags(out *strings.Builder, status uint16) {
 
 	if wrote {
 		out.WriteString(")")
+	}
+}
+
+func (c *emulated_mia) consoleErrors(args string) string {
+	switch strings.TrimSpace(args) {
+	case "list":
+		return c.consoleErrorsList()
+	case "clear":
+		c.mu.Lock()
+		c.errors.reset(c)
+		c.mu.Unlock()
+		return "MIA Errors cleared.\n"
+	default:
+		return "Usage: errors [list|clear]\n"
+	}
+}
+
+func (c *emulated_mia) consoleErrorsList() string {
+	c.mu.Lock()
+	first := c.errors.first
+	last := c.errors.last
+	buf := c.errors.buf
+	current := c.readRegister(miaRegErrorLSB)
+	c.mu.Unlock()
+
+	count := (last - first) & 0x0F
+
+	var out strings.Builder
+	fmt.Fprintf(&out, "MIA Errors: %d queued", count)
+	if count != 0 {
+		fmt.Fprintf(&out, "  current: 0x%02X %s", current, errorName(current))
+	}
+	out.WriteString("\n")
+
+	if count == 0 {
+		out.WriteString("  none\n")
+		return out.String()
+	}
+
+	for i := uint8(0); i < count && i < 15; i++ {
+		pos := (first + i) & 0x0F
+		code := buf[pos]
+		fmt.Fprintf(&out, "  %2d: 0x%02X %s\n", i, code, errorName(code))
+	}
+
+	return out.String()
+}
+
+// errorName maps a MIA error code to its symbolic name, mirroring the firmware
+// con_cmds error_name table.
+func errorName(code uint8) string {
+	switch code {
+	case miaErrorMIACannotAllocateRAM:
+		return "ERROR_MIA_CANNOT_ALLOCATE_RAM"
+	case miaErrorQueueOverflow:
+		return "ERROR_QUEUE_OVERFLOW"
+	case miaErrorDMASizeZero:
+		return "ERROR_DMA_SIZE_ZERO"
+	case miaErrorDMASourceOverflow:
+		return "ERROR_DMA_SRC_WILL_OVERFLOW"
+	case miaErrorDMATargetOverflow:
+		return "ERROR_DMA_TGT_WILL_OVERFLOW"
+	case miaErrorCmdQueueFull:
+		return "ERROR_CMD_QUEUE_FULL"
+	case miaErrorCmdUnknown:
+		return "ERROR_CMD_UNKNOWN"
+	case miaErrorWifiInitFailed:
+		return "ERROR_WIFI_INIT_FAILED"
+	case miaErrorWifiConnectFailed:
+		return "ERROR_WIFI_CONNECT_FAILED"
+	case miaErrorVideoUDPAllocFailed:
+		return "ERROR_VIDEO_UDP_ALLOC_FAILED"
+	case miaErrorVideoUDPBindFailed:
+		return "ERROR_VIDEO_UDP_BIND_FAILED"
+	case miaErrorInputModeUnavailable:
+		return "ERROR_INPUT_MODE_UNAVAILABLE"
+	case miaErrorInputProbeInvalid:
+		return "ERROR_INPUT_PROBE_INVALID"
+	case miaErrorInputUDPAllocFailed:
+		return "ERROR_INPUT_UDP_ALLOC_FAILED"
+	case miaErrorInputUDPBindFailed:
+		return "ERROR_INPUT_UDP_BIND_FAILED"
+	default:
+		return "UNKNOWN_ERROR"
 	}
 }
 

@@ -443,6 +443,66 @@ func TestEmulatedMiaDMACommandCopiesMemoryAndQueuesErrors(t *testing.T) {
 	assert.Zero(t, chip.status()&miaStatusErrors)
 }
 
+// TestEmulatedMiaErrorQueueOverflowReportsOverflowCode verifies that overrunning
+// the 15-entry queue drops the oldest entry and surfaces ERROR_QUEUE_OVERFLOW.
+func TestEmulatedMiaErrorQueueOverflowReportsOverflowCode(t *testing.T) {
+	circuit := newEmulatedMiaTestCircuit()
+	chip := circuit.chip
+	chip.state = miaStateNormal
+
+	for range 15 {
+		chip.errors.Push(chip, miaErrorDMASizeZero)
+	}
+
+	assert.Equal(t, miaStatusErrors, chip.status()&miaStatusErrors)
+	assert.Equal(t, miaErrorDMASizeZero, chip.readRegister(miaRegErrorLSB))
+
+	// One push past capacity drops the oldest entry; the new tail entry becomes
+	// the overflow marker while the visible head error is refreshed.
+	chip.errors.Push(chip, miaErrorCmdUnknown)
+	assert.Equal(t, miaErrorDMASizeZero, chip.readRegister(miaRegErrorLSB))
+
+	var last uint8
+	for chip.status()&miaStatusErrors != 0 {
+		last = circuit.read(miaRegErrorLSB)
+	}
+
+	assert.Equal(t, miaErrorQueueOverflow, last)
+	assert.Zero(t, chip.readRegister(miaRegErrorLSB))
+}
+
+// TestEmulatedMiaUnknownCommandReportsError verifies unassigned command ids queue
+// ERROR_CMD_UNKNOWN.
+func TestEmulatedMiaUnknownCommandReportsError(t *testing.T) {
+	circuit := newEmulatedMiaTestCircuit()
+	chip := circuit.chip
+	chip.state = miaStateNormal
+
+	circuit.write(miaRegCmdTrigger, 0x99)
+
+	assert.Equal(t, miaStatusErrors, chip.status()&miaStatusErrors)
+	assert.Equal(t, miaErrorCmdUnknown, chip.readRegister(miaRegErrorLSB))
+}
+
+// TestEmulatedMiaInputCommandsReportErrors verifies the input set-mode and
+// set-probe commands queue errors when the request cannot be satisfied.
+func TestEmulatedMiaInputCommandsReportErrors(t *testing.T) {
+	circuit := newEmulatedMiaTestCircuit()
+	chip := circuit.chip
+	chip.state = miaStateNormal
+
+	circuit.write(miaRegCmdParam1, uint8(miaInputModeUSBHost))
+	circuit.write(miaRegCmdTrigger, 0x50)
+	assert.Equal(t, miaErrorInputModeUnavailable, chip.readRegister(miaRegErrorLSB))
+
+	chip.errors.reset(chip)
+
+	circuit.write(miaRegCmdParam1, 16)
+	circuit.write(miaRegCmdParam2, 0)
+	circuit.write(miaRegCmdTrigger, 0x51)
+	assert.Equal(t, miaErrorInputProbeInvalid, chip.readRegister(miaRegErrorLSB))
+}
+
 func TestEmulatedMiaIRQStatusReadClearsAllSources(t *testing.T) {
 	circuit := newEmulatedMiaTestCircuit()
 	chip := circuit.chip

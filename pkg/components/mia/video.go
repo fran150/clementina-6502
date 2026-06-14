@@ -213,7 +213,7 @@ func (c *emulated_mia) videoHandleDatagram(packet []byte, remote *net.UDPAddr) m
 
 	header, payload, ok := c.videoParseHeader(packet)
 	if !ok {
-		return miaVideoDatagramPlan{}
+		return c.videoProtocolErrorForMalformed(packet, remote)
 	}
 
 	if header.packetType == miaVideoPacketHello {
@@ -453,6 +453,31 @@ func (c *emulated_mia) videoHandleClientStatus(header miaVideoHeader, payload []
 	}
 
 	return miaVideoDatagramPlan{}
+}
+
+// videoProtocolErrorForMalformed sends a protocol error for a datagram that
+// failed full header validation but is still recognizably ours: it has the
+// magic and version, and its session/remote match the active session. This lets
+// a peer that corrupts a packet learn the session is being torn down instead of
+// silently stalling. Packets that are not even partially valid are ignored.
+func (c *emulated_mia) videoProtocolErrorForMalformed(packet []byte, remote *net.UDPAddr) miaVideoDatagramPlan {
+	if len(packet) < miaVideoHeaderSize ||
+		binary.LittleEndian.Uint16(packet[0:2]) != miaVideoMagic ||
+		packet[2] != miaVideoVersion {
+		return miaVideoDatagramPlan{}
+	}
+
+	partial := miaVideoHeader{
+		sessionID: binary.LittleEndian.Uint32(packet[4:8]),
+		frameID:   binary.LittleEndian.Uint32(packet[16:20]),
+		requestID: binary.LittleEndian.Uint16(packet[20:22]),
+	}
+
+	if !c.videoAcceptsSessionPacket(partial, remote) {
+		return miaVideoDatagramPlan{}
+	}
+
+	return c.videoProtocolErrorPlan(remote, partial.requestID, partial.frameID)
 }
 
 func (c *emulated_mia) videoProtocolErrorPlan(remote *net.UDPAddr, requestID uint16, frameID uint32) miaVideoDatagramPlan {

@@ -104,6 +104,38 @@ func TestEmulatedMiaVideoUDPFullRefreshAckAndEmptyRequest(t *testing.T) {
 	assert.Equal(t, uint16(miaVideoStatusNoDirtyPages), binary.LittleEndian.Uint16(statusPayload[0:2]))
 }
 
+// TestEmulatedMiaVideoMalformedPacketInSessionSendsProtocolError verifies that a
+// datagram with a valid magic/version and a matching session, but a header that
+// fails full validation, elicits a protocol-error status and tears down the
+// session (mirrors firmware video_protocol_error_for_malformed).
+func TestEmulatedMiaVideoMalformedPacketInSessionSendsProtocolError(t *testing.T) {
+	chip := NewEmulatedMia().(*emulated_mia)
+	require.NoError(t, chip.StartVideoUDP("127.0.0.1:0"))
+	defer chip.Close()
+
+	client, serverAddr := newMiaVideoUDPClient(t, chip.VideoUDPAddress())
+	defer client.Close()
+
+	sendMiaVideoPacket(t, client, serverAddr, buildMiaVideoClientPacket(miaVideoPacketHello, 0, 1, 0, 0, nil))
+	welcomeHeader, _ := readMiaVideoPacket(t, client)
+	require.Equal(t, uint8(miaVideoPacketWelcome), welcomeHeader.packetType)
+
+	// Claim 4 payload bytes that are not actually present: this fails header
+	// validation while still being recognizably part of the active session.
+	malformed := buildMiaVideoClientPacket(miaVideoPacketRequestFrame, welcomeHeader.sessionID, 2, 0, 0x1234, nil)
+	binary.LittleEndian.PutUint16(malformed[26:28], 4)
+	sendMiaVideoPacket(t, client, serverAddr, malformed)
+
+	statusHeader, statusPayload := readMiaVideoPacket(t, client)
+	require.Equal(t, uint8(miaVideoPacketStatus), statusHeader.packetType)
+	assert.Equal(t, uint16(0x1234), statusHeader.requestID)
+	assert.Equal(t, uint16(miaVideoStatusProtocolErr), binary.LittleEndian.Uint16(statusPayload[0:2]))
+
+	chip.mu.Lock()
+	assert.False(t, chip.video.sessionActive)
+	chip.mu.Unlock()
+}
+
 func newMiaVideoUDPClient(t *testing.T, serverAddress string) (*net.UDPConn, *net.UDPAddr) {
 	t.Helper()
 

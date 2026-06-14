@@ -41,6 +41,36 @@ func TestEmulatedMiaConsoleStatusHelpAndSpeed(t *testing.T) {
 	waitForMiaConsoleOutput(t, mock, "Wi-Fi: off\n")
 }
 
+func TestEmulatedMiaConsoleErrorsListAndClear(t *testing.T) {
+	chip, mock := newMiaConsoleTest(t)
+
+	waitForMiaConsoleOutput(t, mock, "MIA ready. Type 'help' for commands.\n> ")
+
+	sendMiaConsoleInput(mock, "errors list\n")
+	waitForMiaConsoleOutput(t, mock, "MIA Errors: 0 queued\n  none\n")
+
+	chip.mu.Lock()
+	chip.errors.Push(chip, miaErrorDMASizeZero)
+	chip.errors.Push(chip, miaErrorCmdUnknown)
+	chip.mu.Unlock()
+
+	sendMiaConsoleInput(mock, "errors list\n")
+	waitForMiaConsoleOutput(t, mock, "MIA Errors: 2 queued  current: 0x10 ERROR_DMA_SIZE_ZERO\n")
+	waitForMiaConsoleOutput(t, mock, "   0: 0x10 ERROR_DMA_SIZE_ZERO\n")
+	waitForMiaConsoleOutput(t, mock, "   1: 0x21 ERROR_CMD_UNKNOWN\n")
+
+	sendMiaConsoleInput(mock, "errors clear\n")
+	waitForMiaConsoleOutput(t, mock, "MIA Errors cleared.\n")
+
+	chip.mu.Lock()
+	assert.Zero(t, chip.status()&miaStatusErrors)
+	assert.Zero(t, chip.readRegister(miaRegErrorLSB))
+	chip.mu.Unlock()
+
+	sendMiaConsoleInput(mock, "errors\n")
+	waitForMiaConsoleOutput(t, mock, "Usage: errors [list|clear]\n")
+}
+
 func TestEmulatedMiaConsoleMonitorEditDumpAndDisassemble(t *testing.T) {
 	_, mock := newMiaConsoleTest(t)
 
