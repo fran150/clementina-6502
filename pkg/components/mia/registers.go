@@ -73,6 +73,7 @@ const (
 	miaStatusSpeedChanging  uint16 = 1 << 4
 	miaStatusVideoRequested uint16 = 1 << 5
 	miaStatusVideoSent      uint16 = 1 << 6
+	miaStatusExecPaused     uint16 = 1 << 7
 )
 
 const (

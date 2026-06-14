@@ -227,7 +227,7 @@ func (c *emulated_mia) consoleDispatch(line string) string {
 	case "?", "help":
 		return c.consoleHelp()
 	case "status":
-		return c.consoleStatus()
+		return c.consoleStatus(args)
 	case "errors":
 		return c.consoleErrors(args)
 	case "speed":
@@ -236,6 +236,8 @@ func (c *emulated_mia) consoleDispatch(line string) string {
 		return c.consoleWifi(args)
 	case "input":
 		return c.consoleInput(args)
+	case "exec":
+		return c.consoleExec(args)
 	case "monitor":
 		c.console.mode = miaConsoleModeMonitor
 		return c.consoleMonitorBanner()
@@ -249,52 +251,20 @@ func (c *emulated_mia) consoleDispatch(line string) string {
 func (c *emulated_mia) consoleHelp() string {
 	var out strings.Builder
 	out.WriteString("Commands:\n")
-	out.WriteString("  status     Show MIA status and Wi-Fi state\n")
+	out.WriteString("  status     status [video|input|wifi|irq|speed|exec|mem|index]\n")
 	out.WriteString("  errors     errors [list|clear]\n")
 	out.WriteString("  speed      speed HZ  - set PHI2 clock frequency\n")
 	out.WriteString("  wifi       wifi [status|off|connect|ap]\n")
 	out.WriteString("  input      input [status|console|wifi]\n")
+	out.WriteString("  exec       exec [status|pause|resume]\n")
 	out.WriteString("  monitor    Enter 65C02 machine language monitor\n")
 	out.WriteString("  quit       Reboot to BOOTSEL\n")
 	out.WriteString("  help       Show this help\n")
 	return out.String()
 }
 
-func (c *emulated_mia) consoleStatus() string {
-	c.mu.Lock()
-	status := c.status()
-	phi2 := c.appliedPhi2Hz
-	idxa := c.readRegister(miaRegIdxASelector)
-	idxb := c.readRegister(miaRegIdxBSelector)
-	mode := "Bootloader"
-	if status&miaStatusMasterMode != 0 {
-		mode = "Normal"
-	}
-	c.mu.Unlock()
-
-	var out strings.Builder
-	fmt.Fprintf(&out, "MIA Status:\n")
-	fmt.Fprintf(&out, "  Mode:   %s\n", mode)
-	fmt.Fprintf(&out, "  PHI2:   %d Hz\n", phi2)
-	fmt.Fprintf(&out, "  RAM:    %dKB  ($00000-$%05X)\n", miaRAMSize/1024, miaRAMSize-1)
-	fmt.Fprintf(&out, "  Status: 0x%04X", status)
-	writeStatusFlags(&out, status)
-	fmt.Fprintf(&out, "\n")
-	fmt.Fprintf(&out, "  IDXA:   index %d\n", idxa)
-	fmt.Fprintf(&out, "  IDXB:   index %d\n", idxb)
-	out.WriteString(c.consoleWifiStatus())
-	out.WriteString(c.consoleInputStatus())
-
-	return out.String()
-}
-
 func writeStatusFlags(out *strings.Builder, status uint16) {
-	type statusFlag struct {
-		bit  uint16
-		name string
-	}
-
-	flags := []statusFlag{
+	writeFlagNames(out, status, []miaFlagName{
 		{miaStatusMasterMode, "NORMAL"},
 		{miaStatusErrors, "ERRORS"},
 		{miaStatusCmdRunning, "CMD"},
@@ -302,26 +272,8 @@ func writeStatusFlags(out *strings.Builder, status uint16) {
 		{miaStatusSpeedChanging, "SPEED"},
 		{miaStatusVideoRequested, "VID_REQ"},
 		{miaStatusVideoSent, "VID_SENT"},
-	}
-
-	wrote := false
-	for _, flag := range flags {
-		if status&flag.bit == 0 {
-			continue
-		}
-
-		if wrote {
-			out.WriteString(",")
-		} else {
-			out.WriteString(" (")
-		}
-		out.WriteString(flag.name)
-		wrote = true
-	}
-
-	if wrote {
-		out.WriteString(")")
-	}
+		{miaStatusExecPaused, "PAUSED"},
+	})
 }
 
 func (c *emulated_mia) consoleErrors(args string) string {

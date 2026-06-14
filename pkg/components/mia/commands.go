@@ -51,6 +51,12 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 		c.writeRegister(miaRegIdxBPort, c.indexRead(params[0]))
 	case 0x10:
 		c.dmaTransfer(c.indexes[params[0]].currentAddr, c.indexes[params[1]].currentAddr, uint16(params[2]))
+	case 0x30:
+		// Pause is 6502-facing (a program can freeze itself at a diagnostic
+		// point) but there is no 6502 resume command: once PHI2 is stopped the
+		// CPU cannot fetch the resume trigger. Resume comes from the MIA console
+		// 'exec resume' or a reset. This mirrors the firmware command table.
+		c.execPause()
 	case 0x42:
 		c.videoForceFullRefresh()
 	case 0x43:

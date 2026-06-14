@@ -78,6 +78,17 @@ func NewClemetinaEmulator(computer *ClementinaComputer, speed float64, displayFP
 		return false
 	})
 
+	// MIA pauses PHI2 (from the 6502 'pause' command or the terminal 'exec pause')
+	// by halting the emulation tick loop; the terminal console runs on its own
+	// goroutine so 'exec resume' still works while execution is paused.
+	computer.SetMiaExecPausedHandler(func(paused bool) {
+		if paused {
+			emulator.Pause()
+		} else {
+			emulator.Resume()
+		}
+	})
+
 	emulator.Pause()
 
 	return emulator, nil

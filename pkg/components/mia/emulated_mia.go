@@ -38,6 +38,8 @@ type emulated_mia struct {
 	appliedPhi2Hz          uint32
 	speedChangeRequested   bool
 	phi2HzChanged          func(uint32)
+	execPaused             bool
+	execPausedChanged      func(bool)
 
 	video miaVideoState
 
@@ -243,6 +245,7 @@ func (c *emulated_mia) init() {
 
 	c.irqInit()
 	c.speedResetRuntimeState()
+	c.execResetRuntimeState()
 	c.videoResetRuntimeState()
 	c.videoEnable()
 	c.inputResetRuntimeState()
@@ -384,6 +387,7 @@ func (c *emulated_mia) enterNormalMode() {
 
 	c.irqInit()
 	c.speedResetRuntimeState()
+	c.execResetRuntimeState()
 
 	c.writeRegisterWord(miaRegResetVectorLSB, c.kernelTargetAddress)
 	c.writeRegisterWord(miaRegNMIVectorLSB, c.kernelTargetAddress)

@@ -154,6 +154,20 @@ func (c *ClementinaComputer) SetMiaPhi2HzChangedHandler(handler func(uint32)) {
 	configurable.SetPhi2HzChangedHandler(handler)
 }
 
+// SetMiaExecPausedHandler subscribes to PHI2 pause/resume edges made through MIA.
+// MIA stops PHI2 (halting the 6502) on pause and restarts it on resume; the
+// handler receives true on pause and false on resume.
+func (c *ClementinaComputer) SetMiaExecPausedHandler(handler func(bool)) {
+	configurable, ok := c.chips.mia.(interface {
+		SetExecPausedHandler(func(bool))
+	})
+	if !ok {
+		return
+	}
+
+	configurable.SetExecPausedHandler(handler)
+}
+
 /*******************************************************************************************
 * Miscellaneous functions
 ********************************************************************************************/

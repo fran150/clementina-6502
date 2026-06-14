@@ -836,6 +836,19 @@ func (c *emulated_mia) videoMarkAllSyncPagesDirty() {
 	}
 }
 
+// videoCountDirtyPages counts the dirty syncable pages in a dirty map. It mirrors
+// the firmware video_count_dirty_pages helper used by the console diagnostics.
+func (c *emulated_mia) videoCountDirtyPages(mapIndex uint8) uint16 {
+	var count uint16
+	for page := uint16(miaVideoFirstSyncPage); page < miaVideoPageCount; page++ {
+		if c.videoPageDirty(mapIndex, page) {
+			count++
+		}
+	}
+
+	return count
+}
+
 func (c *emulated_mia) videoHasDirtyPages(mapIndex uint8) bool {
 	for page := uint16(miaVideoFirstSyncPage); page < miaVideoPageCount; page++ {
 		if c.videoPageDirty(mapIndex, page) {
