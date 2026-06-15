@@ -238,6 +238,8 @@ func (c *emulated_mia) consoleDispatch(line string) string {
 		return c.consoleInput(args)
 	case "audio":
 		return c.consoleAudio(args)
+	case "sd":
+		return c.consoleSD(args)
 	case "exec":
 		return c.consoleExec(args)
 	case "monitor":
@@ -253,12 +255,13 @@ func (c *emulated_mia) consoleDispatch(line string) string {
 func (c *emulated_mia) consoleHelp() string {
 	var out strings.Builder
 	out.WriteString("Commands:\n")
-	out.WriteString("  status     status [video|input|audio|wifi|irq|speed|exec|mem|index]\n")
+	out.WriteString("  status     status [video|input|audio|sd|wifi|irq|speed|exec|mem|index]\n")
 	out.WriteString("  errors     errors [list|clear]\n")
 	out.WriteString("  speed      speed HZ  - set PHI2 clock frequency\n")
 	out.WriteString("  wifi       wifi [status|off|connect|ap]\n")
 	out.WriteString("  input      input [status|console|wifi]\n")
 	out.WriteString("  audio      audio [status|enable|stop|reset]\n")
+	out.WriteString("  sd         sd [status|init|mount]\n")
 	out.WriteString("  exec       exec [status|pause|resume]\n")
 	out.WriteString("  monitor    Enter 65C02 machine language monitor\n")
 	out.WriteString("  quit       Reboot to BOOTSEL\n")
@@ -277,6 +280,9 @@ func writeStatusFlags(out *strings.Builder, status uint16) {
 		{miaStatusVideoSent, "VID_SENT"},
 		{miaStatusExecPaused, "PAUSED"},
 		{miaStatusAudioActive, "AUDIO"},
+		{miaStatusSDPresent, "SD"},
+		{miaStatusSDBusy, "SD_BUSY"},
+		{miaStatusFSMounted, "FS"},
 	})
 }
 
@@ -361,6 +367,46 @@ func errorName(code uint8) string {
 		return "ERROR_INPUT_UDP_BIND_FAILED"
 	case miaErrorAudioQueueOverflow:
 		return "ERROR_AUDIO_QUEUE_OVERFLOW"
+	case miaErrorSDBusy:
+		return "ERROR_SD_BUSY"
+	case miaErrorSDInitFailed:
+		return "ERROR_SD_INIT_FAILED"
+	case miaErrorSDNotReady:
+		return "ERROR_SD_NOT_READY"
+	case miaErrorSDReadFailed:
+		return "ERROR_SD_READ_FAILED"
+	case miaErrorSDWriteFailed:
+		return "ERROR_SD_WRITE_FAILED"
+	case miaErrorFSMountFailed:
+		return "ERROR_FS_MOUNT_FAILED"
+	case miaErrorFSOpenFailed:
+		return "ERROR_FS_OPEN_FAILED"
+	case miaErrorFSReadFailed:
+		return "ERROR_FS_READ_FAILED"
+	case miaErrorFSCloseFailed:
+		return "ERROR_FS_CLOSE_FAILED"
+	case miaErrorFSDirFailed:
+		return "ERROR_FS_DIR_FAILED"
+	case miaErrorFSInvalidRequest:
+		return "ERROR_FS_INVALID_REQUEST"
+	case miaErrorFSNoFileOpen:
+		return "ERROR_FS_NO_FILE_OPEN"
+	case miaErrorFSWriteFailed:
+		return "ERROR_FS_WRITE_FAILED"
+	case miaErrorFSSeekFailed:
+		return "ERROR_FS_SEEK_FAILED"
+	case miaErrorFSSyncFailed:
+		return "ERROR_FS_SYNC_FAILED"
+	case miaErrorFSStatFailed:
+		return "ERROR_FS_STAT_FAILED"
+	case miaErrorFSMkdirFailed:
+		return "ERROR_FS_MKDIR_FAILED"
+	case miaErrorFSDeleteFailed:
+		return "ERROR_FS_DELETE_FAILED"
+	case miaErrorFSRenameFailed:
+		return "ERROR_FS_RENAME_FAILED"
+	case miaErrorFSFreeFailed:
+		return "ERROR_FS_FREE_FAILED"
 	default:
 		return "UNKNOWN_ERROR"
 	}

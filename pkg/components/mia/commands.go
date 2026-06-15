@@ -22,6 +22,26 @@ const (
 	miaErrorInputUDPAllocFailed  uint8 = 0x52
 	miaErrorInputUDPBindFailed   uint8 = 0x53
 	miaErrorAudioQueueOverflow   uint8 = 0x60
+	miaErrorSDBusy               uint8 = 0x70
+	miaErrorSDInitFailed         uint8 = 0x71
+	miaErrorSDNotReady           uint8 = 0x72
+	miaErrorSDReadFailed         uint8 = 0x73
+	miaErrorSDWriteFailed        uint8 = 0x74
+	miaErrorFSMountFailed        uint8 = 0x78
+	miaErrorFSOpenFailed         uint8 = 0x79
+	miaErrorFSReadFailed         uint8 = 0x7A
+	miaErrorFSCloseFailed        uint8 = 0x7B
+	miaErrorFSDirFailed          uint8 = 0x7C
+	miaErrorFSInvalidRequest     uint8 = 0x7D
+	miaErrorFSNoFileOpen         uint8 = 0x7E
+	miaErrorFSWriteFailed        uint8 = 0x7F
+	miaErrorFSSeekFailed         uint8 = 0x80
+	miaErrorFSSyncFailed         uint8 = 0x81
+	miaErrorFSStatFailed         uint8 = 0x82
+	miaErrorFSMkdirFailed        uint8 = 0x83
+	miaErrorFSDeleteFailed       uint8 = 0x84
+	miaErrorFSRenameFailed       uint8 = 0x85
+	miaErrorFSFreeFailed         uint8 = 0x86
 )
 
 // executeCommand runs the MIA command identified by the trigger register value.
@@ -76,6 +96,12 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 		c.audioStop()
 	case 0x62:
 		c.audioReset()
+	case miaCmdSDInit, miaCmdSDReadSector, miaCmdSDWriteSector, miaCmdSDGetInfo,
+		miaCmdFSMount, miaCmdFSOpendir, miaCmdFSReaddir, miaCmdFSOpen,
+		miaCmdFSRead, miaCmdFSClose, miaCmdFSLoadToMiaRAM, miaCmdFSWrite,
+		miaCmdFSSync, miaCmdFSSeek, miaCmdFSStat, miaCmdFSMkdir,
+		miaCmdFSDelete, miaCmdFSRename, miaCmdFSGetFree:
+		c.sdRequest(id)
 	default:
 		// Unassigned command ids report ERROR_CMD_UNKNOWN, matching the firmware
 		// command table where every unregistered id maps to command_empty.

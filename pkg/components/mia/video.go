@@ -147,26 +147,16 @@ func (c *emulated_mia) VideoUDPAddress() string {
 	return c.video.bindAddress
 }
 
-// Close stops background services owned by the emulated MIA.
-func (c *emulated_mia) Close() {
-	c.consoleClose()
-	c.audioClose()
-
+// videoClose tears down the video UDP service. It is part of the chip Close path.
+func (c *emulated_mia) videoClose() {
 	c.mu.Lock()
-	videoConn := c.video.conn
+	conn := c.video.conn
 	c.video.conn = nil
 	c.video.bindAddress = ""
-	inputConn := c.input.conn
-	c.input.conn = nil
-	c.input.bindAddress = ""
-	c.input.udpReady = false
 	c.mu.Unlock()
 
-	if videoConn != nil {
-		videoConn.Close()
-	}
-	if inputConn != nil {
-		inputConn.Close()
+	if conn != nil {
+		conn.Close()
 	}
 }
 

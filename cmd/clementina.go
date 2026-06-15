@@ -26,6 +26,7 @@ var (
 	romFile           string
 	videoUDPAddress   string
 	inputUDPAddress   string
+	sdFolder          string
 	targetMhz         float64
 	targetFps         int
 	emulateModemLines bool
@@ -44,6 +45,7 @@ func init() {
 	rootCmd.Flags().StringVar(&gpioChipName, "gpio-chip", "gpiochip4", "GPIO chip to use for clementina-gpio")
 	rootCmd.Flags().StringVar(&videoUDPAddress, "video-udp", mia.DefaultVideoUDPAddress, "UDP address for emulated Clementina MIA video; empty disables video UDP")
 	rootCmd.Flags().StringVar(&inputUDPAddress, "input-udp", mia.DefaultInputUDPAddress, "UDP address for emulated Clementina MIA input; empty disables input UDP")
+	rootCmd.Flags().StringVar(&sdFolder, "sd", "", "Host folder used as the emulated Clementina MIA SD card; empty leaves the slot empty")
 	rootCmd.Flags().StringVarP(&romFile, "rom", "r", "./assets/computer/beneater/eater.bin", "ROM file to load")
 	rootCmd.Flags().Float64VarP(&targetMhz, "speed", "s", 1.2, "Target emulation speed in MHz")
 	rootCmd.Flags().IntVarP(&targetFps, "fps", "f", 15, "Target display refresh rate")
@@ -119,6 +121,16 @@ func runEmulator(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 		defer clementinaComputer.Close()
+
+		if sdFolder != "" {
+			info, err := os.Stat(sdFolder)
+			if err != nil || !info.IsDir() {
+				fmt.Fprintf(os.Stderr, "Error: --sd folder %q is not an accessible directory\n", sdFolder)
+				os.Exit(1)
+			}
+
+			clementinaComputer.SetMiaSDFolder(sdFolder)
+		}
 
 		if serialPort != "" {
 			port, err := serial.Open(serialPort, &serial.Mode{

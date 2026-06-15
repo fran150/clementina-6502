@@ -156,6 +156,20 @@ func (c *emulated_mia) inputResetRuntimeState() {
 	c.inputRecomputeStatus()
 }
 
+// inputClose tears down the input UDP service. It is part of the chip Close path.
+func (c *emulated_mia) inputClose() {
+	c.mu.Lock()
+	conn := c.input.conn
+	c.input.conn = nil
+	c.input.bindAddress = ""
+	c.input.udpReady = false
+	c.mu.Unlock()
+
+	if conn != nil {
+		conn.Close()
+	}
+}
+
 // inputService applies queued 6502 event acknowledgements and re-evaluates the
 // input IRQ bits. It runs once per MIA service cycle.
 func (c *emulated_mia) inputService() {

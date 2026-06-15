@@ -60,6 +60,8 @@ func (c *emulated_mia) consoleStatus(args string) string {
 		return c.consoleInputDetail()
 	case "audio":
 		return c.consoleAudioDetail()
+	case "sd", "fs":
+		return c.consoleSDDetail()
 	case "wifi":
 		return c.consoleWifiDetail()
 	case "irq":
@@ -78,7 +80,7 @@ func (c *emulated_mia) consoleStatus(args string) string {
 		return c.consoleStatusIndex(strings.TrimLeft(args[5:], " \t"))
 	}
 
-	return "Usage: status [video|input|audio|wifi|irq|speed|exec|errors|mem|index [id]]\n"
+	return "Usage: status [video|input|audio|sd|wifi|irq|speed|exec|errors|mem|index [id]]\n"
 }
 
 // consoleStatusSummary renders the compact dashboard, mirroring cmd_status_summary.
@@ -134,6 +136,7 @@ func (c *emulated_mia) consoleStatusSummary() string {
 	out.WriteString(c.consoleVideoSummary())
 	out.WriteString(c.consoleInputStatus())
 	out.WriteString(c.consoleAudioSummary())
+	out.WriteString(c.consoleSDSummary())
 
 	return out.String()
 }
@@ -205,6 +208,9 @@ func writeIRQSources(out *strings.Builder, value uint16) {
 		{miaIRQInputKeyboard, "INPUT_KEY"},
 		{miaIRQInputMouse, "INPUT_MOUSE"},
 		{miaIRQInputGamepad, "INPUT_PAD"},
+		{miaIRQSDDone, "SD_DONE"},
+		{miaIRQSDError, "SD_ERROR"},
+		{miaIRQFSEvent, "FS_EVENT"},
 		{miaIRQTriggered, "TRIGGERED"},
 	})
 

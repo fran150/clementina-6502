@@ -47,6 +47,8 @@ type emulated_mia struct {
 
 	audio miaAudioState
 
+	sd miaSDState
+
 	console miaConsoleState
 }
 
@@ -184,6 +186,17 @@ func (c *emulated_mia) Tick(context *common.StepContext) {
 // PostTick completes the MIA cycle. The emulated MIA resolves its cycle during Tick.
 func (c *emulated_mia) PostTick(context *common.StepContext) {}
 
+// Close stops the background services and host resources owned by the emulated
+// MIA. Each subsystem owns its own teardown helper in its own file; this is the
+// orchestrator that runs them all.
+func (c *emulated_mia) Close() {
+	c.consoleClose()
+	c.audioClose()
+	c.sdClose()
+	c.videoClose()
+	c.inputClose()
+}
+
 // handleResetRequest applies the MIA-controlled system reset behavior.
 func (c *emulated_mia) handleResetRequest() bool {
 	resetRequested := c.resetRequest.Enabled()
@@ -249,10 +262,20 @@ func (c *emulated_mia) init() {
 	c.speedResetRuntimeState()
 	c.execResetRuntimeState()
 	c.videoResetRuntimeState()
+	c.resetSubsystems()
+	c.fastLoaderInit()
+}
+
+// resetSubsystems brings the I/O subsystems to their runtime baseline. It is the
+// single place that lists them, shared by the cold init path and the
+// loader->normal transition, so adding a subsystem only touches one spot. (init
+// additionally resets the video runtime state beforehand; here video is only
+// re-enabled, matching the firmware.)
+func (c *emulated_mia) resetSubsystems() {
 	c.videoEnable()
 	c.inputResetRuntimeState()
 	c.audioResetRuntimeState()
-	c.fastLoaderInit()
+	c.sdResetRuntimeState()
 }
 
 // readRegister returns a byte from the 32-byte MIA register window.
@@ -395,9 +418,7 @@ func (c *emulated_mia) enterNormalMode() {
 	c.writeRegisterWord(miaRegResetVectorLSB, c.kernelTargetAddress)
 	c.writeRegisterWord(miaRegNMIVectorLSB, c.kernelTargetAddress)
 	c.writeRegisterWord(miaRegIRQVectorLSB, c.kernelTargetAddress)
-	c.videoEnable()
-	c.inputResetRuntimeState()
-	c.audioResetRuntimeState()
+	c.resetSubsystems()
 
 	c.state = miaStateNormal
 	c.statusSet(miaStatusMasterMode)

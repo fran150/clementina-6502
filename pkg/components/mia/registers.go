@@ -75,6 +75,9 @@ const (
 	miaStatusVideoSent      uint16 = 1 << 6
 	miaStatusExecPaused     uint16 = 1 << 7
 	miaStatusAudioActive    uint16 = 1 << 8
+	miaStatusSDPresent      uint16 = 1 << 9
+	miaStatusSDBusy         uint16 = 1 << 10
+	miaStatusFSMounted      uint16 = 1 << 11
 )
 
 const (
@@ -89,6 +92,9 @@ const (
 	miaIRQInputKeyboard uint16 = 1 << 8
 	miaIRQInputMouse    uint16 = 1 << 9
 	miaIRQInputGamepad  uint16 = 1 << 10
+	miaIRQSDDone        uint16 = 1 << 11
+	miaIRQSDError       uint16 = 1 << 12
+	miaIRQFSEvent       uint16 = 1 << 13
 	miaIRQTriggered     uint16 = 1 << 15
 )
 

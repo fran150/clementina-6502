@@ -118,6 +118,20 @@ func (c *ClementinaComputer) Close() {
 	}
 }
 
+// SetMiaSDFolder attaches a host folder as the emulated MIA SD card. An empty
+// path leaves the SD slot empty. It is a no-op on MIA implementations (such as the
+// real GPIO chip) that do not support an emulated SD card.
+func (c *ClementinaComputer) SetMiaSDFolder(folder string) {
+	configurable, ok := c.chips.mia.(interface {
+		SetSDFolder(string)
+	})
+	if !ok {
+		return
+	}
+
+	configurable.SetSDFolder(folder)
+}
+
 // ConnectMiaConsole connects a host serial port to the emulated MIA console.
 func (c *ClementinaComputer) ConnectMiaConsole(port serial.Port) error {
 	connectable, ok := c.chips.mia.(interface {
