@@ -370,8 +370,8 @@ func TestEmulatedMiaIndexWrapDirectionAndIRQGating(t *testing.T) {
 	assert.Equal(t, miaIRQIdxAWrap, chip.irqStatus()&miaIRQIdxAWrap)
 }
 
-// TestEmulatedMiaMemoryMirrorsAt128KiB verifies indexed RAM access mirrors like Pico RAM.
-func TestEmulatedMiaMemoryMirrorsAt128KiB(t *testing.T) {
+// TestEmulatedMiaMemoryMirrorsAt256KiB verifies indexed RAM access mirrors like Pico RAM.
+func TestEmulatedMiaMemoryMirrorsAt256KiB(t *testing.T) {
 	chip := newEmulatedMiaTestCircuit().chip
 
 	chip.indexes[9].currentAddr = miaRAMSize + 3

@@ -123,11 +123,16 @@ func TestClementinaKernelLoads(t *testing.T) {
 	computer.Reset(false)
 
 	kernelStart := uint32(0x4000)
-	kernelEnd := kernelStart + uint32(len(assets.MiaKernel))
-	for range 12000 {
+	kernelReadyOffset := len(assets.MiaKernel) - 1
+	for kernelReadyOffset > 0 && assets.MiaKernel[kernelReadyOffset] == 0 {
+		kernelReadyOffset--
+	}
+	kernelReadyAddress := kernelStart + uint32(kernelReadyOffset)
+
+	for range 80000 {
 		tickComputer(computer, &step)
 
-		if computer.chips.baseram.Peek(kernelEnd-1) == assets.MiaKernel[len(assets.MiaKernel)-1] {
+		if computer.chips.baseram.Peek(kernelReadyAddress) == assets.MiaKernel[kernelReadyOffset] {
 			for i, expected := range assets.MiaKernel {
 				assert.Equalf(t, expected, computer.chips.baseram.Peek(kernelStart+uint32(i)), "kernel byte %d", i)
 			}

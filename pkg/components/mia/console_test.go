@@ -76,7 +76,7 @@ func TestEmulatedMiaConsoleMonitorEditDumpAndDisassemble(t *testing.T) {
 
 	waitForMiaConsoleOutput(t, mock, "> ")
 	sendMiaConsoleInput(mock, "monitor\n")
-	waitForMiaConsoleOutput(t, mock, "65C02 Monitor  [MIA RAM: 128KB, $00000-$1FFFF]\n")
+	waitForMiaConsoleOutput(t, mock, "65C02 Monitor  [MIA RAM: 256KB, $00000-$3FFFF]\n")
 	waitForMiaConsoleOutput(t, mock, "MON> ")
 
 	sendMiaConsoleInput(mock, "e 4000 A9 01 80 FE 0F 10 02\n")

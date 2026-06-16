@@ -3,7 +3,7 @@ package mia
 import "github.com/fran150/clementina-6502/assets"
 
 const (
-	miaRAMSize       = 128 * 1024
+	miaRAMSize       = 256 * 1024
 	miaRAMMask       = miaRAMSize - 1
 	miaRegisterCount = 32
 	miaRegisterMask  = 0x1F
