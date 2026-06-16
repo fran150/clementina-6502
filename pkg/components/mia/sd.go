@@ -57,7 +57,7 @@ const (
 	miaFSPath2Offset = miaFSTransferOffset
 	miaFSPath2Size   = miaFSPathSize
 
-	miaSDVersion = 3
+	miaSDVersion = 4
 
 	// Virtual raw block device capacity reported by SD_INIT/SD_GET_INFO and used
 	// to bound raw sector access. A host folder has no inherent size, so this is a
@@ -68,6 +68,17 @@ const (
 	// structure, so free/total space is synthesized from this nominal geometry and
 	// the folder's current byte usage (32 KiB clusters over the virtual capacity).
 	miaSDClusterSectors uint16 = 64
+
+	// sdJobChunkSize and miaSDServiceBudgetUS mirror the firmware's chunked SD job
+	// engine (SD_JOB_CHUNK_SIZE / MIA_SD_SERVICE_BUDGET_US). On the Pico the
+	// FS_LOAD_TO_MIA_RAM / FS_SAVE_FROM_MIA_RAM jobs process one 512-byte chunk per
+	// core-0 service call and yield once the per-call time budget expires, so
+	// video/Wi-Fi/console work keeps breathing during big transfers. The emulator
+	// runs each SD command synchronously (see the file header), so these are
+	// informational only: the console reports them for parity, but they do not gate
+	// the transfer.
+	sdJobChunkSize       = 512
+	miaSDServiceBudgetUS = 1000
 )
 
 // Control block field offsets, relative to miaSDControlOffset.
@@ -90,6 +101,7 @@ const (
 	miaSDControlFreeClusters0   = 0x20
 	miaSDControlTotalClusters0  = 0x24
 	miaSDControlClusterSectorsL = 0x28
+	miaSDControlTransferLen0    = 0x2A
 )
 
 // SD_STATUS byte flags (mirrored into the control block).
@@ -165,6 +177,8 @@ const (
 	miaCmdFSDelete       uint8 = 0x84
 	miaCmdFSRename       uint8 = 0x85
 	miaCmdFSGetFree      uint8 = 0x86
+
+	miaCmdFSSaveFromMiaRAM uint8 = 0x87
 )
 
 // Subset of FatFs FRESULT codes, written to SD_FATFS_RESULT for diagnostics.
@@ -260,6 +274,10 @@ func (c *emulated_mia) sdControlFilePos() uint32 {
 	return c.sdReadU32(miaSDControlOffset + miaSDControlFilePos0)
 }
 
+func (c *emulated_mia) sdControlTransferLen() uint32 {
+	return c.sdReadU32(miaSDControlOffset + miaSDControlTransferLen0)
+}
+
 /**************************************************************************************************
  * Lifecycle (run under c.mu)
  **************************************************************************************************/
@@ -348,7 +366,7 @@ func (c *emulated_mia) sdRequest(command uint8) bool {
 		miaCmdFSMount, miaCmdFSOpendir, miaCmdFSReaddir, miaCmdFSOpen,
 		miaCmdFSRead, miaCmdFSClose, miaCmdFSLoadToMiaRAM, miaCmdFSWrite,
 		miaCmdFSSync, miaCmdFSSeek, miaCmdFSStat, miaCmdFSMkdir,
-		miaCmdFSDelete, miaCmdFSRename, miaCmdFSGetFree:
+		miaCmdFSDelete, miaCmdFSRename, miaCmdFSGetFree, miaCmdFSSaveFromMiaRAM:
 	default:
 		return false
 	}
@@ -543,6 +561,9 @@ func (c *emulated_mia) sdService(command uint8) {
 		errorCode = miaErrorFSReadFailed
 		c.sdWriteU16(miaSDControlOffset+miaSDControlResultLenL, uint16(loaded))
 		c.sdWriteU32(miaSDControlOffset+miaSDControlFilePos0, loaded)
+
+	case miaCmdFSSaveFromMiaRAM:
+		ok, fr, errorCode = c.sdServiceSave()
 
 	default:
 		ok = false
@@ -944,8 +965,14 @@ func (c *emulated_mia) sdLoadToRAM(dest, maxLen uint32) (uint32, bool, uint8) {
 	}
 	defer file.Close()
 
+	// Mirror sd_start_load_job: publish the file size before streaming so a 6502
+	// program can compare SD_FILE_POS against SD_FILE_SIZE once the load completes.
+	if info, statErr := file.Stat(); statErr == nil {
+		c.sdWriteU32(miaSDControlOffset+miaSDControlFileSize0, uint32(info.Size()))
+	}
+
 	var total uint32
-	temp := make([]uint8, 512)
+	temp := make([]uint8, sdJobChunkSize)
 
 	for dest < miaRAMSize {
 		remainingRAM := uint32(miaRAMSize) - dest
@@ -992,6 +1019,78 @@ func (c *emulated_mia) sdLoadToRAM(dest, maxLen uint32) (uint32, bool, uint8) {
 	}
 
 	return total, true, frOK
+}
+
+// sdServiceSave mirrors the firmware FS_SAVE_FROM_MIA_RAM job (sd_start_save_job +
+// sd_job_step_save + sd_finish_job): it opens the path with the requested write
+// mode, streams SD_TRANSFER_LEN bytes from MIA RAM at SD_DEST_ADDR into the file,
+// records the saved byte count, then closes the file. On the Pico this is a
+// chunked job spread across core-0 service calls (see sdJobChunkSize); the emulator
+// runs it in one synchronous transfer. The save uses its own file handle and never
+// touches the implicit FS_OPEN file, exactly like the firmware job.
+func (c *emulated_mia) sdServiceSave() (bool, uint8, uint8) {
+	if ok, fr := c.sdRequireMounted(); !ok {
+		return false, fr, miaErrorFSMountFailed
+	}
+
+	source := c.sdControlDestAddr()
+	length := c.sdControlTransferLen()
+	if source > miaRAMSize || length > miaRAMSize-source {
+		return false, frInvalidParameter, miaErrorFSInvalidRequest
+	}
+
+	// Reject read-only opens: a save must be able to write. Mirrors the firmware
+	// check that the resolved FatFs mode carries FA_WRITE.
+	openMode := c.memory[miaSDControlOffset+miaSDControlOpenMode]
+	flag, ok := sdOpenModeToFlag(openMode)
+	if !ok || openMode == miaFSOpenRead {
+		return false, frDenied, miaErrorFSInvalidRequest
+	}
+
+	hostPath, ok := c.sdResolveHostPath()
+	if !ok {
+		return false, frInvalidName, miaErrorFSOpenFailed
+	}
+
+	file, err := os.OpenFile(hostPath, flag, 0o644)
+	if err != nil {
+		return false, sdErrToFresult(err), miaErrorFSOpenFailed
+	}
+
+	// Mirror sd_start_save_job: reset progress and publish the open-time file size.
+	c.sdWriteU16(miaSDControlOffset+miaSDControlResultLenL, 0)
+	c.sdWriteU32(miaSDControlOffset+miaSDControlFilePos0, 0)
+	if info, statErr := file.Stat(); statErr == nil {
+		c.sdWriteU32(miaSDControlOffset+miaSDControlFileSize0, uint32(info.Size()))
+	}
+
+	saveOK := true
+	fr := frOK
+	errorCode := miaErrorFSWriteFailed
+
+	n, werr := file.Write(c.memory[source : source+length])
+	saved := uint32(n)
+	c.sdWriteU16(miaSDControlOffset+miaSDControlResultLenL, uint16(saved))
+	c.sdWriteU32(miaSDControlOffset+miaSDControlFilePos0, saved)
+	if werr != nil || saved != length {
+		saveOK = false
+		fr = sdErrToFresult(werr)
+	}
+
+	// On success record the final file size (sd_finish_job writes f_size).
+	if saveOK {
+		if info, statErr := file.Stat(); statErr == nil {
+			c.sdWriteU32(miaSDControlOffset+miaSDControlFileSize0, uint32(info.Size()))
+		}
+	}
+
+	if closeErr := file.Close(); closeErr != nil && saveOK {
+		saveOK = false
+		fr = sdErrToFresult(closeErr)
+		errorCode = miaErrorFSCloseFailed
+	}
+
+	return saveOK, fr, errorCode
 }
 
 /**************************************************************************************************
@@ -1292,11 +1391,15 @@ func (c *emulated_mia) consoleSDDetail() string {
 	freeClusters := c.sdReadU32(miaSDControlOffset + miaSDControlFreeClusters0)
 	totalClusters := c.sdReadU32(miaSDControlOffset + miaSDControlTotalClusters0)
 	clusterSectors := c.sdReadU16(miaSDControlOffset + miaSDControlClusterSectorsL)
+	transferLen := c.sdControlTransferLen()
 	c.mu.Unlock()
 
 	var out strings.Builder
 	out.WriteString("SD/FS:\n")
-	fmt.Fprintf(&out, "  state:     initialized:%s mounted:%s busy:%s file:%s dir:%s eof:%s\n",
+	// The firmware reports the active SD job type here; the emulator runs every SD
+	// command synchronously, so no job is ever in flight when the console reads
+	// status, hence job:none.
+	fmt.Fprintf(&out, "  state:     initialized:%s mounted:%s busy:%s file:%s dir:%s job:none eof:%s\n",
 		yesNo(initialized), yesNo(mounted), yesNo(busy),
 		openClosed(fileOpen), openClosed(dirOpen), yesNo(eof))
 	fmt.Fprintf(&out, "  card:      type:%d sectors:%d capacity:%d MiB\n",
@@ -1317,6 +1420,8 @@ func (c *emulated_mia) consoleSDDetail() string {
 	fmt.Fprintf(&out, "             mode:%d requested-open-mode:%d\n", openMode, requestedOpenMode)
 	fmt.Fprintf(&out, "  free:      clusters:%d/%d cluster-sectors:%d\n",
 		freeClusters, totalClusters, clusterSectors)
+	fmt.Fprintf(&out, "  service:   chunk:%d budget:%d us transfer-len:%d\n",
+		sdJobChunkSize, miaSDServiceBudgetUS, transferLen)
 
 	return out.String()
 }

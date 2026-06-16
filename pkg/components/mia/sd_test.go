@@ -229,6 +229,94 @@ func TestEmulatedMiaFSWriteCreate(t *testing.T) {
 	assert.Equal(t, payload, saved)
 }
 
+// TestEmulatedMiaFSSaveFromMiaRAM verifies FS_SAVE_FROM_MIA_RAM streams a MIA RAM
+// region into a new file and reports the saved byte count, position and size.
+func TestEmulatedMiaFSSaveFromMiaRAM(t *testing.T) {
+	dir := t.TempDir()
+	circuit := newSDTestCircuit(t, dir)
+	chip := circuit.chip
+
+	circuit.write(miaRegCmdTrigger, miaCmdFSMount)
+	require.True(t, chip.sd.mounted)
+
+	payload := []byte("CLEMENTINA SD SAVE FROM RAM")
+	source := uint32(0x08000)
+	copy(chip.memory[source:], payload)
+
+	sdWritePath(chip, "/DUMP.BIN")
+	chip.memory[miaSDControlOffset+miaSDControlDestAddrL] = uint8(source)
+	chip.memory[miaSDControlOffset+miaSDControlDestAddrL+1] = uint8(source >> 8)
+	chip.memory[miaSDControlOffset+miaSDControlDestAddrL+2] = uint8(source >> 16)
+	chip.sdWriteU32(miaSDControlOffset+miaSDControlTransferLen0, uint32(len(payload)))
+	chip.memory[miaSDControlOffset+miaSDControlOpenMode] = miaFSOpenWriteCreate
+
+	circuit.write(miaRegCmdTrigger, miaCmdFSSaveFromMiaRAM)
+
+	assert.Equal(t, uint8(0), sdControlByte(chip, miaSDControlLastError))
+	assert.Equal(t, uint16(len(payload)), chip.sdReadU16(miaSDControlOffset+miaSDControlResultLenL))
+	assert.Equal(t, uint32(len(payload)), chip.sdReadU32(miaSDControlOffset+miaSDControlFilePos0))
+	assert.Equal(t, uint32(len(payload)), chip.sdReadU32(miaSDControlOffset+miaSDControlFileSize0))
+	assert.NotZero(t, chip.irqStatus()&miaIRQSDDone)
+	assert.NotZero(t, chip.irqStatus()&miaIRQFSEvent)
+	assert.False(t, chip.sd.fileOpen, "the save job uses its own handle, not the implicit file")
+
+	saved, err := os.ReadFile(filepath.Join(dir, "DUMP.BIN"))
+	require.NoError(t, err)
+	assert.Equal(t, payload, saved)
+}
+
+// TestEmulatedMiaFSSaveFromMiaRAMAppend verifies append mode extends an existing
+// file rather than truncating it.
+func TestEmulatedMiaFSSaveFromMiaRAMAppend(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "LOG.BIN"), []byte("HEAD"), 0o644))
+
+	circuit := newSDTestCircuit(t, dir)
+	chip := circuit.chip
+	circuit.write(miaRegCmdTrigger, miaCmdFSMount)
+	require.True(t, chip.sd.mounted)
+
+	payload := []byte("TAIL")
+	source := uint32(0x04000)
+	copy(chip.memory[source:], payload)
+
+	sdWritePath(chip, "/LOG.BIN")
+	chip.memory[miaSDControlOffset+miaSDControlDestAddrL] = uint8(source)
+	chip.memory[miaSDControlOffset+miaSDControlDestAddrL+1] = uint8(source >> 8)
+	chip.memory[miaSDControlOffset+miaSDControlDestAddrL+2] = uint8(source >> 16)
+	chip.sdWriteU32(miaSDControlOffset+miaSDControlTransferLen0, uint32(len(payload)))
+	chip.memory[miaSDControlOffset+miaSDControlOpenMode] = miaFSOpenWriteAppend
+
+	circuit.write(miaRegCmdTrigger, miaCmdFSSaveFromMiaRAM)
+
+	assert.Equal(t, uint8(0), sdControlByte(chip, miaSDControlLastError))
+	saved, err := os.ReadFile(filepath.Join(dir, "LOG.BIN"))
+	require.NoError(t, err)
+	assert.Equal(t, []byte("HEADTAIL"), saved)
+	assert.Equal(t, uint32(len("HEADTAIL")), chip.sdReadU32(miaSDControlOffset+miaSDControlFileSize0))
+}
+
+// TestEmulatedMiaFSSaveFromMiaRAMRejectsReadMode verifies a read-only open mode is
+// refused with ERROR_FS_INVALID_REQUEST and writes no file.
+func TestEmulatedMiaFSSaveFromMiaRAMRejectsReadMode(t *testing.T) {
+	dir := t.TempDir()
+	circuit := newSDTestCircuit(t, dir)
+	chip := circuit.chip
+
+	// No explicit mount: the save auto-mounts internally (without raising an IRQ),
+	// so IRQ_SD_DONE stays clear and the rejection is the only event observed.
+	sdWritePath(chip, "/NOPE.BIN")
+	chip.sdWriteU32(miaSDControlOffset+miaSDControlTransferLen0, 4)
+	chip.memory[miaSDControlOffset+miaSDControlOpenMode] = miaFSOpenRead
+
+	circuit.write(miaRegCmdTrigger, miaCmdFSSaveFromMiaRAM)
+
+	assert.Equal(t, miaErrorFSInvalidRequest, sdControlByte(chip, miaSDControlLastError))
+	assert.NotZero(t, chip.irqStatus()&miaIRQSDError)
+	assert.Zero(t, chip.irqStatus()&miaIRQSDDone)
+	assert.NoFileExists(t, filepath.Join(dir, "NOPE.BIN"))
+}
+
 // TestEmulatedMiaFSDirectoryListing verifies opendir/readdir enumerate the folder
 // and signal EOF when exhausted.
 func TestEmulatedMiaFSDirectoryListing(t *testing.T) {
