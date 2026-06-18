@@ -89,8 +89,8 @@ func TestEmulatedMiaFastLoaderInitialization(t *testing.T) {
 		miaRegIdxAPort:       0xA9,
 		miaRegIdxASelector:   miaKernelData[0],
 		0x02:                 0x8D,
-		0x03:                 0x00,
-		miaRegIdxBPort:       0x40,
+		0x03:                 miaKernelTargetAddress & 0xFF,
+		miaRegIdxBPort:       miaKernelTargetAddress >> 8,
 		miaRegIdxBSelector:   0x8D,
 		miaRegCmdParam1:      0xF1,
 		miaRegCmdParam2:      0xFF,
@@ -214,12 +214,12 @@ func TestEmulatedMiaLoaderAdvancesKernelAfterReadThenWrite(t *testing.T) {
 	circuit.write(miaRegIRQStatusMSB, 0x00)
 
 	assert.Equal(t, miaKernelData[1], chip.readRegister(miaRegIdxASelector))
-	assert.Equal(t, uint16(0x4001), chip.readRegisterWord(0x03))
+	assert.Equal(t, uint16(miaKernelTargetAddress+1), chip.readRegisterWord(0x03))
 
 	circuit.write(miaRegIRQStatusMSB, 0x00)
 
 	assert.Equal(t, miaKernelData[1], chip.readRegister(miaRegIdxASelector))
-	assert.Equal(t, uint16(0x4001), chip.readRegisterWord(0x03))
+	assert.Equal(t, uint16(miaKernelTargetAddress+1), chip.readRegisterWord(0x03))
 
 	for chip.state == miaStateLoader {
 		circuit.read(miaRegIdxASelector)
@@ -380,18 +380,35 @@ func TestEmulatedMiaMemoryMirrorsAt256KiB(t *testing.T) {
 	assert.Equal(t, uint8(0x66), chip.indexRead(9))
 }
 
-// TestEmulatedMiaCfgSelectorAndPortUseNaturalOrder verifies CFG bus semantics.
-func TestEmulatedMiaCfgSelectorAndPortUseNaturalOrder(t *testing.T) {
+// TestEmulatedMiaCfgTargetsWindowSelectedIndex verifies CFG bus semantics: the
+// configured descriptor is whichever index the window currently has selected,
+// not a fixed index 0/1.
+func TestEmulatedMiaCfgTargetsWindowSelectedIndex(t *testing.T) {
 	circuit := newEmulatedMiaTestCircuit()
 	chip := circuit.chip
 	chip.state = miaStateNormal
 
+	chip.memory[0x56] = 0xAB
+	chip.memory[0x78] = 0xCD
+
+	// Bind index 7 to window A, then configure its current-address low byte
+	// through the window-A CFG ids ($00-$0F).
+	circuit.write(miaRegIdxASelector, 7)
 	circuit.write(miaRegCfgSelector, 0x00)
 	assert.Equal(t, uint8(0x00), circuit.read(miaRegCfgPort))
 
 	circuit.write(miaRegCfgPort, 0x56)
 	assert.Equal(t, uint8(0x56), circuit.read(miaRegCfgPort))
-	assert.Equal(t, uint32(0x56), chip.indexes[0].currentAddr)
+	assert.Equal(t, uint32(0x56), chip.indexes[7].currentAddr)
+	// The CFG address change refreshes window A's data port to the new address.
+	assert.Equal(t, uint8(0xAB), circuit.read(miaRegIdxAPort))
+
+	// Window-B CFG ids ($10-$1F) act on the index selected in window B.
+	circuit.write(miaRegIdxBSelector, 9)
+	circuit.write(miaRegCfgSelector, 0x10)
+	circuit.write(miaRegCfgPort, 0x78)
+	assert.Equal(t, uint32(0x78), chip.indexes[9].currentAddr)
+	assert.Equal(t, uint8(0xCD), circuit.read(miaRegIdxBPort))
 
 	circuit.write(miaRegCfgSelector, miaCfgSpeedL)
 	assert.Equal(t, byteFrom24(miaDefaultPhi2Hz, 0), circuit.read(miaRegCfgPort))
@@ -435,6 +452,17 @@ func TestEmulatedMiaDMACommandCopiesMemoryAndQueuesErrors(t *testing.T) {
 	assert.Equal(t, []uint8{0xDE, 0xAD}, chip.memory[20:22])
 	assert.Zero(t, chip.status()&miaStatusDMARunning)
 
+	chip.indexes[1].currentAddr = 10
+	chip.indexes[1].limitAddr = 12
+	chip.indexes[2].currentAddr = 30
+	circuit.write(miaRegCmdParam3, 0)
+	circuit.write(miaRegCmdTrigger, 0x10)
+
+	assert.Equal(t, []uint8{0xDE, 0xAD}, chip.memory[30:32])
+	assert.Equal(t, uint32(10), chip.indexes[1].currentAddr)
+	assert.Equal(t, uint32(30), chip.indexes[2].currentAddr)
+
+	chip.indexes[1].limitAddr = 10
 	circuit.write(miaRegCmdParam3, 0)
 	circuit.write(miaRegCmdTrigger, 0x10)
 

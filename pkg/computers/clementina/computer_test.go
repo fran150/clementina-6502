@@ -21,7 +21,7 @@ func TestClementinaPotentialOperatorsReadsMiaRange(t *testing.T) {
 	require.NotEmpty(t, assets.MiaKernel)
 	assert.Equal(t, [2]uint8{0xA9, assets.MiaKernel[0]}, computer.getPotentialOperators(0xFFE0))
 	assert.Equal(t, [2]uint8{assets.MiaKernel[0], 0x8D}, computer.getPotentialOperators(0xFFE1))
-	assert.Equal(t, [2]uint8{0x00, 0x40}, computer.getPotentialOperators(0xFFE3))
+	assert.Equal(t, [2]uint8{0x00, 0x04}, computer.getPotentialOperators(0xFFE3)) // STA $0400 operand (load base, lo/hi)
 }
 
 // TestClementinaPotentialOperatorsReadsAcrossMappedRegions verifies per-byte memory mapping.
@@ -122,14 +122,14 @@ func TestClementinaKernelLoads(t *testing.T) {
 	}
 	computer.Reset(false)
 
-	kernelStart := uint32(0x4000)
+	kernelStart := uint32(0x0400)
 	kernelReadyOffset := len(assets.MiaKernel) - 1
 	for kernelReadyOffset > 0 && assets.MiaKernel[kernelReadyOffset] == 0 {
 		kernelReadyOffset--
 	}
 	kernelReadyAddress := kernelStart + uint32(kernelReadyOffset)
 
-	for range 80000 {
+	for range len(assets.MiaKernel) * 120 {
 		tickComputer(computer, &step)
 
 		if computer.chips.baseram.Peek(kernelReadyAddress) == assets.MiaKernel[kernelReadyOffset] {

@@ -359,6 +359,7 @@ func (c *emulated_mia) afterNormalWrite(address uint8, data uint8) {
 	case miaRegIdxBSelector:
 		c.writeRegister(miaRegIdxBPort, c.indexRead(data))
 	case miaRegCmdTrigger:
+		c.statusSet(miaStatusCmdRunning)
 		c.executeCommand(c.readRegister(miaRegCmdTrigger), [3]uint8{
 			c.readRegister(miaRegCmdParam1),
 			c.readRegister(miaRegCmdParam2),

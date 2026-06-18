@@ -10,7 +10,7 @@ const (
 	miaIndexCount    = 256
 	miaAddressMask   = 0x00FFFFFF
 
-	miaKernelTargetAddress = 0x4000
+	miaKernelTargetAddress = 0x0400
 	miaCPUResetPulseCycles = 4
 	miaDefaultPhi2Hz       = 1200000
 	miaMinPhi2Hz           = 1
@@ -98,6 +98,7 @@ const (
 	miaIRQTriggered     uint16 = 1 << 15
 )
 
-// MIA ROM bootstrap installed at $4000. Embedded at build time so it does not
-// depend on the working directory or external files at runtime.
+// MIA ROM bootstrap installed at the load base (miaKernelTargetAddress, $0400).
+// Embedded at build time so it does not depend on the working directory or
+// external files at runtime.
 var miaKernelData = assets.MiaKernel

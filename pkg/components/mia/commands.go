@@ -46,8 +46,6 @@ const (
 
 // executeCommand runs the MIA command identified by the trigger register value.
 func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
-	c.statusSet(miaStatusCmdRunning)
-
 	switch id {
 	case 0x00:
 		c.resetIndex(c.readRegister(miaRegIdxASelector))
@@ -71,7 +69,7 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 	case 0x07:
 		c.writeRegister(miaRegIdxBPort, c.indexRead(params[0]))
 	case 0x10:
-		c.dmaTransfer(c.indexes[params[0]].currentAddr, c.indexes[params[1]].currentAddr, uint16(params[2]))
+		c.dmaTransferFromIndexes(params[0], params[1], params[2])
 	case 0x30:
 		// Pause is 6502-facing (a program can freeze itself at a diagnostic
 		// point) but there is no 6502 resume command: once PHI2 is stopped the
@@ -110,6 +108,24 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 
 	c.statusClear(miaStatusCmdRunning)
 	c.irqSetFlag(miaIRQCommand)
+}
+
+func (c *emulated_mia) dmaTransferFromIndexes(srcIndex uint8, dstIndex uint8, count uint8) bool {
+	length := uint16(count)
+	if count == 0 {
+		current := c.indexes[srcIndex].currentAddr
+		limit := c.indexes[srcIndex].limitAddr
+		if limit <= current {
+			length = 0
+		} else if limit-current > uint32(^uint16(0)) {
+			c.errors.Push(c, miaErrorDMASourceOverflow)
+			return false
+		} else {
+			length = uint16(limit - current)
+		}
+	}
+
+	return c.dmaTransfer(c.indexes[srcIndex].currentAddr, c.indexes[dstIndex].currentAddr, length)
 }
 
 // dmaTransfer copies a bounded byte range inside emulated MIA RAM.

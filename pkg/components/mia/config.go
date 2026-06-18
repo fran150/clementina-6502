@@ -1,5 +1,16 @@
 package mia
 
+// cfgIndexID resolves which index descriptor a config id targets. The high
+// nibble bit selects window A or window B; the configured descriptor is
+// whichever index that window currently has selected. This lets any of the 256
+// indexes be configured: bind it to a window, then use CFG.
+func (c *emulated_mia) cfgIndexID(id uint8) uint8 {
+	if (id>>4)&0x01 == 0 {
+		return c.readRegister(miaRegIdxASelector)
+	}
+	return c.readRegister(miaRegIdxBSelector)
+}
+
 // getCfg returns the value exposed by a MIA configuration register id.
 func (c *emulated_mia) getCfg(id uint8) uint8 {
 	if id >= 0x20 {
@@ -15,7 +26,7 @@ func (c *emulated_mia) getCfg(id uint8) uint8 {
 		}
 	}
 
-	indexID := (id >> 4) & 0x01
+	indexID := c.cfgIndexID(id)
 	field := id & 0x0F
 	entry := c.indexes[indexID]
 
@@ -65,7 +76,7 @@ func (c *emulated_mia) setCfg(id uint8, value uint8) {
 		return
 	}
 
-	indexID := (id >> 4) & 0x01
+	indexID := c.cfgIndexID(id)
 	field := id & 0x0F
 	entry := &c.indexes[indexID]
 
@@ -94,6 +105,20 @@ func (c *emulated_mia) setCfg(id uint8, value uint8) {
 		entry.step = (entry.step & 0x00FF) | (uint16(value) << 8)
 	case 0x0B:
 		entry.flags = value
+	default:
+		return // reserved field: nothing to update
+	}
+
+	// Only the current-address bytes (fields 0-2) change where the index points,
+	// so only they refresh the window's data port. After repositioning, a read
+	// returns the new location's byte without re-selecting the index.
+	if field >= 3 {
+		return
+	}
+	if (id>>4)&0x01 == 0 {
+		c.writeRegister(miaRegIdxAPort, c.indexRead(c.readRegister(miaRegIdxASelector)))
+	} else {
+		c.writeRegister(miaRegIdxBPort, c.indexRead(c.readRegister(miaRegIdxBSelector)))
 	}
 }
 
