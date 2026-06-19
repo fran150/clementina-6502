@@ -41,6 +41,8 @@ type emulated_mia struct {
 	execPaused             bool
 	execPausedChanged      func(bool)
 
+	charsetName string
+
 	video miaVideoState
 
 	input miaInputState
@@ -67,6 +69,7 @@ func NewEmulatedMia() components.MiaChip {
 		state:               miaStateLoader,
 		kernelTargetAddress: miaKernelTargetAddress,
 		appliedPhi2Hz:       miaDefaultPhi2Hz,
+		charsetName:         miaDefaultCharset,
 	}
 
 	chip.init()

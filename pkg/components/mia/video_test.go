@@ -17,9 +17,14 @@ func TestEmulatedMiaVideoStartupConfiguresIndexesFontAndDirtyTracking(t *testing
 	chip.state = miaStateNormal
 
 	assert.Equal(t, uint8(miaVideoLayoutVersion), chip.memory[miaVideoLocalVersionOffset])
-	require.GreaterOrEqual(t, len(assets.MiaPETSCIICharset), miaPETSCIIPlaneSize*2)
-	assert.Equal(t, reverseByte(assets.MiaPETSCIICharset[0]), chip.memory[miaVideoCHROffset])
-	assert.Equal(t, reverseByte(assets.MiaPETSCIICharset[miaPETSCIIPlaneSize]), chip.memory[miaVideoCHROffset+0x800])
+	// The default charset is split-loaded: block 0 into plane 0 of CHR bank 0,
+	// block 1 into plane 0 of CHR bank 1, already in MIA pixel order (no per-byte
+	// reversal).
+	charset, err := assets.MiaCharset(miaDefaultCharset)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(charset), 2*miaCharsetPlaneSize)
+	assert.Equal(t, charset[0], chip.memory[miaVideoCHROffset])
+	assert.Equal(t, charset[miaCharsetPlaneSize], chip.memory[miaVideoCHROffset+miaCHRBankSize])
 	assert.Len(t, chip.videoScanDirtyPages(chip.video.activeMap), miaVideoSyncPageCount)
 	assert.Equal(t, miaIndex{
 		currentAddr: 0x00024,

@@ -23,7 +23,15 @@ const (
 	miaVideoUDPPayloadSize  = 512
 	miaVideoRecordsPerChunk = (miaVideoUDPPayloadSize - miaVideoHeaderSize) / miaVideoPageRecordSize
 	miaVideoLayoutVersion   = 1
-	miaPETSCIIPlaneSize     = 2048
+
+	// A charset image is a sequence of 2048-byte blocks (256 glyphs each).
+	// videoLoadDefaultFont split-loads it: block i goes into plane 0 of CHR
+	// bank i, so a 512-glyph charset fills plane 0 of banks 0 and 1 and both
+	// halves can be selected per cell via the CHR_ALT attribute. A CHR bank is
+	// 6144 bytes (3 planes of 2048).
+	miaCharsetPlaneSize = 2048
+	miaCHRBankSize      = 3 * miaCharsetPlaneSize // 6144
+	miaDefaultCharset   = "openroms"
 
 	miaVideoLocalVersionOffset    = 0x00000
 	miaVideoLocalFrameIDOffset    = 0x00004
@@ -720,14 +728,43 @@ func (c *emulated_mia) videoEnable() {
 	c.videoMarkAllSyncPagesDirty()
 }
 
-func (c *emulated_mia) videoLoadDefaultFont() {
-	if len(assets.MiaPETSCIICharset) < miaPETSCIIPlaneSize*2 {
-		return
-	}
+// SetCharset selects the character set MIA loads into CHR bank 0 when video is
+// enabled (one of assets/computer/mia/charsets/<name>.bin). Set it before the
+// program enables video; an empty or unknown name falls back to the default.
+func (c *emulated_mia) SetCharset(name string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	for i := 0; i < miaPETSCIIPlaneSize; i++ {
-		c.memory[miaVideoCHROffset+i] = reverseByte(assets.MiaPETSCIICharset[i])
-		c.memory[miaVideoCHROffset+0x800+i] = reverseByte(assets.MiaPETSCIICharset[miaPETSCIIPlaneSize+i])
+	c.charsetName = name
+}
+
+func (c *emulated_mia) videoLoadDefaultFont() {
+	name := c.charsetName
+	if name == "" {
+		name = miaDefaultCharset
+	}
+	data, err := assets.MiaCharset(name)
+	if err != nil {
+		// Unknown charset: fall back to the default so video still works.
+		data, err = assets.MiaCharset(miaDefaultCharset)
+		if err != nil {
+			return
+		}
+	}
+	// Split-load: the image is a sequence of 2048-byte blocks (256 glyphs each).
+	// Block i loads into plane 0 of CHR bank i, so a 512-glyph charset fills
+	// plane 0 of banks 0 and 1 and both halves can be selected per cell via the
+	// CHR_ALT attribute. Bank 0 plane 0 is the ASCII text set the kernel renders;
+	// bank 1 plane 0 is the alternate (graphics) set. videoEnable zeroed CHR
+	// first, so blocks the image omits stay blank.
+	for bank := 0; bank*miaCharsetPlaneSize < len(data) && bank < 8; bank++ {
+		src := data[bank*miaCharsetPlaneSize:]
+		n := miaCharsetPlaneSize
+		if len(src) < n {
+			n = len(src)
+		}
+		dst := miaVideoCHROffset + bank*miaCHRBankSize
+		copy(c.memory[dst:dst+n], src[:n])
 	}
 }
 
@@ -763,7 +800,7 @@ func (c *emulated_mia) videoConfigureIndexes() {
 	}
 
 	for i := 0; i < 8; i++ {
-		c.videoConfigureIndex(uint8(0xA0+i), uint32(miaVideoCHROffset+i*6144), 6144)
+		c.videoConfigureIndex(uint8(0xA0+i), uint32(miaVideoCHROffset+i*miaCHRBankSize), miaCHRBankSize)
 		c.videoConfigureIndex(uint8(0xA8+i), uint32(miaVideoBGNTOffset+i*1000), 1000)
 		c.videoConfigureIndex(uint8(0xB0+i), uint32(miaVideoBGAttrOffset+i*1000), 1000)
 	}
@@ -882,8 +919,3 @@ func (c *emulated_mia) videoSetLastResponseDirtyPages(count uint16) {
 	binary.LittleEndian.PutUint16(c.memory[miaVideoLocalDirtyPagesOffset:miaVideoLocalDirtyPagesOffset+2], count)
 }
 
-func reverseByte(value byte) byte {
-	value = (value&0xF0)>>4 | (value&0x0F)<<4
-	value = (value&0xCC)>>2 | (value&0x33)<<2
-	return (value&0xAA)>>1 | (value&0x55)<<1
-}

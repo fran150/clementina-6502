@@ -27,6 +27,7 @@ var (
 	videoUDPAddress   string
 	inputUDPAddress   string
 	sdFolder          string
+	charset           string
 	targetMhz         float64
 	targetFps         int
 	emulateModemLines bool
@@ -46,6 +47,7 @@ func init() {
 	rootCmd.Flags().StringVar(&videoUDPAddress, "video-udp", mia.DefaultVideoUDPAddress, "UDP address for emulated Clementina MIA video; empty disables video UDP")
 	rootCmd.Flags().StringVar(&inputUDPAddress, "input-udp", mia.DefaultInputUDPAddress, "UDP address for emulated Clementina MIA input; empty disables input UDP")
 	rootCmd.Flags().StringVar(&sdFolder, "sd", "", "Host folder used as the emulated Clementina MIA SD card; empty leaves the slot empty")
+	rootCmd.Flags().StringVar(&charset, "charset", "openroms", "Character set MIA loads into CHR bank 0 (name under assets/computer/mia/charsets)")
 	rootCmd.Flags().StringVarP(&romFile, "rom", "r", "./assets/computer/beneater/eater.bin", "ROM file to load")
 	rootCmd.Flags().Float64VarP(&targetMhz, "speed", "s", 1.2, "Target emulation speed in MHz")
 	rootCmd.Flags().IntVarP(&targetFps, "fps", "f", 15, "Target display refresh rate")
@@ -121,6 +123,8 @@ func runEmulator(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 		defer clementinaComputer.Close()
+
+		clementinaComputer.SetMiaCharset(charset)
 
 		if sdFolder != "" {
 			info, err := os.Stat(sdFolder)

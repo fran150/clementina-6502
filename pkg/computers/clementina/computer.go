@@ -132,6 +132,20 @@ func (c *ClementinaComputer) SetMiaSDFolder(folder string) {
 	configurable.SetSDFolder(folder)
 }
 
+// SetMiaCharset selects the character set the emulated MIA loads into CHR bank 0
+// (one of the names under assets/computer/mia/charsets). It is a no-op on MIA
+// implementations that do not support a selectable charset.
+func (c *ClementinaComputer) SetMiaCharset(name string) {
+	configurable, ok := c.chips.mia.(interface {
+		SetCharset(string)
+	})
+	if !ok {
+		return
+	}
+
+	configurable.SetCharset(name)
+}
+
 // ConnectMiaConsole connects a host serial port to the emulated MIA console.
 func (c *ClementinaComputer) ConnectMiaConsole(port serial.Port) error {
 	connectable, ok := c.chips.mia.(interface {
