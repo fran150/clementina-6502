@@ -17,13 +17,17 @@ import (
 //go:embed computer/mia/kernel.bin
 var MiaKernel []byte
 
-// miaCharsetsFS holds the selectable MIA character sets. Each file is a flat
-// CHR bank-0 image, already in MIA pixel order, so it can be copied straight
-// into MIA RAM. A CHR bank is 6144 bytes (3 planes of 2048): plane 0
-// (0x000..0x7FF), then optionally plane 1 (0x800..0xFFF) and plane 2
-// (0x1000..0x17FF), so an image is 1 to 3 planes (2048, 4096, or 6144 bytes).
-// They are produced offline by the firmware repo's scripts/generate_charset.py
-// and kept in sync between repos.
+// miaCharsetsFS holds the selectable MIA character sets, already in MIA pixel
+// order so they copy straight into MIA RAM. videoLoadDefaultFont accepts two
+// layouts (see there):
+//   - Plane-0 blocks: a sequence of 2048-byte blocks, block i into plane 0 of
+//     CHR bank i (e.g. openroms.bin = text + graphics, 4096 bytes).
+//   - Full CHR dump: a nonzero multiple of a full 6144-byte CHR bank (3 planes),
+//     loaded flat into the CHR region (e.g. clascii.bin = all 8 banks, 49152
+//     bytes, exported by tools/tile-editor.html).
+//
+// They are produced offline (tile editor or the firmware repo's
+// scripts/generate_charset.py) and kept in sync between repos.
 //
 //go:embed computer/mia/charsets/*.bin
 var miaCharsetsFS embed.FS
@@ -34,6 +38,22 @@ func MiaCharset(name string) ([]byte, error) {
 	data, err := miaCharsetsFS.ReadFile("computer/mia/charsets/" + name + ".bin")
 	if err != nil {
 		return nil, fmt.Errorf("unknown charset %q: %w", name, err)
+	}
+	return data, nil
+}
+
+// miaPalettesFS holds selectable MIA default palettes, in the tile editor's
+// Palette (.bin) export format: 16 banks * 8 little-endian RGB565 colors.
+//
+//go:embed computer/mia/palettes/*.palette.bin
+var miaPalettesFS embed.FS
+
+// MiaPalette returns the default video palette for the named palette set (e.g.
+// "clementina-text"), as embedded under computer/mia/palettes/<name>.palette.bin.
+func MiaPalette(name string) ([]byte, error) {
+	data, err := miaPalettesFS.ReadFile("computer/mia/palettes/" + name + ".palette.bin")
+	if err != nil {
+		return nil, fmt.Errorf("unknown palette %q: %w", name, err)
 	}
 	return data, nil
 }

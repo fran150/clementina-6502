@@ -332,9 +332,27 @@ func (c *emulated_mia) inputHandleHidEvent(payload []byte) {
 
 	c.inputSetHidUsage(usagePage, usageID, down)
 
-	if usagePage == miaHidPageKeyboard && down && text != 0 {
+	if usagePage != miaHidPageKeyboard {
+		return
+	}
+
+	if !down {
+		c.inputReleaseRepeat(usageID)
+		return
+	}
+
+	// The client attaches a text byte for keys it already resolved (printable
+	// characters arrive via TEXT packets instead and carry 0 here). When none is
+	// attached, MIA decodes the non-text editing keys itself.
+	if text == 0 {
+		text = inputDecodeKeyUsage(usageID)
+	}
+	if text != 0 {
 		c.inputEnqueueText(text)
 		c.inputRecomputeStatus()
+		if inputKeyRepeats(usageID) {
+			c.inputArmRepeat(usageID, text)
+		}
 	}
 }
 

@@ -41,7 +41,13 @@ type emulated_mia struct {
 	execPaused             bool
 	execPausedChanged      func(bool)
 
+	// nowNs caches StepContext.T (nanoseconds since emulation start) from the
+	// latest Tick so input services (e.g. key auto-repeat) can time their work
+	// against the wall clock even though they also run off the UDP goroutine.
+	nowNs int64
+
 	charsetName string
+	paletteName string
 
 	video miaVideoState
 
@@ -70,6 +76,7 @@ func NewEmulatedMia() components.MiaChip {
 		kernelTargetAddress: miaKernelTargetAddress,
 		appliedPhi2Hz:       miaDefaultPhi2Hz,
 		charsetName:         miaDefaultCharset,
+		paletteName:         miaDefaultPalette,
 	}
 
 	chip.init()
@@ -103,6 +110,13 @@ func NewEmulatedMiaWithUDP(videoAddress, inputAddress string) (components.MiaChi
 			chip.Close()
 			return nil, err
 		}
+
+		// StartInputUDP runs after the initial reset, so the Wi-Fi source was
+		// unavailable when the default input mode was first selected. Re-run the
+		// input reset now that the listener is up so a Wi-Fi default takes effect.
+		chip.mu.Lock()
+		chip.inputResetRuntimeState()
+		chip.mu.Unlock()
 	}
 
 	return chip, nil
@@ -155,6 +169,8 @@ func (c *emulated_mia) Peek(address uint16) uint8 {
 func (c *emulated_mia) Tick(context *common.StepContext) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	c.nowNs = context.T
 
 	if c.handleResetRequest() {
 		c.driveIRQLine()

@@ -67,6 +67,116 @@ func TestEmulatedMiaInputRegistersAreReadOnlyInNormalMode(t *testing.T) {
 	assert.Equal(t, miaInputTextReady, circuit.read(miaRegInputStatus)&miaInputTextReady)
 }
 
+func TestEmulatedMiaInputHidEventDecodesEditingKeys(t *testing.T) {
+	circuit := newEmulatedMiaTestCircuit()
+	chip := circuit.chip
+	chip.state = miaStateNormal
+
+	keyDown := func(usage uint16, text uint8) {
+		hid := make([]byte, 6)
+		binary.LittleEndian.PutUint16(hid[0:2], miaHidPageKeyboard)
+		binary.LittleEndian.PutUint16(hid[2:4], usage)
+		hid[4] = 0x01 // down
+		hid[5] = text
+		chip.mu.Lock()
+		chip.inputHandleHidEvent(hid)
+		chip.mu.Unlock()
+	}
+
+	// Arrow keys carry no attached text; MIA decodes them to PETSCII cursor bytes.
+	keyDown(0x4F, 0) // Right
+	keyDown(0x50, 0) // Left
+	keyDown(0x51, 0) // Down
+	keyDown(0x52, 0) // Up
+
+	assert.Equal(t, uint8(4), circuit.read(miaRegInputCharCount))
+	assert.Equal(t, uint8(0x1D), circuit.read(miaRegInputChar)) // Right
+	assert.Equal(t, uint8(0x9D), circuit.read(miaRegInputChar)) // Left
+	assert.Equal(t, uint8(0x11), circuit.read(miaRegInputChar)) // Down
+	assert.Equal(t, uint8(0x91), circuit.read(miaRegInputChar)) // Up
+
+	// A printable key's text arrives via a TEXT packet, so its HID event carries
+	// text 0 and has no decode entry: it must not enqueue anything.
+	keyDown(0x04, 0) // 'a' down, no attached text
+	assert.Equal(t, uint8(0), circuit.read(miaRegInputCharCount))
+
+	// A key that already carries attached text uses it verbatim (table is skipped).
+	keyDown(0x28, 0x0D) // Enter with attached CR
+	assert.Equal(t, uint8(0x0D), circuit.read(miaRegInputChar))
+}
+
+func TestEmulatedMiaInputAutoRepeatsHeldArrow(t *testing.T) {
+	circuit := newEmulatedMiaTestCircuit()
+	chip := circuit.chip
+	chip.state = miaStateNormal
+
+	const ms = int64(1_000_000)
+
+	// Drive the chip directly with a deterministic clock. (circuit.read/write
+	// tick the chip with the circuit's own StepContext time, which would race the
+	// repeat clock this test controls.)
+	setKey := func(usage uint16, down bool, nowNs int64) {
+		hid := make([]byte, 6)
+		binary.LittleEndian.PutUint16(hid[0:2], miaHidPageKeyboard)
+		binary.LittleEndian.PutUint16(hid[2:4], usage)
+		if down {
+			hid[4] = 0x01
+		}
+		chip.mu.Lock()
+		chip.nowNs = nowNs
+		chip.inputHandleHidEvent(hid)
+		chip.mu.Unlock()
+	}
+	serviceAt := func(nowNs int64) {
+		chip.mu.Lock()
+		chip.nowNs = nowNs
+		chip.inputService()
+		chip.mu.Unlock()
+	}
+	count := func() uint8 {
+		chip.mu.Lock()
+		defer chip.mu.Unlock()
+		return chip.registers[miaRegInputCharCount]
+	}
+	frontChar := func() uint8 {
+		chip.mu.Lock()
+		defer chip.mu.Unlock()
+		return chip.registers[miaRegInputChar]
+	}
+	pop := func() {
+		chip.mu.Lock()
+		chip.inputOnCharRead()
+		chip.mu.Unlock()
+	}
+
+	// Down arrow pressed at t=0: one $11 is enqueued and repeat is armed.
+	setKey(0x51, true, 0)
+	assert.Equal(t, uint8(1), count())
+	assert.Equal(t, uint8(0x11), frontChar())
+	pop()
+	assert.Equal(t, uint8(0), count())
+
+	serviceAt(399 * ms) // before the initial delay: nothing repeats
+	assert.Equal(t, uint8(0), count())
+
+	serviceAt(400 * ms) // initial delay elapsed: first repeat
+	assert.Equal(t, uint8(1), count())
+	assert.Equal(t, uint8(0x11), frontChar())
+	pop()
+
+	serviceAt(459 * ms) // before the next interval: nothing
+	assert.Equal(t, uint8(0), count())
+
+	serviceAt(460 * ms) // 400 + 60: second repeat
+	assert.Equal(t, uint8(1), count())
+	pop()
+
+	// Release stops the repeat; later services enqueue nothing.
+	setKey(0x51, false, 1000*ms)
+	serviceAt(2000 * ms)
+	assert.Equal(t, uint8(0), count())
+}
+
 // --- Indexes and commands ---------------------------------------------------
 
 func TestEmulatedMiaInputConfiguresIndexes(t *testing.T) {

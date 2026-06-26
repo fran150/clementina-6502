@@ -31,7 +31,9 @@ const (
 	// 6144 bytes (3 planes of 2048).
 	miaCharsetPlaneSize = 2048
 	miaCHRBankSize      = 3 * miaCharsetPlaneSize // 6144
+	miaPaletteSize      = 16 * 8 * 2
 	miaDefaultCharset   = "openroms"
+	miaDefaultPalette   = "clementina-text"
 
 	miaVideoLocalVersionOffset    = 0x00000
 	miaVideoLocalFrameIDOffset    = 0x00004
@@ -712,6 +714,7 @@ func (c *emulated_mia) videoReleasePendingResponse(acknowledged bool) {
 func (c *emulated_mia) videoEnable() {
 	clear(c.memory[:miaVideoStateSize])
 	c.memory[miaVideoLocalVersionOffset] = miaVideoLayoutVersion
+	c.videoLoadDefaultPalette()
 	c.videoLoadDefaultFont()
 	c.video.frameID = 0
 	c.video.clientFrameID = 0
@@ -726,6 +729,36 @@ func (c *emulated_mia) videoEnable() {
 	c.statusClear(miaStatusVideoRequested | miaStatusVideoSent)
 	c.videoConfigureIndexes()
 	c.videoMarkAllSyncPagesDirty()
+}
+
+// SetPalette selects the palette MIA loads into palette RAM when video is
+// enabled (one of assets/computer/mia/palettes/<name>.palette.bin). Set it
+// before the program enables video; an empty or unknown name falls back to the
+// default.
+func (c *emulated_mia) SetPalette(name string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.paletteName = name
+}
+
+func (c *emulated_mia) videoLoadDefaultPalette() {
+	name := c.paletteName
+	if name == "" {
+		name = miaDefaultPalette
+	}
+	data, err := assets.MiaPalette(name)
+	if err != nil {
+		// Unknown palette: fall back to the default so video still works.
+		data, err = assets.MiaPalette(miaDefaultPalette)
+		if err != nil {
+			return
+		}
+	}
+	if len(data) > miaPaletteSize {
+		data = data[:miaPaletteSize]
+	}
+	copy(c.memory[miaVideoPaletteOffset:miaVideoPaletteOffset+len(data)], data)
 }
 
 // SetCharset selects the character set MIA loads into CHR bank 0 when video is
@@ -751,12 +784,27 @@ func (c *emulated_mia) videoLoadDefaultFont() {
 			return
 		}
 	}
-	// Split-load: the image is a sequence of 2048-byte blocks (256 glyphs each).
-	// Block i loads into plane 0 of CHR bank i, so a 512-glyph charset fills
-	// plane 0 of banks 0 and 1 and both halves can be selected per cell via the
-	// CHR_ALT attribute. Bank 0 plane 0 is the ASCII text set the kernel renders;
-	// bank 1 plane 0 is the alternate (graphics) set. videoEnable zeroed CHR
-	// first, so blocks the image omits stay blank.
+	// Two image formats are supported, distinguished by size:
+	//
+	//   * Full CHR dump - a nonzero multiple of a full CHR bank (6144 B = 3
+	//     planes). This is the tile editor's "CHR - all banks" (49152 B) and
+	//     "CHR - current bank" (6144 B) export: a raw copy of the CHR region, so
+	//     it loads flat (every plane of every bank). clascii uses this format.
+	//   * Plane-0 blocks (legacy) - a sequence of 2048-byte blocks; block i loads
+	//     into plane 0 of CHR bank i, so a 512-glyph charset fills plane 0 of
+	//     banks 0 and 1, selectable per cell via CHR_ALT. openroms uses this.
+	//
+	// Either way bank 0 plane 0 is the ASCII text set the kernel renders and bank
+	// 1 plane 0 is the alternate set CHR_ALT reaches. videoEnable zeroed CHR
+	// first, so anything the image omits stays blank.
+	if len(data) > 0 && len(data)%miaCHRBankSize == 0 {
+		n := len(data)
+		if maxBytes := 8 * miaCHRBankSize; n > maxBytes {
+			n = maxBytes
+		}
+		copy(c.memory[miaVideoCHROffset:miaVideoCHROffset+n], data[:n])
+		return
+	}
 	for bank := 0; bank*miaCharsetPlaneSize < len(data) && bank < 8; bank++ {
 		src := data[bank*miaCharsetPlaneSize:]
 		n := miaCharsetPlaneSize
@@ -918,4 +966,3 @@ func (c *emulated_mia) videoSetFrameID(frameID uint32) {
 func (c *emulated_mia) videoSetLastResponseDirtyPages(count uint16) {
 	binary.LittleEndian.PutUint16(c.memory[miaVideoLocalDirtyPagesOffset:miaVideoLocalDirtyPagesOffset+2], count)
 }
-

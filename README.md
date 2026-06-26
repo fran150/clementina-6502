@@ -144,6 +144,9 @@ go get github.com/fran150/clementina-6502@latest
 
 # Enable modem line emulation for serial ports
 ./clementina -p /dev/ttyUSB0 -e
+
+# Run locally (see socat command below for port setup)
+go run ./cmd --video-udp 127.0.0.1:6502 --port /tmp/ttyComputer --input-udp 127.0.0.1:6503
 ```
 
 ### Command Line Options

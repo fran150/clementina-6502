@@ -25,6 +25,10 @@ func TestEmulatedMiaVideoStartupConfiguresIndexesFontAndDirtyTracking(t *testing
 	require.GreaterOrEqual(t, len(charset), 2*miaCharsetPlaneSize)
 	assert.Equal(t, charset[0], chip.memory[miaVideoCHROffset])
 	assert.Equal(t, charset[miaCharsetPlaneSize], chip.memory[miaVideoCHROffset+miaCHRBankSize])
+	palette, err := assets.MiaPalette(miaDefaultPalette)
+	require.NoError(t, err)
+	require.Equal(t, miaPaletteSize, len(palette))
+	assert.Equal(t, palette, chip.memory[miaVideoPaletteOffset:miaVideoPaletteOffset+miaPaletteSize])
 	assert.Len(t, chip.videoScanDirtyPages(chip.video.activeMap), miaVideoSyncPageCount)
 	assert.Equal(t, miaIndex{
 		currentAddr: 0x00024,
@@ -207,4 +211,28 @@ func parseMiaVideoTestPacket(packet []byte) (miaVideoHeader, []byte, bool) {
 	}
 
 	return header, packet[miaVideoHeaderSize:], int(header.payloadLen) == len(packet)-miaVideoHeaderSize
+}
+
+// TestVideoLoadFontFlatFullChrDump verifies the clascii format - a 49152-byte
+// full CHR dump (8 banks x 6144) - loads flat into the CHR region rather than
+// being misread as plane-0 blocks. The whole image must land verbatim starting
+// at miaVideoCHROffset, and bank 1 plane 0 must come from its true offset in the
+// file (block 1 = bank 0 plane 1, NOT bank 1 plane 0) - the distinguishing case.
+func TestVideoLoadFontFlatFullChrDump(t *testing.T) {
+	chip := newEmulatedMiaTestCircuit().chip
+
+	font, err := assets.MiaCharset("clascii")
+	require.NoError(t, err)
+	require.Equal(t, 8*miaCHRBankSize, len(font), "clascii must be a full 8-bank CHR dump")
+
+	chip.charsetName = "clascii"
+	chip.videoLoadDefaultFont()
+
+	dst := chip.memory[miaVideoCHROffset : miaVideoCHROffset+len(font)]
+	assert.Equal(t, font, dst, "full CHR dump must load flat")
+	// Bank 1 plane 0 lives at file offset miaCHRBankSize, not miaCharsetPlaneSize.
+	assert.Equal(t,
+		font[miaCHRBankSize],
+		chip.memory[miaVideoCHROffset+miaCHRBankSize],
+		"bank 1 plane 0 must come from the full-bank offset")
 }

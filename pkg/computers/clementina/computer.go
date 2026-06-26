@@ -38,6 +38,8 @@ type circuit struct {
 	addressBus      buses.Bus[uint16]
 	dataBus         buses.Bus[uint8]
 	cpuIRQ          *buses.StandaloneLine
+	miaIRQ          *buses.StandaloneLine
+	viaIRQ          *buses.StandaloneLine
 	cpuReset        *buses.StandaloneLine
 	miaResetRequest *buses.StandaloneLine
 	cpuRW           *buses.StandaloneLine
@@ -84,6 +86,8 @@ func (c *ClementinaComputer) Tick(context *common.StepContext) {
 	c.chips.baseram.Tick(context)
 	c.chips.mia.Tick(context)
 	c.chips.exram.Tick(context)
+
+	c.resolveIRQLine()
 }
 
 // PostTick completes one computer cycle after components react to the bus.
@@ -92,7 +96,12 @@ func (c *ClementinaComputer) Tick(context *common.StepContext) {
 //   - context: The current step context
 func (c *ClementinaComputer) PostTick(context *common.StepContext) {
 	c.chips.mia.PostTick(context)
+	c.resolveIRQLine()
 	c.chips.cpu.PostTick(context)
+}
+
+func (c *ClementinaComputer) resolveIRQLine() {
+	c.circuit.cpuIRQ.Set(c.circuit.miaIRQ.Status() && c.circuit.viaIRQ.Status())
 }
 
 // GetProgramCounter returns the current program counter value from the CPU.
@@ -144,6 +153,20 @@ func (c *ClementinaComputer) SetMiaCharset(name string) {
 	}
 
 	configurable.SetCharset(name)
+}
+
+// SetMiaPalette selects the default palette the emulated MIA loads into palette
+// RAM (one of the names under assets/computer/mia/palettes). It is a no-op on
+// MIA implementations that do not support a selectable palette.
+func (c *ClementinaComputer) SetMiaPalette(name string) {
+	configurable, ok := c.chips.mia.(interface {
+		SetPalette(string)
+	})
+	if !ok {
+		return
+	}
+
+	configurable.SetPalette(name)
 }
 
 // ConnectMiaConsole connects a host serial port to the emulated MIA console.

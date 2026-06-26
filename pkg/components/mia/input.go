@@ -111,6 +111,11 @@ const (
 	miaInputModeUSBHost
 )
 
+// miaInputDefaultMode is the input source MIA selects at reset when it is
+// available, falling back to console otherwise. It mirrors the firmware
+// MIA_INPUT_DEFAULT_MODE build option.
+const miaInputDefaultMode = miaInputModeWifi
+
 type miaInputState struct {
 	conn        *net.UDPConn
 	bindAddress string
@@ -130,6 +135,13 @@ type miaInputState struct {
 
 	nextSessionValue uint32
 	txSeq            uint32
+
+	// Auto-repeat for held editing keys: while repeatUsage is held, repeatByte
+	// is re-enqueued into the text FIFO once repeatDeadline (a nowNs timestamp)
+	// passes. repeatUsage == 0 means nothing is repeating.
+	repeatUsage    uint16
+	repeatByte     uint8
+	repeatDeadline int64
 }
 
 // inputResetRuntimeState clears the input state block, resets the text FIFO and
@@ -153,6 +165,13 @@ func (c *emulated_mia) inputResetRuntimeState() {
 
 	clear(c.memory[miaInputStateOffset : miaInputStateOffset+miaInputStateSize])
 	c.inputConfigureIndexes()
+
+	// Select the configured default source when it is available, mirroring the
+	// firmware MIA_INPUT_DEFAULT_MODE selection with its fallback to console.
+	if miaInputDefaultMode != miaInputModeConsole && c.inputModeAvailable(miaInputDefaultMode) {
+		c.input.mode = miaInputDefaultMode
+	}
+
 	c.inputRecomputeStatus()
 }
 
@@ -174,6 +193,7 @@ func (c *emulated_mia) inputClose() {
 // input IRQ bits. It runs once per MIA service cycle.
 func (c *emulated_mia) inputService() {
 	c.inputApplyEventAcks()
+	c.inputRepeatService()
 	c.inputUpdateIRQs()
 }
 
@@ -635,6 +655,105 @@ func (c *emulated_mia) inputSetHidBitmap(usagePage uint16, newBitmap []byte) {
 	c.inputRecomputeStatus()
 }
 
+// inputDecodeKeyUsage maps a keyboard HID usage to the control byte MIA pushes
+// into the text FIFO for non-text editing keys: cursor moves, Home, and the
+// editing control keys. It returns 0 for everything else - printable characters
+// reach the FIFO as text instead, so they must not decode here or they would be
+// enqueued twice. MIA owns this table (rather than the input client) so the
+// keyboard decode lives in one place, mirroring how the C64 KERNAL, not the
+// keyboard, owns the decode table. Cursor and Home codes use PETSCII values; the
+// control keys reuse their ASCII codes.
+func inputDecodeKeyUsage(usageID uint16) uint8 {
+	switch usageID {
+	case 0x28, 0x58: // Enter, Keypad Enter
+		return 0x0D
+	case 0x2B: // Tab
+		return 0x09
+	case 0x2A: // Backspace
+		return 0x08
+	case 0x29: // Escape
+		return 0x1B
+	case 0x49: // Insert
+		return 0x94
+	case 0x4A: // Home
+		return 0x13
+	case 0x4C: // Delete (forward)
+		return 0x7F
+	case 0x4F: // Right Arrow
+		return 0x1D
+	case 0x50: // Left Arrow
+		return 0x9D
+	case 0x51: // Down Arrow
+		return 0x11
+	case 0x52: // Up Arrow
+		return 0x91
+	default:
+		return 0
+	}
+}
+
+// Key auto-repeat timing. Held editing keys re-enqueue their byte after an
+// initial delay, then at a steady interval, matching a typewriter-style repeat.
+const (
+	miaKeyRepeatDelayNs    int64 = 400 * 1_000_000 // wait before the first repeat
+	miaKeyRepeatIntervalNs int64 = 60 * 1_000_000  // ~16 repeats/sec while held
+)
+
+// inputKeyRepeats reports whether a held key should auto-repeat. Only the keys
+// where holding is useful repeat (cursor moves and Backspace); Enter and the
+// other one-shot keys fire once per press.
+func inputKeyRepeats(usageID uint16) bool {
+	switch usageID {
+	case 0x2A, 0x4C, 0x4F, 0x50, 0x51, 0x52: // Backspace, Delete, Right, Left, Down, Up
+		return true
+	default:
+		return false
+	}
+}
+
+// inputUsageDown reports whether a keyboard usage bit is currently held.
+func (c *emulated_mia) inputUsageDown(usageID uint16) bool {
+	if usageID > 0x00FF {
+		return false
+	}
+	byteIndex := miaInputKeyboardBitmapOffset + int(usageID>>3)
+	return c.memory[byteIndex]&uint8(1<<(usageID&7)) != 0
+}
+
+// inputArmRepeat starts auto-repeating usageID, re-enqueuing decoded byte b.
+func (c *emulated_mia) inputArmRepeat(usageID uint16, b uint8) {
+	c.input.repeatUsage = usageID
+	c.input.repeatByte = b
+	c.input.repeatDeadline = c.nowNs + miaKeyRepeatDelayNs
+}
+
+// inputReleaseRepeat stops auto-repeat if usageID is the repeating key.
+func (c *emulated_mia) inputReleaseRepeat(usageID uint16) {
+	if usageID == c.input.repeatUsage {
+		c.input.repeatUsage = 0
+	}
+}
+
+// inputRepeatService re-enqueues the held key's byte once its deadline passes,
+// then schedules the next repeat. It also stops if the key was released without
+// going through the HID-event path (e.g. a full bitmap replace).
+func (c *emulated_mia) inputRepeatService() {
+	if c.input.repeatUsage == 0 {
+		return
+	}
+	if !c.inputUsageDown(c.input.repeatUsage) {
+		c.input.repeatUsage = 0
+		return
+	}
+	if c.nowNs < c.input.repeatDeadline {
+		return
+	}
+
+	c.inputEnqueueText(c.input.repeatByte)
+	c.inputRecomputeStatus()
+	c.input.repeatDeadline = c.nowNs + miaKeyRepeatIntervalNs
+}
+
 // inputHidPage maps a HID usage page to its bitmap offset and event bits.
 func (c *emulated_mia) inputHidPage(usagePage uint16) (offset int, downEvent uint8, upEvent uint8, ok bool) {
 	switch usagePage {
@@ -736,6 +855,26 @@ func (c *emulated_mia) inputConsoleByte(value uint8) {
 // ends.
 func (c *emulated_mia) inputConsoleEndCapture() {
 	c.inputRecomputeStatus()
+}
+
+// DebugQueueInput injects one byte into the text input FIFO as if it had been
+// typed on the console (the default input source). It exists for headless tests
+// and tools that need to drive the 6502's input without a live input client.
+func (c *emulated_mia) DebugQueueInput(value uint8) {
+	c.mu.Lock()
+	c.inputConsoleByte(value)
+	c.mu.Unlock()
+}
+
+// DebugReadVideo returns one byte of MIA video RAM at the given internal video
+// offset (e.g. miaVideoOverlayNTOffset + row*40 + col). Debug/testing only.
+func (c *emulated_mia) DebugReadVideo(offset uint32) uint8 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if int(offset) >= len(c.memory) {
+		return 0
+	}
+	return c.memory[offset]
 }
 
 // inputModeName returns the human-readable name of an input mode.

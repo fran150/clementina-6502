@@ -153,6 +153,8 @@ func newClementinaComputer(mia components.MiaChip) (*ClementinaComputer, error) 
 		addressBus:      addressBus,
 		dataBus:         buses.New8BitStandaloneBus(),
 		cpuIRQ:          buses.NewStandaloneLine(true),
+		miaIRQ:          buses.NewStandaloneLine(true),
+		viaIRQ:          buses.NewStandaloneLine(true),
 		cpuReset:        buses.NewStandaloneLine(true),
 		miaResetRequest: buses.NewStandaloneLine(true),
 		cpuRW:           buses.NewStandaloneLine(true),
@@ -216,11 +218,11 @@ func newClementinaComputer(mia components.MiaChip) (*ClementinaComputer, error) 
 	chips.mia.Reset().Connect(circuit.cpuReset)
 	chips.mia.ResetRequest().Connect(circuit.miaResetRequest)
 	chips.mia.WriteEnable().Connect(chips.oeRWSync.RW())
-	chips.mia.Irq().Connect(circuit.cpuIRQ)
+	chips.mia.Irq().Connect(circuit.miaIRQ)
 
 	// VIA connections
 	chips.via.DataBus().Connect(circuit.dataBus)
-	chips.via.IrqRequest().Connect(circuit.cpuIRQ)
+	chips.via.IrqRequest().Connect(circuit.viaIRQ)
 	chips.via.ReadWrite().Connect(circuit.cpuRW)
 	chips.via.ChipSelect2().Connect(chips.csLogic.IOCS().GetBusLine(0))
 	chips.via.ChipSelect1().Connect(circuit.vcc)
