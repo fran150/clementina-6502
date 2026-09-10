@@ -12,37 +12,47 @@ import (
 
 // This file ports the Pico MIA PWM PSG audio subsystem (firmware
 // src/mia/audio/audio.{c,h}) to the emulator. The 6502-facing behavior is
-// reproduced exactly: the audio RAM block at $12000, the voice/header register
-// layout, the $D0-$D5 audio indexes, commands $60-$62, the MIA_STAT_AUDIO_ACTIVE
-// status bit, ERROR_AUDIO_QUEUE_OVERFLOW, and the 4-voice oscillator/ADSR/pan/mix
-// engine. The only platform-specific divergence is the output stage: the firmware
-// drives a stereo PWM pin pair, while the emulator renders the same mixed samples
-// to the host sound device through ebitengine/oto.
+// reproduced exactly: the audio RAM block at $12000, the layout-version-2
+// voice/header register layout (16-byte voice records, header AUDIO_VOLUME
+// master and per-voice VOLUME), the $D0-$D5 audio indexes, commands $60-$62, the
+// MIA_STAT_AUDIO_ACTIVE status bit, the layout-2 register set, and the 4-voice
+// oscillator/ADSR/volume/pan/mix engine.
 //
-// Threading: the firmware audio IRQ runs on core 0 and observes RAM writes
-// queued by core 1. The emulator mirrors this with a single-producer queue. The
-// producer is the 6502 bus path (audioCore1OnWrite, always called under the chip
-// mutex c.mu); the consumer is the oto render goroutine (miaAudioReader.Read,
-// which only takes the audio mutex a.mu and never c.mu). Lock order is always
-// c.mu -> a.mu so the two can never deadlock. State that must be read from MIA
-// RAM (the AUDIO_ENABLE/overflow resync) is captured by the producer while it
-// holds c.mu and copied into the engine, so the render goroutine never needs RAM.
+// Output stage - the one platform-specific divergence. On real hardware a
+// separate 24 kHz PWM IRQ (core 0) drains a small queue of register writes made
+// by the 6502 (core 1) and mixes one sample per tick; the cores and the audio
+// clock are independent silicon that never fall behind. The emulator's oto
+// callback is a goroutine that CAN be starved by the busy-spin timing loop.
+//
+// So each audio-block write is time-stamped with WALL-CLOCK time:
+// audioCore1OnWrite (CPU-Tick goroutine) stamps it with time.Since(audioEpoch)
+// expressed in audio samples and queues it. miaAudioReader.Read - the oto
+// callback - renders exactly the frames oto asks for, continuously, applying
+// each queued write when the render advances past its due sample. Read advances
+// its render cursor by exactly one sample per frame and oto pulls frames at the
+// real device rate, so the render cursor also tracks wall-clock: the write
+// timeline and the render timeline are the same clock and cannot drift apart
+// (an earlier CPU-cycle-derived stamp drifted against oto's real-time rate, and
+// the catch-up path then burst the backlog and dropped short notes). A callback
+// that stalls and then catches up therefore spreads the backlog across the
+// samples it renders instead of collapsing it into one burst. a.mu guards all
+// of this - the queue, the engine, and Read's render loop.
 
 const (
 	miaAudioSampleRate = 24000
 	miaAudioVoiceCount = 4
-	miaAudioVoiceSize  = 8
+	miaAudioVoiceSize  = 16
 
 	miaAudioStateOffset  = 0x12000
-	miaAudioStateSize    = 0x40
+	miaAudioStateSize    = 0x50
 	miaAudioHeaderOffset = miaAudioStateOffset
 	miaAudioHeaderSize   = 0x10
 	miaAudioVoicesOffset = miaAudioStateOffset + miaAudioHeaderSize
 
-	miaAudioVersion = 1
+	miaAudioVersion = 2
 
 	miaAudioHeaderVersion  = 0x00
-	miaAudioHeaderControl  = 0x01
+	miaAudioHeaderVolume   = 0x01
 	miaAudioHeaderStatus   = 0x02
 	miaAudioHeaderChannels = 0x03
 	miaAudioHeaderRateL    = 0x04
@@ -61,6 +71,14 @@ const (
 	miaAudioVoiceWaveform       = 0x05
 	miaAudioVoicePan            = 0x06
 	miaAudioVoiceControl        = 0x07
+	miaAudioVoiceVolume         = 0x08
+
+	// Master volume is a 4-bit level in the header VOLUME byte (0 silent, 15
+	// full), mirroring SID $D418. Per-voice VOLUME is a linear 8-bit trim (255 =
+	// unity) applied after the envelope and before panning. Both default to full.
+	miaAudioMasterVolumeMax     uint8 = 0x0F
+	miaAudioMasterVolumeDefault uint8 = 0x0F
+	miaAudioVoiceVolumeDefault  uint8 = 0xFF
 
 	miaAudioWaveSine     uint8 = 0x00
 	miaAudioWavePulse    uint8 = 0x01
@@ -83,13 +101,35 @@ const (
 const (
 	miaAudioPWMBits   = 10
 	miaAudioPWMCenter = 1 << (miaAudioPWMBits - 1)
-	miaAudioQueueSize = 64
 	miaAudioEnvMax    = 256 << 16
+
+	// Timestamped-write queue depth. Power of two. ~1024 covers many seconds of
+	// dense note writes if the oto callback stalls; on overflow the oldest write
+	// is applied immediately (it loses sub-ms timing precision, never the write).
+	miaAudioQueueSize = 1024
 
 	// Host output is rendered at full 16-bit resolution. The firmware clamps the
 	// mix to a signed 10-bit PWM sample; we keep that exact clamp (so clipping
 	// distortion matches real hardware) and then scale 10-bit -> 16-bit.
 	miaAudioOutputShift = 16 - miaAudioPWMBits
+
+	// Real-time host-output pacing. oto's mux asks miaAudioReader.Read for up to
+	// a full player buffer of frames per call (its default is 500 ms) and would
+	// take all of it at once; rendering that much in a single call collapses
+	// every queued register write into the first few frames and drops short
+	// notes. So the oto-driven reader renders no further ahead of wall-clock than
+	// a small lead, and lets wall-clock - which the oto callback also advances on
+	// as it consumes at the device rate - pace the rest. The debug/test reader
+	// (capToWallClock false) still renders exactly what it is asked.
+	miaAudioLeadSamples   = miaAudioSampleRate * 40 / 1000  // 40 ms rendered ahead of wall-clock
+	miaAudioMaxLagSamples = miaAudioSampleRate * 333 / 1000 // >~300 ms behind wall-clock: snap the cursor forward
+
+	// Player source-buffer size in bytes (4 bytes/frame). Matched to the lead so
+	// oto's mux goroutine fills it and then blocks on its condition variable
+	// (rather than spinning on a reader that hands out only lead-sized chunks),
+	// and so the player's initial fill completes in one Read. oto's own device
+	// buffer (NewContextOptions.BufferSize) is the real underrun cushion.
+	miaAudioPlayerBufBytes = miaAudioLeadSamples * 4
 )
 
 // miaAudioVoiceOffset returns the RAM offset of a voice's 8-byte register record.
@@ -119,6 +159,7 @@ type miaAudioVoice struct {
 	freqQ4     uint16
 	phaseInc   uint32
 	pulseWidth uint8
+	volume     uint8
 	attack     uint8
 	decay      uint8
 	sustain    uint8
@@ -138,23 +179,34 @@ type miaAudioVoice struct {
 }
 
 type miaAudioQueueEntry struct {
-	loc   uint8
-	value uint8
+	dueSample uint64 // audio-sample time this write should take effect
+	loc       uint8
+	value     uint8
 }
 
-// miaAudioState is the emulator's audio subsystem state. It is embedded in
-// emulated_mia. Its own mutex guards the engine and queue so the oto render
-// goroutine can run without touching the chip mutex.
+// miaAudioState is the emulator's audio subsystem state, embedded in
+// emulated_mia. a.mu guards everything below; it is taken by the CPU-Tick
+// goroutine (audioCore1OnWrite), the terminal-console goroutine (consoleAudio),
+// and the oto callback goroutine (miaAudioReader.Read).
 type miaAudioState struct {
 	mu sync.Mutex
 
 	voices [miaAudioVoiceCount]miaAudioVoice
 
-	active        bool
-	queueOverflow bool
-	queueHead     uint8
-	queueTail     uint8
-	queue         [miaAudioQueueSize]miaAudioQueueEntry
+	active       bool
+	masterVolume uint8
+
+	// Timestamped write queue. Each audio-block write the 6502 makes is stamped
+	// with the wall-clock audio-sample it is due (time since enable * 24 kHz) and
+	// applied by Read when the render passes it - so a starved-then-catching-up
+	// oto callback spreads the backlog across the frames it renders instead of
+	// bursting (which lost short notes). Wall-clock, not CPU cycles: the oto
+	// callback advances on wall-clock too, so the two can never drift apart.
+	audioEpoch      time.Time // when audio was last enabled
+	renderedSamples uint64    // frames Read has produced since audioEpoch
+	queue           [miaAudioQueueSize]miaAudioQueueEntry
+	qHead           int
+	qTail           int
 
 	// Host output. The oto context is process-wide (oto allows only one), so it
 	// is created lazily and shared; each chip owns one player. hostDisabled
@@ -234,6 +286,13 @@ func miaAudioPhaseInc(freqQ4 uint16) uint32 {
 	}
 
 	return uint32((uint64(freqQ4) << 32) / (uint64(miaAudioSampleRate) * 16))
+}
+
+// miaAudioMasterGain maps the 4-bit master volume 0..15 to a 0..255 gain (unity
+// at 15), mirroring audio_master_gain in the firmware. It scales the summed
+// stereo mix before the output clamp.
+func miaAudioMasterGain(v uint8) int32 {
+	return int32(v&miaAudioMasterVolumeMax) * 17
 }
 
 func miaAudioUpdatePan(voice *miaAudioVoice, pan int8) {
@@ -326,6 +385,7 @@ func (a *miaAudioState) resetVoiceState(voice int) {
 	state := &a.voices[voice]
 	*state = miaAudioVoice{}
 	state.pulseWidth = 128
+	state.volume = miaAudioVoiceVolumeDefault
 	state.adsr = miaADSRRelease
 	state.noise1 = 0x67452301 + uint32(voice)*0x11111111
 	state.noise2 = 0xEFCDAB89 - uint32(voice)*0x01010101
@@ -336,6 +396,11 @@ func (a *miaAudioState) resetVoiceState(voice int) {
 // audio_apply_register but never reads MIA RAM: the 16-bit frequency is patched
 // from the cached value so the render goroutine stays RAM-free.
 func (a *miaAudioState) applyRegister(loc, value uint8) {
+	if loc == miaAudioHeaderVolume {
+		a.masterVolume = value
+		return
+	}
+
 	if loc < miaAudioHeaderSize || loc >= miaAudioHeaderSize+miaAudioVoiceCount*miaAudioVoiceSize {
 		return
 	}
@@ -358,6 +423,8 @@ func (a *miaAudioState) applyRegister(loc, value uint8) {
 		state.phaseInc = miaAudioPhaseInc(state.freqQ4)
 	case miaAudioVoicePulseWidth:
 		state.pulseWidth = value
+	case miaAudioVoiceVolume:
+		state.volume = value
 	case miaAudioVoiceAttackDecay:
 		state.attack = value >> 4
 		state.decay = value & 0x0F
@@ -384,13 +451,22 @@ func (a *miaAudioState) applyRegister(loc, value uint8) {
 	}
 }
 
-// drainQueueLocked applies up to maxWork queued register writes. Caller holds a.mu.
-func (a *miaAudioState) drainQueueLocked(maxWork int) {
-	for maxWork > 0 && a.queueTail != a.queueHead {
-		entry := a.queue[a.queueTail]
-		a.queueTail = (a.queueTail + 1) & (miaAudioQueueSize - 1)
-		a.applyRegister(entry.loc, entry.value)
-		maxWork--
+// wallSampleLocked is the wall-clock audio-sample count since audio was enabled.
+// Caller holds a.mu.
+func (a *miaAudioState) wallSampleLocked() uint64 {
+	if a.audioEpoch.IsZero() {
+		return 0
+	}
+	return uint64(time.Since(a.audioEpoch).Seconds() * float64(miaAudioSampleRate))
+}
+
+// audioApplyDueLocked applies every queued write whose due sample has been
+// reached. Caller holds a.mu.
+func (a *miaAudioState) audioApplyDueLocked(upto uint64) {
+	for a.qTail != a.qHead && a.queue[a.qTail].dueSample <= upto {
+		e := a.queue[a.qTail]
+		a.qTail = (a.qTail + 1) & (miaAudioQueueSize - 1)
+		a.applyRegister(e.loc, e.value)
 	}
 }
 
@@ -406,10 +482,15 @@ func (a *miaAudioState) renderSampleLocked() (int16, int16) {
 		sample := int32(voice.nextSample())
 		voice.updateEnvelope()
 		sample = (sample * int32(voice.vol>>16)) >> 8
+		sample = (sample * int32(voice.volume)) >> 8
 
 		sampleL += (sample * int32(voice.panL)) >> 7
 		sampleR += (sample * int32(voice.panR)) >> 7
 	}
+
+	masterGain := miaAudioMasterGain(a.masterVolume)
+	sampleL = (sampleL * masterGain) >> 8
+	sampleR = (sampleR * masterGain) >> 8
 
 	const maxVal = int32(1<<(miaAudioPWMBits-1)) - 1
 	const minVal = int32(-(1 << (miaAudioPWMBits - 1)))
@@ -459,6 +540,7 @@ func (c *emulated_mia) audioSyncVoiceRegisters(voice int) {
 	state.freqQ4 = freqQ4
 	state.phaseInc = miaAudioPhaseInc(freqQ4)
 	state.pulseWidth = c.memory[base+miaAudioVoicePulseWidth]
+	state.volume = c.memory[base+miaAudioVoiceVolume]
 	state.attack = attackDecay >> 4
 	state.decay = attackDecay & 0x0F
 	state.sustain = sustainRelease >> 4
@@ -478,8 +560,10 @@ func (c *emulated_mia) audioSyncVoiceRegisters(voice int) {
 	state.control = control
 }
 
-// audioSyncFromMemory reloads every voice from RAM. Caller holds c.mu and c.audio.mu.
+// audioSyncFromMemory reloads the master volume and every voice from RAM. Caller
+// holds c.mu and c.audio.mu.
 func (c *emulated_mia) audioSyncFromMemory() {
+	c.audio.masterVolume = c.memory[miaAudioHeaderOffset+miaAudioHeaderVolume]
 	for voice := 0; voice < miaAudioVoiceCount; voice++ {
 		c.audioSyncVoiceRegisters(voice)
 	}
@@ -502,9 +586,11 @@ func (c *emulated_mia) audioResetRuntimeState() {
 		c.memory[miaAudioStateOffset+i] = 0
 	}
 	c.memory[miaAudioHeaderOffset+miaAudioHeaderVersion] = miaAudioVersion
+	c.memory[miaAudioHeaderOffset+miaAudioHeaderVolume] = miaAudioMasterVolumeDefault
 	c.memory[miaAudioHeaderOffset+miaAudioHeaderChannels] = miaAudioVoiceCount
 	c.audioWriteU16(miaAudioHeaderOffset+miaAudioHeaderRateL, miaAudioSampleRate)
 	c.memory[miaAudioHeaderOffset+miaAudioHeaderFlags] = miaAudioFlagStereo
+	a.masterVolume = miaAudioMasterVolumeDefault
 
 	for voice := 0; voice < miaAudioVoiceCount; voice++ {
 		base := miaAudioVoiceOffset(voice)
@@ -512,12 +598,12 @@ func (c *emulated_mia) audioResetRuntimeState() {
 		c.memory[base+miaAudioVoiceSustainRelease] = 0xF5
 		c.memory[base+miaAudioVoiceWaveform] = miaAudioWavePulse
 		c.memory[base+miaAudioVoicePan] = 0
+		c.memory[base+miaAudioVoiceVolume] = miaAudioVoiceVolumeDefault
 		a.resetVoiceState(voice)
 	}
 
-	a.queueHead = 0
-	a.queueTail = 0
-	a.queueOverflow = false
+	a.qHead = 0
+	a.qTail = 0
 	a.mu.Unlock()
 
 	c.audioConfigureIndexes()
@@ -529,9 +615,10 @@ func (c *emulated_mia) audioResetRuntimeState() {
 func (c *emulated_mia) audioEnable() {
 	a := &c.audio
 	a.mu.Lock()
-	a.queueHead = 0
-	a.queueTail = 0
-	a.queueOverflow = false
+	a.qHead = 0
+	a.qTail = 0
+	a.audioEpoch = time.Now()
+	a.renderedSamples = 0
 	c.audioSyncFromMemory()
 	a.active = true
 	a.mu.Unlock()
@@ -569,9 +656,18 @@ func (c *emulated_mia) audioReset() {
 
 // audioReclock mirrors mia_audio_reclock. On real hardware a PHI2 speed change
 // alters clk_sys, so the PWM sample-timer wrap is recomputed to hold 24 kHz. The
-// emulator renders to the host device at a fixed 24 kHz independent of PHI2, so
-// there is nothing to re-derive.
-func (c *emulated_mia) audioReclock() {}
+// emulator stamps writes with wall-clock time and renders at the real device
+// rate, so a PHI2 speed change needs no mapping fix-up here - just flush any
+// pending writes (whose spacing predates the speed change) and re-base the
+// wall-clock epoch so accumulated render lag does not carry across.
+func (c *emulated_mia) audioReclock() {
+	a := &c.audio
+	a.mu.Lock()
+	a.audioApplyDueLocked(^uint64(0)) // flush pending writes (their old timing is moot)
+	a.audioEpoch = time.Now()
+	a.renderedSamples = 0
+	a.mu.Unlock()
+}
 
 // audioIsActive reports whether the audio engine is running.
 func (c *emulated_mia) audioIsActive() bool {
@@ -581,10 +677,11 @@ func (c *emulated_mia) audioIsActive() bool {
 	return c.audio.active
 }
 
-// audioCore1OnWrite queues a live register write into the audio block, mirroring
-// mia_audio_core1_on_write. Caller holds c.mu. On queue overflow the firmware
-// defers a resync to the next audio IRQ; the emulator resyncs here instead,
-// because the render goroutine has no access to MIA RAM.
+// audioCore1OnWrite queues a live register write, stamped with the wall-clock
+// audio-sample time it is due (time since audio was enabled). Caller holds c.mu.
+// Read applies each entry at exactly its due sample, so a starved oto callback
+// that catches up on a backlog spreads those writes across the samples it
+// renders rather than collapsing them into one burst (which lost short notes).
 func (c *emulated_mia) audioCore1OnWrite(offset uint32, value uint8) {
 	if offset < miaAudioStateOffset || offset >= miaAudioStateOffset+miaAudioStateSize {
 		return
@@ -592,31 +689,22 @@ func (c *emulated_mia) audioCore1OnWrite(offset uint32, value uint8) {
 
 	a := &c.audio
 	a.mu.Lock()
-	if !a.active {
-		a.mu.Unlock()
-		return
-	}
-
-	next := (a.queueHead + 1) & (miaAudioQueueSize - 1)
-	if next == a.queueTail {
-		risingEdge := !a.queueOverflow
-		a.queueOverflow = true
-		c.audioSyncFromMemory()
-		a.queueHead = 0
-		a.queueTail = 0
-		a.mu.Unlock()
-
-		c.memory[miaAudioHeaderOffset+miaAudioHeaderStatus] |= miaAudioStatusQueueOverflow
-		if risingEdge {
-			c.errors.Push(c, miaErrorAudioQueueOverflow)
+	if a.active {
+		next := (a.qHead + 1) & (miaAudioQueueSize - 1)
+		if next == a.qTail {
+			// Queue full (oto callback stalled a long time): apply the oldest
+			// now so nothing is lost, then make room.
+			e := a.queue[a.qTail]
+			a.qTail = (a.qTail + 1) & (miaAudioQueueSize - 1)
+			a.applyRegister(e.loc, e.value)
 		}
-		return
+		a.queue[a.qHead] = miaAudioQueueEntry{
+			dueSample: a.wallSampleLocked(),
+			loc:       uint8(offset - miaAudioStateOffset),
+			value:     value,
+		}
+		a.qHead = next
 	}
-
-	head := a.queueHead
-	a.queue[head].loc = uint8(offset - miaAudioStateOffset)
-	a.queue[head].value = value
-	a.queueHead = next
 	a.mu.Unlock()
 }
 
@@ -647,12 +735,29 @@ func (c *emulated_mia) audioConfigureIndex(indexID uint8, start, length uint32) 
  * Host output (oto)
  **************************************************************************************************/
 
-// miaAudioReader feeds rendered PCM to an oto player. Its Read runs on oto's
-// goroutine and only takes c.audio.mu.
+// miaAudioReader feeds rendered PCM to an oto player. Read runs on oto's
+// callback goroutine and takes a.mu.
+//
+// capToWallClock is set only on the reader wired to the real oto player: it
+// makes Read refuse to render further ahead than wall-clock (plus a small lead),
+// so queued register writes are applied at their true wall-clock moment with
+// rendered frames in between. The debug/test reader leaves it false and renders
+// exactly the number of frames requested.
 type miaAudioReader struct {
-	chip *emulated_mia
+	chip           *emulated_mia
+	capToWallClock bool
 }
 
+// Read renders PCM on demand, always continuous (no gaps, no repeats), applying
+// each queued register write at its due sample as the render advances past it.
+// Rendering is a handful of adds per voice per sample, so holding a.mu for the
+// buffer costs the CPU-Tick goroutine only microseconds.
+//
+// The debug/test reader renders exactly len(buf)/4 frames. The oto-driven reader
+// (capToWallClock) renders at most up to wall-clock + a small lead, returning a
+// short read (possibly 0) otherwise, so that a caller willing to take half a
+// second at once still only gets audio as fast as wall-clock produces it - which
+// is what keeps queued note writes from collapsing into one render burst.
 func (r *miaAudioReader) Read(buf []byte) (int, error) {
 	a := &r.chip.audio
 
@@ -662,14 +767,38 @@ func (r *miaAudioReader) Read(buf []byte) (int, error) {
 	}
 
 	a.mu.Lock()
-	active := a.active
-	for f := 0; f < frames; f++ {
-		var left, right int16
-		if active {
-			a.drainQueueLocked(16)
-			left, right = a.renderSampleLocked()
+
+	if r.capToWallClock {
+		target := a.wallSampleLocked() + uint64(miaAudioLeadSamples)
+
+		// Long stall (emulator paused, or the mux goroutine starved by the
+		// busy-spin timing loop): don't let render latency grow without bound -
+		// snap the cursor up to wall-clock, applying every write due before the
+		// snap so nothing is lost.
+		if target > a.renderedSamples+uint64(miaAudioMaxLagSamples) {
+			snap := target - uint64(miaAudioLeadSamples)
+			a.audioApplyDueLocked(snap)
+			a.renderedSamples = snap
 		}
 
+		if a.renderedSamples >= target {
+			a.mu.Unlock()
+			return 0, nil
+		}
+		if avail := target - a.renderedSamples; avail < uint64(frames) {
+			frames = int(avail)
+		}
+	}
+
+	active := a.active
+	for f := 0; f < frames; f++ {
+		a.renderedSamples++
+		a.audioApplyDueLocked(a.renderedSamples)
+
+		var left, right int16
+		if active {
+			left, right = a.renderSampleLocked()
+		}
 		off := f * 4
 		buf[off+0] = byte(uint16(left))
 		buf[off+1] = byte(uint16(left) >> 8)
@@ -705,7 +834,11 @@ func (c *emulated_mia) audioStartOutput() {
 			return
 		}
 
-		newPlayer := ctx.NewPlayer(&miaAudioReader{chip: c})
+		newPlayer := ctx.NewPlayer(&miaAudioReader{chip: c, capToWallClock: true})
+		// Shrink the player's source buffer from oto's 500 ms default: the reader
+		// paces itself to wall-clock, so a big buffer just makes the mux goroutine
+		// spin asking for frames the reader will not hand out yet.
+		newPlayer.SetBufferSize(miaAudioPlayerBufBytes)
 
 		a.mu.Lock()
 		if a.player == nil {
@@ -789,6 +922,7 @@ type miaAudioVoiceDump struct {
 	freqQ4         uint16
 	waveform       uint8
 	pulseWidth     uint8
+	volume         uint8
 	pan            int8
 	attackDecay    uint8
 	sustainRelease uint8
@@ -801,12 +935,11 @@ func (c *emulated_mia) consoleAudioDetail() string {
 	c.mu.Lock()
 	c.audio.mu.Lock()
 	active := c.audio.active
-	queueHead := c.audio.queueHead
-	queueTail := c.audio.queueTail
-	overflow := c.audio.queueOverflow
+	masterVolume := c.audio.masterVolume
 	hostDisabled := c.audio.hostDisabled
 	hasPlayer := c.audio.player != nil
 	outputErr := c.audio.outputErr
+	pending := (c.audio.qHead - c.audio.qTail) & (miaAudioQueueSize - 1)
 	c.audio.mu.Unlock()
 
 	var dump [miaAudioVoiceCount]miaAudioVoiceDump
@@ -816,6 +949,7 @@ func (c *emulated_mia) consoleAudioDetail() string {
 			freqQ4:         c.audioReadU16(base + miaAudioVoiceFreqL),
 			waveform:       c.memory[base+miaAudioVoiceWaveform],
 			pulseWidth:     c.memory[base+miaAudioVoicePulseWidth],
+			volume:         c.memory[base+miaAudioVoiceVolume],
 			pan:            int8(c.memory[base+miaAudioVoicePan]),
 			attackDecay:    c.memory[base+miaAudioVoiceAttackDecay],
 			sustainRelease: c.memory[base+miaAudioVoiceSustainRelease],
@@ -829,14 +963,14 @@ func (c *emulated_mia) consoleAudioDetail() string {
 	fmt.Fprintf(&out, "  state:     %s\n", activeOrStopped(active))
 	fmt.Fprintf(&out, "  rate:      %d Hz\n", miaAudioSampleRate)
 	fmt.Fprintf(&out, "  voices:    %d\n", miaAudioVoiceCount)
+	fmt.Fprintf(&out, "  volume:    %d/15 (master)\n", masterVolume&miaAudioMasterVolumeMax)
 	fmt.Fprintf(&out, "  output:    %s\n", audioOutputState(hostDisabled, hasPlayer, outputErr))
 	fmt.Fprintf(&out, "  block:     $%05X-$%05X\n",
 		miaAudioStateOffset, miaAudioStateOffset+miaAudioStateSize-1)
 	fmt.Fprintf(&out, "  indexes:   all:$%02X  ch0:$%02X ch1:$%02X ch2:$%02X ch3:$%02X  header:$%02X\n",
 		miaAudioIndexAll, miaAudioIndexVoice0, miaAudioIndexVoice1,
 		miaAudioIndexVoice2, miaAudioIndexVoice3, miaAudioIndexHeader)
-	fmt.Fprintf(&out, "  queue:     head:%d tail:%d overflow:%s\n",
-		queueHead, queueTail, yesNo(overflow))
+	fmt.Fprintf(&out, "  pending:   %d writes\n", pending)
 
 	for v := 0; v < miaAudioVoiceCount; v++ {
 		d := dump[v]
@@ -845,12 +979,13 @@ func (c *emulated_mia) consoleAudioDetail() string {
 			gate = "on"
 		}
 		fmt.Fprintf(&out,
-			"  ch%d:      freq:%d.%d Hz  wave:%d  pulse:%d  pan:%d  AD:%X/%X  SR:%X/%X  gate:%s\n",
+			"  ch%d:      freq:%d.%d Hz  wave:%d  pulse:%d  vol:%d  pan:%d  AD:%X/%X  SR:%X/%X  gate:%s\n",
 			v,
 			d.freqQ4>>4,
 			(d.freqQ4&0x0F)*10/16,
 			d.waveform,
 			d.pulseWidth,
+			d.volume,
 			d.pan,
 			d.attackDecay>>4, d.attackDecay&0x0F,
 			d.sustainRelease>>4, d.sustainRelease&0x0F,

@@ -877,6 +877,50 @@ func (c *emulated_mia) DebugReadVideo(offset uint32) uint8 {
 	return c.memory[offset]
 }
 
+// DebugAudioVoiceState returns the live engine state for a voice: 12.4 freq,
+// CONTROL, ADSR phase (0=release 1=attack 2=decay 3=sustain), and the envelope
+// accumulator. Debug/testing only.
+func (c *emulated_mia) DebugAudioVoiceState(voice int) (freqQ4 uint16, control uint8, adsr uint8, vol uint32) {
+	a := &c.audio
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	v := &a.voices[voice]
+	return v.freqQ4, v.control, uint8(v.adsr), v.vol
+}
+
+// DebugAudioReadPCM renders frames stereo frames exactly the way the oto
+// callback (miaAudioReader.Read) does - continuous, applying queued register
+// writes at their due samples - and returns them interleaved L,R. Debug/testing
+// only.
+func (c *emulated_mia) DebugAudioReadPCM(frames int) []int16 {
+	buf := make([]byte, frames*4)
+	n, _ := (&miaAudioReader{chip: c}).Read(buf)
+	out := make([]int16, n/2)
+	for i := range out {
+		out[i] = int16(uint16(buf[i*2]) | uint16(buf[i*2+1])<<8)
+	}
+	return out
+}
+
+// DebugAudioPendingWrites reports how many timestamped audio writes are queued
+// but not yet applied. Debug/testing only.
+func (c *emulated_mia) DebugAudioPendingWrites() int {
+	a := &c.audio
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return (a.qHead - a.qTail) & (miaAudioQueueSize - 1)
+}
+
+// DebugAudioFlush applies every queued audio write to the engine immediately,
+// ignoring due-sample timing. Debug/testing only - lets a test that pokes the
+// bus then inspects engine state skip the render step.
+func (c *emulated_mia) DebugAudioFlush() {
+	a := &c.audio
+	a.mu.Lock()
+	a.audioApplyDueLocked(^uint64(0))
+	a.mu.Unlock()
+}
+
 // inputModeName returns the human-readable name of an input mode.
 func inputModeName(mode miaInputMode) string {
 	switch mode {
