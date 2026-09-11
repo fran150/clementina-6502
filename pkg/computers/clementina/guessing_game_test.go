@@ -93,10 +93,15 @@ func TestGuessingGameReturnsToReady(t *testing.T) {
 	}
 
 	// The CPU must be idle in valid code (editor input wait), never running away
-	// into BASIC workspace / I/O space.
+	// into BASIC workspace / I/O space. Upper bound is the loaded-image ceiling
+	// enforced by the ROM build (MAX_KERNEL_BYTES, clementina-rom Makefile) -
+	// not a specific past image size - so it stays correct as the kernel grows.
+	// (Was a hardcoded $3600: too tight once the background-PLAY IRQ sequencer
+	// landed above it - bg_play_tick runs on every Timer-1 tick, so catching the
+	// PC there mid-interrupt is expected, not a runaway.)
 	pc := computer.chips.cpu.(pcReader)
 	inValidCode := func(p uint16) bool {
-		return p <= 0x0005 || (p >= 0x00C2 && p <= 0x00DE) || (p >= 0x0400 && p < 0x3600)
+		return p <= 0x0005 || (p >= 0x00C2 && p <= 0x00DE) || (p >= 0x0400 && p < 0x4400)
 	}
 	for i := 0; i < 300_000; i++ {
 		tickComputer(computer, step)
