@@ -10,8 +10,19 @@ const (
 	miaIndexCount    = 256
 	miaAddressMask   = 0x00FFFFFF
 
-	miaKernelTargetAddress = 0x0400
-	miaCPUResetPulseCycles = 4
+	// 2026-09 RAM/ROM reorg (clementina-rom): the loader now writes DESCENDING
+	// instead of ascending, so the image ends exactly at $BFFF regardless of
+	// how large it grows. Two fixed constants now, mirroring mia.c in
+	// clementina-mia:
+	//   - miaKernelLoadTopAddress ($BFFF): where the loader starts writing.
+	//     Never needs to change as clementina-rom's image grows or shrinks.
+	//   - miaKernelTargetAddress ($BFD0): the RESET/NMI/IRQ vector target,
+	//     i.e. the start of clementina-rom's kernel jump table (KERN_BASE).
+	//     Only changes if KERN_JUMPTAB_SIZE itself changes (rare), unlike the
+	//     image's overall size (constant churn as commands are added).
+	miaKernelLoadTopAddress = 0xBFFF
+	miaKernelTargetAddress  = 0xBFD0
+	miaCPUResetPulseCycles  = 4
 	miaDefaultPhi2Hz       = 1200000
 	miaMinPhi2Hz           = 1
 	miaMaxPhi2Hz           = 8000000

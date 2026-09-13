@@ -87,10 +87,10 @@ func TestEmulatedMiaFastLoaderInitialization(t *testing.T) {
 
 	expected := map[uint8]uint8{
 		miaRegIdxAPort:       0xA9,
-		miaRegIdxASelector:   miaKernelData[0],
+		miaRegIdxASelector:   miaKernelData[len(miaKernelData)-1],
 		0x02:                 0x8D,
-		0x03:                 miaKernelTargetAddress & 0xFF,
-		miaRegIdxBPort:       miaKernelTargetAddress >> 8,
+		0x03:                 miaKernelLoadTopAddress & 0xFF,
+		miaRegIdxBPort:       miaKernelLoadTopAddress >> 8,
 		miaRegIdxBSelector:   0x8D,
 		miaRegCmdParam1:      0xF1,
 		miaRegCmdParam2:      0xFF,
@@ -137,7 +137,7 @@ func TestEmulatedMiaResetRestoresFastLoader(t *testing.T) {
 	assert.False(t, chip.canUpdateKernelPointer)
 	assert.False(t, circuit.reset.Status())
 	assert.Equal(t, uint8(0xA9), chip.readRegister(miaRegIdxAPort))
-	assert.Equal(t, miaKernelData[0], chip.readRegister(miaRegIdxASelector))
+	assert.Equal(t, miaKernelData[len(miaKernelData)-1], chip.readRegister(miaRegIdxASelector))
 	assert.Equal(t, uint16(0xFFE0), chip.readRegisterWord(miaRegResetVectorLSB))
 }
 
@@ -210,16 +210,16 @@ func TestEmulatedMiaLoaderAdvancesKernelAfterReadThenWrite(t *testing.T) {
 	circuit := newEmulatedMiaTestCircuit()
 	chip := circuit.chip
 
-	assert.Equal(t, miaKernelData[0], circuit.read(miaRegIdxASelector))
+	assert.Equal(t, miaKernelData[len(miaKernelData)-1], circuit.read(miaRegIdxASelector))
 	circuit.write(miaRegIRQStatusMSB, 0x00)
 
-	assert.Equal(t, miaKernelData[1], chip.readRegister(miaRegIdxASelector))
-	assert.Equal(t, uint16(miaKernelTargetAddress+1), chip.readRegisterWord(0x03))
+	assert.Equal(t, miaKernelData[len(miaKernelData)-2], chip.readRegister(miaRegIdxASelector))
+	assert.Equal(t, uint16(miaKernelLoadTopAddress-1), chip.readRegisterWord(0x03))
 
 	circuit.write(miaRegIRQStatusMSB, 0x00)
 
-	assert.Equal(t, miaKernelData[1], chip.readRegister(miaRegIdxASelector))
-	assert.Equal(t, uint16(miaKernelTargetAddress+1), chip.readRegisterWord(0x03))
+	assert.Equal(t, miaKernelData[len(miaKernelData)-2], chip.readRegister(miaRegIdxASelector))
+	assert.Equal(t, uint16(miaKernelLoadTopAddress-1), chip.readRegisterWord(0x03))
 
 	for chip.state == miaStateLoader {
 		circuit.read(miaRegIdxASelector)
@@ -248,9 +248,9 @@ func TestEmulatedMiaLoaderStoresFinalKernelByteBeforeExiting(t *testing.T) {
 
 	assert.Equal(t, miaStateLoader, chip.state)
 	assert.Equal(t, uint32(len(miaKernelData)), chip.kernelIndex)
-	assert.Equal(t, miaKernelData[len(miaKernelData)-1], chip.readRegister(miaRegIdxASelector))
+	assert.Equal(t, miaKernelData[0], chip.readRegister(miaRegIdxASelector))
 	assert.Equal(t, uint8(0xF6), chip.readRegister(miaRegCmdTrigger))
-	assert.Equal(t, uint16(miaKernelTargetAddress+len(miaKernelData)-1), chip.readRegisterWord(0x03))
+	assert.Equal(t, uint16(miaKernelLoadTopAddress-uint16(len(miaKernelData)-1)), chip.readRegisterWord(0x03))
 
 	circuit.read(miaRegIdxASelector)
 	circuit.write(miaRegIRQStatusMSB, 0x00)

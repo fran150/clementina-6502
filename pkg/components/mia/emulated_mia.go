@@ -27,6 +27,7 @@ type emulated_mia struct {
 
 	state                  miaState
 	kernelIndex            uint32
+	kernelLoadTopAddress   uint16
 	kernelTargetAddress    uint16
 	canUpdateKernelPointer bool
 	irqAsserted            bool
@@ -73,7 +74,8 @@ func NewEmulatedMia() components.MiaChip {
 		memory:       make([]uint8, miaRAMSize),
 
 		state:               miaStateLoader,
-		kernelTargetAddress: miaKernelTargetAddress,
+		kernelLoadTopAddress: miaKernelLoadTopAddress,
+		kernelTargetAddress:  miaKernelTargetAddress,
 		appliedPhi2Hz:       miaDefaultPhi2Hz,
 		charsetName:         miaDefaultCharset,
 		paletteName:         miaDefaultPalette,
@@ -407,15 +409,21 @@ func (c *emulated_mia) normalReadOnlyWriteIgnored(address uint8) bool {
 }
 
 // advanceKernelLoader moves the boot-loader data register to the next kernel byte.
+//
+// 2026-09 RAM/ROM reorg (clementina-rom): descending loader, mirroring
+// mia.c's fast-loader in clementina-mia. kernelIndex still counts
+// 0..len(miaKernelData)-1 exactly as before; miaKernelData is read
+// back-to-front (its last byte - meant for the highest address - is sent
+// first) while the write-target register decrements instead of incrementing.
 func (c *emulated_mia) advanceKernelLoader() {
 	if !c.canUpdateKernelPointer {
 		return
 	}
 
 	if c.kernelIndex < uint32(len(miaKernelData)) {
-		c.writeRegister(miaRegIdxASelector, miaKernelData[c.kernelIndex])
+		c.writeRegister(miaRegIdxASelector, miaKernelData[uint32(len(miaKernelData))-1-c.kernelIndex])
 		c.kernelIndex++
-		c.writeRegisterWord(0x03, c.readRegisterWord(0x03)+1)
+		c.writeRegisterWord(0x03, c.readRegisterWord(0x03)-1)
 	} else {
 		c.writeRegister(miaRegCmdTrigger, 0x00)
 		c.enterNormalMode()
@@ -446,18 +454,23 @@ func (c *emulated_mia) enterNormalMode() {
 }
 
 // fastLoaderInit seeds the MIA register window with the Pico fast-loader program.
+//
+// Descending loader (see advanceKernelLoader): the first byte sent is
+// miaKernelData's last element (meant for the highest address), written to
+// kernelLoadTopAddress; each subsequent byte/address pair steps backward
+// together.
 func (c *emulated_mia) fastLoaderInit() {
 	c.kernelIndex = 0
 
 	c.writeRegister(miaRegIdxAPort, 0xA9)
 	if len(miaKernelData) > 0 {
-		c.writeRegister(miaRegIdxASelector, miaKernelData[c.kernelIndex])
+		c.writeRegister(miaRegIdxASelector, miaKernelData[uint32(len(miaKernelData))-1-c.kernelIndex])
 		c.kernelIndex++
 	}
 
 	c.writeRegister(0x02, 0x8D)
-	c.writeRegister(0x03, uint8(c.kernelTargetAddress))
-	c.writeRegister(miaRegIdxBPort, uint8(c.kernelTargetAddress>>8))
+	c.writeRegister(0x03, uint8(c.kernelLoadTopAddress))
+	c.writeRegister(miaRegIdxBPort, uint8(c.kernelLoadTopAddress>>8))
 
 	c.writeRegister(miaRegIdxBSelector, 0x8D)
 	c.writeRegister(miaRegCmdParam1, 0xF1)
