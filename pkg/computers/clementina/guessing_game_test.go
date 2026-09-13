@@ -99,11 +99,12 @@ func TestGuessingGameReturnsToReady(t *testing.T) {
 	// hardcoded mirror; bump it alongside MAX_KERNEL_BYTES/RAMSTART2/BGP_BASE.
 	// (Was a hardcoded $3600: too tight once the background-PLAY IRQ sequencer
 	// landed above it - bg_play_tick runs on every Timer-1 tick, so catching the
-	// PC there mid-interrupt is expected, not a runaway. Raised again to $4C00
-	// alongside the 2026-09 RAMSTART2 bump for BGLOAD/CHRLOAD/PALLOAD/BGCHAR.)
+	// PC there mid-interrupt is expected, not a runaway. Raised to $4C00 for the
+	// 2026-09 RAMSTART2 bump (BGLOAD/CHRLOAD/PALLOAD/BGCHAR), then to $5C00 for
+	// file I/O + the video/audio asset family's *READ/*LOAD/*SAVE split.)
 	pc := computer.chips.cpu.(pcReader)
 	inValidCode := func(p uint16) bool {
-		return p <= 0x0005 || (p >= 0x00C2 && p <= 0x00DE) || (p >= 0x0400 && p < 0x4C00)
+		return p <= 0x0005 || (p >= 0x00C2 && p <= 0x00DE) || (p >= 0x0400 && p < 0x5C00)
 	}
 	for i := 0; i < 300_000; i++ {
 		tickComputer(computer, step)

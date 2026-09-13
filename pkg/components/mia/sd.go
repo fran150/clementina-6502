@@ -16,7 +16,14 @@ import (
 // reproduced exactly: the SD/FS RAM block at $13000, the control block / sector /
 // path / directory-entry / transfer buffers, the $E0-$E4 indexes, commands
 // $70-$73 and $78-$81, the MIA_STAT_SD_PRESENT/SD_BUSY/FS_MOUNTED status bits, the
-// IRQ_SD_DONE/SD_ERROR/FS_EVENT IRQ bits, and the $70-$81 error codes.
+// IRQ_SD_DONE/SD_ERROR/FS_EVENT IRQ bits, and the $70-$88 error codes.
+//
+// SD_HANDLE_SELECT ($2E, protocol v5): FS_OPEN/FS_READ/FS_WRITE/FS_SEEK/FS_SYNC/
+// FS_CLOSE all act on whichever of miaSDMaxHandles slots this names, mirroring the
+// firmware's per-slot FIL array. Size/position/EOF are never cached per slot -
+// like the firmware (f_size/f_tell/f_eof read straight off the FIL), this reads
+// them live from the slot's *os.File via Stat/Seek. The directory cursor and the
+// whole-file load/save jobs stay singular, unaffected by handle selection.
 //
 // The platform-specific divergence is the backend. The firmware drives a real SD
 // card over SPI and parses FAT through the bundled FatFs (ff.c). The emulator
@@ -57,7 +64,12 @@ const (
 	miaFSPath2Offset = miaFSTransferOffset
 	miaFSPath2Size   = miaFSPathSize
 
-	miaSDVersion = 4
+	miaSDVersion = 5
+
+	// miaSDMaxHandles is the number of concurrent file-handle slots. BASIC-visible
+	// file numbers map directly onto these slots, one-to-one, with no allocator in
+	// between - see the SD_HANDLE_SELECT note above.
+	miaSDMaxHandles = 16
 
 	// Virtual raw block device capacity reported by SD_INIT/SD_GET_INFO and used
 	// to bound raw sector access. A host folder has no inherent size, so this is a
@@ -102,6 +114,7 @@ const (
 	miaSDControlTotalClusters0  = 0x24
 	miaSDControlClusterSectorsL = 0x28
 	miaSDControlTransferLen0    = 0x2A
+	miaSDControlHandleSelect    = 0x2E
 )
 
 // SD_STATUS byte flags (mirrored into the control block).
@@ -179,6 +192,7 @@ const (
 	miaCmdFSGetFree      uint8 = 0x86
 
 	miaCmdFSSaveFromMiaRAM uint8 = 0x87
+	miaCmdFSChdir          uint8 = 0x88
 )
 
 // Subset of FatFs FRESULT codes, written to SD_FATFS_RESULT for diagnostics.
@@ -205,17 +219,28 @@ type miaSDState struct {
 
 	initialized bool
 	mounted     bool
-	fileOpen    bool
 	dirOpen     bool
 	eof         bool
+
+	// cwd is the current directory, FatFs-style ("" means the root, matching
+	// a fresh f_chdir-less mount). Firmware gets this for free from FatFs's
+	// own FF_FS_RPATH-tracked FATFS work area (persists until the next
+	// f_mount); the emulator has no such library underneath it, so it is
+	// tracked explicitly here instead - reset on every (re)mount, same as a
+	// real f_mount resets FatFs's cdir to root. See sdServiceChdir and
+	// sdResolveHostPathFrom.
+	cwd string
 
 	lastError       uint8
 	lastFatfsResult uint8
 	cardType        uint8
-	currentOpenMode uint8
 	sectors         uint32
 
-	file *os.File
+	// Per-handle file state, indexed by slot (0..miaSDMaxHandles-1). See the
+	// SD_HANDLE_SELECT note in this file's header comment.
+	fileOpen        [miaSDMaxHandles]bool
+	currentOpenMode [miaSDMaxHandles]uint8
+	file            [miaSDMaxHandles]*os.File
 
 	dirEntries []os.DirEntry
 	dirIndex   int
@@ -278,6 +303,18 @@ func (c *emulated_mia) sdControlTransferLen() uint32 {
 	return c.sdReadU32(miaSDControlOffset + miaSDControlTransferLen0)
 }
 
+// sdRequireValidHandle reads SD_HANDLE_SELECT and validates it against
+// miaSDMaxHandles, mirroring sd_require_valid_handle. The second return is false
+// (with the first meaningless) when the selected slot is out of range, so
+// callers can fail the command with ERROR_FS_INVALID_HANDLE.
+func (c *emulated_mia) sdRequireValidHandle() (uint8, bool) {
+	slot := c.memory[miaSDControlOffset+miaSDControlHandleSelect]
+	if int(slot) >= miaSDMaxHandles {
+		return 0, false
+	}
+	return slot, true
+}
+
 /**************************************************************************************************
  * Lifecycle (run under c.mu)
  **************************************************************************************************/
@@ -297,11 +334,10 @@ func (c *emulated_mia) SetSDFolder(folder string) {
 // reconfigures the fixed indexes, and republishes state. rootDir, the virtual card
 // content, and the initialized flag persist (sd_initialized is static in firmware).
 func (c *emulated_mia) sdResetRuntimeState() {
-	c.sdCloseFile()
+	c.sdCloseAllFiles()
 	c.sdCloseDir()
 	c.sd.mounted = false
 	c.sd.eof = false
-	c.sd.currentOpenMode = miaFSOpenRead
 	c.sd.lastError = 0
 	c.sd.lastFatfsResult = frOK
 
@@ -333,16 +369,30 @@ func (c *emulated_mia) sdClose() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.sdCloseFile()
+	c.sdCloseAllFiles()
 	c.sdCloseDir()
 }
 
-func (c *emulated_mia) sdCloseFile() {
-	if c.sd.file != nil {
-		_ = c.sd.file.Close()
-		c.sd.file = nil
+// sdCloseFile closes one handle slot, mirroring the firmware's per-slot
+// FS_CLOSE. It no longer also closes the directory cursor - with multiple
+// handles that coupling would let closing an unrelated file silently kill an
+// in-progress FS_OPENDIR/FS_READDIR listing. See sdCloseAllFiles for teardown.
+func (c *emulated_mia) sdCloseFile(slot uint8) {
+	if c.sd.file[slot] != nil {
+		_ = c.sd.file[slot].Close()
+		c.sd.file[slot] = nil
 	}
-	c.sd.fileOpen = false
+	c.sd.fileOpen[slot] = false
+	c.sd.currentOpenMode[slot] = miaFSOpenRead
+}
+
+// sdCloseAllFiles closes every handle slot, used by sdResetRuntimeState and
+// sdCardInit (both mirror firmware paths that used to reset the single implicit
+// handle).
+func (c *emulated_mia) sdCloseAllFiles() {
+	for slot := uint8(0); slot < miaSDMaxHandles; slot++ {
+		c.sdCloseFile(slot)
+	}
 }
 
 func (c *emulated_mia) sdCloseDir() {
@@ -366,7 +416,8 @@ func (c *emulated_mia) sdRequest(command uint8) bool {
 		miaCmdFSMount, miaCmdFSOpendir, miaCmdFSReaddir, miaCmdFSOpen,
 		miaCmdFSRead, miaCmdFSClose, miaCmdFSLoadToMiaRAM, miaCmdFSWrite,
 		miaCmdFSSync, miaCmdFSSeek, miaCmdFSStat, miaCmdFSMkdir,
-		miaCmdFSDelete, miaCmdFSRename, miaCmdFSGetFree, miaCmdFSSaveFromMiaRAM:
+		miaCmdFSDelete, miaCmdFSRename, miaCmdFSGetFree, miaCmdFSSaveFromMiaRAM,
+		miaCmdFSChdir:
 	default:
 		return false
 	}
@@ -424,6 +475,18 @@ func (c *emulated_mia) sdFinish(ok bool, errorCode uint8, fr uint8, fsEvent bool
 func (c *emulated_mia) sdPublishState() {
 	var status uint8
 
+	// FILE_HANDLE/EOF describe whichever slot SD_HANDLE_SELECT currently names.
+	// EOF falls back to the transient c.sd.eof (set by FS_READDIR / the load-save
+	// jobs, neither of which has "a slot") when the selected slot has no file
+	// open - exactly today's single-handle behavior for anyone who never touches
+	// SD_HANDLE_SELECT, since slot 0 is the reset-time default.
+	sel, selValid := c.sdRequireValidHandle()
+	selOpen := selValid && c.sd.fileOpen[sel]
+	selEOF := c.sd.eof
+	if selOpen {
+		selEOF = c.sdFileAtEOF(sel)
+	}
+
 	if c.sd.initialized {
 		status |= miaSDStatusPresent | miaSDStatusInitialized
 	}
@@ -433,13 +496,13 @@ func (c *emulated_mia) sdPublishState() {
 	if c.status()&miaStatusSDBusy != 0 {
 		status |= miaSDStatusBusy
 	}
-	if c.sd.fileOpen {
+	if selOpen {
 		status |= miaSDStatusFileOpen
 	}
 	if c.sd.dirOpen {
 		status |= miaSDStatusDirOpen
 	}
-	if c.sd.eof {
+	if selEOF {
 		status |= miaSDStatusEOF
 	}
 	if c.sd.lastError != 0 {
@@ -449,12 +512,12 @@ func (c *emulated_mia) sdPublishState() {
 	c.memory[miaSDControlOffset+miaSDControlStatus] = status
 	c.memory[miaSDControlOffset+miaSDControlLastError] = c.sd.lastError
 	c.memory[miaSDControlOffset+miaSDControlCardType] = c.sd.cardType
-	if c.sd.eof {
+	if selEOF {
 		c.memory[miaSDControlOffset+miaSDControlEOF] = 1
 	} else {
 		c.memory[miaSDControlOffset+miaSDControlEOF] = 0
 	}
-	if c.sd.fileOpen {
+	if selOpen {
 		c.memory[miaSDControlOffset+miaSDControlFileHandle] = 1
 	} else {
 		c.memory[miaSDControlOffset+miaSDControlFileHandle] = 0
@@ -536,6 +599,9 @@ func (c *emulated_mia) sdService(command uint8) {
 
 	case miaCmdFSMkdir:
 		ok, fr, errorCode = c.sdServiceMkdir()
+
+	case miaCmdFSChdir:
+		ok, fr, errorCode = c.sdServiceChdir()
 
 	case miaCmdFSDelete:
 		ok, fr, errorCode = c.sdServiceDelete()
@@ -627,6 +693,11 @@ func (c *emulated_mia) sdServiceReaddir() (bool, uint8, uint8) {
 }
 
 func (c *emulated_mia) sdServiceOpen() (bool, uint8, uint8) {
+	slot, slotOK := c.sdRequireValidHandle()
+	if !slotOK {
+		return false, frInvalidParameter, miaErrorFSInvalidHandle
+	}
+
 	if ok, fr := c.sdRequireMounted(); !ok {
 		return false, fr, miaErrorFSMountFailed
 	}
@@ -637,17 +708,23 @@ func (c *emulated_mia) sdServiceOpen() (bool, uint8, uint8) {
 		return false, frDenied, miaErrorFSInvalidRequest
 	}
 
-	c.sdCloseFile()
+	// Multi-handle FS_OPEN requires an explicit FS_CLOSE first, unlike the old
+	// single-handle behavior that silently replaced whatever was open - an
+	// unexpected re-open of a slot is much more likely a program bug than an
+	// intentional replace.
+	if c.sd.fileOpen[slot] {
+		return false, frDenied, miaErrorFSHandleAlreadyOpen
+	}
 
 	hostPath, ok := c.sdResolveHostPath()
 	if !ok {
-		c.sdUpdateFilePosition()
+		c.sdUpdateFilePosition(slot)
 		return false, frInvalidName, miaErrorFSOpenFailed
 	}
 
 	file, err := os.OpenFile(hostPath, flag, 0o644)
 	if err != nil {
-		c.sdUpdateFilePosition()
+		c.sdUpdateFilePosition(slot)
 		return false, sdErrToFresult(err), miaErrorFSOpenFailed
 	}
 
@@ -657,15 +734,19 @@ func (c *emulated_mia) sdServiceOpen() (bool, uint8, uint8) {
 		_, _ = file.Seek(0, io.SeekEnd)
 	}
 
-	c.sd.file = file
-	c.sd.fileOpen = true
-	c.sd.currentOpenMode = openMode
-	c.sdUpdateFilePosition()
+	c.sd.file[slot] = file
+	c.sd.fileOpen[slot] = true
+	c.sd.currentOpenMode[slot] = openMode
+	c.sdUpdateFilePosition(slot)
 	return true, frOK, miaErrorFSOpenFailed
 }
 
 func (c *emulated_mia) sdServiceRead() (bool, uint8, uint8) {
-	if !c.sd.fileOpen || c.sd.file == nil {
+	slot, slotOK := c.sdRequireValidHandle()
+	if !slotOK {
+		return false, frInvalidParameter, miaErrorFSInvalidHandle
+	}
+	if !c.sd.fileOpen[slot] || c.sd.file[slot] == nil {
 		return false, frInvalidObject, miaErrorFSNoFileOpen
 	}
 
@@ -675,20 +756,23 @@ func (c *emulated_mia) sdServiceRead() (bool, uint8, uint8) {
 	}
 
 	start := uint32(miaFSTransferOffset)
-	n, err := c.sd.file.Read(c.memory[start : start+uint32(requested)])
+	n, err := c.sd.file[slot].Read(c.memory[start : start+uint32(requested)])
 	if err != nil && err != io.EOF {
-		c.sdUpdateFilePosition()
+		c.sdUpdateFilePosition(slot)
 		return false, sdErrToFresult(err), miaErrorFSReadFailed
 	}
 
 	c.sdWriteU16(miaSDControlOffset+miaSDControlResultLenL, uint16(n))
-	c.sdUpdateFilePosition()
-	c.sd.eof = c.sdFileAtEOF()
+	c.sdUpdateFilePosition(slot)
 	return true, frOK, miaErrorFSReadFailed
 }
 
 func (c *emulated_mia) sdServiceWrite() (bool, uint8, uint8) {
-	if !c.sd.fileOpen || c.sd.file == nil {
+	slot, slotOK := c.sdRequireValidHandle()
+	if !slotOK {
+		return false, frInvalidParameter, miaErrorFSInvalidHandle
+	}
+	if !c.sd.fileOpen[slot] || c.sd.file[slot] == nil {
 		return false, frInvalidObject, miaErrorFSNoFileOpen
 	}
 
@@ -698,10 +782,10 @@ func (c *emulated_mia) sdServiceWrite() (bool, uint8, uint8) {
 	}
 
 	start := uint32(miaFSTransferOffset)
-	n, err := c.sd.file.Write(c.memory[start : start+uint32(requested)])
+	n, err := c.sd.file[slot].Write(c.memory[start : start+uint32(requested)])
 	ok := err == nil && n == int(requested)
 	c.sdWriteU16(miaSDControlOffset+miaSDControlResultLenL, uint16(n))
-	c.sdUpdateFilePosition()
+	c.sdUpdateFilePosition(slot)
 	if !ok {
 		return false, sdErrToFresult(err), miaErrorFSWriteFailed
 	}
@@ -709,12 +793,16 @@ func (c *emulated_mia) sdServiceWrite() (bool, uint8, uint8) {
 }
 
 func (c *emulated_mia) sdServiceSync() (bool, uint8, uint8) {
-	if !c.sd.fileOpen || c.sd.file == nil {
+	slot, slotOK := c.sdRequireValidHandle()
+	if !slotOK {
+		return false, frInvalidParameter, miaErrorFSInvalidHandle
+	}
+	if !c.sd.fileOpen[slot] || c.sd.file[slot] == nil {
 		return false, frInvalidObject, miaErrorFSNoFileOpen
 	}
 
-	err := c.sd.file.Sync()
-	c.sdUpdateFilePosition()
+	err := c.sd.file[slot].Sync()
+	c.sdUpdateFilePosition(slot)
 	if err != nil {
 		return false, sdErrToFresult(err), miaErrorFSSyncFailed
 	}
@@ -722,35 +810,46 @@ func (c *emulated_mia) sdServiceSync() (bool, uint8, uint8) {
 }
 
 func (c *emulated_mia) sdServiceSeek() (bool, uint8, uint8) {
-	if !c.sd.fileOpen || c.sd.file == nil {
+	slot, slotOK := c.sdRequireValidHandle()
+	if !slotOK {
+		return false, frInvalidParameter, miaErrorFSInvalidHandle
+	}
+	if !c.sd.fileOpen[slot] || c.sd.file[slot] == nil {
 		return false, frInvalidObject, miaErrorFSNoFileOpen
 	}
 
-	_, err := c.sd.file.Seek(int64(c.sdControlFilePos()), io.SeekStart)
-	c.sdUpdateFilePosition()
+	_, err := c.sd.file[slot].Seek(int64(c.sdControlFilePos()), io.SeekStart)
+	c.sdUpdateFilePosition(slot)
 	if err != nil {
 		return false, sdErrToFresult(err), miaErrorFSSeekFailed
 	}
 	return true, frOK, miaErrorFSSeekFailed
 }
 
+// sdServiceClose closes only the selected handle slot. It used to also close
+// the (then-singular, now-shared) directory cursor as a side effect - dropped,
+// for the same reason noted on sdCloseFile.
 func (c *emulated_mia) sdServiceClose() (bool, uint8, uint8) {
+	slot, slotOK := c.sdRequireValidHandle()
+	if !slotOK {
+		return false, frInvalidParameter, miaErrorFSInvalidHandle
+	}
+
 	ok := true
 	fr := frOK
 	errorCode := miaErrorFSCloseFailed
 
-	if c.sd.fileOpen && c.sd.file != nil {
-		if err := c.sd.file.Close(); err != nil {
+	if c.sd.fileOpen[slot] && c.sd.file[slot] != nil {
+		if err := c.sd.file[slot].Close(); err != nil {
 			ok = false
 			fr = sdErrToFresult(err)
 			errorCode = miaErrorFSCloseFailed
 		}
-		c.sd.file = nil
+		c.sd.file[slot] = nil
 	}
-	c.sd.fileOpen = false
-	c.sdCloseDir()
-	c.sd.currentOpenMode = miaFSOpenRead
-	c.sdUpdateFilePosition()
+	c.sd.fileOpen[slot] = false
+	c.sd.currentOpenMode[slot] = miaFSOpenRead
+	c.sdUpdateFilePosition(slot)
 	return ok, fr, errorCode
 }
 
@@ -795,6 +894,45 @@ func (c *emulated_mia) sdServiceMkdir() (bool, uint8, uint8) {
 		return false, sdErrToFresult(err), miaErrorFSMkdirFailed
 	}
 	return true, frOK, miaErrorFSMkdirFailed
+}
+
+// sdServiceChdir mirrors FS_CHDIR (f_chdir): it changes the directory that
+// relative paths resolve against (see sdResolveHostPathFrom and the cwd
+// field's own comment). f_chdir requires an existing directory, so this
+// stats the target and rejects a file or a missing path the same way.
+func (c *emulated_mia) sdServiceChdir() (bool, uint8, uint8) {
+	if ok, fr := c.sdRequireMounted(); !ok {
+		return false, fr, miaErrorFSMountFailed
+	}
+
+	hostPath, ok := c.sdResolveHostPath()
+	if !ok {
+		return false, frInvalidName, miaErrorFSDirFailed
+	}
+
+	info, err := os.Stat(hostPath)
+	if err != nil {
+		return false, sdErrToFresult(err), miaErrorFSDirFailed
+	}
+	if !info.IsDir() {
+		return false, frInvalidObject, miaErrorFSDirFailed
+	}
+
+	// Recompute cwd from the resolved host path (rather than combining the
+	// raw argument with the old cwd by hand) so ".", "..", and mixed
+	// relative/absolute arguments all land correctly - sdResolveHostPath
+	// already did that resolution once above.
+	rel, err := filepath.Rel(c.sd.rootDir, hostPath)
+	if err != nil {
+		return false, frInvalidName, miaErrorFSDirFailed
+	}
+	rel = filepath.ToSlash(rel)
+	if rel == "." {
+		c.sd.cwd = ""
+	} else {
+		c.sd.cwd = "/" + rel
+	}
+	return true, frOK, miaErrorFSDirFailed
 }
 
 // sdServiceDelete mirrors FS_DELETE (f_unlink): it removes a file or empty
@@ -863,10 +1001,9 @@ func (c *emulated_mia) sdServiceGetFree() (bool, uint8, uint8) {
 func (c *emulated_mia) sdCardInit() bool {
 	c.sd.initialized = false
 	c.sd.mounted = false
-	c.sdCloseFile()
+	c.sdCloseAllFiles()
 	c.sdCloseDir()
 	c.sd.eof = false
-	c.sd.currentOpenMode = miaFSOpenRead
 	c.sd.cardType = miaSDCardNone
 	c.sd.sectors = 0
 	c.statusClear(miaStatusSDPresent | miaStatusFSMounted)
@@ -903,6 +1040,7 @@ func (c *emulated_mia) sdMountFilesystem() (bool, uint8) {
 	}
 
 	c.sd.mounted = true
+	c.sd.cwd = ""
 	return true, frOK
 }
 
@@ -1121,7 +1259,18 @@ func (c *emulated_mia) sdResolveHostPathFrom(offset uint32, size int) (string, b
 		return "", false
 	}
 
-	cleaned := path.Clean("/" + c.sdReadPathStringFrom(offset, size))
+	raw := c.sdReadPathStringFrom(offset, size)
+	// An absolute path (leading "/" or "\", mirroring firmware's own "\" ->
+	// "/" translation in sd_prepare_fatfs_path_from) is rooted at the SD
+	// card root regardless of cwd - "0:/x" always means the volume root in
+	// FatFs terms. A relative (or empty) path resolves against cwd instead,
+	// same as FatFs resolves bare "0:x" (or "0:" alone) against the mounted
+	// work area's current directory. See the cwd field's own comment.
+	base := "/"
+	if len(raw) == 0 || (raw[0] != '/' && raw[0] != '\\') {
+		base = "/" + c.sd.cwd
+	}
+	cleaned := path.Clean(base + "/" + raw)
 	hostPath := filepath.Join(c.sd.rootDir, filepath.FromSlash(cleaned))
 	return hostPath, true
 }
@@ -1208,32 +1357,35 @@ func (c *emulated_mia) sdQueryFree() (free, total uint32, clusterSectors uint16)
 	return free, total, clusterSectors
 }
 
-func (c *emulated_mia) sdUpdateFilePosition() {
-	if !c.sd.fileOpen || c.sd.file == nil {
+// sdUpdateFilePosition publishes SD_FILE_SIZE/SD_FILE_POS for the given slot
+// (pass anything >= miaSDMaxHandles, or a closed slot, to publish the "no file"
+// zeros).
+func (c *emulated_mia) sdUpdateFilePosition(slot uint8) {
+	if int(slot) >= miaSDMaxHandles || !c.sd.fileOpen[slot] || c.sd.file[slot] == nil {
 		c.sdWriteU32(miaSDControlOffset+miaSDControlFileSize0, 0)
 		c.sdWriteU32(miaSDControlOffset+miaSDControlFilePos0, 0)
 		return
 	}
 
 	var size int64
-	if info, err := c.sd.file.Stat(); err == nil {
+	if info, err := c.sd.file[slot].Stat(); err == nil {
 		size = info.Size()
 	}
-	pos, _ := c.sd.file.Seek(0, io.SeekCurrent)
+	pos, _ := c.sd.file[slot].Seek(0, io.SeekCurrent)
 
 	c.sdWriteU32(miaSDControlOffset+miaSDControlFileSize0, uint32(size))
 	c.sdWriteU32(miaSDControlOffset+miaSDControlFilePos0, uint32(pos))
 }
 
-func (c *emulated_mia) sdFileAtEOF() bool {
-	if c.sd.file == nil {
+func (c *emulated_mia) sdFileAtEOF(slot uint8) bool {
+	if int(slot) >= miaSDMaxHandles || c.sd.file[slot] == nil {
 		return false
 	}
-	pos, err := c.sd.file.Seek(0, io.SeekCurrent)
+	pos, err := c.sd.file[slot].Seek(0, io.SeekCurrent)
 	if err != nil {
 		return false
 	}
-	info, err := c.sd.file.Stat()
+	info, err := c.sd.file[slot].Stat()
 	if err != nil {
 		return false
 	}
@@ -1371,9 +1523,19 @@ func (c *emulated_mia) consoleSDDetail() string {
 	initialized := c.sd.initialized
 	mounted := c.sd.mounted
 	busy := c.status()&miaStatusSDBusy != 0
-	fileOpen := c.sd.fileOpen
+	sel, selValid := c.sdRequireValidHandle()
+	selOpen := selValid && c.sd.fileOpen[sel]
+	selEOF := c.sd.eof
+	if selOpen {
+		selEOF = c.sdFileAtEOF(sel)
+	}
+	openCount := 0
+	for i := 0; i < miaSDMaxHandles; i++ {
+		if c.sd.fileOpen[i] {
+			openCount++
+		}
+	}
 	dirOpen := c.sd.dirOpen
-	eof := c.sd.eof
 	cardType := c.sd.cardType
 	sectors := c.sd.sectors
 	rootDir := c.sd.rootDir
@@ -1386,7 +1548,10 @@ func (c *emulated_mia) consoleSDDetail() string {
 	destAddr := c.sdControlDestAddr()
 	fileSize := c.sdReadU32(miaSDControlOffset + miaSDControlFileSize0)
 	filePos := c.sdReadU32(miaSDControlOffset + miaSDControlFilePos0)
-	openMode := c.sd.currentOpenMode
+	openMode := uint8(miaFSOpenRead)
+	if selValid {
+		openMode = c.sd.currentOpenMode[sel]
+	}
 	requestedOpenMode := c.memory[miaSDControlOffset+miaSDControlOpenMode]
 	freeClusters := c.sdReadU32(miaSDControlOffset + miaSDControlFreeClusters0)
 	totalClusters := c.sdReadU32(miaSDControlOffset + miaSDControlTotalClusters0)
@@ -1399,9 +1564,10 @@ func (c *emulated_mia) consoleSDDetail() string {
 	// The firmware reports the active SD job type here; the emulator runs every SD
 	// command synchronously, so no job is ever in flight when the console reads
 	// status, hence job:none.
-	fmt.Fprintf(&out, "  state:     initialized:%s mounted:%s busy:%s file:%s dir:%s job:none eof:%s\n",
-		yesNo(initialized), yesNo(mounted), yesNo(busy),
-		openClosed(fileOpen), openClosed(dirOpen), yesNo(eof))
+	fmt.Fprintf(&out, "  state:     initialized:%s mounted:%s busy:%s dir:%s job:none\n",
+		yesNo(initialized), yesNo(mounted), yesNo(busy), openClosed(dirOpen))
+	fmt.Fprintf(&out, "  handles:   max:%d open:%d selected:%d (%s) selected-file:%s eof:%s\n",
+		miaSDMaxHandles, openCount, sel, validInvalid(selValid), openClosed(selOpen), yesNo(selEOF))
 	fmt.Fprintf(&out, "  card:      type:%d sectors:%d capacity:%d MiB\n",
 		cardType, sectors, sectors/2048)
 	fmt.Fprintf(&out, "  backend:   folder:%s\n", bindOrNone(rootDir))
@@ -1437,6 +1603,13 @@ func sdCardTypeName(cardType uint8) string {
 	default:
 		return "none"
 	}
+}
+
+func validInvalid(valid bool) string {
+	if valid {
+		return "valid"
+	}
+	return "invalid"
 }
 
 func openClosed(open bool) string {

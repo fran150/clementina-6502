@@ -174,7 +174,7 @@ func TestEmulatedMiaFSOpenReadStreamClose(t *testing.T) {
 	sdWritePath(chip, "/READ.TXT")
 	chip.memory[miaSDControlOffset+miaSDControlOpenMode] = miaFSOpenRead
 	circuit.write(miaRegCmdTrigger, miaCmdFSOpen)
-	require.True(t, chip.sd.fileOpen)
+	require.True(t, chip.sd.fileOpen[0])
 	require.Equal(t, uint8(0), sdControlByte(chip, miaSDControlLastError))
 	assert.Equal(t, uint32(len(payload)), chip.sdReadU32(miaSDControlOffset+miaSDControlFileSize0))
 
@@ -194,8 +194,142 @@ func TestEmulatedMiaFSOpenReadStreamClose(t *testing.T) {
 	assert.Equal(t, payload, got)
 
 	circuit.write(miaRegCmdTrigger, miaCmdFSClose)
-	assert.False(t, chip.sd.fileOpen)
+	assert.False(t, chip.sd.fileOpen[0])
 	assert.Equal(t, uint8(0), sdControlByte(chip, miaSDControlLastError))
+}
+
+// TestEmulatedMiaFSMultipleHandlesIndependent exercises the SD_HANDLE_SELECT
+// addition (protocol v5): two files open on two different slots at once, each
+// keeping its own open/EOF/size/position state independent of the other.
+func TestEmulatedMiaFSMultipleHandlesIndependent(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "A.TXT"), []byte("AAAAA"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "B.TXT"), []byte("BB"), 0o644))
+
+	circuit := newSDTestCircuit(t, dir)
+	chip := circuit.chip
+
+	circuit.write(miaRegCmdTrigger, miaCmdFSMount)
+	require.True(t, chip.sd.mounted)
+
+	// Open A.TXT on slot 0.
+	chip.memory[miaSDControlOffset+miaSDControlHandleSelect] = 0
+	sdWritePath(chip, "/A.TXT")
+	chip.memory[miaSDControlOffset+miaSDControlOpenMode] = miaFSOpenRead
+	circuit.write(miaRegCmdTrigger, miaCmdFSOpen)
+	require.Equal(t, uint8(0), sdControlByte(chip, miaSDControlLastError))
+	require.True(t, chip.sd.fileOpen[0])
+
+	// Open B.TXT on slot 1 - must not disturb slot 0.
+	chip.memory[miaSDControlOffset+miaSDControlHandleSelect] = 1
+	sdWritePath(chip, "/B.TXT")
+	chip.memory[miaSDControlOffset+miaSDControlOpenMode] = miaFSOpenRead
+	circuit.write(miaRegCmdTrigger, miaCmdFSOpen)
+	require.Equal(t, uint8(0), sdControlByte(chip, miaSDControlLastError))
+	require.True(t, chip.sd.fileOpen[1])
+	require.True(t, chip.sd.fileOpen[0], "opening slot 1 must not disturb slot 0")
+
+	// Read all of B (2 bytes) to EOF on slot 1.
+	chip.sdWriteU16(miaSDControlOffset+miaSDControlRequestLenL, 0)
+	circuit.write(miaRegCmdTrigger, miaCmdFSRead)
+	require.Equal(t, uint16(2), chip.sdReadU16(miaSDControlOffset+miaSDControlResultLenL))
+	assert.NotZero(t, sdControlByte(chip, miaSDControlEOF), "slot 1 read to EOF")
+
+	// Switching to slot 0 and issuing ANY command (even one unrelated to files,
+	// like FS_GET_FREE) republishes FILE_HANDLE/EOF for the newly selected slot
+	// immediately: slot 0 has not been touched since open, so EOF must read
+	// false, not carry over slot 1's stale true.
+	chip.memory[miaSDControlOffset+miaSDControlHandleSelect] = 0
+	circuit.write(miaRegCmdTrigger, miaCmdFSGetFree)
+	assert.Zero(t, sdControlByte(chip, miaSDControlEOF), "must reflect slot 0's own state, not slot 1's")
+	assert.NotZero(t, sdControlByte(chip, miaSDControlFileHandle), "slot 0 is still open")
+
+	// FILE_SIZE/FILE_POS, unlike FILE_HANDLE/EOF, are only refreshed by a command
+	// that actually touches the selected slot - true of the single-handle protocol
+	// too. FS_SEEK to the current position is a harmless way to force that here.
+	chip.sdWriteU32(miaSDControlOffset+miaSDControlFilePos0, 0)
+	circuit.write(miaRegCmdTrigger, miaCmdFSSeek)
+	assert.Equal(t, uint8(0), sdControlByte(chip, miaSDControlLastError))
+	assert.Equal(t, uint32(5), chip.sdReadU32(miaSDControlOffset+miaSDControlFileSize0), "slot 0's own size, not slot 1's")
+	assert.Equal(t, uint32(0), chip.sdReadU32(miaSDControlOffset+miaSDControlFilePos0))
+
+	// Closing slot 0 must not touch slot 1.
+	circuit.write(miaRegCmdTrigger, miaCmdFSClose)
+	assert.False(t, chip.sd.fileOpen[0])
+	assert.True(t, chip.sd.fileOpen[1], "closing slot 0 must not close slot 1")
+
+	chip.memory[miaSDControlOffset+miaSDControlHandleSelect] = 1
+	circuit.write(miaRegCmdTrigger, miaCmdFSClose)
+	assert.False(t, chip.sd.fileOpen[1])
+}
+
+// TestEmulatedMiaFSOpenAlreadyOpenHandle verifies FS_OPEN on a slot that is
+// already open is rejected with ERROR_FS_HANDLE_ALREADY_OPEN rather than
+// silently replacing it (the old single-handle behavior).
+func TestEmulatedMiaFSOpenAlreadyOpenHandle(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "A.TXT"), []byte("A"), 0o644))
+
+	circuit := newSDTestCircuit(t, dir)
+	chip := circuit.chip
+
+	circuit.write(miaRegCmdTrigger, miaCmdFSMount)
+	sdWritePath(chip, "/A.TXT")
+	chip.memory[miaSDControlOffset+miaSDControlOpenMode] = miaFSOpenRead
+	circuit.write(miaRegCmdTrigger, miaCmdFSOpen)
+	require.Equal(t, uint8(0), sdControlByte(chip, miaSDControlLastError))
+	require.True(t, chip.sd.fileOpen[0])
+
+	circuit.write(miaRegCmdTrigger, miaCmdFSOpen)
+	assert.Equal(t, miaErrorFSHandleAlreadyOpen, sdControlByte(chip, miaSDControlLastError))
+	assert.True(t, chip.sd.fileOpen[0], "the original open file must remain open after the rejected re-open")
+}
+
+// TestEmulatedMiaFSInvalidHandleSelect verifies a SD_HANDLE_SELECT value outside
+// 0..miaSDMaxHandles-1 is rejected with ERROR_FS_INVALID_HANDLE.
+func TestEmulatedMiaFSInvalidHandleSelect(t *testing.T) {
+	circuit := newSDTestCircuit(t, t.TempDir())
+	chip := circuit.chip
+
+	circuit.write(miaRegCmdTrigger, miaCmdFSMount)
+
+	chip.memory[miaSDControlOffset+miaSDControlHandleSelect] = miaSDMaxHandles
+	sdWritePath(chip, "/A.TXT")
+	chip.memory[miaSDControlOffset+miaSDControlOpenMode] = miaFSOpenWriteCreate
+	circuit.write(miaRegCmdTrigger, miaCmdFSOpen)
+
+	assert.Equal(t, miaErrorFSInvalidHandle, sdControlByte(chip, miaSDControlLastError))
+	assert.NotZero(t, chip.irqStatus()&miaIRQSDError)
+}
+
+// TestEmulatedMiaFSCloseDoesNotAffectDirectoryCursor verifies FS_CLOSE no longer
+// closes the (now-shared) directory cursor as a side effect: closing an
+// unrelated file handle must not kill an in-progress FS_OPENDIR/FS_READDIR
+// listing.
+func TestEmulatedMiaFSCloseDoesNotAffectDirectoryCursor(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "A.TXT"), []byte("A"), 0o644))
+
+	circuit := newSDTestCircuit(t, dir)
+	chip := circuit.chip
+
+	circuit.write(miaRegCmdTrigger, miaCmdFSMount)
+
+	sdWritePath(chip, "/")
+	circuit.write(miaRegCmdTrigger, miaCmdFSOpendir)
+	require.True(t, chip.sd.dirOpen)
+
+	sdWritePath(chip, "/A.TXT")
+	chip.memory[miaSDControlOffset+miaSDControlOpenMode] = miaFSOpenRead
+	circuit.write(miaRegCmdTrigger, miaCmdFSOpen)
+	require.True(t, chip.sd.fileOpen[0])
+
+	circuit.write(miaRegCmdTrigger, miaCmdFSClose)
+	assert.False(t, chip.sd.fileOpen[0])
+	assert.True(t, chip.sd.dirOpen, "FS_CLOSE must not close the directory cursor")
+
+	circuit.write(miaRegCmdTrigger, miaCmdFSReaddir)
+	assert.Equal(t, uint8(0), sdControlByte(chip, miaSDControlLastError), "the directory cursor must still be usable")
 }
 
 // TestEmulatedMiaFSWriteCreate verifies creating, writing, and syncing a save file
@@ -211,7 +345,7 @@ func TestEmulatedMiaFSWriteCreate(t *testing.T) {
 	sdWritePath(chip, "/STATE.BIN")
 	chip.memory[miaSDControlOffset+miaSDControlOpenMode] = miaFSOpenWriteCreate
 	circuit.write(miaRegCmdTrigger, miaCmdFSOpen)
-	require.True(t, chip.sd.fileOpen)
+	require.True(t, chip.sd.fileOpen[0])
 
 	payload := []byte{0x43, 0x4C, 0x45, 0x4D, 0x01, 0x00, 0x00, 0x00}
 	copy(chip.memory[miaFSTransferOffset:], payload)
@@ -258,7 +392,7 @@ func TestEmulatedMiaFSSaveFromMiaRAM(t *testing.T) {
 	assert.Equal(t, uint32(len(payload)), chip.sdReadU32(miaSDControlOffset+miaSDControlFileSize0))
 	assert.NotZero(t, chip.irqStatus()&miaIRQSDDone)
 	assert.NotZero(t, chip.irqStatus()&miaIRQFSEvent)
-	assert.False(t, chip.sd.fileOpen, "the save job uses its own handle, not the implicit file")
+	assert.False(t, chip.sd.fileOpen[0], "the save job uses its own handle, not the implicit file")
 
 	saved, err := os.ReadFile(filepath.Join(dir, "DUMP.BIN"))
 	require.NoError(t, err)
@@ -536,4 +670,66 @@ func TestEmulatedMiaFSGetFree(t *testing.T) {
 	circuit.write(miaRegCmdTrigger, miaCmdFSGetFree)
 	freeAfter := chip.sdReadU32(miaSDControlOffset + miaSDControlFreeClusters0)
 	assert.Less(t, freeAfter, freeEmpty, "used space reduces the free cluster count")
+}
+
+// TestEmulatedMiaFSChdirAffectsRelativePaths verifies FS_CHDIR persists across
+// requests and that every other path-taking command resolves a relative path
+// against it, not always against the SD root - mirroring FatFs's own
+// FF_FS_RPATH-tracked current directory (see the cwd field's comment in sd.go).
+func TestEmulatedMiaFSChdirAffectsRelativePaths(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "SUBDIR"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "SUBDIR", "INNER.DAT"), []byte("hi"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "TOPLEVEL.DAT"), []byte("top"), 0o644))
+
+	circuit := newSDTestCircuit(t, dir)
+	chip := circuit.chip
+	circuit.write(miaRegCmdTrigger, miaCmdFSMount)
+
+	sdWritePath(chip, "SUBDIR")
+	circuit.write(miaRegCmdTrigger, miaCmdFSChdir)
+	require.Equal(t, uint8(0), sdControlByte(chip, miaSDControlLastError))
+	assert.Equal(t, "/SUBDIR", chip.sd.cwd)
+
+	// A relative path now resolves inside SUBDIR, not the SD root.
+	sdWritePath(chip, "INNER.DAT")
+	circuit.write(miaRegCmdTrigger, miaCmdFSStat)
+	require.Equal(t, uint8(0), sdControlByte(chip, miaSDControlLastError))
+	assert.Equal(t, "INNER.DAT", sdDirEntryName(chip))
+
+	// An empty path (DIR's no-argument case) lists cwd, not root.
+	sdWritePath(chip, "")
+	circuit.write(miaRegCmdTrigger, miaCmdFSOpendir)
+	require.Equal(t, uint8(0), sdControlByte(chip, miaSDControlLastError))
+	circuit.write(miaRegCmdTrigger, miaCmdFSReaddir)
+	require.Equal(t, uint8(0), sdControlByte(chip, miaSDControlLastError))
+	assert.Equal(t, "INNER.DAT", sdDirEntryName(chip))
+
+	// An explicit absolute path still bypasses cwd.
+	sdWritePath(chip, "/TOPLEVEL.DAT")
+	circuit.write(miaRegCmdTrigger, miaCmdFSStat)
+	require.Equal(t, uint8(0), sdControlByte(chip, miaSDControlLastError))
+	assert.Equal(t, "TOPLEVEL.DAT", sdDirEntryName(chip))
+
+	// A fresh mount resets cwd to root, mirroring a real f_mount resetting
+	// FatFs's FATFS.cdir.
+	chip.sd.mounted = false
+	circuit.write(miaRegCmdTrigger, miaCmdFSMount)
+	assert.Equal(t, "", chip.sd.cwd)
+}
+
+// TestEmulatedMiaFSChdirRejectsFile verifies FS_CHDIR fails (and leaves cwd
+// unchanged) when the target is a file, not a directory.
+func TestEmulatedMiaFSChdirRejectsFile(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "FILE.DAT"), []byte("x"), 0o644))
+
+	circuit := newSDTestCircuit(t, dir)
+	chip := circuit.chip
+	circuit.write(miaRegCmdTrigger, miaCmdFSMount)
+
+	sdWritePath(chip, "/FILE.DAT")
+	circuit.write(miaRegCmdTrigger, miaCmdFSChdir)
+	assert.Equal(t, miaErrorFSDirFailed, sdControlByte(chip, miaSDControlLastError))
+	assert.Equal(t, "", chip.sd.cwd)
 }

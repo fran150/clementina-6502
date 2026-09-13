@@ -5,9 +5,13 @@ import "testing"
 // Phase 2b BASIC video statements - the commands cut for ROM size in the
 // first Phase 2 pass, restored after growing RAMSTART2/BGP_BASE/
 // MAX_KERNEL_BYTES (clementina-rom src/basic/defines_clementina.s,
-// clementina_extra.s, Makefile): BGCHAR, BGLOAD, CHRLOAD, PALLOAD, and the
-// single-field sprite setters (SPRTILE/SPRX/SPRY/SPRCOLOR/SPRFLIP/SPRPRI).
-// See docs/basic-video.md.
+// clementina_extra.s, Makefile): BGCHAR, and the single-field sprite setters
+// (SPRTILE/SPRX/SPRY/SPRCOLOR/SPRFLIP/SPRPRI). See docs/basic-video.md.
+//
+// PALLOAD/CHRLOAD/BGLOAD's DATA-sourced behavior (tested below as PALREAD/
+// CHRREAD/NTREAD+ATRREAD) was renamed in the file-I/O work: the bare names
+// now mean "load from an SD file" instead, matching LOAD's real meaning; see
+// docs/basic-file.md.
 
 const (
 	chrBase    = 0x00200
@@ -42,7 +46,7 @@ func TestBasicPalload(t *testing.T) {
 	computer, step := bootClementinaToPrompt(t)
 
 	typeLine(computer, step, "10 DATA 10,20,30,40")
-	typeLine(computer, step, "20 PALLOAD 2,4,4")
+	typeLine(computer, step, "20 PALREAD 2,4,4")
 	typeLine(computer, step, "30 GOTO 30")
 	typeLine(computer, step, "RUN")
 	editorTickN(computer, step, 1_500_000)
@@ -57,7 +61,7 @@ func TestBasicChrload(t *testing.T) {
 	computer, step := bootClementinaToPrompt(t)
 
 	typeLine(computer, step, "10 DATA 5,6,7")
-	typeLine(computer, step, "20 CHRLOAD 1,100,3")
+	typeLine(computer, step, "20 CHRREAD 1,100,3")
 	typeLine(computer, step, "30 GOTO 30")
 	typeLine(computer, step, "RUN")
 	editorTickN(computer, step, 1_500_000)
@@ -67,12 +71,19 @@ func TestBasicChrload(t *testing.T) {
 	require_eq(t, 7, peekCHR(computer, 1, 102), "CHR bank1 offset102")
 }
 
+// BGLOAD's old interleaved (tile,attr,tile,attr,...) single-call convenience
+// is retired - see docs/basic-file.md. NTREAD and ATRREAD each pull from the
+// shared DATA stream independently, so the tile values are listed first (for
+// NTREAD to consume) followed by the attribute values (for ATRREAD, picking
+// up the stream where NTREAD left off).
 func TestBasicBgload(t *testing.T) {
 	computer, step := bootClementinaToPrompt(t)
 
-	typeLine(computer, step, "10 DATA 1,2,3,4")
-	typeLine(computer, step, "20 BGLOAD 3,50,2")
-	typeLine(computer, step, "30 GOTO 30")
+	typeLine(computer, step, "10 DATA 1,3")
+	typeLine(computer, step, "20 NTREAD 3,50,2")
+	typeLine(computer, step, "30 DATA 2,4")
+	typeLine(computer, step, "40 ATRREAD 3,50,2")
+	typeLine(computer, step, "50 GOTO 50")
 	typeLine(computer, step, "RUN")
 	editorTickN(computer, step, 1_500_000)
 

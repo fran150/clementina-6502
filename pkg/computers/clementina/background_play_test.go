@@ -96,11 +96,11 @@ func TestPlayingFunctionLists(t *testing.T) {
 	}
 }
 
-// addrBGPFlags is the background-PLAY control block's flags byte ($4C00,
+// addrBGPFlags is the background-PLAY control block's flags byte ($5C00,
 // BGP_FLAGS in clementina_extra.s) - fixed RAM below RAMSTART2. Raised from
-// $4400 alongside BGP_BASE/RAMSTART2/MAX_KERNEL_BYTES; see docs/basic-video.md
-// in the clementina-rom repo.
-const addrBGPFlags = 0x4C00
+// $4400, then $4C00, alongside BGP_BASE/RAMSTART2/MAX_KERNEL_BYTES; see
+// docs/basic-file.md in the clementina-rom repo.
+const addrBGPFlags = 0x5C00
 
 // TestBackgroundPlaySetsAndClearsFlag: statement plumbing only (no sequencer
 // wired up yet) - "PLAY s$,1" must set BGP_FLAGS, bare "PLAY" must clear it,

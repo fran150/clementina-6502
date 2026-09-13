@@ -2,9 +2,10 @@ package clementina
 
 import "testing"
 
-// Phase 2 BASIC video statements: OAMLOAD (bulk sprite loading from DATA) and
-// SPRITE (full per-sprite setup), handlers in clementina-rom
-// src/basic/clementina_extra.s. See docs/basic-video.md.
+// Phase 2 BASIC video statements: OAMREAD (bulk sprite loading from DATA -
+// renamed from OAMLOAD; see docs/basic-file.md) and SPRITE (full per-sprite
+// setup), handlers in clementina-rom src/basic/clementina_extra.s. See
+// docs/basic-video.md.
 
 const oamBase = 0x10850
 
@@ -76,7 +77,7 @@ func TestBasicOamload(t *testing.T) {
 
 	typeLine(computer, step, "10 DATA 10,1,2,3,4")
 	typeLine(computer, step, "20 DATA 20,6,7,8,9")
-	typeLine(computer, step, "30 OAMLOAD 5,2")
+	typeLine(computer, step, "30 OAMREAD 5,2")
 	typeLine(computer, step, "40 GOTO 40")
 	typeLine(computer, step, "RUN")
 	editorTickN(computer, step, 1_500_000)
@@ -91,13 +92,13 @@ func TestBasicOamload(t *testing.T) {
 	require_eq(t, 9, peekOAM(computer, 6, 4), "sprite6 ext")
 }
 
-// OAMLOAD must leave the real DATA pointer correctly advanced for a normal
+// OAMREAD must leave the real DATA pointer correctly advanced for a normal
 // READ afterward, and must not leak its internal Z9 scratch variable's value.
 func TestBasicOamloadThenRead(t *testing.T) {
 	computer, step := bootClementinaToPrompt(t)
 
 	typeLine(computer, step, "10 DATA 1,2,3,4,5,99")
-	typeLine(computer, step, "20 OAMLOAD 0,1")
+	typeLine(computer, step, "20 OAMREAD 0,1")
 	typeLine(computer, step, "30 READ A")
 	typeLine(computer, step, "40 PRINT A")
 	typeLine(computer, step, "RUN")
@@ -105,6 +106,6 @@ func TestBasicOamloadThenRead(t *testing.T) {
 
 	vr := computer.chips.mia.(videoReader)
 	if _, ok := screenContainsRow(vr, "99"); !ok {
-		t.Fatalf("expected READ A after OAMLOAD to pick up 99 (the DATA item right after OAMLOAD's 5), screen:\n%s", dumpScreenString(vr))
+		t.Fatalf("expected READ A after OAMREAD to pick up 99 (the DATA item right after OAMREAD's 5), screen:\n%s", dumpScreenString(vr))
 	}
 }

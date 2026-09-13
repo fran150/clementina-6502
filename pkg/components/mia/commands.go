@@ -42,6 +42,8 @@ const (
 	miaErrorFSDeleteFailed       uint8 = 0x84
 	miaErrorFSRenameFailed       uint8 = 0x85
 	miaErrorFSFreeFailed         uint8 = 0x86
+	miaErrorFSHandleAlreadyOpen  uint8 = 0x87
+	miaErrorFSInvalidHandle      uint8 = 0x88
 )
 
 // executeCommand runs the MIA command identified by the trigger register value.
@@ -98,7 +100,8 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 		miaCmdFSMount, miaCmdFSOpendir, miaCmdFSReaddir, miaCmdFSOpen,
 		miaCmdFSRead, miaCmdFSClose, miaCmdFSLoadToMiaRAM, miaCmdFSWrite,
 		miaCmdFSSync, miaCmdFSSeek, miaCmdFSStat, miaCmdFSMkdir,
-		miaCmdFSDelete, miaCmdFSRename, miaCmdFSGetFree, miaCmdFSSaveFromMiaRAM:
+		miaCmdFSDelete, miaCmdFSRename, miaCmdFSGetFree, miaCmdFSSaveFromMiaRAM,
+		miaCmdFSChdir:
 		c.sdRequest(id)
 	default:
 		// Unassigned command ids report ERROR_CMD_UNKNOWN, matching the firmware
