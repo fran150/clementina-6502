@@ -90,6 +90,16 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 		if !c.inputSetProbe(params[0], params[1]) {
 			c.errors.Push(c, miaErrorInputProbeInvalid)
 		}
+	case 0x52:
+		c.inputRepeatDelay(uint16(params[0]) | uint16(params[1])<<8)
+	case 0x53:
+		c.inputRepeatInterval(uint16(params[0]) | uint16(params[1])<<8)
+	case 0x54:
+		c.inputRepeatKey(params[0], params[1])
+	case miaCmdClockSnapshot:
+		c.timingSnapshot()
+	case miaCmdClockSetTI:
+		c.timingSetTI(uint32(params[0]) | uint32(params[1])<<8 | uint32(params[2])<<16)
 	case 0x60:
 		c.audioEnable()
 	case 0x61:

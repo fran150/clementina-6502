@@ -45,7 +45,8 @@ type emulated_mia struct {
 	// nowNs caches StepContext.T (nanoseconds since emulation start) from the
 	// latest Tick so input services (e.g. key auto-repeat) can time their work
 	// against the wall clock even though they also run off the UDP goroutine.
-	nowNs int64
+	nowNs  int64
+	timing miaTimingState
 
 	charsetName string
 	paletteName string
@@ -73,12 +74,12 @@ func NewEmulatedMia() components.MiaChip {
 		irq:          buses.NewConnectorEnabledLow(),
 		memory:       make([]uint8, miaRAMSize),
 
-		state:               miaStateLoader,
+		state:                miaStateLoader,
 		kernelLoadTopAddress: miaKernelLoadTopAddress,
 		kernelTargetAddress:  miaKernelTargetAddress,
-		appliedPhi2Hz:       miaDefaultPhi2Hz,
-		charsetName:         miaDefaultCharset,
-		paletteName:         miaDefaultPalette,
+		appliedPhi2Hz:        miaDefaultPhi2Hz,
+		charsetName:          miaDefaultCharset,
+		paletteName:          miaDefaultPalette,
 	}
 
 	chip.init()
@@ -295,6 +296,7 @@ func (c *emulated_mia) init() {
 func (c *emulated_mia) resetSubsystems() {
 	c.videoEnable()
 	c.inputResetRuntimeState()
+	c.timingReset()
 	c.audioResetRuntimeState()
 	c.sdResetRuntimeState()
 }

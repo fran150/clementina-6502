@@ -139,9 +139,12 @@ type miaInputState struct {
 	// Auto-repeat for held editing keys: while repeatUsage is held, repeatByte
 	// is re-enqueued into the text FIFO once repeatDeadline (a nowNs timestamp)
 	// passes. repeatUsage == 0 means nothing is repeating.
-	repeatUsage    uint16
-	repeatByte     uint8
-	repeatDeadline int64
+	repeatDelayNs    int64
+	repeatIntervalNs int64
+	repeatKeys       [32]byte
+	repeatUsage      uint16
+	repeatByte       uint8
+	repeatDeadline   int64
 }
 
 // inputResetRuntimeState clears the input state block, resets the text FIFO and
@@ -161,6 +164,9 @@ func (c *emulated_mia) inputResetRuntimeState() {
 		txSeq:            txSeq,
 		nextSessionValue: nextSessionValue,
 		mode:             miaInputModeConsole,
+		repeatDelayNs:    miaKeyRepeatDelayNs,
+		repeatIntervalNs: miaKeyRepeatIntervalNs,
+		repeatKeys:       [32]byte{5: 4, 9: 0x90, 10: 7},
 	}
 
 	clear(c.memory[miaInputStateOffset : miaInputStateOffset+miaInputStateSize])
@@ -702,12 +708,32 @@ const (
 // inputKeyRepeats reports whether a held key should auto-repeat. Only the keys
 // where holding is useful repeat (cursor moves and Backspace); Enter and the
 // other one-shot keys fire once per press.
-func inputKeyRepeats(usageID uint16) bool {
-	switch usageID {
-	case 0x2A, 0x4C, 0x4F, 0x50, 0x51, 0x52: // Backspace, Delete, Right, Left, Down, Up
-		return true
-	default:
-		return false
+func (c *emulated_mia) inputKeyRepeats(usageID uint16) bool {
+	return c.input.repeatDelayNs != 0 && usageID < 256 && c.input.repeatKeys[usageID>>3]&(1<<(usageID&7)) != 0
+}
+func (c *emulated_mia) inputRepeatDelay(ms uint16) {
+	c.input.repeatDelayNs = int64(ms) * 1_000_000
+	c.input.repeatUsage = 0
+}
+func (c *emulated_mia) inputRepeatInterval(ms uint16) {
+	if ms == 0 {
+		return
+	}
+	c.input.repeatIntervalNs = int64(ms) * 1_000_000
+	c.input.repeatUsage = 0
+}
+func (c *emulated_mia) inputRepeatKey(usage, enabled byte) {
+	if enabled > 1 {
+		return
+	}
+	mask := byte(1 << (usage & 7))
+	if enabled == 1 {
+		c.input.repeatKeys[usage>>3] |= mask
+	} else {
+		c.input.repeatKeys[usage>>3] &^= mask
+	}
+	if c.input.repeatUsage == uint16(usage) {
+		c.input.repeatUsage = 0
 	}
 }
 
@@ -722,9 +748,12 @@ func (c *emulated_mia) inputUsageDown(usageID uint16) bool {
 
 // inputArmRepeat starts auto-repeating usageID, re-enqueuing decoded byte b.
 func (c *emulated_mia) inputArmRepeat(usageID uint16, b uint8) {
+	if !c.inputKeyRepeats(usageID) || b == 0 {
+		return
+	}
 	c.input.repeatUsage = usageID
 	c.input.repeatByte = b
-	c.input.repeatDeadline = c.nowNs + miaKeyRepeatDelayNs
+	c.input.repeatDeadline = c.nowNs + c.input.repeatDelayNs
 }
 
 // inputReleaseRepeat stops auto-repeat if usageID is the repeating key.
@@ -751,7 +780,7 @@ func (c *emulated_mia) inputRepeatService() {
 
 	c.inputEnqueueText(c.input.repeatByte)
 	c.inputRecomputeStatus()
-	c.input.repeatDeadline = c.nowNs + miaKeyRepeatIntervalNs
+	c.input.repeatDeadline = c.nowNs + c.input.repeatIntervalNs
 }
 
 // inputHidPage maps a HID usage page to its bitmap offset and event bits.

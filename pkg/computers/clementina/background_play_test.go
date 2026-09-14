@@ -233,12 +233,31 @@ func TestBackgroundPlayReplacesPrevious(t *testing.T) {
 
 	injectKeys(computer, []byte(`PLAY "T255 L1 O4 C",1`)...) // a very long note - still gated when replaced
 	injectKeys(computer, keyCR)
-	editorTickN(computer, step, 100_000)
+	// Note startup follows parsing and the next VIA IRQ; wait for the gate
+	// within a bounded interval instead of sampling a parser-cycle deadline.
+	for elapsed := 0; elapsed < 200_000; elapsed += 1_000 {
+		editorTickN(computer, step, 1_000)
+		if peekAudio(computer, voiceField(0, 7)) == 0x03 {
+			t.Logf("background note started within %d cycles", elapsed+1_000)
+			break
+		}
+	}
 	require_eq(t, 0x03, peekAudio(computer, voiceField(0, 7)), "first background note gated")
 
 	injectKeys(computer, []byte(`PLAY "T80 L4 O5 E",1`)...)
 	injectKeys(computer, keyCR)
-	editorTickN(computer, step, 100_000)
+	// The foreground silences the old voice before the next VIA IRQ starts
+	// its replacement. Wait for that observable transition instead of
+	// sampling inside the gap at an exact parser-cycle deadline. The bound
+	// stays well below the replacement note's 500,000-cycle lifetime.
+	for elapsed := 0; elapsed < 200_000; elapsed += 1_000 {
+		editorTickN(computer, step, 1_000)
+		if peekAudio(computer, voiceField(0, 7)) == 0x03 &&
+			peekAudio(computer, voiceField(0, 0)) == 0x40 &&
+			peekAudio(computer, voiceField(0, 1)) == 0x29 {
+			break
+		}
+	}
 
 	// The new note must be sounding - not the old one, orphaned and held forever.
 	require_eq(t, 0x03, peekAudio(computer, voiceField(0, 7)), "replacement note gated")
@@ -294,7 +313,15 @@ func startLongBackgroundNote(t *testing.T, computer *ClementinaComputer, step *c
 	typeLine(computer, step, "SNDON:WAVE 0,1:ADSR 0,0,4,10,4")
 	injectKeys(computer, []byte(`PLAY "T255 L1 O4 C",1`)...)
 	injectKeys(computer, keyCR)
-	editorTickN(computer, step, 100_000)
+	// Note startup follows parsing and the next VIA IRQ; wait for the gate
+	// within a bounded interval instead of sampling a parser-cycle deadline.
+	for elapsed := 0; elapsed < 200_000; elapsed += 1_000 {
+		editorTickN(computer, step, 1_000)
+		if peekAudio(computer, voiceField(0, 7)) == 0x03 {
+			t.Logf("background note started within %d cycles", elapsed+1_000)
+			break
+		}
+	}
 	require_eq(t, 0x03, peekAudio(computer, voiceField(0, 7)), "background note gated before the teardown check")
 }
 

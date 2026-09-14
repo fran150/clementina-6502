@@ -350,7 +350,7 @@ func (c *emulated_mia) inputHandleHidEvent(payload []byte) {
 	if text != 0 {
 		c.inputEnqueueText(text)
 		c.inputRecomputeStatus()
-		if inputKeyRepeats(usageID) {
+		if c.inputKeyRepeats(usageID) {
 			c.inputArmRepeat(usageID, text)
 		}
 	}
