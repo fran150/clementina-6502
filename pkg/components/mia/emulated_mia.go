@@ -182,6 +182,7 @@ func (c *emulated_mia) Tick(context *common.StepContext) {
 
 	c.speedService()
 	c.inputService()
+	c.audioSeqService()
 
 	if !c.miaCS.Enabled() {
 		c.driveIRQLine()

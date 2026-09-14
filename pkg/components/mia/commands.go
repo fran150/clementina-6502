@@ -106,6 +106,20 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 		c.audioStop()
 	case 0x62:
 		c.audioReset()
+	case miaCmdAudioSeqLoad:
+		for v := 0; v < miaAudioVoiceCount; v++ {
+			if params[0]&(1<<uint(v)) != 0 {
+				c.audioSeqLoadTrack(v)
+			}
+		}
+	case miaCmdAudioSeqStart:
+		c.audioSeqStart(params[0])
+	case miaCmdAudioSeqStop:
+		c.audioSeqStop(params[0])
+	case miaCmdAudioVoiceTake:
+		c.audioVoiceTake(params[0])
+	case miaCmdAudioVoiceRelease:
+		c.audioVoiceRelease(params[0])
 	case miaCmdSDInit, miaCmdSDReadSector, miaCmdSDWriteSector, miaCmdSDGetInfo,
 		miaCmdFSMount, miaCmdFSOpendir, miaCmdFSReaddir, miaCmdFSOpen,
 		miaCmdFSRead, miaCmdFSClose, miaCmdFSLoadToMiaRAM, miaCmdFSWrite,

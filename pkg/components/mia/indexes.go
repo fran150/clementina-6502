@@ -24,7 +24,15 @@ const (
 )
 
 // indexRead returns the byte pointed to by the selected MIA memory index.
+//
+// The $D6-$D9 sequencer-status indexes are a deliberate, scoped exception:
+// they read live from sequencer state rather than c.memory, since the audio
+// render goroutine that owns that state cannot safely write c.memory - see
+// the comment at the top of audio_sequencer.go.
 func (c *emulated_mia) indexRead(indexID uint8) uint8 {
+	if voice, ok := miaAudioSeqIndexVoice(indexID); ok {
+		return c.audioSeqStatusByte(voice, c.indexes[indexID].currentAddr)
+	}
 	return c.memory[c.memoryOffset(c.indexes[indexID].currentAddr)]
 }
 
@@ -36,10 +44,14 @@ func (c *emulated_mia) indexWrite(indexID uint8, value uint8) {
 }
 
 // indexStepAndRead steps an index for a read access and returns the new pointed byte.
+// See indexRead for the $D6-$D9 sequencer-status exception.
 func (c *emulated_mia) indexStepAndRead(indexID uint8, window miaIndexWindow) uint8 {
 	entry := &c.indexes[indexID]
 	c.stepIndex(entry, miaIndexFlagReadStep, window)
 
+	if voice, ok := miaAudioSeqIndexVoice(indexID); ok {
+		return c.audioSeqStatusByte(voice, entry.currentAddr)
+	}
 	return c.memory[c.memoryOffset(entry.currentAddr)]
 }
 

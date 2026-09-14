@@ -450,7 +450,7 @@ func TestEmulatedMiaAudioConsoleCommands(t *testing.T) {
 	assert.Contains(t, detail, "Audio:\n")
 	assert.Contains(t, detail, "  state:     active\n")
 	assert.Contains(t, detail, "  output:    disabled\n")
-	assert.Contains(t, detail, "Usage: audio [status|enable|stop|reset]\n")
+	assert.Contains(t, detail, "Usage: audio [status|enable|stop|reset|seq]\n")
 
 	out = chip.consoleAudio("stop")
 	assert.Equal(t, "Audio: stopped\n", out)
@@ -459,5 +459,5 @@ func TestEmulatedMiaAudioConsoleCommands(t *testing.T) {
 	summary := chip.consoleStatusSummary()
 	assert.True(t, strings.Contains(summary, "Audio: stopped"), "summary should report audio state")
 
-	assert.Equal(t, "Usage: audio [status|enable|stop|reset]\n", chip.consoleAudio("bogus"))
+	assert.Equal(t, "Usage: audio [status|enable|stop|reset|seq]\n", chip.consoleAudio("bogus"))
 }

@@ -193,6 +193,12 @@ type miaAudioState struct {
 
 	voices [miaAudioVoiceCount]miaAudioVoice
 
+	// Background sequencer (TRACK/BAND/VTAKE/VGIVE). See audio_sequencer.go.
+	seq            [miaAudioVoiceCount]miaAudioSeqVoice
+	seqRAM         [miaAudioVoiceCount][miaSeqTrackSize]byte
+	seqClock       uint32 // free-running sample counter, internal only - never exposed to BASIC
+	seqDonePending bool   // a voice reached END with no loop; drained by audioSeqService
+
 	active       bool
 	masterVolume uint8
 
@@ -474,6 +480,11 @@ func (a *miaAudioState) audioApplyDueLocked(upto uint64) {
 // per-sample body of audio_irq_handler, keeping the firmware's 10-bit clamp and
 // scaling the result up to the host's 16-bit range.
 func (a *miaAudioState) renderSampleLocked() (int16, int16) {
+	for v := 0; v < miaAudioVoiceCount; v++ {
+		a.seqStep(v)
+	}
+	a.seqClock++
+
 	var sampleL, sampleR int32
 
 	for i := 0; i < miaAudioVoiceCount; i++ {
@@ -607,6 +618,7 @@ func (c *emulated_mia) audioResetRuntimeState() {
 	a.mu.Unlock()
 
 	c.audioConfigureIndexes()
+	c.audioSeqResetRuntimeState()
 }
 
 // audioEnable synchronizes the engine from RAM and starts host output, mirroring
@@ -879,9 +891,11 @@ func (c *emulated_mia) audioClose() {
 
 // consoleAudio controls and reports the audio subsystem, mirroring cmd_audio.
 func (c *emulated_mia) consoleAudio(args string) string {
-	switch strings.TrimSpace(args) {
+	cmd, rest := splitConsoleCommand(strings.TrimSpace(args))
+
+	switch cmd {
 	case "", "status":
-		return c.consoleAudioDetail() + "Usage: audio [status|enable|stop|reset]\n"
+		return c.consoleAudioDetail() + "Usage: audio [status|enable|stop|reset|seq]\n"
 	case "enable":
 		c.mu.Lock()
 		c.audioEnable()
@@ -897,8 +911,10 @@ func (c *emulated_mia) consoleAudio(args string) string {
 		c.audioReset()
 		c.mu.Unlock()
 		return "Audio: reset\n"
+	case "seq":
+		return c.consoleAudioSeq(rest)
 	default:
-		return "Usage: audio [status|enable|stop|reset]\n"
+		return "Usage: audio [status|enable|stop|reset|seq]\n"
 	}
 }
 

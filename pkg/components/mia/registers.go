@@ -108,6 +108,7 @@ const (
 	miaIRQSDDone        uint16 = 1 << 11
 	miaIRQSDError       uint16 = 1 << 12
 	miaIRQFSEvent       uint16 = 1 << 13
+	miaIRQAudioSeqDone  uint16 = 1 << 14 // a sequenced voice reached END with no loop set
 	miaIRQTriggered     uint16 = 1 << 15
 )
 
