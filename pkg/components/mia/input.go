@@ -940,6 +940,19 @@ func (c *emulated_mia) DebugAudioPendingWrites() int {
 	return (a.qHead - a.qTail) & (miaAudioQueueSize - 1)
 }
 
+// DebugSetAudioActive sets whether the audio engine is considered active,
+// without AUDIO_ENABLE's async host-device startup (audioStartOutput) - lets
+// a test exercise engine/sequencer progression via DebugAudioReadPCM without
+// opening a real audio device or racing its callback goroutine (the same
+// concern that keeps SNDON itself out of full-computer tests - see
+// sound_test.go). Debug/testing only.
+func (c *emulated_mia) DebugSetAudioActive(active bool) {
+	a := &c.audio
+	a.mu.Lock()
+	a.active = active
+	a.mu.Unlock()
+}
+
 // DebugAudioFlush applies every queued audio write to the engine immediately,
 // ignoring due-sample timing. Debug/testing only - lets a test that pokes the
 // bus then inspects engine state skip the render step.

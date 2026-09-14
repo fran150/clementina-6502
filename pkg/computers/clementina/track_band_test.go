@@ -11,18 +11,71 @@ import "testing"
 // back - the same style sound_test.go uses for the direct register
 // statements.
 //
-// Like sound_test.go, BAND is only exercised for its synchronous, RAM-only
-// effects (SEQ_LOAD/SEQ_START/SEQ_STOP/VOICE_TAKE/VOICE_RELEASE all mutate
-// sequencer state directly in the command handler): whether a track's note
-// index actually advances over time depends on the audio engine's real-time
-// render loop, already covered in the mia package's own tests
-// (TestEmulatedMiaAudioSeq*), not exercised here.
+// Most of BAND is exercised only for its synchronous, RAM-only effects
+// (SEQ_LOAD/SEQ_START/SEQ_STOP/VOICE_TAKE/VOICE_RELEASE all mutate sequencer
+// state directly in the command handler) - like sound_test.go, SNDON itself
+// is avoided here since it opens a real host audio device. The one test that
+// needs playback to actually advance over rendered time
+// (TestBasicTrackBandAdvancesLiveRegisters) uses the mia package's
+// DebugSetAudioActive/DebugAudioReadPCM/DebugAudioVoiceState hooks instead -
+// force the engine active without a real device, then render frames directly
+// and read back what the sequencer did, the same shape the old play_test.go
+// used for blocking PLAY. The sequencer's own timing/catch-up logic is
+// already covered in the mia package's own tests (TestEmulatedMiaAudioSeq*);
+// this is the seam connecting real BASIC-driven commands to that engine.
 
 const seqTrackBase = 0x13000
 const seqTrackSize = 0x400
 
 func peekSeq(computer *ClementinaComputer, voice uint32, offset uint32) uint8 {
 	return computer.chips.mia.(audioMemReader).DebugReadVideo(seqTrackBase + voice*seqTrackSize + offset)
+}
+
+type audioAdvancer interface {
+	DebugSetAudioActive(bool)
+	DebugAudioReadPCM(int) []int16
+	DebugAudioVoiceState(int) (freqQ4 uint16, control uint8, adsr uint8, vol uint32)
+}
+
+// TestBasicTrackBandAdvancesLiveRegisters is the end-to-end check: a real
+// BASIC program compiles a two-note TRACK and starts it with BAND, then the
+// audio engine is forced forward by rendered samples (bypassing wall-clock
+// pacing and a real audio device, not the sequencer logic itself) and the
+// live voice registers are read back - confirming a BAND-started track
+// actually reaches the render loop and advances note to note, not just that
+// the commands that start it dispatch correctly.
+func TestBasicTrackBandAdvancesLiveRegisters(t *testing.T) {
+	computer, step := bootClementinaToPrompt(t)
+
+	typeLine(computer, step, `10 TRACK 0,"T60 L8 O5 C D"`)
+	typeLine(computer, step, "20 BAND 1")
+	typeLine(computer, step, "30 GOTO 30")
+	typeLine(computer, step, "RUN")
+	editorTickN(computer, step, 2_000_000)
+
+	audio := computer.chips.mia.(audioAdvancer)
+	audio.DebugSetAudioActive(true)
+
+	// T60, eighth note (k=8: T>>1) = 30 ticks; 30*150 = 4500 samples, plus one
+	// trigger tick per event (see audio_sequencer.go's seqAdvance): each note
+	// spans 4501 rendered samples. 2000 lands well inside C5; the cumulative
+	// 8000 lands well inside D5 (started at 4501, ends at 9002).
+	audio.DebugAudioReadPCM(2000)
+	freq, control, _, _ := audio.DebugAudioVoiceState(0)
+	require_eq_u16(t, 0x20C0, freq, "C5 (note_freq(60) = 262<<5) mid-first-note")
+	require_eq(t, 0x03, control, "gate+reset-phase mid-first-note (fresh trigger)")
+
+	audio.DebugAudioReadPCM(6000) // cumulative 8000
+	freq, control, _, _ = audio.DebugAudioVoiceState(0)
+	require_eq_u16(t, 0x24C0, freq, "D5 (note_freq(62) = 294<<5) mid-second-note")
+	require_eq(t, 0x03, control, "gate+reset-phase mid-second-note (fresh trigger)")
+}
+
+func require_eq_u16(t *testing.T, want uint16, got uint16, msg string) {
+	t.Helper()
+	if got != want {
+		t.Fatalf("%s: want %04X got %04X", msg, want, got)
+	}
 }
 
 // TestBasicTrackEncodesNote verifies TRACK's encoder against a hand-computed
