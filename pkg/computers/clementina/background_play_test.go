@@ -184,7 +184,15 @@ func TestBackgroundPlaySingleNoteSoundsAndFinishes(t *testing.T) {
 
 	injectKeys(computer, []byte(`PLAY "T60 L1 O4 C",1`)...)
 	injectKeys(computer, keyCR)
-	editorTickN(computer, step, 100_000) // parse + a little way into the note
+	// Token-table growth changes parsing time. Wait for IRQ-driven startup
+	// within a bounded interval well below this note's 1.5M-cycle duration.
+	for elapsed := 0; elapsed < 200_000; elapsed += 1_000 {
+		editorTickN(computer, step, 1_000)
+		if peekAudio(computer, voiceField(0, 7)) == 0x03 {
+			t.Logf("background note started within %d cycles", elapsed+1_000)
+			break
+		}
+	}
 
 	require_eq(t, 0x60, peekAudio(computer, voiceField(0, 0)), "v0 FREQ_L (C4) while the note plays")
 	require_eq(t, 0x10, peekAudio(computer, voiceField(0, 1)), "v0 FREQ_H (C4) while the note plays")

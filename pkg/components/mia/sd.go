@@ -64,7 +64,7 @@ const (
 	miaFSPath2Offset = miaFSTransferOffset
 	miaFSPath2Size   = miaFSPathSize
 
-	miaSDVersion = 5
+	miaSDVersion = 6
 
 	// miaSDMaxHandles is the number of concurrent file-handle slots. BASIC-visible
 	// file numbers map directly onto these slots, one-to-one, with no allocator in
@@ -193,6 +193,7 @@ const (
 
 	miaCmdFSSaveFromMiaRAM uint8 = 0x87
 	miaCmdFSChdir          uint8 = 0x88
+	miaCmdFSFileInfo       uint8 = 0x89
 )
 
 // Subset of FatFs FRESULT codes, written to SD_FATFS_RESULT for diagnostics.
@@ -417,7 +418,7 @@ func (c *emulated_mia) sdRequest(command uint8) bool {
 		miaCmdFSRead, miaCmdFSClose, miaCmdFSLoadToMiaRAM, miaCmdFSWrite,
 		miaCmdFSSync, miaCmdFSSeek, miaCmdFSStat, miaCmdFSMkdir,
 		miaCmdFSDelete, miaCmdFSRename, miaCmdFSGetFree, miaCmdFSSaveFromMiaRAM,
-		miaCmdFSChdir:
+		miaCmdFSChdir, miaCmdFSFileInfo:
 	default:
 		return false
 	}
@@ -587,6 +588,9 @@ func (c *emulated_mia) sdService(command uint8) {
 
 	case miaCmdFSWrite:
 		ok, fr, errorCode = c.sdServiceWrite()
+
+	case miaCmdFSFileInfo:
+		ok, fr, errorCode = c.sdServiceFileInfo()
 
 	case miaCmdFSSync:
 		ok, fr, errorCode = c.sdServiceSync()
@@ -790,6 +794,28 @@ func (c *emulated_mia) sdServiceWrite() (bool, uint8, uint8) {
 		return false, sdErrToFresult(err), miaErrorFSWriteFailed
 	}
 	return true, frOK, miaErrorFSWriteFailed
+}
+
+// A metadata query must not flush, seek to a target, or change EOF state.
+func (c *emulated_mia) sdServiceFileInfo() (bool, uint8, uint8) {
+	slot, valid := c.sdRequireValidHandle()
+	if !valid {
+		return false, frInvalidParameter, miaErrorFSInvalidHandle
+	}
+	if !c.sd.fileOpen[slot] || c.sd.file[slot] == nil {
+		return false, frInvalidObject, miaErrorFSNoFileOpen
+	}
+	info, err := c.sd.file[slot].Stat()
+	if err != nil {
+		return false, sdErrToFresult(err), miaErrorFSStatFailed
+	}
+	pos, err := c.sd.file[slot].Seek(0, io.SeekCurrent)
+	if err != nil {
+		return false, sdErrToFresult(err), miaErrorFSSeekFailed
+	}
+	c.sdWriteU32(miaSDControlOffset+miaSDControlFileSize0, uint32(info.Size()))
+	c.sdWriteU32(miaSDControlOffset+miaSDControlFilePos0, uint32(pos))
+	return true, frOK, 0
 }
 
 func (c *emulated_mia) sdServiceSync() (bool, uint8, uint8) {

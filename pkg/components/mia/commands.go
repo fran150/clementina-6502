@@ -111,7 +111,7 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 		miaCmdFSRead, miaCmdFSClose, miaCmdFSLoadToMiaRAM, miaCmdFSWrite,
 		miaCmdFSSync, miaCmdFSSeek, miaCmdFSStat, miaCmdFSMkdir,
 		miaCmdFSDelete, miaCmdFSRename, miaCmdFSGetFree, miaCmdFSSaveFromMiaRAM,
-		miaCmdFSChdir:
+		miaCmdFSChdir, miaCmdFSFileInfo:
 		c.sdRequest(id)
 	default:
 		// Unassigned command ids report ERROR_CMD_UNKNOWN, matching the firmware
