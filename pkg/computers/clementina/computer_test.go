@@ -19,13 +19,12 @@ func TestClementinaPotentialOperatorsReadsMiaRange(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NotEmpty(t, assets.MiaKernel)
-	// 2026-09 RAM/ROM reorg: descending loader - the first byte sent is the
-	// kernel image's *last* byte (meant for the highest address, $BFFF), not
-	// its first.
-	lastByte := assets.MiaKernel[len(assets.MiaKernel)-1]
-	assert.Equal(t, [2]uint8{0xA9, lastByte}, computer.getPotentialOperators(0xFFE0))
-	assert.Equal(t, [2]uint8{lastByte, 0x8D}, computer.getPotentialOperators(0xFFE1))
-	assert.Equal(t, [2]uint8{0xFF, 0xBF}, computer.getPotentialOperators(0xFFE3)) // STA $BFFF operand (load top, lo/hi)
+	// Bottom-anchor rework: ascending loader - the first byte sent is the
+	// kernel image's *first* byte (meant for the lowest address, $04B7).
+	firstByte := assets.MiaKernel[0]
+	assert.Equal(t, [2]uint8{0xA9, firstByte}, computer.getPotentialOperators(0xFFE0))
+	assert.Equal(t, [2]uint8{firstByte, 0x8D}, computer.getPotentialOperators(0xFFE1))
+	assert.Equal(t, [2]uint8{0xB7, 0x04}, computer.getPotentialOperators(0xFFE3)) // STA $04B7 operand (load bottom, lo/hi)
 }
 
 // TestClementinaPotentialOperatorsReadsAcrossMappedRegions verifies per-byte memory mapping.
@@ -48,15 +47,16 @@ func TestClementinaResetRestoresMiaLoaderWindow(t *testing.T) {
 	writeMiaByte(computer, &step, 0xFFE0, 0x00)
 
 	require.NotEmpty(t, assets.MiaKernel)
-	// 2026-09 RAM/ROM reorg: descending loader - see TestClementinaPotentialOperatorsReadsMiaRange.
-	lastByte := assets.MiaKernel[len(assets.MiaKernel)-1]
-	assert.Equal(t, [2]uint8{0x00, lastByte}, computer.getPotentialOperators(0xFFE0))
+	// Bottom-anchor rework: ascending loader - see
+	// TestClementinaPotentialOperatorsReadsMiaRange.
+	firstByte := assets.MiaKernel[0]
+	assert.Equal(t, [2]uint8{0x00, firstByte}, computer.getPotentialOperators(0xFFE0))
 
 	computer.Reset(true)
 	tickComputer(computer, &step)
 	computer.Reset(false)
 
-	assert.Equal(t, [2]uint8{0xA9, lastByte}, computer.getPotentialOperators(0xFFE0))
+	assert.Equal(t, [2]uint8{0xA9, firstByte}, computer.getPotentialOperators(0xFFE0))
 }
 
 // TestClementinaResetIsDrivenByMia verifies the computer reset input goes through MIA.
@@ -128,22 +128,21 @@ func TestClementinaKernelLoads(t *testing.T) {
 	}
 	computer.Reset(false)
 
-	// 2026-09 RAM/ROM reorg: the image is top-anchored, ending exactly at
-	// $BFFF, so its start varies with its size instead of being the fixed
-	// $0400 load base. The loader also now writes DESCENDING - array index 0
-	// (kernelStart) is written *last*, not index len-1 - so the "ready"
-	// probe scans forward from index 0 for a non-zero byte, instead of
-	// backward from the end.
-	kernelStart := uint32(0xC000) - uint32(len(assets.MiaKernel))
-	kernelReadyOffset := 0
-	for kernelReadyOffset < len(assets.MiaKernel)-1 && assets.MiaKernel[kernelReadyOffset] == 0 {
-		kernelReadyOffset++
+	// Bottom-anchor rework: the image starts at the fixed low address $04B7
+	// regardless of its size (kernel, then WozMon, then BASIC growing
+	// upward). The loader writes ASCENDING - array index len-1 is written
+	// *last*, not index 0 - so the "ready" probe scans backward from the end
+	// for a non-zero byte, instead of forward from index 0.
+	kernelStart := uint32(0x04B7)
+	kernelReadyOffset := len(assets.MiaKernel) - 1
+	for kernelReadyOffset > 0 && assets.MiaKernel[kernelReadyOffset] == 0 {
+		kernelReadyOffset--
 	}
 	kernelReadyAddress := kernelStart + uint32(kernelReadyOffset)
 
-	// The image now spans both baseram ($0000-$7FFF) and exram's currently
-	// selected bank ($8000-$BFFF) - peekMappedMemory routes to whichever one
-	// a given address actually falls in, same as getPotentialOperators does.
+	// The image is fully below $8000 now (bottom-anchored, comfortably under
+	// the banked-window boundary) - peekMappedMemory still works here, it
+	// just always takes the baseram branch for this test's addresses.
 	for range len(assets.MiaKernel) * 120 {
 		tickComputer(computer, &step)
 

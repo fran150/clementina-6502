@@ -231,6 +231,7 @@ func newClementinaComputer(mia components.MiaChip) (*ClementinaComputer, error) 
 	chips.via.RegisterSelect(2).Connect(addressBus2)
 	chips.via.RegisterSelect(1).Connect(addressBus1)
 	chips.via.RegisterSelect(0).Connect(addressBus0)
+	chips.via.PeripheralPortA().Connect(circuit.portABus)
 	chips.via.PeripheralPortB().Connect(circuit.portBBus)
 
 	// EXRam connections

@@ -98,8 +98,10 @@ func TestPlayingFunctionLists(t *testing.T) {
 
 // addrBGPFlags is the background-PLAY control block's flags byte (BGP_FLAGS
 // in clementina_extra.s) - fixed working RAM right after KVARS. Moved here
-// from $5C00 in the 2026-09 RAM/ROM reorg, which top-anchored the loaded
-// image at $BFFF instead of placing it below the heap; see
+// from $5C00 in the 2026-09-13 RAM/ROM reorg. Unaffected by the later
+// bottom-anchor rework (the loaded image itself moved back below a fixed
+// low anchor, $04B7, but working RAM below that - zero page, stack, line
+// buffer, KVARS, this block - was never part of either reorg); see
 // docs/memory-map.md §7.5/§8 in the clementina-rom repo.
 const addrBGPFlags = 0x0400
 

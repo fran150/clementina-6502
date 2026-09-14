@@ -10,22 +10,24 @@ const (
 	miaIndexCount    = 256
 	miaAddressMask   = 0x00FFFFFF
 
-	// 2026-09 RAM/ROM reorg (clementina-rom): the loader now writes DESCENDING
-	// instead of ascending, so the image ends exactly at $BFFF regardless of
-	// how large it grows. Two fixed constants now, mirroring mia.c in
-	// clementina-mia:
-	//   - miaKernelLoadTopAddress ($BFFF): where the loader starts writing.
-	//     Never needs to change as clementina-rom's image grows or shrinks.
-	//   - miaKernelTargetAddress ($BFD0): the RESET/NMI/IRQ vector target,
-	//     i.e. the start of clementina-rom's kernel jump table (KERN_BASE).
-	//     Only changes if KERN_JUMPTAB_SIZE itself changes (rare), unlike the
-	//     image's overall size (constant churn as commands are added).
-	miaKernelLoadTopAddress = 0xBFFF
-	miaKernelTargetAddress  = 0xBFD0
-	miaCPUResetPulseCycles  = 4
-	miaDefaultPhi2Hz       = 1200000
-	miaMinPhi2Hz           = 1
-	miaMaxPhi2Hz           = 8000000
+	// Bottom-anchor rework (clementina-rom, reversing the 2026-09-13
+	// top-anchored/descending design): the loader writes ASCENDING from a
+	// fixed low address, so the image starts exactly at $04B7 (right after
+	// working RAM) regardless of how large it grows - kernel+WozMon first,
+	// then BASIC growing upward, reclaimable through $BFFF. One fixed
+	// constant now (both ends of the loader's write and the RESET/NMI/IRQ
+	// vector target coincide, since the jump table sits at the image's own
+	// fixed start), mirroring mia.c in clementina-mia:
+	//   - miaKernelLoadBottomAddress ($04B7): where the loader starts
+	//     writing, and also the RESET/NMI/IRQ vector target (the start of
+	//     clementina-rom's kernel jump table, KERN_BASE). Never needs to
+	//     change as clementina-rom's image grows or shrinks.
+	miaKernelLoadBottomAddress = 0x04B7
+	miaKernelTargetAddress     = 0x04B7
+	miaCPUResetPulseCycles     = 4
+	miaDefaultPhi2Hz           = 1200000
+	miaMinPhi2Hz               = 1
+	miaMaxPhi2Hz               = 8000000
 )
 
 const (
@@ -109,7 +111,7 @@ const (
 	miaIRQTriggered     uint16 = 1 << 15
 )
 
-// MIA ROM bootstrap installed at the load base (miaKernelTargetAddress, $0400).
-// Embedded at build time so it does not depend on the working directory or
-// external files at runtime.
+// MIA ROM bootstrap installed at the load base (miaKernelTargetAddress,
+// $04B7). Embedded at build time so it does not depend on the working
+// directory or external files at runtime.
 var miaKernelData = assets.MiaKernel
