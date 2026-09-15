@@ -1,6 +1,7 @@
 package clementina
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/fran150/clementina-6502/pkg/common"
@@ -186,4 +187,36 @@ func TestClementinaEditorInsertOpensGap(t *testing.T) {
 	editorTickN(computer, step, 400_000)
 
 	require.Equal(t, "AXBC", harvestedLine(computer), "Insert should open a gap that X fills")
+}
+
+// TestClementinaEditorWrapAfterScrollHarvestsWholeLine: a line typed while the
+// cursor already sits on the bottom row wraps by scrolling mid-entry (the first
+// 40 chars land on the current bottom row, which then scrolls up as the rest
+// wraps onto a new bottom row). edit_line snapshots EDIT_START_Y once, before
+// any of this; harvest_line uses that snapshot, together with the (post-scroll)
+// logical-line range, to tell "cursor moved onto older text" apart from "typing
+// starts here" (see editor.s). If the scroll isn't reflected back into
+// EDIT_START_Y, it goes stale and can coincide with the wrapped line's new end
+// row, making harvest_line start from there instead of the line's true first
+// row - silently dropping everything typed before the scroll.
+func TestClementinaEditorWrapAfterScrollHarvestsWholeLine(t *testing.T) {
+	computer, step := bootClementinaToPrompt(t)
+
+	// Force the cursor onto the bottom row via a direct POKE (CURSOR_Y is
+	// $0301 = 769): the READY. prompt this triggers is itself printed from
+	// (and clamped to) the bottom row, leaving the cursor there at column 0
+	// for the line typed next.
+	injectKeys(computer, []byte("POKE 769,24")...)
+	injectKeys(computer, keyCR)
+	editorTickN(computer, step, 600_000)
+	require.Equal(t, uint8(24), peek(computer, addrCursorY), "cursor should be pinned to the bottom row")
+	require.Equal(t, uint8(0), peek(computer, addrCursorX), "READY.'s own CR should have reset the column")
+
+	line := strings.Repeat("A", 45) // >40: wraps once, well under BASIC's 71-char input cap
+	injectKeys(computer, []byte(line)...)
+	injectKeys(computer, keyCR)
+	editorTickN(computer, step, 1_000_000)
+
+	require.Equal(t, line, harvestedLine(computer),
+		"a line that wraps by scrolling mid-entry should be harvested in full, not truncated to what was typed after the scroll")
 }
