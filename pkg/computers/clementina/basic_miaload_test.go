@@ -1,6 +1,7 @@
 package clementina
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -101,6 +102,71 @@ func TestBasicChrsaveFile(t *testing.T) {
 	for i := range want {
 		if data[i] != want[i] {
 			t.Fatalf("DUMP.BIN[%d] = %d, want %d", i, data[i], want[i])
+		}
+	}
+}
+
+// TestBasicOamloadFile exercises OAMLOAD's file-sourced meaning. Its `count`
+// means sprites (5 bytes each, tile/xlo/ylo/attr/ext), matching OAMREAD's
+// units - not a raw byte length. Regression test for a 2026-09-16 fix: count
+// used to go straight into the byte-length register untouched, so
+// `OAMLOAD 0,2,"S.OAM"` loaded 2 bytes (spilling into just sprite 0's
+// tile/xlo) instead of 2 whole sprites (10 bytes).
+func TestBasicOamloadFile(t *testing.T) {
+	dir := t.TempDir()
+	data := []byte{
+		1, 2, 3, 4, 5, // sprite 0: tile,xlo,ylo,attr,ext
+		6, 7, 8, 9, 10, // sprite 1
+	}
+	if err := os.WriteFile(filepath.Join(dir, "S.OAM"), data, 0o644); err != nil {
+		t.Fatalf("seeding S.OAM: %v", err)
+	}
+
+	computer, step := bootClementinaToPrompt(t)
+	computer.SetMiaSDFolder(dir)
+
+	typeLine(computer, step, `10 OAMLOAD 0,2,"S.OAM"`)
+	typeLine(computer, step, "20 GOTO 20")
+	typeLine(computer, step, "RUN")
+	editorTickN(computer, step, 2_000_000)
+
+	for n := 0; n < 2; n++ {
+		for f := 0; f < 5; f++ {
+			want := int(data[n*5+f])
+			require_eq(t, want, peekOAM(computer, n, f), fmt.Sprintf("sprite%d field%d", n, f))
+		}
+	}
+}
+
+// TestBasicOamsaveFile exercises OAMSAVE (OAM -> file), the reverse of
+// TestBasicOamloadFile, chained onto OAMREAD (DATA -> OAM) so the round trip
+// is covered without a separate seeding mechanism. Same count-unit fix as
+// TestBasicOamloadFile above.
+func TestBasicOamsaveFile(t *testing.T) {
+	dir := t.TempDir()
+	computer, step := bootClementinaToPrompt(t)
+	computer.SetMiaSDFolder(dir)
+	vr := computer.chips.mia.(videoReader)
+
+	typeLine(computer, step, "10 DATA 1,2,3,4,5,6,7,8,9,10")
+	typeLine(computer, step, "20 OAMREAD 0,2")
+	typeLine(computer, step, `30 OAMSAVE 0,2,"DUMP.OAM"`)
+	typeLine(computer, step, "40 GOTO 40")
+	typeLine(computer, step, "RUN")
+	editorTickN(computer, step, 2_000_000)
+
+	data, err := os.ReadFile(filepath.Join(dir, "DUMP.OAM"))
+	if err != nil {
+		dumpScreen(t, vr)
+		t.Fatalf("reading DUMP.OAM: %v", err)
+	}
+	want := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	if len(data) != len(want) {
+		t.Fatalf("DUMP.OAM length = %d, want %d (content %v)", len(data), len(want), data)
+	}
+	for i := range want {
+		if data[i] != want[i] {
+			t.Fatalf("DUMP.OAM[%d] = %d, want %d", i, data[i], want[i])
 		}
 	}
 }
