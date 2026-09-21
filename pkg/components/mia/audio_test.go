@@ -90,7 +90,7 @@ func TestEmulatedMiaAudioLiveWriteThroughBus(t *testing.T) {
 	circuit.write(miaRegCmdTrigger, 0x60)
 	require.True(t, chip.audioIsActive())
 
-	// Write a full voice-0 record through index $D1 (1000 Hz pulse, gated on).
+	// Write a full voice-0 record through index $E7 (1000 Hz pulse, gated on).
 	circuit.write(miaRegIdxASelector, miaAudioIndexVoice0)
 	record := []uint8{0x80, 0x3E, 0x80, 0x00, 0xF0, miaAudioWaveSaw, 0x00, miaAudioControlGate}
 	for _, b := range record {
@@ -412,13 +412,13 @@ func TestEmulatedMiaAudioVolumeLiveWriteThroughBus(t *testing.T) {
 	circuit.write(miaRegCmdTrigger, 0x60)
 	require.True(t, chip.audioIsActive())
 
-	// Per-voice VOLUME is voice-record offset 8: write nine bytes through $D1.
+	// Per-voice VOLUME is voice-record offset 8: write nine bytes through $E7.
 	circuit.write(miaRegIdxASelector, miaAudioIndexVoice0)
 	for _, b := range []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0x55} {
 		circuit.write(miaRegIdxAPort, b)
 	}
 
-	// Master AUDIO_VOLUME is header offset 1: write two bytes through $D5.
+	// Master AUDIO_VOLUME is header offset 1: write two bytes through $EB.
 	circuit.write(miaRegIdxASelector, miaAudioIndexHeader)
 	circuit.write(miaRegIdxAPort, miaAudioVersion) // offset 0: keep version
 	circuit.write(miaRegIdxAPort, 0x09)            // offset 1: master volume

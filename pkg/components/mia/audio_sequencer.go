@@ -34,7 +34,7 @@ import (
 //   - PLAYING(v)/CUE(v) (SEQ_NOTE_INDEX/SEQ_STATUS, voice offsets $09-$0B)
 //     are the one place read fidelity is intentionally scoped down: they are
 //     computed on demand from seq state only when read through the dedicated
-//     $D6-$D9 indexes (see indexes.go), not mirrored into c.memory. A generic
+//     $EC-$EF indexes (see indexes.go), not mirrored into c.memory. A generic
 //     peek at those offsets through a different index will not reflect them
 //     in the emulator, unlike real hardware.
 
@@ -56,7 +56,7 @@ const (
 	miaSeqOpSetVol   uint8 = 0x06
 	miaSeqOpSetPulse uint8 = 0x07
 
-	// Live sequencer status, read through the dedicated $D6-$D9 indexes only
+	// Live sequencer status, read through the dedicated $EC-$EF indexes only
 	// (see the file comment above and indexes.go).
 	miaAudioVoiceSeqNoteIndexL          = 0x09
 	miaAudioVoiceSeqNoteIndexH          = 0x0A
@@ -64,10 +64,10 @@ const (
 	miaAudioSeqStatusRunning      uint8 = 1 << 0
 	miaAudioSeqStatusTaken        uint8 = 1 << 1
 
-	miaAudioIndexSeqVoice0 uint8 = 0xD6
-	miaAudioIndexSeqVoice1 uint8 = 0xD7
-	miaAudioIndexSeqVoice2 uint8 = 0xD8
-	miaAudioIndexSeqVoice3 uint8 = 0xD9
+	miaAudioIndexSeqVoice0 uint8 = 0xEC
+	miaAudioIndexSeqVoice1 uint8 = 0xED
+	miaAudioIndexSeqVoice2 uint8 = 0xEE
+	miaAudioIndexSeqVoice3 uint8 = 0xEF
 
 	// Commands. Each takes one parameter byte: a voice bitmask (bit v =
 	// voice v). There is no "0 means all" case - callers spell out the mask.
@@ -455,7 +455,7 @@ func (c *emulated_mia) audioVoiceRelease(mask uint8) {
 	}
 }
 
-// audioSeqConfigureIndexes installs the $D6-$D9 sequencer status indexes.
+// audioSeqConfigureIndexes installs the $EC-$EF sequencer status indexes.
 // Their addresses match real hardware for diagnostic fidelity, but reads
 // through them are special-cased in indexes.go rather than backed by
 // c.memory - see the file comment.
@@ -529,7 +529,7 @@ func (c *emulated_mia) audioSeqMirrorVoiceLocked(voice int) {
 	c.memory[base+miaAudioVoiceVolume] = v.volume
 }
 
-// audioSeqStatusByte serves a read through one of the $D6-$D9 indexes,
+// audioSeqStatusByte serves a read through one of the $EC-$EF indexes,
 // computed live from sequencer state rather than c.memory. Caller holds c.mu.
 func (c *emulated_mia) audioSeqStatusByte(voice int, addr uint32) uint8 {
 	field := addr - miaAudioVoiceOffset(voice)

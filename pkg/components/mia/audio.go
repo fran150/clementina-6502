@@ -14,7 +14,7 @@ import (
 // src/mia/audio/audio.{c,h}) to the emulator. The 6502-facing behavior is
 // reproduced exactly: the audio RAM block at $12000, the layout-version-2
 // voice/header register layout (16-byte voice records, header AUDIO_VOLUME
-// master and per-voice VOLUME), the $D0-$D5 audio indexes, commands $60-$62, the
+// master and per-voice VOLUME), the $E6-$EB audio indexes, commands $60-$62, the
 // MIA_STAT_AUDIO_ACTIVE status bit, the layout-2 register set, and the 4-voice
 // oscillator/ADSR/volume/pan/mix engine.
 //
@@ -89,12 +89,12 @@ const (
 	miaAudioControlGate       uint8 = 1 << 0
 	miaAudioControlResetPhase uint8 = 1 << 1
 
-	miaAudioIndexAll    uint8 = 0xD0
-	miaAudioIndexVoice0 uint8 = 0xD1
-	miaAudioIndexVoice1 uint8 = 0xD2
-	miaAudioIndexVoice2 uint8 = 0xD3
-	miaAudioIndexVoice3 uint8 = 0xD4
-	miaAudioIndexHeader uint8 = 0xD5
+	miaAudioIndexAll    uint8 = 0xE6
+	miaAudioIndexVoice0 uint8 = 0xE7
+	miaAudioIndexVoice1 uint8 = 0xE8
+	miaAudioIndexVoice2 uint8 = 0xE9
+	miaAudioIndexVoice3 uint8 = 0xEA
+	miaAudioIndexHeader uint8 = 0xEB
 )
 
 // Internal engine constants, mirroring audio.c.
@@ -720,7 +720,7 @@ func (c *emulated_mia) audioCore1OnWrite(offset uint32, value uint8) {
 	a.mu.Unlock()
 }
 
-// audioConfigureIndexes installs the fixed $D0-$D5 audio indexes, mirroring
+// audioConfigureIndexes installs the fixed $E6-$EB audio indexes, mirroring
 // audio_configure_indexes.
 func (c *emulated_mia) audioConfigureIndexes() {
 	c.audioConfigureIndex(miaAudioIndexAll, miaAudioStateOffset, miaAudioStateSize)

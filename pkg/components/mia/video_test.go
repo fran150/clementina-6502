@@ -236,3 +236,40 @@ func TestVideoLoadFontFlatFullChrDump(t *testing.T) {
 		chip.memory[miaVideoCHROffset+miaCHRBankSize],
 		"bank 1 plane 0 must come from the full-bank offset")
 }
+
+// Video pre-configures $C0-$DF as the 32 direct OAM sprite indexes. Audio and
+// SD/FS configure their own fixed indexes afterwards, so any ID they share with
+// that range silently steals sprites from the 6502. Every subsystem's fixed
+// indexes must stay pairwise distinct and clear of the OAM range.
+func TestEmulatedMiaFixedIndexesDoNotOverlapVideoOAM(t *testing.T) {
+	circuit := newEmulatedMiaTestCircuit()
+	chip := circuit.chip
+	chip.state = miaStateNormal
+
+	for i := 0; i < 32; i++ {
+		entry := chip.indexes[0xC0+i]
+		assert.Equal(t, uint32(miaVideoOAMOffset+i*5), entry.defaultAddr, "OAM sprite %d default address", i)
+		assert.Equal(t, uint32(miaVideoOAMOffset+(i+1)*5), entry.limitAddr, "OAM sprite %d limit address", i)
+	}
+
+	owners := map[uint8]string{}
+	claim := func(owner string, ids ...uint8) {
+		for _, id := range ids {
+			assert.False(t, id >= 0xC0 && id <= 0xDF, "%s index $%02X falls inside the $C0-$DF OAM range", owner, id)
+			prev, taken := owners[id]
+			assert.False(t, taken, "%s index $%02X is already used by %s", owner, id, prev)
+			owners[id] = owner
+		}
+	}
+	claim("audio",
+		miaAudioIndexAll, miaAudioIndexVoice0, miaAudioIndexVoice1, miaAudioIndexVoice2,
+		miaAudioIndexVoice3, miaAudioIndexHeader,
+		miaAudioIndexSeqVoice0, miaAudioIndexSeqVoice1, miaAudioIndexSeqVoice2, miaAudioIndexSeqVoice3)
+	claim("sd/fs",
+		miaSDIndexControl, miaSDIndexSector, miaFSIndexPath, miaFSIndexDirEntry,
+		miaFSIndexTransfer, miaFSIndexPath2)
+
+	// The audio indexes must actually be installed where the constants say.
+	assert.Equal(t, uint32(miaAudioStateOffset), chip.indexes[miaAudioIndexAll].defaultAddr)
+	assert.Equal(t, uint32(miaAudioVoiceOffset(0)), chip.indexes[miaAudioIndexVoice0].defaultAddr)
+}

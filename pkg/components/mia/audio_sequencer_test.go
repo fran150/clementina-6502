@@ -215,7 +215,7 @@ func TestEmulatedMiaAudioSeqTakeThenLongGiveCatchesUpPastEvents(t *testing.T) {
 }
 
 // TestEmulatedMiaAudioSeqStatusIndexesReadLiveState verifies PLAYING(v)/CUE(v)
-// read live sequencer state through the dedicated $D6-$D9 indexes.
+// read live sequencer state through the dedicated $EC-$EF indexes.
 func TestEmulatedMiaAudioSeqStatusIndexesReadLiveState(t *testing.T) {
 	chip := silentAudioCircuit(t).chip
 
