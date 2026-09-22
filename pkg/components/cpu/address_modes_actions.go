@@ -41,9 +41,11 @@ type syncSignaling struct {
 // instruction. This structs allows to specify actions the processor will execute on each cycle,
 // and the status of the pins used for external signaling.
 type cycleActions struct {
-	cycle     cycleAction
-	postCycle cyclePostAction
-	signaling syncSignaling
+	// Pure predicate for debugger lookahead; never executes bus actions.
+	debugSkipped func(*cpu65C02S) bool
+	cycle        cycleAction
+	postCycle    cyclePostAction
+	signaling    syncSignaling
 }
 
 // Indicates the register that must be added when performing operations against
@@ -728,9 +730,10 @@ var addressModeAbsoluteXActions []cycleActions = []cycleActions{
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     extraCycleIfCarryInstructionRegister(),
-		postCycle: doNothing(),
-		signaling: defaultSignaling,
+		cycle:        extraCycleIfCarryInstructionRegister(),
+		debugSkipped: func(cpu *cpu65C02S) bool { return !cpu.instructionRegisterCarry },
+		postCycle:    doNothing(),
+		signaling:    defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
@@ -751,9 +754,10 @@ var addressModeAbsoluteXRMWActions []cycleActions = []cycleActions{
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     extraCycleIfCarryInstructionRegister(),
-		postCycle: doNothing(),
-		signaling: defaultSignaling,
+		cycle:        extraCycleIfCarryInstructionRegister(),
+		debugSkipped: func(cpu *cpu65C02S) bool { return !cpu.instructionRegisterCarry },
+		postCycle:    doNothing(),
+		signaling:    defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
@@ -784,9 +788,10 @@ var addressModeAbsoluteXWActions []cycleActions = []cycleActions{
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     extraCycleIfCarryInstructionRegister(),
-		postCycle: doNothing(),
-		signaling: defaultSignaling,
+		cycle:        extraCycleIfCarryInstructionRegister(),
+		debugSkipped: func(cpu *cpu65C02S) bool { return !cpu.instructionRegisterCarry },
+		postCycle:    doNothing(),
+		signaling:    defaultSignaling,
 	},
 	{
 		cycle:     readFromAddressInBus(true),
@@ -807,9 +812,10 @@ var addressModeAbsoluteYActions []cycleActions = []cycleActions{
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     extraCycleIfCarryInstructionRegister(),
-		postCycle: doNothing(),
-		signaling: defaultSignaling,
+		cycle:        extraCycleIfCarryInstructionRegister(),
+		debugSkipped: func(cpu *cpu65C02S) bool { return !cpu.instructionRegisterCarry },
+		postCycle:    doNothing(),
+		signaling:    defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
@@ -830,9 +836,10 @@ var addressModeAbsoluteYWActions []cycleActions = []cycleActions{
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     extraCycleIfCarryInstructionRegister(),
-		postCycle: doNothing(),
-		signaling: defaultSignaling,
+		cycle:        extraCycleIfCarryInstructionRegister(),
+		debugSkipped: func(cpu *cpu65C02S) bool { return !cpu.instructionRegisterCarry },
+		postCycle:    doNothing(),
+		signaling:    defaultSignaling,
 	},
 	{
 		cycle:     readFromAddressInBus(true),
@@ -851,14 +858,16 @@ var addressModeRelativeActions []cycleActions = []cycleActions{
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     extraCycleIfBranchTaken(),
-		postCycle: moveInstructionRegisterToProgramCounter(false, clearNoRequestFlag),
-		signaling: defaultSignaling,
+		cycle:        extraCycleIfBranchTaken(),
+		debugSkipped: func(cpu *cpu65C02S) bool { return !cpu.branchTaken },
+		postCycle:    moveInstructionRegisterToProgramCounter(false, clearNoRequestFlag),
+		signaling:    defaultSignaling,
 	},
 	{
-		cycle:     extraCycleIfCarryInstructionRegister(),
-		postCycle: doNothing(),
-		signaling: defaultSignaling,
+		cycle:        extraCycleIfCarryInstructionRegister(),
+		debugSkipped: func(cpu *cpu65C02S) bool { return !cpu.instructionRegisterCarry },
+		postCycle:    doNothing(),
+		signaling:    defaultSignaling,
 	},
 }
 
@@ -884,14 +893,16 @@ var addressModeRelativeExtendedActions []cycleActions = []cycleActions{
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     extraCycleIfBranchTaken(),
-		postCycle: moveInstructionRegisterToProgramCounterIfNotCarry(),
-		signaling: defaultSignaling,
+		cycle:        extraCycleIfBranchTaken(),
+		debugSkipped: func(cpu *cpu65C02S) bool { return !cpu.branchTaken },
+		postCycle:    moveInstructionRegisterToProgramCounterIfNotCarry(),
+		signaling:    defaultSignaling,
 	},
 	{
-		cycle:     extraCycleIfCarryInstructionRegister(),
-		postCycle: moveInstructionRegisterToProgramCounter(false, clearNoRequestFlag),
-		signaling: defaultSignaling,
+		cycle:        extraCycleIfCarryInstructionRegister(),
+		debugSkipped: func(cpu *cpu65C02S) bool { return !cpu.instructionRegisterCarry },
+		postCycle:    moveInstructionRegisterToProgramCounter(false, clearNoRequestFlag),
+		signaling:    defaultSignaling,
 	},
 }
 
@@ -975,9 +986,10 @@ var addressModeZeroPageIndirectIndexedYActions []cycleActions = []cycleActions{
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     extraCycleIfCarryInstructionRegister(),
-		postCycle: doNothing(),
-		signaling: defaultSignaling,
+		cycle:        extraCycleIfCarryInstructionRegister(),
+		debugSkipped: func(cpu *cpu65C02S) bool { return !cpu.instructionRegisterCarry },
+		postCycle:    doNothing(),
+		signaling:    defaultSignaling,
 	},
 	{
 		cycle:     readFromInstructionRegister(),
@@ -1003,9 +1015,10 @@ var addressModeZeroPageIndirectIndexedYWActions []cycleActions = []cycleActions{
 		signaling: defaultSignaling,
 	},
 	{
-		cycle:     extraCycleIfCarryInstructionRegister(),
-		postCycle: doNothing(),
-		signaling: defaultSignaling,
+		cycle:        extraCycleIfCarryInstructionRegister(),
+		debugSkipped: func(cpu *cpu65C02S) bool { return !cpu.instructionRegisterCarry },
+		postCycle:    doNothing(),
+		signaling:    defaultSignaling,
 	},
 	{
 		cycle:     readFromAddressInBus(true),

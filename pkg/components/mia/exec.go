@@ -74,3 +74,11 @@ func (c *emulated_mia) SetExecPausedHandler(handler func(bool)) {
 
 	c.execPausedChanged = handler
 }
+
+// DebugResumeExecution uses the same host-side resume path as the console.
+// It clears the MIA status flag and notifies the machine owner; it is not a CPU command.
+func (c *emulated_mia) DebugResumeExecution() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.execResume()
+}

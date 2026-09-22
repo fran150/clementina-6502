@@ -566,3 +566,33 @@ func (cpu *cpu65C02S) ForceProgramCounter(value uint16) {
 func (cpu *cpu65C02S) GetProgramCounter() uint16 {
 	return cpu.programCounter
 }
+
+// DebugInstructionBoundary reports whether the next cycle fetches an opcode.
+// Call only between complete Tick/PostTick pairs under the machine owner's lock.
+// The public SYNC output describes the previous cycle, not this boundary.
+func (cpu *cpu65C02S) DebugInstructionBoundary() bool {
+	if cpu.processorStopped || cpu.processorPaused {
+		return false
+	}
+	if cpu.nextCycle.signaling.sync {
+		return true
+	}
+	// Conditional tail cycles can be skipped recursively by Tick, fetching the
+	// next opcode in that same cycle. Inspect predicates without touching buses.
+	cycle := cpu.nextCycle
+	index := cpu.nextCycleIndex
+	for cycle.debugSkipped != nil && cycle.debugSkipped(cpu) {
+		index++
+		if int(index) >= cpu.nextAddressMode.Cycles() {
+			// Tick samples interrupts before skipping, and then selects their entry.
+			irq := cpu.irqRequested || (cpu.InterruptRequest().Enabled() && !cpu.processorStatusRegister.Flag(IrqDisableFlagBit))
+			nmi := cpu.nmiRequested || (!cpu.previousNMIStatus && cpu.NonMaskableInterrupt().Enabled())
+			return !irq && !nmi
+		}
+		cycle = cpu.nextAddressMode.cycle(int(index) - 1)
+	}
+	return false
+}
+
+// DebugStopped reports STP; only reset can release it.
+func (cpu *cpu65C02S) DebugStopped() bool { return cpu.processorStopped }
