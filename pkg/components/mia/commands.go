@@ -120,6 +120,14 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 		c.audioVoiceTake(params[0])
 	case miaCmdAudioVoiceRelease:
 		c.audioVoiceRelease(params[0])
+	case miaCmdAudioSeqSetBase0:
+		c.audioSeqSetBase(0, uint32(params[0])|uint32(params[1])<<8|uint32(params[2])<<16)
+	case miaCmdAudioSeqSetBase1:
+		c.audioSeqSetBase(1, uint32(params[0])|uint32(params[1])<<8|uint32(params[2])<<16)
+	case miaCmdAudioSeqSetBase2:
+		c.audioSeqSetBase(2, uint32(params[0])|uint32(params[1])<<8|uint32(params[2])<<16)
+	case miaCmdAudioSeqSetBase3:
+		c.audioSeqSetBase(3, uint32(params[0])|uint32(params[1])<<8|uint32(params[2])<<16)
 	case miaCmdSDInit, miaCmdSDReadSector, miaCmdSDWriteSector, miaCmdSDGetInfo,
 		miaCmdFSMount, miaCmdFSOpendir, miaCmdFSReaddir, miaCmdFSOpen,
 		miaCmdFSRead, miaCmdFSClose, miaCmdFSLoadToMiaRAM, miaCmdFSWrite,

@@ -194,8 +194,10 @@ type miaAudioState struct {
 	voices [miaAudioVoiceCount]miaAudioVoice
 
 	// Background sequencer (TRACK/BAND/VTAKE/VGIVE). See audio_sequencer.go.
+	// seqRAM is sized per voice at load time (miaRAMSize - trackBase), not
+	// fixed - a track has no declared length, just a base and an END/JUMP.
 	seq            [miaAudioVoiceCount]miaAudioSeqVoice
-	seqRAM         [miaAudioVoiceCount][miaSeqTrackSize]byte
+	seqRAM         [miaAudioVoiceCount][]byte
 	seqClock       uint32 // free-running sample counter, internal only - never exposed to BASIC
 	seqDonePending bool   // a voice reached END with no loop; drained by audioSeqService
 

@@ -7,7 +7,7 @@ import (
 
 // This file ports MIA's background note sequencer (firmware
 // src/mia/audio/audio.{c,h}, the TRACK/SEQ_LOAD/SEQ_START/SEQ_STOP/
-// VOICE_TAKE/VOICE_RELEASE additions) to the emulator. See
+// VOICE_TAKE/VOICE_RELEASE/SEQ_SET_BASE additions) to the emulator. See
 // clementina-mia/docs/audio-sequencer.md for the full contract; this comment
 // only covers where the Go port has to diverge from it.
 //
@@ -17,7 +17,10 @@ import (
 // top of audio.go, must stay RAM-free - c.memory belongs to the CPU-Tick
 // goroutine. So the sequencer keeps its own copy of each voice's track bytes
 // (seqRAM, populated by audioSeqLoadTrack when TRACK/SEQ_LOAD run) and the
-// render goroutine never touches c.memory:
+// render goroutine never touches c.memory. A track has no declared length
+// (just a base and an END/JUMP), so seqRAM is sized per voice at load time -
+// c.memory[trackBase:miaRAMSize], the same bound firmware's cursor >=
+// MIA_RAM_SIZE check enforces - rather than a fixed-size array:
 //
 //   - "Track finished" (no loop) can't call irqSetFlag directly - that
 //     mutates shared registers unsynchronized with the CPU-Tick goroutine.
@@ -39,13 +42,17 @@ import (
 //     in the emulator, unlike real hardware.
 
 const (
-	miaSeqTrackSize         = 0x400 // 1024 bytes per voice
-	miaSeqStateOffset       = 0x13000
-	miaSeqTrackHeaderSize   = 4
-	miaSeqTrackLoopL        = 0x00
-	miaSeqTrackLoopH        = 0x01
-	miaSeqTrackEventsOffset = miaSeqTrackHeaderSize
-	miaSeqNoLoop     uint16 = 0xFFFF
+	// Default per-voice track base, used only to seed trackBase at reset -
+	// not a reserved or size-limited region. A track's base is fully
+	// caller-defined via AUDIO_SEQ_SET_BASE<voice>; see
+	// docs/audio-sequencer.md and audio.h's MIA_SEQ_DEFAULT_BASE.
+	//
+	// $14000-$17FFF: the old default ($13000-$13FFF) silently overlapped
+	// live SD/FS state at $13000-$13BFF for 3 of the 4 voices - see
+	// audio.h's MIA_SEQ_DEFAULT_BASE_OFFSET comment for the full rationale.
+	miaSeqDefaultTrackSpacing = 0x1000
+	miaSeqDefaultBaseOffset   = 0x14000
+	miaSeqDefaultRegionSize   = miaAudioVoiceCount * miaSeqDefaultTrackSpacing
 
 	miaSeqOpEnd      uint8 = 0x00
 	miaSeqOpNote     uint8 = 0x01
@@ -55,6 +62,12 @@ const (
 	miaSeqOpSetPan   uint8 = 0x05
 	miaSeqOpSetVol   uint8 = 0x06
 	miaSeqOpSetPulse uint8 = 0x07
+	// miaSeqOpJump: offset_l, offset_m, offset_h - a signed 24-bit
+	// little-endian offset, relative to the address right after this 4-byte
+	// record (self-relative, so a track keeps working if its base moves).
+	// Zero-duration, does not advance noteIndex. "Loop the whole track" is
+	// just a JUMP back to the top - there is no separate loop opcode.
+	miaSeqOpJump uint8 = 0x08
 
 	// Live sequencer status, read through the dedicated $EC-$EF indexes only
 	// (see the file comment above and indexes.go).
@@ -76,15 +89,30 @@ const (
 	miaCmdAudioSeqStop      uint8 = 0x65
 	miaCmdAudioVoiceTake    uint8 = 0x66
 	miaCmdAudioVoiceRelease uint8 = 0x67
+	// AUDIO_SEQ_SET_BASE<voice>: one command id per voice (a base address is
+	// necessarily distinct per voice, unlike the other commands' shared
+	// bitmask); params[0..2] = 24-bit little-endian MIA RAM address. Sets
+	// trackBase only - follow with SEQ_LOAD to (re)start decoding from it.
+	miaCmdAudioSeqSetBase0 uint8 = 0x68
+	miaCmdAudioSeqSetBase1 uint8 = 0x69
+	miaCmdAudioSeqSetBase2 uint8 = 0x6A
+	miaCmdAudioSeqSetBase3 uint8 = 0x6B
 
 	// Max events silently skipped per rendered sample while reconciling a
 	// VOICE_RELEASE, mirroring MIA_SEQ_CATCHUP_BUDGET.
 	miaSeqCatchupBudget = 8
+
+	// Max zero-duration opcodes (SET_*/JUMP) decoded in a row within a
+	// single seqAdvance call before it gives up and stops the voice,
+	// mirroring MIA_SEQ_DECODE_BUDGET - without this, a track whose JUMPs
+	// cycle with no NOTE/REST/END in between would spin forever.
+	miaSeqDecodeBudget = 32
 )
 
-// miaSeqTrackOffset returns the MIA RAM offset of a voice's track buffer.
-func miaSeqTrackOffset(voice int) uint32 {
-	return uint32(miaSeqStateOffset + voice*miaSeqTrackSize)
+// miaSeqDefaultBase returns the default MIA RAM offset seeded into a voice's
+// trackBase at reset, before any AUDIO_SEQ_SET_BASE command is issued.
+func miaSeqDefaultBase(voice int) uint32 {
+	return uint32(miaSeqDefaultBaseOffset + voice*miaSeqDefaultTrackSpacing)
 }
 
 // miaSeqRecordSize returns the number of bytes the opcode occupies, opcode
@@ -99,6 +127,8 @@ func miaSeqRecordSize(op uint8) uint8 {
 		return 3
 	case miaSeqOpSetWave, miaSeqOpSetPan, miaSeqOpSetVol, miaSeqOpSetPulse:
 		return 2
+	case miaSeqOpJump:
+		return 4 // op + offset(3)
 	default:
 		return 0
 	}
@@ -108,22 +138,34 @@ func miaSeqReadDuration24(buf []byte, offset uint32) uint32 {
 	return uint32(buf[offset]) | uint32(buf[offset+1])<<8 | uint32(buf[offset+2])<<16
 }
 
+// miaSeqJumpTarget resolves a JUMP's 3-byte signed offset (stored at
+// cursor+1) into a new cursor, relative to the position right after this
+// 4-byte record. cursor here is the snapshot-relative offset seqAdvance
+// already uses, not an absolute MIA address, but the arithmetic is
+// translation-invariant - the same offset lands correctly either way, since
+// it was computed as a difference of two absolute addresses that both
+// carried the same trackBase. A malformed offset landing outside the
+// snapshot is caught by the ordinary cursor >= len(buf) check on the next
+// iteration, same as any other corrupt cursor.
+func miaSeqJumpTarget(buf []byte, cursor uint32) uint32 {
+	raw := miaSeqReadDuration24(buf, cursor+1)
+	offset := int32(raw<<8) >> 8 // sign-extend bit 23 into 32 bits
+	return uint32(int32(cursor+4) + offset)
+}
+
 // miaAudioSeqVoice holds one voice's sequencer runtime state. Guarded by
 // miaAudioState.mu, same as the engine state it drives.
 type miaAudioSeqVoice struct {
 	running    bool
 	taken      bool
 	catchingUp bool
-	hasLoop    bool
 
-	cursor        uint32 // offset within this voice's seqRAM buffer
+	trackBase     uint32 // this voice's track base, set by audioSeqSetBase
+	cursor        uint32 // offset within this voice's seqRAM buffer (snapshot-relative)
 	countdown     uint32 // samples remaining until the current event ends
 	eventDuration uint32 // full duration of the current event
 	catchupRemain uint32 // samples still to silently skip during catch-up
 	takenAt       uint32 // seqClock snapshot when VOICE_TAKE was issued
-
-	loopCursor    uint32
-	loopNoteIndex uint16
 	noteIndex     uint16 // 1-based index of the current note/rest; 0 = not started
 }
 
@@ -177,15 +219,23 @@ func (a *miaAudioState) seqFinishTrack(voice int) {
 	a.seqDonePending = true
 }
 
-// seqAdvance decodes and applies config opcodes at the current cursor, live,
-// until a NOTE/REST becomes the new current (audible) event, or END
-// stops/loops the track. Mirrors audio_seq_advance.
+// seqAdvance decodes and applies config/JUMP opcodes at the current cursor,
+// live, until a NOTE/REST becomes the new current (audible) event, or
+// END/an unrecognized byte/running off the snapshot stops the track. Mirrors
+// audio_seq_advance.
+//
+// Bounded by miaSeqDecodeBudget: JUMP and the SET_* opcodes are all
+// zero-duration and loop straight back to the top without returning, so a
+// track whose jumps cycle with no NOTE/REST/END in between would otherwise
+// spin this call forever - fail-safe, silent, exactly like an unrecognized
+// opcode byte.
 func (a *miaAudioState) seqAdvance(voice int) {
 	seq := &a.seq[voice]
-	buf := a.seqRAM[voice][:]
+	buf := a.seqRAM[voice]
+	budget := miaSeqDecodeBudget
 
 	for {
-		if seq.cursor >= miaSeqTrackSize {
+		if seq.cursor >= uint32(len(buf)) {
 			a.seqFinishTrack(voice)
 			return
 		}
@@ -194,11 +244,6 @@ func (a *miaAudioState) seqAdvance(voice int) {
 		size := miaSeqRecordSize(op)
 
 		if size == 0 {
-			if seq.hasLoop {
-				seq.cursor = seq.loopCursor
-				seq.noteIndex = seq.loopNoteIndex
-				continue
-			}
 			a.seqFinishTrack(voice)
 			return
 		}
@@ -219,24 +264,36 @@ func (a *miaAudioState) seqAdvance(voice int) {
 			return
 		}
 
-		a.seqApplyConfigOp(voice, seq.cursor, op)
-		seq.cursor += uint32(size)
+		if op == miaSeqOpJump {
+			seq.cursor = miaSeqJumpTarget(buf, seq.cursor)
+		} else {
+			a.seqApplyConfigOp(voice, seq.cursor, op)
+			seq.cursor += uint32(size)
+		}
+
+		budget--
+		if budget < 0 {
+			a.seqFinishTrack(voice)
+			return
+		}
 	}
 }
 
 // seqCatchupStep silently walks forward through events entirely in the past,
 // bounded to miaSeqCatchupBudget per sample, then resumes live on the first
 // event that isn't fully covered. Mirrors audio_seq_catchup_step; see
-// docs/audio-sequencer.md, "Catch-up (VOICE_RELEASE reconciliation)".
+// docs/audio-sequencer.md, "Catch-up (VOICE_RELEASE reconciliation)". This
+// same per-iteration budget also bounds a cyclical run of JUMPs/config ops,
+// the same way miaSeqDecodeBudget does in seqAdvance.
 func (a *miaAudioState) seqCatchupStep(voice int) {
 	seq := &a.seq[voice]
-	buf := a.seqRAM[voice][:]
+	buf := a.seqRAM[voice]
 	budget := miaSeqCatchupBudget
 
 	for budget > 0 && seq.catchingUp {
 		budget--
 
-		if seq.cursor >= miaSeqTrackSize {
+		if seq.cursor >= uint32(len(buf)) {
 			a.seqFinishTrack(voice)
 			return
 		}
@@ -245,13 +302,13 @@ func (a *miaAudioState) seqCatchupStep(voice int) {
 		size := miaSeqRecordSize(op)
 
 		if size == 0 {
-			if seq.hasLoop {
-				seq.cursor = seq.loopCursor
-				seq.noteIndex = seq.loopNoteIndex
-				continue
-			}
 			a.seqFinishTrack(voice)
 			return
+		}
+
+		if op == miaSeqOpJump {
+			seq.cursor = miaSeqJumpTarget(buf, seq.cursor)
+			continue
 		}
 
 		if op == miaSeqOpNote || op == miaSeqOpRest {
@@ -347,55 +404,45 @@ func (a *miaAudioState) seqReleaseOne(voice int) {
  * RAM-backed command entry points (run under c.mu)
  **************************************************************************************************/
 
-// audioSeqLoadTrack mirrors mia_audio_seq_load_track. It copies the voice's
-// track buffer out of MIA RAM into the audio engine's own copy - the render
-// goroutine never touches c.memory, see the file comment - and resets the
-// voice's runtime position to the top of its event stream.
+// audioSeqSetBase mirrors mia_audio_seq_set_base: stores this voice's track
+// base only. Does not itself move cursor/note_index - follow with
+// audioSeqLoadTrack to (re)start decoding from the new base.
+func (c *emulated_mia) audioSeqSetBase(voice int, base uint32) {
+	if voice < 0 || voice >= miaAudioVoiceCount {
+		return
+	}
+
+	a := &c.audio
+	a.mu.Lock()
+	a.seq[voice].trackBase = base
+	a.mu.Unlock()
+}
+
+// audioSeqLoadTrack mirrors mia_audio_seq_load_track. A track has no
+// declared length (just a base and an END/JUMP), so it snapshots everything
+// from this voice's trackBase to the top of MIA RAM out of c.memory into the
+// audio engine's own copy - the render goroutine never touches c.memory, see
+// the file comment - and resets the voice's runtime position to the top of
+// its event stream. seqRAM's length becomes this voice's effective bound,
+// mirroring firmware's cursor >= MIA_RAM_SIZE check.
 func (c *emulated_mia) audioSeqLoadTrack(voice int) {
 	if voice < 0 || voice >= miaAudioVoiceCount {
 		return
 	}
 
-	trackOffset := miaSeqTrackOffset(voice)
-	loopRel := uint16(c.memory[trackOffset+miaSeqTrackLoopL]) |
-		uint16(c.memory[trackOffset+miaSeqTrackLoopH])<<8
-
 	a := &c.audio
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	copy(a.seqRAM[voice][:], c.memory[trackOffset:trackOffset+miaSeqTrackSize])
-
-	seq := &a.seq[voice]
-	*seq = miaAudioSeqVoice{}
-	seq.cursor = miaSeqTrackEventsOffset
-
-	loopCursor := uint32(miaSeqTrackEventsOffset) + uint32(loopRel)
-	if loopRel == miaSeqNoLoop || loopCursor >= miaSeqTrackSize {
+	base := a.seq[voice].trackBase
+	if base >= miaRAMSize {
+		a.seq[voice] = miaAudioSeqVoice{trackBase: base}
+		a.seqRAM[voice] = nil
 		return
 	}
 
-	seq.hasLoop = true
-	seq.loopCursor = loopCursor
-
-	// Count NOTE/REST events from the top of the stream up to the loop
-	// point, once, so looping restores the right note index. Bounded by the
-	// track buffer size; a malformed stream just stops the count at whatever
-	// opcode it can't recognize rather than running away.
-	buf := a.seqRAM[voice][:]
-	var index uint16
-	for scan := uint32(miaSeqTrackEventsOffset); scan < loopCursor; {
-		op := buf[scan]
-		size := miaSeqRecordSize(op)
-		if size == 0 {
-			break
-		}
-		if op == miaSeqOpNote || op == miaSeqOpRest {
-			index++
-		}
-		scan += uint32(size)
-	}
-	seq.loopNoteIndex = index
+	a.seqRAM[voice] = append([]byte(nil), c.memory[base:miaRAMSize]...)
+	a.seq[voice] = miaAudioSeqVoice{trackBase: base}
 }
 
 func (c *emulated_mia) audioSeqStart(mask uint8) {
@@ -466,22 +513,23 @@ func (c *emulated_mia) audioSeqConfigureIndexes() {
 	c.audioConfigureIndex(miaAudioIndexSeqVoice3, miaAudioVoiceOffset(3)+miaAudioVoiceSeqNoteIndexL, 3)
 }
 
-// audioSeqResetRuntimeState clears sequencer runtime state and track buffers,
-// part of audioResetRuntimeState.
+// audioSeqResetRuntimeState clears the legacy default track region and
+// resets per-voice runtime state, part of audioResetRuntimeState. A track's
+// base is fully caller-defined via audioSeqSetBase (see
+// docs/audio-sequencer.md); this only seeds the pre-configuration default,
+// so a direct SEQ_LOAD/START (e.g. audioSeqWriteTestTrack) keeps working
+// unconfigured.
 func (c *emulated_mia) audioSeqResetRuntimeState() {
-	for v := 0; v < miaAudioVoiceCount; v++ {
-		trackOffset := miaSeqTrackOffset(v)
-		for i := uint32(0); i < miaSeqTrackSize; i++ {
-			c.memory[trackOffset+i] = 0
-		}
-		c.memory[trackOffset+miaSeqTrackLoopL] = uint8(miaSeqNoLoop & 0xFF)
-		c.memory[trackOffset+miaSeqTrackLoopH] = uint8(miaSeqNoLoop >> 8)
+	for i := uint32(0); i < miaSeqDefaultRegionSize; i++ {
+		c.memory[miaSeqDefaultBaseOffset+i] = 0
 	}
 
 	a := &c.audio
 	a.mu.Lock()
-	a.seq = [miaAudioVoiceCount]miaAudioSeqVoice{}
-	a.seqRAM = [miaAudioVoiceCount][miaSeqTrackSize]byte{}
+	for v := 0; v < miaAudioVoiceCount; v++ {
+		a.seq[v] = miaAudioSeqVoice{trackBase: miaSeqDefaultBase(v)}
+		a.seqRAM[v] = nil
+	}
 	a.seqClock = 0
 	a.seqDonePending = false
 	a.mu.Unlock()
@@ -588,19 +636,21 @@ func (c *emulated_mia) audioSeqWriteTestTrack(voice int) {
 		return
 	}
 
-	// LOOP=0 (loop the whole body), then attack=0/decay=3/sustain=F/release=5,
-	// then C4/E4/G4, 6000 samples (~0.25s) each.
+	// attack=0/decay=3/sustain=F/release=5, then C4/E4/G4 (6000 samples/
+	// ~0.25s each), then JUMP -25 back to offset 0 (the SET_ADSR) to loop the
+	// whole body forever. -25 as a signed 24-bit little-endian offset is
+	// 0xFFFFE7 (0xE7, 0xFF, 0xFF).
 	track := []byte{
-		0x00, 0x00, // LOOP
-		0x00, 0x00, // reserved
 		miaSeqOpSetADSR, 0x03, 0xF5,
 		miaSeqOpNote, 0x5A, 0x10, 0x70, 0x17, 0x00, // C4
 		miaSeqOpNote, 0x9A, 0x14, 0x70, 0x17, 0x00, // E4
 		miaSeqOpNote, 0x80, 0x18, 0x70, 0x17, 0x00, // G4
-		miaSeqOpEnd,
+		miaSeqOpJump, 0xE7, 0xFF, 0xFF,
 	}
 
-	base := miaSeqTrackOffset(voice)
+	c.audio.mu.Lock()
+	base := c.audio.seq[voice].trackBase
+	c.audio.mu.Unlock()
 	copy(c.memory[base:base+uint32(len(track))], track)
 }
 
@@ -672,12 +722,8 @@ func (c *emulated_mia) consoleAudioSeqDetail() string {
 		if seq.catchingUp {
 			extra += " catching-up"
 		}
-		loop := "no"
-		if seq.hasLoop {
-			loop = "yes"
-		}
-		fmt.Fprintf(&out, "  ch%d: %s%s  note:%d  cursor:$%03X  countdown:%d  loop:%s\n",
-			v, state, extra, seq.noteIndex, seq.cursor, seq.countdown, loop)
+		fmt.Fprintf(&out, "  ch%d: %s%s  note:%d  base:$%05X  cursor:$%03X  countdown:%d\n",
+			v, state, extra, seq.noteIndex, seq.trackBase, seq.cursor, seq.countdown)
 	}
 
 	return out.String()
