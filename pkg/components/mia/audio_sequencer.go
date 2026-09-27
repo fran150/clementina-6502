@@ -35,24 +35,15 @@ import (
 //     actually doing, just refreshed once per bus cycle rather than
 //     immediately.
 //   - PLAYING(v)/CUE(v) (SEQ_NOTE_INDEX/SEQ_STATUS, voice offsets $09-$0B)
-//     are the one place read fidelity is intentionally scoped down: they are
-//     computed on demand from seq state only when read through the dedicated
-//     $EC-$EF indexes (see indexes.go), not mirrored into c.memory. A generic
-//     peek at those offsets through a different index will not reflect them
-//     in the emulator, unlike real hardware.
+//     are computed on demand from seq state for every index pointing at those
+//     addresses (see indexes.go), rather than mirrored into c.memory.
 
 const (
-	// Default per-voice track base, used only to seed trackBase at reset -
-	// not a reserved or size-limited region. A track's base is fully
-	// caller-defined via AUDIO_SEQ_SET_BASE<voice>; see
-	// docs/audio-sequencer.md and audio.h's MIA_SEQ_DEFAULT_BASE.
-	//
-	// $14000-$17FFF: the old default ($13000-$13FFF) silently overlapped
-	// live SD/FS state at $13000-$13BFF for 3 of the 4 voices - see
-	// audio.h's MIA_SEQ_DEFAULT_BASE_OFFSET comment for the full rationale.
-	miaSeqDefaultTrackSpacing = 0x1000
-	miaSeqDefaultBaseOffset   = 0x14000
-	miaSeqDefaultRegionSize   = miaAudioVoiceCount * miaSeqDefaultTrackSpacing
+	// miaSeqNoBase marks a voice no program has given a track, mirroring
+	// MIA_SEQ_NO_BASE: boot and AUDIO_RESET store it, the 24-bit SET_BASE
+	// parameter can never produce it, and SEQ_START leaves such a voice
+	// stopped. Nothing in MIA RAM is reserved for tracks.
+	miaSeqNoBase uint32 = 0xFFFFFFFF
 
 	miaSeqOpEnd      uint8 = 0x00
 	miaSeqOpNote     uint8 = 0x01
@@ -69,13 +60,12 @@ const (
 	// just a JUMP back to the top - there is no separate loop opcode.
 	miaSeqOpJump uint8 = 0x08
 
-	// Live sequencer status, read through the dedicated $EC-$EF indexes only
-	// (see the file comment above and indexes.go).
-	miaAudioVoiceSeqNoteIndexL          = 0x09
-	miaAudioVoiceSeqNoteIndexH          = 0x0A
-	miaAudioVoiceSeqStatus              = 0x0B
-	miaAudioSeqStatusRunning      uint8 = 1 << 0
-	miaAudioSeqStatusTaken        uint8 = 1 << 1
+	// Live sequencer status, read through any index pointing at these bytes.
+	miaAudioVoiceSeqNoteIndexL       = 0x09
+	miaAudioVoiceSeqNoteIndexH       = 0x0A
+	miaAudioVoiceSeqStatus           = 0x0B
+	miaAudioSeqStatusRunning   uint8 = 1 << 0
+	miaAudioSeqStatusTaken     uint8 = 1 << 1
 
 	miaAudioIndexSeqVoice0 uint8 = 0xEC
 	miaAudioIndexSeqVoice1 uint8 = 0xED
@@ -108,12 +98,6 @@ const (
 	// cycle with no NOTE/REST/END in between would spin forever.
 	miaSeqDecodeBudget = 32
 )
-
-// miaSeqDefaultBase returns the default MIA RAM offset seeded into a voice's
-// trackBase at reset, before any AUDIO_SEQ_SET_BASE command is issued.
-func miaSeqDefaultBase(voice int) uint32 {
-	return uint32(miaSeqDefaultBaseOffset + voice*miaSeqDefaultTrackSpacing)
-}
 
 // miaSeqRecordSize returns the number of bytes the opcode occupies, opcode
 // byte included, or 0 for END/unrecognized - mirroring audio_seq_record_size.
@@ -454,6 +438,11 @@ func (c *emulated_mia) audioSeqStart(mask uint8) {
 		if mask&(1<<uint(v)) == 0 {
 			continue
 		}
+		// A voice no program has given a track stays stopped - no gate-off
+		// and no sequence-done IRQ, exactly as if it weren't in the mask.
+		if a.seq[v].trackBase == miaSeqNoBase {
+			continue
+		}
 		a.seq[v].running = true
 		a.seq[v].taken = false
 		a.seq[v].catchingUp = false
@@ -503,9 +492,8 @@ func (c *emulated_mia) audioVoiceRelease(mask uint8) {
 }
 
 // audioSeqConfigureIndexes installs the $EC-$EF sequencer status indexes.
-// Their addresses match real hardware for diagnostic fidelity, but reads
-// through them are special-cased in indexes.go rather than backed by
-// c.memory - see the file comment.
+// Reads of their addresses are supplied by live sequencer state through any
+// index, rather than backed by c.memory - see the file comment.
 func (c *emulated_mia) audioSeqConfigureIndexes() {
 	c.audioConfigureIndex(miaAudioIndexSeqVoice0, miaAudioVoiceOffset(0)+miaAudioVoiceSeqNoteIndexL, 3)
 	c.audioConfigureIndex(miaAudioIndexSeqVoice1, miaAudioVoiceOffset(1)+miaAudioVoiceSeqNoteIndexL, 3)
@@ -513,21 +501,15 @@ func (c *emulated_mia) audioSeqConfigureIndexes() {
 	c.audioConfigureIndex(miaAudioIndexSeqVoice3, miaAudioVoiceOffset(3)+miaAudioVoiceSeqNoteIndexL, 3)
 }
 
-// audioSeqResetRuntimeState clears the legacy default track region and
-// resets per-voice runtime state, part of audioResetRuntimeState. A track's
-// base is fully caller-defined via audioSeqSetBase (see
-// docs/audio-sequencer.md); this only seeds the pre-configuration default,
-// so a direct SEQ_LOAD/START (e.g. audioSeqWriteTestTrack) keeps working
-// unconfigured.
+// audioSeqResetRuntimeState forgets every voice's track and resets
+// per-voice runtime state, part of audioResetRuntimeState. The track bytes
+// stay wherever the program put them - nothing in MIA RAM belongs to the
+// sequencer (see docs/audio-sequencer.md).
 func (c *emulated_mia) audioSeqResetRuntimeState() {
-	for i := uint32(0); i < miaSeqDefaultRegionSize; i++ {
-		c.memory[miaSeqDefaultBaseOffset+i] = 0
-	}
-
 	a := &c.audio
 	a.mu.Lock()
 	for v := 0; v < miaAudioVoiceCount; v++ {
-		a.seq[v] = miaAudioSeqVoice{trackBase: miaSeqDefaultBase(v)}
+		a.seq[v] = miaAudioSeqVoice{trackBase: miaSeqNoBase}
 		a.seqRAM[v] = nil
 	}
 	a.seqClock = 0
@@ -577,8 +559,8 @@ func (c *emulated_mia) audioSeqMirrorVoiceLocked(voice int) {
 	c.memory[base+miaAudioVoiceVolume] = v.volume
 }
 
-// audioSeqStatusByte serves a read through one of the $EC-$EF indexes,
-// computed live from sequencer state rather than c.memory. Caller holds c.mu.
+// audioSeqStatusByte serves an indexed read of a sequencer field, computed
+// live from sequencer state rather than c.memory. Caller holds c.mu.
 func (c *emulated_mia) audioSeqStatusByte(voice int, addr uint32) uint8 {
 	field := addr - miaAudioVoiceOffset(voice)
 
@@ -606,32 +588,28 @@ func (c *emulated_mia) audioSeqStatusByte(voice int, addr uint32) uint8 {
 	}
 }
 
-// miaAudioSeqIndexVoice reports whether indexID is one of the dedicated
-// sequencer-status indexes, and if so, which voice it serves.
-func miaAudioSeqIndexVoice(indexID uint8) (int, bool) {
-	switch indexID {
-	case miaAudioIndexSeqVoice0:
-		return 0, true
-	case miaAudioIndexSeqVoice1:
-		return 1, true
-	case miaAudioIndexSeqVoice2:
-		return 2, true
-	case miaAudioIndexSeqVoice3:
-		return 3, true
-	default:
+// miaAudioSeqVoiceAtAddress finds the live fields within the audio block.
+func miaAudioSeqVoiceAtAddress(address uint32) (int, bool) {
+	if address < miaAudioVoicesOffset || address >= miaAudioVoicesOffset+miaAudioVoiceCount*miaAudioVoiceSize {
 		return 0, false
 	}
+	rel := address - miaAudioVoicesOffset
+	field := rel % miaAudioVoiceSize
+	if field < miaAudioVoiceSeqNoteIndexL || field > miaAudioVoiceSeqStatus {
+		return 0, false
+	}
+	return int(rel / miaAudioVoiceSize), true
 }
 
 /**************************************************************************************************
  * Terminal-only helper
  **************************************************************************************************/
 
-// audioSeqWriteTestTrack writes a small built-in looping arpeggio into a
-// voice's track buffer (does not load or start it), mirroring
+// audioSeqWriteTestTrack writes a small built-in looping arpeggio at base and
+// makes it the voice's track (does not load or start it), mirroring
 // mia_audio_seq_write_test_track. For standalone bring-up before TRACK/BAND
 // exist on the BASIC side.
-func (c *emulated_mia) audioSeqWriteTestTrack(voice int) {
+func (c *emulated_mia) audioSeqWriteTestTrack(voice int, base uint32) {
 	if voice < 0 || voice >= miaAudioVoiceCount {
 		return
 	}
@@ -648,10 +626,11 @@ func (c *emulated_mia) audioSeqWriteTestTrack(voice int) {
 		miaSeqOpJump, 0xE7, 0xFF, 0xFF,
 	}
 
-	c.audio.mu.Lock()
-	base := c.audio.seq[voice].trackBase
-	c.audio.mu.Unlock()
+	if base > miaRAMSize-uint32(len(track)) {
+		return
+	}
 	copy(c.memory[base:base+uint32(len(track))], track)
+	c.audioSeqSetBase(voice, base)
 }
 
 /**************************************************************************************************
@@ -673,8 +652,11 @@ func (c *emulated_mia) consoleAudioSeq(args string) string {
 
 	switch verb {
 	case "test":
+		// The test arpeggio goes in the top 1 KiB of MIA RAM, 256 bytes per
+		// voice, overwriting whatever a program stored there.
+		base := miaRAMSize - 0x400 + uint32(voice)*0x100
 		c.mu.Lock()
-		c.audioSeqWriteTestTrack(int(voice))
+		c.audioSeqWriteTestTrack(int(voice), base)
 		c.audioSeqLoadTrack(int(voice))
 		c.audioSeqStart(mask)
 		active := c.audioIsActive()
@@ -682,7 +664,7 @@ func (c *emulated_mia) consoleAudioSeq(args string) string {
 			c.audioEnable()
 		}
 		c.mu.Unlock()
-		return fmt.Sprintf("Audio: voice %d playing built-in test arpeggio\n", voice)
+		return fmt.Sprintf("Audio: voice %d playing built-in test arpeggio at $%05X\n", voice, base)
 	case "stop":
 		c.mu.Lock()
 		c.audioSeqStop(mask)
@@ -711,6 +693,10 @@ func (c *emulated_mia) consoleAudioSeqDetail() string {
 	out.WriteString("Sequencer:\n")
 	for v := 0; v < miaAudioVoiceCount; v++ {
 		seq := &c.audio.seq[v]
+		if seq.trackBase == miaSeqNoBase {
+			fmt.Fprintf(&out, "  ch%d: no track\n", v)
+			continue
+		}
 		state := "stopped"
 		if seq.running {
 			state = "running"

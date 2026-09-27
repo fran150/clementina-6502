@@ -25,32 +25,39 @@ func seqJumpEvent(offset int32) []byte {
 	return []byte{miaSeqOpJump, byte(offset), byte(offset >> 8), byte(offset >> 16)}
 }
 
-// TestMiaSeqDefaultRegionDoesNotOverlapSDFS is a regression guard for the bug
-// that motivated relocating the sequencer's default addresses off $13000:
-// the old defaults (voice 0-2) silently aliased live SD/FS state (control
-// block, dir-entry buffer, transfer buffer), since both picked $13000 as a
-// starting point independently. This asserts the two claimed ranges are
-// disjoint using each subsystem's own named constants, so a future change to
-// either one that reintroduces the overlap fails loudly here instead of
-// silently corrupting a running track or an open file.
-func TestMiaSeqDefaultRegionDoesNotOverlapSDFS(t *testing.T) {
-	seqStart := uint32(miaSeqDefaultBaseOffset)
-	seqEnd := seqStart + miaSeqDefaultRegionSize // exclusive
-
-	sdStart := uint32(miaSDStateOffset)
-	sdEnd := uint32(miaFSTransferOffset + miaFSTransferSize) // exclusive
-
-	overlaps := seqStart < sdEnd && sdStart < seqEnd
-	assert.False(t, overlaps,
-		"sequencer default region $%05X-$%05X must not overlap SD/FS state $%05X-$%05X",
-		seqStart, seqEnd-1, sdStart, sdEnd-1)
+// testSeqBase is where these tests put each voice's track. Any free MIA RAM
+// works: the sequencer has no default address of its own.
+func testSeqBase(voice int) uint32 {
+	return 0x20000 + uint32(voice)*0x1000
 }
 
-// writeSeqTrack writes a track's event stream at a voice's default base -
-// no header, no length: just bytes, exactly as TRACK/SEQ_SET_BASE leave it.
+// writeSeqTrack writes a track's event stream and points the voice at it -
+// no header, no length: just bytes and a SET_BASE, exactly as TRACK leaves it.
 func writeSeqTrack(chip *emulated_mia, voice int, track []byte) {
-	base := miaSeqDefaultBase(voice)
+	base := testSeqBase(voice)
 	copy(chip.memory[base:base+uint32(len(track))], track)
+	chip.audioSeqSetBase(voice, base)
+}
+
+func TestDebugAudioSnapshotIncludesLiveSequencerStatus(t *testing.T) {
+	chip := silentAudioCircuit(t).chip
+	require.Len(t, chip.DebugAudioSnapshot(), miaAudioStateSize)
+	writeSeqTrack(chip, 0, append(seqNoteEvent(0x1234, 100), miaSeqOpEnd))
+	chip.audioSeqLoadTrack(0)
+	chip.audioSeqStart(1)
+	chip.audioEnable()
+	chip.audio.renderSampleLocked()
+
+	base := miaAudioHeaderSize
+	snapshot := chip.DebugAudioSnapshot()
+	assert.Equal(t, uint8(1), snapshot[base+miaAudioVoiceSeqNoteIndexL])
+	assert.Equal(t, miaAudioSeqStatusRunning, snapshot[base+miaAudioVoiceSeqStatus])
+	assert.Zero(t, chip.memory[miaAudioVoiceOffset(0)+miaAudioVoiceSeqNoteIndexL], "live note index is absent from emulator RAM")
+	chip.audioVoiceTake(1)
+	snapshot = chip.DebugAudioSnapshot()
+	assert.Equal(t, miaAudioSeqStatusRunning|miaAudioSeqStatusTaken, snapshot[base+miaAudioVoiceSeqStatus])
+	snapshot[0] = 0
+	assert.Equal(t, uint8(miaAudioVersion), chip.DebugAudioSnapshot()[0], "snapshot owns its bytes")
 }
 
 // TestEmulatedMiaAudioSeqLoadResetsPosition verifies SEQ_LOAD snapshots the
@@ -72,7 +79,7 @@ func TestEmulatedMiaAudioSeqLoadResetsPosition(t *testing.T) {
 	assert.Zero(t, seq.cursor, "cursor starts at offset 0 from trackBase - there is no header anymore")
 	assert.Zero(t, seq.noteIndex)
 	assert.False(t, seq.running)
-	assert.Equal(t, miaSeqDefaultBase(0), seq.trackBase, "unconfigured voices default to the legacy per-voice address")
+	assert.Equal(t, testSeqBase(0), seq.trackBase, "the voice keeps the base its track was written at")
 	assert.Equal(t, track, ram, "engine copy should match what was written to MIA RAM")
 }
 
@@ -152,13 +159,12 @@ func TestEmulatedMiaAudioSeqJumpLoopsToArbitraryOffset(t *testing.T) {
 }
 
 // TestEmulatedMiaAudioSeqSetBaseRelocatesTrack verifies a track can be
-// loaded and played from any MIA RAM address, not just the legacy per-voice
-// default - the whole point of making trackBase configurable and dropping
-// the fixed 1024-byte-per-voice ceiling.
+// loaded and played from any MIA RAM address - the whole point of making
+// trackBase configurable and dropping the fixed 1024-byte-per-voice ceiling.
 func TestEmulatedMiaAudioSeqSetBaseRelocatesTrack(t *testing.T) {
 	chip := silentAudioCircuit(t).chip
 
-	const base = uint32(0x20000) // far from any legacy default track region
+	const base = uint32(0x3A000) // anywhere free works; not where testSeqBase puts tracks
 	track := append(seqNoteEvent(0x4321, 1), miaSeqOpEnd)
 	copy(chip.memory[base:base+uint32(len(track))], track)
 
@@ -336,7 +342,7 @@ func TestEmulatedMiaAudioSeqTakeThenLongGiveCatchesUpPastEvents(t *testing.T) {
 }
 
 // TestEmulatedMiaAudioSeqStatusIndexesReadLiveState verifies PLAYING(v)/CUE(v)
-// read live sequencer state through the dedicated $EC-$EF indexes.
+// read live state through dedicated and configured general indexes alike.
 func TestEmulatedMiaAudioSeqStatusIndexesReadLiveState(t *testing.T) {
 	chip := silentAudioCircuit(t).chip
 
@@ -361,6 +367,15 @@ func TestEmulatedMiaAudioSeqStatusIndexesReadLiveState(t *testing.T) {
 	chip.indexStepAndRead(miaAudioIndexSeqVoice0, miaIndexWindowA)
 	status = chip.indexStepAndRead(miaAudioIndexSeqVoice0, miaIndexWindowA)
 	assert.NotZero(t, status&miaAudioSeqStatusTaken)
+
+	// SongPosition configures a general index for these same three addresses.
+	const general = uint8(0x40)
+	base := miaAudioVoiceOffset(0) + miaAudioVoiceSeqNoteIndexL
+	chip.indexes[general] = miaIndex{currentAddr: base, defaultAddr: base, limitAddr: base + 3, step: 1,
+		flags: (1 << miaIndexFlagReadStep) | (1 << miaIndexFlagWrap)}
+	assert.Equal(t, uint8(1), chip.indexRead(general))
+	assert.Equal(t, uint8(0), chip.indexStepAndRead(general, miaIndexWindowA))
+	assert.Equal(t, status, chip.indexStepAndRead(general, miaIndexWindowA))
 }
 
 // TestEmulatedMiaAudioSeqCommandsViaBus drives SEQ_LOAD/SEQ_START/SEQ_STOP/
@@ -433,11 +448,10 @@ func TestEmulatedMiaAudioSeqSetBaseCommandViaBus(t *testing.T) {
 	assert.Equal(t, uint32(0x23000), chip.audio.seq[3].trackBase)
 }
 
-// TestEmulatedMiaAudioSeqResetClearsTracksAndState verifies AUDIO_RESET (0x62)
-// clears the legacy default track region and resets sequencer runtime state
-// (including reseeding trackBase back to the legacy default), mirroring
-// mia_audio_reset_runtime_state's sequencer extension.
-func TestEmulatedMiaAudioSeqResetClearsTracksAndState(t *testing.T) {
+// TestEmulatedMiaAudioSeqResetForgetsTracks verifies AUDIO_RESET (0x62) forgets
+// every voice's track and resets sequencer runtime state, but leaves the track
+// bytes in MIA RAM alone, mirroring mia_audio_reset_runtime_state.
+func TestEmulatedMiaAudioSeqResetForgetsTracks(t *testing.T) {
 	chip := silentAudioCircuit(t).chip
 
 	track := append(seqNoteEvent(0x1234, 5), miaSeqOpEnd)
@@ -447,13 +461,40 @@ func TestEmulatedMiaAudioSeqResetClearsTracksAndState(t *testing.T) {
 
 	chip.audioReset()
 
-	base := miaSeqDefaultBase(0)
-	assert.Zero(t, chip.memory[base], "reset clears the legacy default track region")
+	assert.Equal(t, track[0], chip.memory[testSeqBase(0)], "reset leaves the track bytes where the program put them")
 
 	chip.audio.mu.Lock()
 	seq := chip.audio.seq[0]
 	chip.audio.mu.Unlock()
 	assert.False(t, seq.running)
-	assert.Equal(t, base, seq.trackBase, "reset reseeds the legacy default base")
+	assert.Equal(t, miaSeqNoBase, seq.trackBase, "reset forgets the voice's track")
 	assert.Zero(t, seq.noteIndex)
+}
+
+// TestEmulatedMiaAudioSeqStartWithoutTrackLeavesVoiceStopped verifies
+// SEQ_START skips a voice no program has given a track: it doesn't run, gate
+// off or raise IRQ_AUDIO_SEQ_DONE, while a voice with a track in the same
+// mask starts normally - mirroring audio_seq_start_one.
+func TestEmulatedMiaAudioSeqStartWithoutTrackLeavesVoiceStopped(t *testing.T) {
+	chip := silentAudioCircuit(t).chip
+
+	writeSeqTrack(chip, 0, append(seqNoteEvent(0x1234, 5), miaSeqOpEnd))
+	chip.audioSeqLoadTrack(0)
+	chip.audioSeqLoadTrack(1) // voice 1 has no base, so there is nothing to load
+	chip.audioSeqStart(0x03)
+	chip.audioEnable()
+
+	for i := 0; i < 4; i++ {
+		chip.audio.renderSampleLocked()
+	}
+
+	chip.audio.mu.Lock()
+	voice0, voice1 := chip.audio.seq[0], chip.audio.seq[1]
+	pending := chip.audio.seqDonePending
+	chip.audio.mu.Unlock()
+	assert.True(t, voice0.running, "voice 0 has a track and starts")
+	assert.False(t, voice1.running, "voice 1 has no track and stays stopped")
+	assert.Equal(t, miaSeqNoBase, voice1.trackBase)
+	assert.Zero(t, voice1.noteIndex)
+	assert.False(t, pending, "a voice that never started raises no sequence-done")
 }

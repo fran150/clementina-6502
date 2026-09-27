@@ -895,6 +895,51 @@ func (c *emulated_mia) DebugQueueInput(value uint8) {
 	c.mu.Unlock()
 }
 
+// DebugSetHidUsage changes held HID state through the same event/status path as
+// Wi-Fi input. Headless tooling supplies a virtual device without a UDP session.
+// It intentionally does not enqueue text or select another input source.
+func (c *emulated_mia) DebugSetHidUsage(usagePage, usageID uint16, down bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	flag := miaInputDeviceKeyboard
+	if usagePage == miaHidPageConsumer {
+		flag = miaInputDeviceConsumer
+	}
+	c.inputSetDeviceFlags(c.memory[miaInputDeviceFlagsOffset] | flag)
+	c.inputSetHidUsage(usagePage, usageID, down)
+	if usagePage == miaHidPageKeyboard && !down {
+		c.inputReleaseRepeat(usageID)
+	}
+}
+
+// DebugSetHidBitmap replaces a complete held HID page without adding text.
+func (c *emulated_mia) DebugSetHidBitmap(usagePage uint16, bitmap []byte) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	flag := miaInputDeviceKeyboard
+	if usagePage == miaHidPageConsumer {
+		flag = miaInputDeviceConsumer
+	}
+	c.inputSetDeviceFlags(c.memory[miaInputDeviceFlagsOffset] | flag)
+	c.inputSetHidBitmap(usagePage, bitmap)
+}
+
+// DebugSetGamepadState replaces one complete slot through normal transition
+// handling. The record's connected bit controls its virtual device flag.
+func (c *emulated_mia) DebugSetGamepadState(player int, state []byte) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.inputApplyGamepadState(player, state)
+}
+
+// DebugClearGamepad releases and disconnects one virtual gamepad slot.
+func (c *emulated_mia) DebugClearGamepad(player int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.inputClearGamepadSlot(player, true)
+	c.inputRecomputeStatus()
+}
+
 // DebugReadVideo returns one byte of MIA video RAM at the given internal video
 // offset (e.g. miaVideoOverlayNTOffset + row*40 + col). Debug/testing only.
 func (c *emulated_mia) DebugReadVideo(offset uint32) uint8 {

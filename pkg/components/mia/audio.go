@@ -691,6 +691,35 @@ func (c *emulated_mia) audioIsActive() bool {
 	return c.audio.active
 }
 
+// DebugAudioSnapshot copies the CPU-visible audio register block. The
+// sequencer's note index and status are served live by $EC-$EF instead of
+// residing in c.memory, so fill those fields from the engine under its lock.
+// Debug/automation only; no audio samples are rendered by this read.
+func (c *emulated_mia) DebugAudioSnapshot() []byte {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	a := &c.audio
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	data := append([]byte(nil), c.memory[miaAudioStateOffset:miaAudioStateOffset+miaAudioStateSize]...)
+	for voice := 0; voice < miaAudioVoiceCount; voice++ {
+		base := miaAudioHeaderSize + voice*miaAudioVoiceSize
+		seq := a.seq[voice]
+		data[base+miaAudioVoiceSeqNoteIndexL] = byte(seq.noteIndex)
+		data[base+miaAudioVoiceSeqNoteIndexH] = byte(seq.noteIndex >> 8)
+		var status uint8
+		if seq.running {
+			status |= miaAudioSeqStatusRunning
+		}
+		if seq.taken {
+			status |= miaAudioSeqStatusTaken
+		}
+		data[base+miaAudioVoiceSeqStatus] = status
+	}
+	return data
+}
+
 // audioCore1OnWrite queues a live register write, stamped with the wall-clock
 // audio-sample time it is due (time since audio was enabled). Caller holds c.mu.
 // Read applies each entry at exactly its due sample, so a starved oto callback

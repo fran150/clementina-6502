@@ -58,7 +58,7 @@ const (
 	miaRegInputStatus
 	miaRegInputChar
 	miaRegInputCharCount
-	miaRegReserved15
+	miaRegContext // MIA_CTX, see context.go
 	miaRegReserved16
 	miaRegReserved17
 	miaRegReserved18

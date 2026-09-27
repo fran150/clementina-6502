@@ -11,8 +11,14 @@ const (
 	miaErrorDMASizeZero          uint8 = 0x10
 	miaErrorDMASourceOverflow    uint8 = 0x11
 	miaErrorDMATargetOverflow    uint8 = 0x12
+	// miaErrorDMAQueueFull mirrors ERROR_DMA_QUEUE_FULL: firmware queues a
+	// copy behind a running one and reports this when its queue is full.
+	// Emulated copies finish before the command returns, so it never fires.
+	miaErrorDMAQueueFull         uint8 = 0x13
 	miaErrorCmdQueueFull         uint8 = 0x20
 	miaErrorCmdUnknown           uint8 = 0x21
+	miaErrorCtxOverflow          uint8 = 0x22
+	miaErrorCtxUnderflow         uint8 = 0x23
 	miaErrorWifiInitFailed       uint8 = 0x30
 	miaErrorWifiConnectFailed    uint8 = 0x31
 	miaErrorVideoUDPAllocFailed  uint8 = 0x40
@@ -72,6 +78,8 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 		c.writeRegister(miaRegIdxBPort, c.indexRead(params[0]))
 	case 0x10:
 		c.dmaTransferFromIndexes(params[0], params[1], params[2])
+	case 0x11:
+		c.dmaRectFromIndexes(params[0], params[1], params[2])
 	case 0x30:
 		// Pause is 6502-facing (a program can freeze itself at a diagnostic
 		// point) but there is no 6502 resume command: once PHI2 is stopped the
@@ -133,7 +141,7 @@ func (c *emulated_mia) executeCommand(id uint8, params [3]uint8) {
 		miaCmdFSRead, miaCmdFSClose, miaCmdFSLoadToMiaRAM, miaCmdFSWrite,
 		miaCmdFSSync, miaCmdFSSeek, miaCmdFSStat, miaCmdFSMkdir,
 		miaCmdFSDelete, miaCmdFSRename, miaCmdFSGetFree, miaCmdFSSaveFromMiaRAM,
-		miaCmdFSChdir, miaCmdFSFileInfo:
+		miaCmdFSChdir, miaCmdFSFileInfo, miaCmdFSLoadPart:
 		c.sdRequest(id)
 	default:
 		// Unassigned command ids report ERROR_CMD_UNKNOWN, matching the firmware
@@ -163,26 +171,63 @@ func (c *emulated_mia) dmaTransferFromIndexes(srcIndex uint8, dstIndex uint8, co
 	return c.dmaTransfer(c.indexes[srcIndex].currentAddr, c.indexes[dstIndex].currentAddr, length)
 }
 
-// dmaTransfer copies a bounded byte range inside emulated MIA RAM.
-func (c *emulated_mia) dmaTransfer(srcOffset uint32, dstOffset uint32, length uint16) bool {
-	if length == 0 {
-		c.errors.Push(c, miaErrorDMASizeZero)
-		return false
+// dmaRectFromIndexes mirrors command_copy_rect: rowsParam rows (0 means
+// 256), each as long as the source index's limit minus its current address;
+// after each row the source advances by its index's step and the destination
+// by its own. A source step of 0 repeats the first row. Indexes don't move.
+func (c *emulated_mia) dmaRectFromIndexes(srcIndex uint8, dstIndex uint8, rowsParam uint8) bool {
+	rows := uint32(rowsParam)
+	if rows == 0 {
+		rows = 256
 	}
 
-	if srcOffset >= miaRAMSize || uint32(length) > miaRAMSize-srcOffset {
+	src := c.indexes[srcIndex]
+	var length uint32
+	if src.limitAddr > src.currentAddr {
+		length = src.limitAddr - src.currentAddr
+	}
+	if length > uint32(^uint16(0)) {
 		c.errors.Push(c, miaErrorDMASourceOverflow)
 		return false
 	}
 
-	if dstOffset >= miaRAMSize || uint32(length) > miaRAMSize-dstOffset {
+	dst := c.indexes[dstIndex]
+	return c.dmaRect(src.currentAddr, dst.currentAddr, length, rows, uint32(src.step), uint32(dst.step))
+}
+
+// dmaTransfer copies a bounded byte range inside emulated MIA RAM.
+func (c *emulated_mia) dmaTransfer(srcOffset uint32, dstOffset uint32, length uint16) bool {
+	return c.dmaRect(srcOffset, dstOffset, uint32(length), 1, 0, 0)
+}
+
+// dmaRect mirrors mia_dma_rect_init: rows of length bytes, the source
+// advancing srcStride and the destination dstStride per row. The firmware
+// queues copies behind a running one and raises IRQ_COMMAND after the last
+// row; emulated copies finish at once, so the queue never fills here.
+func (c *emulated_mia) dmaRect(srcOffset, dstOffset, length, rows, srcStride, dstStride uint32) bool {
+	if length == 0 || rows == 0 {
+		c.errors.Push(c, miaErrorDMASizeZero)
+		return false
+	}
+
+	srcEnd := uint64(srcOffset) + uint64(rows-1)*uint64(srcStride) + uint64(length)
+	if srcOffset >= miaRAMSize || srcEnd > miaRAMSize {
+		c.errors.Push(c, miaErrorDMASourceOverflow)
+		return false
+	}
+
+	dstEnd := uint64(dstOffset) + uint64(rows-1)*uint64(dstStride) + uint64(length)
+	if dstOffset >= miaRAMSize || dstEnd > miaRAMSize {
 		c.errors.Push(c, miaErrorDMATargetOverflow)
 		return false
 	}
 
 	c.statusSet(miaStatusDMARunning)
-	copy(c.memory[dstOffset:dstOffset+uint32(length)], c.memory[srcOffset:srcOffset+uint32(length)])
-	c.videoMarkDirtyRange(dstOffset, uint32(length))
+	for r := uint32(0); r < rows; r++ {
+		s, d := srcOffset+r*srcStride, dstOffset+r*dstStride
+		copy(c.memory[d:d+length], c.memory[s:s+length])
+		c.videoMarkDirtyRange(d, length)
+	}
 	c.statusClear(miaStatusDMARunning)
 	c.irqSetFlag(miaIRQCommand)
 

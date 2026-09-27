@@ -345,10 +345,16 @@ func errorName(code uint8) string {
 		return "ERROR_DMA_SRC_WILL_OVERFLOW"
 	case miaErrorDMATargetOverflow:
 		return "ERROR_DMA_TGT_WILL_OVERFLOW"
+	case miaErrorDMAQueueFull:
+		return "ERROR_DMA_QUEUE_FULL"
 	case miaErrorCmdQueueFull:
 		return "ERROR_CMD_QUEUE_FULL"
 	case miaErrorCmdUnknown:
 		return "ERROR_CMD_UNKNOWN"
+	case miaErrorCtxOverflow:
+		return "ERROR_CTX_OVERFLOW"
+	case miaErrorCtxUnderflow:
+		return "ERROR_CTX_UNDERFLOW"
 	case miaErrorWifiInitFailed:
 		return "ERROR_WIFI_INIT_FAILED"
 	case miaErrorWifiConnectFailed:

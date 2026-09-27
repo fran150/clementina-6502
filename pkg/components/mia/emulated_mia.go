@@ -24,6 +24,8 @@ type emulated_mia struct {
 	memory    []uint8
 	indexes   [miaIndexCount]miaIndex
 	errors    miaErrorQueue
+	ctxStack  [miaCtxDepth]miaContext
+	ctxDepth  int
 
 	state                   miaState
 	kernelIndex             uint32
@@ -275,6 +277,8 @@ func (c *emulated_mia) init() {
 	c.registers = [miaRegisterCount]uint8{}
 	c.indexes = [miaIndexCount]miaIndex{}
 	c.errors = miaErrorQueue{}
+	c.ctxStack = [miaCtxDepth]miaContext{}
+	c.ctxDepth = 0
 	c.state = miaStateLoader
 	c.canUpdateKernelPointer = false
 	c.irqAsserted = false
@@ -391,6 +395,8 @@ func (c *emulated_mia) afterNormalWrite(address uint8, data uint8) {
 		})
 	case miaRegIRQMaskLSB, miaRegIRQMaskMSB:
 		c.irqEval()
+	case miaRegContext:
+		c.contextWrite(data)
 	}
 }
 

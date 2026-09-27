@@ -25,6 +25,8 @@ import "testing"
 // already covered in the mia package's own tests (TestEmulatedMiaAudioSeq*);
 // this is the seam connecting real BASIC-driven commands to that engine.
 
+// Where BASIC's TRACK puts voice v's track when no address is given:
+// $14000 + v*$1000. A ROM convention - MIA itself has no default address.
 const seqTrackBase = 0x14000
 const seqTrackSize = 0x1000
 
@@ -140,12 +142,12 @@ func TestBasicTrackWaveToken(t *testing.T) {
 
 // TestBasicTrackExplicitAddress verifies TRACK's optional third argument
 // relocates a voice's track to an arbitrary MIA RAM address instead of the
-// legacy per-voice default, and that BAND/PLAYING still work from there -
+// BASIC's own per-voice default, and that BAND/PLAYING still work from there -
 // the point of dropping the fixed 1024-byte-per-voice slot.
 func TestBasicTrackExplicitAddress(t *testing.T) {
 	computer, step := bootClementinaToPrompt(t)
 
-	const relocated = 0x20000 // far from any legacy default track slot
+	const relocated = 0x20000 // far from BASIC's default track addresses
 
 	typeLine(computer, step, `10 TRACK 0,"C",131072`) // 131072 = $20000
 	typeLine(computer, step, "20 BAND 0,1")
@@ -155,10 +157,10 @@ func TestBasicTrackExplicitAddress(t *testing.T) {
 	editorTickN(computer, step, 2_000_000)
 
 	reader := computer.chips.mia.(audioMemReader)
-	require_eq(t, 0x01, reader.DebugReadVideo(relocated), "opcode NOTE compiled at the explicit address, not the legacy default")
+	require_eq(t, 0x01, reader.DebugReadVideo(relocated), "opcode NOTE compiled at the explicit address, not BASIC's default")
 	require_eq(t, 1, peek(computer, addrScratch), "PLAYING(0) true - the relocated track actually started")
 	if got := peekSeq(computer, 0, 0); got == 0x01 {
-		t.Fatalf("legacy default slot for voice 0 must not also have been written: got opcode NOTE there too")
+		t.Fatalf("BASIC's default slot for voice 0 must not also have been written: got opcode NOTE there too")
 	}
 }
 

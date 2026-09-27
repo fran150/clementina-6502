@@ -733,3 +733,101 @@ func TestEmulatedMiaFSChdirRejectsFile(t *testing.T) {
 	assert.Equal(t, miaErrorFSDirFailed, sdControlByte(chip, miaSDControlLastError))
 	assert.Equal(t, "", chip.sd.cwd)
 }
+
+// sdSetPart fills the control-block fields FS_LOAD_PART reads.
+func sdSetPart(chip *emulated_mia, dest, rowLen, offset uint32, rows uint16, fileStride, ramStride uint32) {
+	control := uint32(miaSDControlOffset)
+	chip.memory[control+miaSDControlDestAddrL] = uint8(dest)
+	chip.memory[control+miaSDControlDestAddrL+1] = uint8(dest >> 8)
+	chip.memory[control+miaSDControlDestAddrL+2] = uint8(dest >> 16)
+	chip.sdWriteU32(control+miaSDControlTransferLen0, rowLen)
+	chip.sdWriteU32(control+miaSDControlPartOffset0, offset)
+	chip.sdWriteU16(control+miaSDControlPartRowsL, rows)
+	chip.sdWriteU32(control+miaSDControlPartFileStride0, fileStride)
+	chip.memory[control+miaSDControlPartRAMStrideL] = uint8(ramStride)
+	chip.memory[control+miaSDControlPartRAMStrideL+1] = uint8(ramStride >> 8)
+	chip.memory[control+miaSDControlPartRAMStrideL+2] = uint8(ramStride >> 16)
+}
+
+// sdPartTestCircuit mounts a folder holding MAP.BIN: 10 rows of 16 bytes,
+// byte (row, col) = row*16 + col, like a row-major background map.
+func sdPartTestCircuit(t *testing.T) *emulatedMiaTestCircuit {
+	t.Helper()
+
+	dir := t.TempDir()
+	payload := make([]byte, 160)
+	for i := range payload {
+		payload[i] = uint8(i)
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "MAP.BIN"), payload, 0o644))
+
+	circuit := newSDTestCircuit(t, dir)
+	sdWritePath(circuit.chip, "/MAP.BIN")
+	return circuit
+}
+
+// TestEmulatedMiaFSLoadPartContiguousRange verifies FS_LOAD_PART with no rows
+// loads one run of SD_TRANSFER_LEN bytes from SD_PART_OFFSET.
+func TestEmulatedMiaFSLoadPartContiguousRange(t *testing.T) {
+	circuit := sdPartTestCircuit(t)
+	chip := circuit.chip
+
+	sdSetPart(chip, 0x20000, 20, 100, 0, 0, 0)
+	circuit.write(miaRegCmdTrigger, miaCmdFSLoadPart)
+
+	assert.Equal(t, uint8(0), sdControlByte(chip, miaSDControlLastError))
+	assert.Equal(t, uint32(20), chip.sdReadU32(miaSDControlOffset+miaSDControlFilePos0))
+	for i := uint32(0); i < 20; i++ {
+		assert.Equal(t, uint8(100+i), chip.memory[0x20000+i])
+	}
+	assert.Zero(t, chip.memory[0x20000+20], "nothing past the requested length")
+	assert.Zero(t, sdControlByte(chip, miaSDControlEOF), "stopped short of the end of the file")
+}
+
+// TestEmulatedMiaFSLoadPartRectangle loads a 4x3 block of the map's cells from
+// column 5, row 2 into a packed 4-byte-wide buffer - one command for what
+// would otherwise be a seek and a read per row.
+func TestEmulatedMiaFSLoadPartRectangle(t *testing.T) {
+	circuit := sdPartTestCircuit(t)
+	chip := circuit.chip
+
+	sdSetPart(chip, 0x20000, 4, 2*16+5, 3, 16, 4)
+	circuit.write(miaRegCmdTrigger, miaCmdFSLoadPart)
+
+	assert.Equal(t, uint8(0), sdControlByte(chip, miaSDControlLastError))
+	assert.Equal(t, uint32(12), chip.sdReadU32(miaSDControlOffset+miaSDControlFilePos0))
+	assert.Equal(t, []uint8{37, 38, 39, 40, 53, 54, 55, 56, 69, 70, 71, 72}, chip.memory[0x20000:0x2000C])
+}
+
+// TestEmulatedMiaFSLoadPartStopsAtEndOfFile verifies a range running past the
+// end of the file loads what exists and still succeeds, reporting EOF and the
+// short count, as FS_LOAD_TO_MIA_RAM does.
+func TestEmulatedMiaFSLoadPartStopsAtEndOfFile(t *testing.T) {
+	circuit := sdPartTestCircuit(t)
+	chip := circuit.chip
+
+	sdSetPart(chip, 0x20000, 20, 150, 0, 0, 0)
+	circuit.write(miaRegCmdTrigger, miaCmdFSLoadPart)
+
+	assert.Equal(t, uint8(0), sdControlByte(chip, miaSDControlLastError))
+	assert.Equal(t, uint32(10), chip.sdReadU32(miaSDControlOffset+miaSDControlFilePos0))
+	assert.NotZero(t, sdControlByte(chip, miaSDControlEOF))
+	assert.Equal(t, uint8(159), chip.memory[0x20000+9])
+}
+
+// TestEmulatedMiaFSLoadPartRejectsBadRequests verifies an empty row and a
+// rectangle that would run past the top of MIA RAM fail before anything is
+// written.
+func TestEmulatedMiaFSLoadPartRejectsBadRequests(t *testing.T) {
+	circuit := sdPartTestCircuit(t)
+	chip := circuit.chip
+
+	sdSetPart(chip, 0x20000, 0, 0, 0, 0, 0)
+	circuit.write(miaRegCmdTrigger, miaCmdFSLoadPart)
+	assert.Equal(t, miaErrorFSInvalidRequest, sdControlByte(chip, miaSDControlLastError))
+
+	sdSetPart(chip, miaRAMSize-40, 16, 0, 3, 16, 16)
+	circuit.write(miaRegCmdTrigger, miaCmdFSLoadPart)
+	assert.Equal(t, miaErrorFSInvalidRequest, sdControlByte(chip, miaSDControlLastError))
+	assert.Zero(t, chip.memory[miaRAMSize-40], "nothing was written")
+}

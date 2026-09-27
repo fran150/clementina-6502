@@ -64,7 +64,7 @@ const (
 	miaFSPath2Offset = miaFSTransferOffset
 	miaFSPath2Size   = miaFSPathSize
 
-	miaSDVersion = 6
+	miaSDVersion = 7
 
 	// miaSDMaxHandles is the number of concurrent file-handle slots. BASIC-visible
 	// file numbers map directly onto these slots, one-to-one, with no allocator in
@@ -115,6 +115,13 @@ const (
 	miaSDControlClusterSectorsL = 0x28
 	miaSDControlTransferLen0    = 0x2A
 	miaSDControlHandleSelect    = 0x2E
+
+	// FS_LOAD_PART (protocol 7). SD_TRANSFER_LEN holds the bytes per row;
+	// with PART_ROWS 0 the command loads one contiguous run.
+	miaSDControlPartOffset0     = 0x30
+	miaSDControlPartRowsL       = 0x34
+	miaSDControlPartFileStride0 = 0x36
+	miaSDControlPartRAMStrideL  = 0x3A
 )
 
 // SD_STATUS byte flags (mirrored into the control block).
@@ -194,6 +201,7 @@ const (
 	miaCmdFSSaveFromMiaRAM uint8 = 0x87
 	miaCmdFSChdir          uint8 = 0x88
 	miaCmdFSFileInfo       uint8 = 0x89
+	miaCmdFSLoadPart       uint8 = 0x8A
 )
 
 // Subset of FatFs FRESULT codes, written to SD_FATFS_RESULT for diagnostics.
@@ -418,7 +426,7 @@ func (c *emulated_mia) sdRequest(command uint8) bool {
 		miaCmdFSRead, miaCmdFSClose, miaCmdFSLoadToMiaRAM, miaCmdFSWrite,
 		miaCmdFSSync, miaCmdFSSeek, miaCmdFSStat, miaCmdFSMkdir,
 		miaCmdFSDelete, miaCmdFSRename, miaCmdFSGetFree, miaCmdFSSaveFromMiaRAM,
-		miaCmdFSChdir, miaCmdFSFileInfo:
+		miaCmdFSChdir, miaCmdFSFileInfo, miaCmdFSLoadPart:
 	default:
 		return false
 	}
@@ -634,6 +642,21 @@ func (c *emulated_mia) sdService(command uint8) {
 
 	case miaCmdFSSaveFromMiaRAM:
 		ok, fr, errorCode = c.sdServiceSave()
+
+	case miaCmdFSLoadPart:
+		if mountOK, mountFR := c.sdRequireMounted(); !mountOK {
+			ok = false
+			fr = mountFR
+			errorCode = miaErrorFSMountFailed
+			break
+		}
+		control := uint32(miaSDControlOffset)
+		var loaded uint32
+		loaded, ok, fr, errorCode = c.sdLoadPart(c.sdControlDestAddr(), c.sdControlTransferLen(),
+			c.sdReadU32(control+miaSDControlPartOffset0), uint32(c.sdReadU16(control+miaSDControlPartRowsL)),
+			c.sdReadU32(control+miaSDControlPartFileStride0), c.sdReadU24(control+miaSDControlPartRAMStrideL))
+		c.sdWriteU16(miaSDControlOffset+miaSDControlResultLenL, uint16(loaded))
+		c.sdWriteU32(miaSDControlOffset+miaSDControlFilePos0, loaded)
 
 	default:
 		ok = false
@@ -1183,6 +1206,63 @@ func (c *emulated_mia) sdLoadToRAM(dest, maxLen uint32) (uint32, bool, uint8) {
 	}
 
 	return total, true, frOK
+}
+
+// sdLoadPart mirrors the firmware FS_LOAD_PART job (sd_start_part_job +
+// sd_job_step_load_part): rows of rowLen bytes, row r read from file offset
+// offset + r*fileStride into MIA RAM at dest + r*ramStride; rows 0 loads one
+// contiguous run. Reaching EOF ends the load early and still succeeds, and the
+// loaded byte count lands in SD_FILE_POS, as with FS_LOAD_TO_MIA_RAM. The
+// firmware spreads the job over core-0 service calls; the emulator runs it in
+// one go.
+func (c *emulated_mia) sdLoadPart(dest, rowLen, offset, rows, fileStride, ramStride uint32) (uint32, bool, uint8, uint8) {
+	if rows == 0 {
+		rows = 1
+	}
+	end := uint64(dest) + uint64(rows-1)*uint64(ramStride) + uint64(rowLen)
+	if rowLen == 0 || end > miaRAMSize {
+		return 0, false, frInvalidParameter, miaErrorFSInvalidRequest
+	}
+
+	hostPath, ok := c.sdResolveHostPath()
+	if !ok {
+		return 0, false, frInvalidName, miaErrorFSOpenFailed
+	}
+	file, err := os.Open(hostPath)
+	if err != nil {
+		return 0, false, sdErrToFresult(err), miaErrorFSOpenFailed
+	}
+	defer file.Close()
+
+	var size int64
+	if info, statErr := file.Stat(); statErr == nil {
+		size = info.Size()
+		c.sdWriteU32(miaSDControlOffset+miaSDControlFileSize0, uint32(size))
+	}
+
+	var total uint32
+	for r := uint32(0); r < rows; r++ {
+		pos := int64(offset) + int64(r)*int64(fileStride)
+		if _, err := file.Seek(pos, io.SeekStart); err != nil {
+			return total, false, sdErrToFresult(err), miaErrorFSSeekFailed
+		}
+		at := dest + r*ramStride
+		n, err := io.ReadFull(file, c.memory[at:at+rowLen])
+		if n > 0 {
+			c.videoMarkDirtyRange(at, uint32(n))
+			total += uint32(n)
+		}
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			c.sd.eof = true
+			return total, true, frOK, 0
+		}
+		if err != nil {
+			return total, false, sdErrToFresult(err), miaErrorFSReadFailed
+		}
+		c.sd.eof = pos+int64(rowLen) >= size
+	}
+
+	return total, true, frOK, 0
 }
 
 // sdServiceSave mirrors the firmware FS_SAVE_FROM_MIA_RAM job (sd_start_save_job +

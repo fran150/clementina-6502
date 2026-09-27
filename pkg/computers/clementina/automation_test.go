@@ -13,7 +13,7 @@ func TestAutomation(t *testing.T) {
 	require.NoError(t, err)
 	defer a.Close()
 	call := func(method string, count, address int, data []int) any {
-		v, e := a.Execute(AutomationRequest{1, method, count, address, data})
+		v, e := a.Execute(AutomationRequest{Version: 1, Method: method, Count: count, Address: address, Data: data})
 		require.NoError(t, e)
 		return v
 	}
@@ -29,6 +29,10 @@ func TestAutomation(t *testing.T) {
 	require.Equal(t, []any{42}, call("readMemory", 1, 752, nil))
 	require.Equal(t, []any{nil}, call("readMemory", 1, 0xc000, nil))
 	require.Len(t, call("video", 0, 0, nil), 68944)
+	audio := call("audio", 0, 0, nil).([]int)
+	require.Len(t, audio, 80)
+	require.Equal(t, 2, audio[0]) // audio layout version
+	require.Equal(t, 4, audio[3]) // voices
 	for _, r := range []AutomationRequest{{Version: 2, Method: "state"}, {Version: 1, Method: "step", Count: -1}, {Version: 1, Method: "readMemory", Address: 65535, Count: 2}, {Version: 1, Method: "input", Data: []int{65, 256}}, {Version: 1, Method: "missing"}} {
 		_, err := a.Execute(r)
 		require.Error(t, err)
@@ -36,6 +40,68 @@ func TestAutomation(t *testing.T) {
 	a.Close()
 	_, err = a.Execute(AutomationRequest{Version: 1, Method: "state"})
 	require.Error(t, err)
+}
+
+func TestAutomationHeldInput(t *testing.T) {
+	a := automationProgram(t, []byte{0x4c, 0x00, 0x06}) // JMP $0600
+	page, usage, player, down := 7, 4, 2, true
+	consumer, consumerUsage := 12, 0xE9
+	invalidUsage := 256
+	call := func(r AutomationRequest) {
+		r.Version = 1
+		_, err := a.Execute(r)
+		require.NoError(t, err)
+	}
+	read := a.computer.chips.mia.(interface{ DebugReadVideo(uint32) uint8 }).DebugReadVideo
+	capabilities, err := a.Execute(AutomationRequest{Version: 1, Method: "capabilities"})
+	require.NoError(t, err)
+	for _, method := range []string{"setHidUsage", "setHidBitmap", "setGamepadState", "clearGamepad"} {
+		require.Contains(t, capabilities.(map[string]any)["methods"], method)
+	}
+	before := command(t, a, "state", 0, 0).(AutomationState).Cycles
+	call(AutomationRequest{Method: "setHidUsage", UsagePage: &page, UsageID: &usage, Down: &down})
+	require.Equal(t, byte(1<<4), read(0x11000))
+	require.Equal(t, byte(1), read(0x11045)&1)       // virtual keyboard available
+	require.Equal(t, byte(0x22), read(0x11046)&0x22) // device and key-down events
+	call(AutomationRequest{Method: "setHidUsage", UsagePage: &consumer, UsageID: &consumerUsage, Down: &down})
+	require.Equal(t, byte(1<<1), read(0x11020+0xE9/8))
+	require.Equal(t, byte(3), read(0x11045)&3)
+	call(AutomationRequest{Method: "setGamepadState", Player: &player, Data: []int{0x85, 0, 1, 0, 0x80, 0, 0, 0, 0, 0}})
+	require.Equal(t, byte(0x85), read(0x11050+2*10))
+	require.Equal(t, byte(1), read(0x11050+2*10+2))
+	require.Equal(t, byte(1<<5), read(0x11045)&(1<<5))
+	require.Equal(t, byte(0x2d), read(0x1104c)&0x2d) // button, d-pad, stick, device
+	require.Equal(t, before, command(t, a, "state", 0, 0).(AutomationState).Cycles)
+	command(t, a, "step", 30, 0)
+	require.Equal(t, byte(1<<4), read(0x11000)) // remains held across CPU cycles
+	command(t, a, "run", 0, 0)
+	secondUsage := 5
+	call(AutomationRequest{Method: "setHidUsage", UsagePage: &page, UsageID: &secondUsage, Down: &down})
+	command(t, a, "pause", 0, 0)
+	require.Equal(t, byte((1<<4)|(1<<5)), read(0x11000))
+	call(AutomationRequest{Method: "setHidBitmap", UsagePage: &page, Data: make([]int, 32)})
+	require.Zero(t, read(0x11000))
+	require.Equal(t, byte(0x04), read(0x11046)&0x04) // key-up event
+	call(AutomationRequest{Method: "clearGamepad", Player: &player})
+	require.Zero(t, read(0x11050+2*10))
+	require.Zero(t, read(0x11045)&(1<<5))
+	require.Equal(t, byte(0x02), read(0x1104c)&0x02) // button-up event
+	down = false
+	call(AutomationRequest{Method: "setHidUsage", UsagePage: &consumer, UsageID: &consumerUsage, Down: &down})
+	require.Zero(t, read(0x11020+0xE9/8))
+	command(t, a, "reset", 0, 0)
+	require.Zero(t, read(0x11045))
+
+	for _, r := range []AutomationRequest{
+		{Version: 1, Method: "setHidUsage", UsagePage: &page, UsageID: &usage},
+		{Version: 1, Method: "setHidUsage", UsagePage: &page, UsageID: &invalidUsage, Down: &down},
+		{Version: 1, Method: "setHidBitmap", UsagePage: &page, Data: make([]int, 31)},
+		{Version: 1, Method: "setGamepadState", Player: &player, Data: []int{256, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
+		{Version: 1, Method: "clearGamepad"},
+	} {
+		_, err := a.Execute(r)
+		require.Error(t, err)
+	}
 }
 func TestAutomationConcurrent(t *testing.T) {
 	a, err := NewAutomation()

@@ -27,11 +27,15 @@ type Automation struct {
 }
 
 type AutomationRequest struct {
-	Version int    `json:"version"`
-	Method  string `json:"method"`
-	Count   int    `json:"count,omitempty"`
-	Address int    `json:"address,omitempty"`
-	Data    []int  `json:"data,omitempty"`
+	Version   int    `json:"version"`
+	Method    string `json:"method"`
+	Count     int    `json:"count,omitempty"`
+	Address   int    `json:"address,omitempty"`
+	Data      []int  `json:"data,omitempty"`
+	UsagePage *int   `json:"usagePage,omitempty"`
+	UsageID   *int   `json:"usageId,omitempty"`
+	Down      *bool  `json:"down,omitempty"`
+	Player    *int   `json:"player,omitempty"`
 }
 type AutomationState struct {
 	Cycles              string `json:"cycles"`
@@ -149,7 +153,7 @@ func (a *Automation) Execute(r AutomationRequest) (any, error) {
 	}
 	switch r.Method {
 	case "capabilities":
-		return map[string]any{"version": 1, "methods": []string{"capabilities", "state", "reset", "step", "readMemory", "input", "video", "run", "pause", "resume", "stepInstruction", "addBreakpoint", "removeBreakpoint", "breakpoints", "clearBreakpoints"}, "maxCycles": 10000000, "maxRead": 65536}, nil
+		return map[string]any{"version": 1, "methods": []string{"capabilities", "state", "reset", "step", "readMemory", "input", "setHidUsage", "setHidBitmap", "setGamepadState", "clearGamepad", "video", "audio", "run", "pause", "resume", "stepInstruction", "addBreakpoint", "removeBreakpoint", "breakpoints", "clearBreakpoints"}, "maxCycles": 10000000, "maxRead": 65536}, nil
 	case "state":
 		return a.state(), nil
 	case "reset":
@@ -248,6 +252,38 @@ func (a *Automation) Execute(r AutomationRequest) (any, error) {
 			chip.DebugQueueInput(uint8(b))
 		}
 		return a.state(), nil
+	case "setHidUsage":
+		if r.UsagePage == nil || (*r.UsagePage != 7 && *r.UsagePage != 12) || r.UsageID == nil || *r.UsageID < 0 || *r.UsageID > 255 || r.Down == nil {
+			return nil, fmt.Errorf("expected HID page 7 or 12, usage ID 0..255, and down boolean")
+		}
+		a.computer.chips.mia.(interface{ DebugSetHidUsage(uint16, uint16, bool) }).DebugSetHidUsage(uint16(*r.UsagePage), uint16(*r.UsageID), *r.Down)
+		return a.state(), nil
+	case "setHidBitmap":
+		if r.UsagePage == nil || (*r.UsagePage != 7 && *r.UsagePage != 12) {
+			return nil, fmt.Errorf("expected HID page 7 or 12")
+		}
+		data, err := automationInputBytes(r.Data, 32)
+		if err != nil {
+			return nil, fmt.Errorf("HID bitmap: %w", err)
+		}
+		a.computer.chips.mia.(interface{ DebugSetHidBitmap(uint16, []byte) }).DebugSetHidBitmap(uint16(*r.UsagePage), data)
+		return a.state(), nil
+	case "setGamepadState":
+		if r.Player == nil || *r.Player < 0 || *r.Player > 3 {
+			return nil, fmt.Errorf("player must be 0..3")
+		}
+		data, err := automationInputBytes(r.Data, 10)
+		if err != nil {
+			return nil, fmt.Errorf("gamepad state: %w", err)
+		}
+		a.computer.chips.mia.(interface{ DebugSetGamepadState(int, []byte) }).DebugSetGamepadState(*r.Player, data)
+		return a.state(), nil
+	case "clearGamepad":
+		if r.Player == nil || *r.Player < 0 || *r.Player > 3 {
+			return nil, fmt.Errorf("player must be 0..3")
+		}
+		a.computer.chips.mia.(interface{ DebugClearGamepad(int) }).DebugClearGamepad(*r.Player)
+		return a.state(), nil
 	case "video":
 		chip := a.computer.chips.mia.(interface{ DebugReadVideo(uint32) uint8 })
 		data := make([]int, 68944)
@@ -255,7 +291,28 @@ func (a *Automation) Execute(r AutomationRequest) (any, error) {
 			data[i] = int(chip.DebugReadVideo(uint32(i)))
 		}
 		return data, nil
+	case "audio":
+		bytes := a.computer.chips.mia.(interface{ DebugAudioSnapshot() []byte }).DebugAudioSnapshot()
+		data := make([]int, len(bytes))
+		for i, value := range bytes {
+			data[i] = int(value)
+		}
+		return data, nil
 	default:
 		return nil, fmt.Errorf("unknown method")
 	}
+}
+
+func automationInputBytes(data []int, size int) ([]byte, error) {
+	if len(data) != size {
+		return nil, fmt.Errorf("expected %d bytes", size)
+	}
+	bytes := make([]byte, size)
+	for i, value := range data {
+		if value < 0 || value > 255 {
+			return nil, fmt.Errorf("invalid byte at index %d", i)
+		}
+		bytes[i] = byte(value)
+	}
+	return bytes, nil
 }

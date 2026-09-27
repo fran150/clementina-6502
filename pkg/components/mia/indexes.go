@@ -25,15 +25,15 @@ const (
 
 // indexRead returns the byte pointed to by the selected MIA memory index.
 //
-// The $EC-$EF sequencer-status indexes are a deliberate, scoped exception:
-// they read live from sequencer state rather than c.memory, since the audio
-// render goroutine that owns that state cannot safely write c.memory - see
-// the comment at the top of audio_sequencer.go.
+// Sequencer status addresses read live from sequencer state through any index,
+// including $EC-$EF. The audio render goroutine cannot safely write c.memory;
+// see the comment at the top of audio_sequencer.go.
 func (c *emulated_mia) indexRead(indexID uint8) uint8 {
-	if voice, ok := miaAudioSeqIndexVoice(indexID); ok {
-		return c.audioSeqStatusByte(voice, c.indexes[indexID].currentAddr)
+	offset := uint32(c.memoryOffset(c.indexes[indexID].currentAddr))
+	if voice, ok := miaAudioSeqVoiceAtAddress(offset); ok {
+		return c.audioSeqStatusByte(voice, offset)
 	}
-	return c.memory[c.memoryOffset(c.indexes[indexID].currentAddr)]
+	return c.memory[offset]
 }
 
 // indexWrite stores a byte at the address pointed to by the selected MIA memory index.
@@ -44,15 +44,11 @@ func (c *emulated_mia) indexWrite(indexID uint8, value uint8) {
 }
 
 // indexStepAndRead steps an index for a read access and returns the new pointed byte.
-// See indexRead for the $EC-$EF sequencer-status exception.
+// See indexRead for live sequencer status addresses.
 func (c *emulated_mia) indexStepAndRead(indexID uint8, window miaIndexWindow) uint8 {
 	entry := &c.indexes[indexID]
 	c.stepIndex(entry, miaIndexFlagReadStep, window)
-
-	if voice, ok := miaAudioSeqIndexVoice(indexID); ok {
-		return c.audioSeqStatusByte(voice, entry.currentAddr)
-	}
-	return c.memory[c.memoryOffset(entry.currentAddr)]
+	return c.indexRead(indexID)
 }
 
 // indexWriteAndStep writes through an index and then steps it for a write access.
