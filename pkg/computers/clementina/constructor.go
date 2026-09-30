@@ -195,6 +195,7 @@ func newClementinaComputer(mia components.MiaChip) (*ClementinaComputer, error) 
 	chips.cpu.NonMaskableInterrupt().Connect(circuit.vcc)
 	chips.cpu.Reset().Connect(circuit.cpuReset)
 	chips.cpu.BusEnable().Connect(circuit.vcc)
+	chips.cpu.SetOverflow().Connect(circuit.vcc) // unused input, tied high as on the board
 	chips.cpu.ReadWrite().Connect(circuit.cpuRW)
 
 	// Connect the CPU to the CS Logic
