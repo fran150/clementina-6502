@@ -38,6 +38,10 @@ func TestAutomationPhysicalBankBreakpoint(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 	state := command(t, a, "pause", 0, 0).(AutomationState)
 	require.Equal(t, "pause", state.StopReason)
+	// pause stops between 256-cycle batches, which can land inside the JMP. Finish it in
+	// bank 1, or the bank switch below makes it fetch its operand from bank 2.
+	state = command(t, a, "stepInstruction", 10, 0).(AutomationState)
+	require.True(t, state.InstructionBoundary)
 	require.Equal(t, uint8(1), state.Bank)
 	require.Equal(t, []any{0x4c}, command(t, a, "readMemory", 1, 0x8000))
 	read, err := a.Execute(AutomationRequest{Version: 1, Method: "readMemory", Address: 0x8000, Count: 1, Bank: &bank})
