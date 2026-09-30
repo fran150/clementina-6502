@@ -8,32 +8,26 @@ import (
 // This file ports MIA's background note sequencer (firmware
 // src/mia/audio/audio.{c,h}, the TRACK/SEQ_LOAD/SEQ_START/SEQ_STOP/
 // VOICE_TAKE/VOICE_RELEASE/SEQ_SET_BASE additions) to the emulator. See
-// clementina-mia/docs/audio-sequencer.md for the full contract; this comment
-// only covers where the Go port has to diverge from it.
+// clementina-mia/docs/audio-sequencer.md for the full contract.
 //
-// On real hardware the sequencer decodes straight out of MIA RAM inside the
-// same Core 0 audio ISR that steps oscillators/envelopes. The emulator's
-// audio engine runs on the oto callback goroutine and, per the design at the
-// top of audio.go, must stay RAM-free - c.memory belongs to the CPU-Tick
-// goroutine. So the sequencer keeps its own copy of each voice's track bytes
-// (seqRAM, populated by audioSeqLoadTrack when TRACK/SEQ_LOAD run) and the
-// render goroutine never touches c.memory. A track has no declared length
-// (just a base and an END/JUMP), so seqRAM is sized per voice at load time -
-// c.memory[trackBase:miaRAMSize], the same bound firmware's cursor >=
-// MIA_RAM_SIZE check enforces - rather than a fixed-size array:
+// Firmware decodes straight out of MIA RAM inside the Core 0 audio ISR. The
+// emulator's audio engine runs on the oto callback goroutine, while CPU-Tick
+// writes MIA RAM. SEQ_LOAD installs a view from trackBase to the end of
+// c.memory, so later CPU writes remain visible. The audio reader takes c.mu
+// before a.mu while rendering; CPU writes take c.mu, avoiding a data race.
+// A track has no declared length (just a base and an END/JUMP), so the view
+// ends at miaRAMSize. Other necessary Go-port differences remain:
 //
 //   - "Track finished" (no loop) can't call irqSetFlag directly - that
-//     mutates shared registers unsynchronized with the CPU-Tick goroutine.
+//     mutates shared registers while the audio render loop runs.
 //     It sets seqDonePending instead; audioSeqService (called every Tick,
 //     mirroring core 1's act_loop draining mia_irq_set_requests) drains it.
 //   - A voice's register bytes in MIA RAM (FREQ_L, WAVEFORM, ...) would go
 //     stale while the sequencer alone is driving them, since nothing else
 //     writes c.memory for a sequencer-originated change. audioSeqService
-//     also mirrors the live engine state for every running, non-taken voice
-//     back into c.memory once per Tick - safe, since Tick already owns
-//     c.memory - so a plain 6502 peek still reads what the sequencer is
-//     actually doing, just refreshed once per bus cycle rather than
-//     immediately.
+//     mirrors the live engine state for every running, non-taken voice
+//     back into c.memory once per Tick, so a plain 6502 peek reads it after
+//     the next bus cycle rather than immediately.
 //   - PLAYING(v)/CUE(v) (SEQ_NOTE_INDEX/SEQ_STATUS, voice offsets $09-$0B)
 //     are computed on demand from seq state for every index pointing at those
 //     addresses (see indexes.go), rather than mirrored into c.memory.
@@ -403,12 +397,10 @@ func (c *emulated_mia) audioSeqSetBase(voice int, base uint32) {
 }
 
 // audioSeqLoadTrack mirrors mia_audio_seq_load_track. A track has no
-// declared length (just a base and an END/JUMP), so it snapshots everything
-// from this voice's trackBase to the top of MIA RAM out of c.memory into the
-// audio engine's own copy - the render goroutine never touches c.memory, see
-// the file comment - and resets the voice's runtime position to the top of
-// its event stream. seqRAM's length becomes this voice's effective bound,
-// mirroring firmware's cursor >= MIA_RAM_SIZE check.
+// declared length (just a base and an END/JUMP), so the audio engine keeps a
+// view from this voice's trackBase to the top of MIA RAM. The view remains
+// live as the CPU edits RAM. Loading resets cursor and note index to the top
+// of the event stream; seqRAM's length is its effective bound.
 func (c *emulated_mia) audioSeqLoadTrack(voice int) {
 	if voice < 0 || voice >= miaAudioVoiceCount {
 		return
@@ -425,7 +417,7 @@ func (c *emulated_mia) audioSeqLoadTrack(voice int) {
 		return
 	}
 
-	a.seqRAM[voice] = append([]byte(nil), c.memory[base:miaRAMSize]...)
+	a.seqRAM[voice] = c.memory[base:miaRAMSize]
 	a.seq[voice] = miaAudioSeqVoice{trackBase: base}
 }
 

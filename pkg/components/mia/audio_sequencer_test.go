@@ -60,9 +60,8 @@ func TestDebugAudioSnapshotIncludesLiveSequencerStatus(t *testing.T) {
 	assert.Equal(t, uint8(miaAudioVersion), chip.DebugAudioSnapshot()[0], "snapshot owns its bytes")
 }
 
-// TestEmulatedMiaAudioSeqLoadResetsPosition verifies SEQ_LOAD snapshots the
-// track out of MIA RAM (from trackBase onward) into the engine's own buffer
-// and resets cursor/note index to the top, mirroring mia_audio_seq_load_track.
+// TestEmulatedMiaAudioSeqLoadResetsPosition verifies SEQ_LOAD keeps the
+// track's MIA RAM view and resets cursor/note index to the top.
 func TestEmulatedMiaAudioSeqLoadResetsPosition(t *testing.T) {
 	chip := silentAudioCircuit(t).chip
 
@@ -80,7 +79,80 @@ func TestEmulatedMiaAudioSeqLoadResetsPosition(t *testing.T) {
 	assert.Zero(t, seq.noteIndex)
 	assert.False(t, seq.running)
 	assert.Equal(t, testSeqBase(0), seq.trackBase, "the voice keeps the base its track was written at")
-	assert.Equal(t, track, ram, "engine copy should match what was written to MIA RAM")
+	assert.Equal(t, track, ram, "engine view should show the bytes in MIA RAM")
+}
+
+// TestEmulatedMiaAudioSeqReadsCPUWritesAfterLoad verifies that the 6502 can
+// extend a running stream through an indexed MIA RAM window. The END byte is
+// replaced after SEQ_LOAD, before the decoder reaches it.
+func TestEmulatedMiaAudioSeqReadsCPUWritesAfterLoad(t *testing.T) {
+	circuit := silentAudioCircuit(t)
+	chip := circuit.chip
+	base := testSeqBase(0)
+	writeSeqTrack(chip, 0, append(seqNoteEvent(0x1111, 1), miaSeqOpEnd))
+	chip.audioSeqLoadTrack(0)
+	chip.audioSeqStart(1)
+	chip.audioEnable()
+	reader := &miaAudioReader{chip: chip}
+	frame := make([]byte, 4)
+
+	n, err := reader.Read(frame)
+	require.NoError(t, err)
+	require.Equal(t, 4, n)
+	assert.Equal(t, uint16(0x1111), chip.audio.voices[0].freqQ4)
+
+	const index = uint8(0x40)
+	chip.indexes[index] = miaIndex{currentAddr: base + 6, defaultAddr: base + 6,
+		limitAddr: base + 13, step: 1, flags: 1 << miaIndexFlagWriteStep}
+	circuit.write(miaRegIdxASelector, index)
+	for _, b := range append(seqNoteEvent(0x2222, 0), miaSeqOpEnd) {
+		circuit.write(miaRegIdxAPort, b)
+	}
+
+	for range 2 { // finish the first note, then decode the newly written note
+		n, err = reader.Read(frame)
+		require.NoError(t, err)
+		require.Equal(t, 4, n)
+	}
+	assert.Equal(t, uint16(0x2222), chip.audio.voices[0].freqQ4)
+	assert.Equal(t, uint16(2), chip.audio.seq[0].noteIndex)
+	assert.True(t, chip.audio.seq[0].running)
+}
+
+// TestEmulatedMiaAudioSeqConcurrentRAMWrites exercises the audio reader while
+// the CPU edits an upcoming note through its indexed window. Both paths must
+// finish without a lock inversion, and the race detector must see no RAM race.
+func TestEmulatedMiaAudioSeqConcurrentRAMWrites(t *testing.T) {
+	circuit := silentAudioCircuit(t)
+	chip := circuit.chip
+	base := testSeqBase(0)
+	writeSeqTrack(chip, 0, append(seqNoteEvent(0x1111, 0), seqJumpEvent(-10)...))
+	chip.audioSeqLoadTrack(0)
+	chip.audioSeqStart(1)
+	chip.audioEnable()
+
+	const index = uint8(0x40)
+	chip.indexes[index] = miaIndex{currentAddr: base + 1, defaultAddr: base + 1,
+		limitAddr: base + 2, step: 0}
+	circuit.write(miaRegIdxASelector, index)
+
+	reader := &miaAudioReader{chip: chip}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		frame := make([]byte, 4)
+		for range 1000 {
+			reader.Read(frame)
+		}
+	}()
+	for i := range 1000 {
+		circuit.write(miaRegIdxAPort, uint8(i))
+	}
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("audio reader stalled while the CPU wrote MIA RAM")
+	}
 }
 
 // TestEmulatedMiaAudioSeqPlaysAndLoops steps the engine sample by sample and

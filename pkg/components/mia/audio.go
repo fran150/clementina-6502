@@ -194,8 +194,9 @@ type miaAudioState struct {
 	voices [miaAudioVoiceCount]miaAudioVoice
 
 	// Background sequencer (TRACK/BAND/VTAKE/VGIVE). See audio_sequencer.go.
-	// seqRAM is sized per voice at load time (miaRAMSize - trackBase), not
-	// fixed - a track has no declared length, just a base and an END/JUMP.
+	// seqRAM is a view of c.memory from each track base to the top of MIA RAM.
+	// The reader holds c.mu before a.mu while decoding, so CPU writes to a
+	// running track are visible without racing the audio goroutine.
 	seq            [miaAudioVoiceCount]miaAudioSeqVoice
 	seqRAM         [miaAudioVoiceCount][]byte
 	seqClock       uint32 // free-running sample counter, internal only - never exposed to BASIC
@@ -779,7 +780,7 @@ func (c *emulated_mia) audioConfigureIndex(indexID uint8, start, length uint32) 
  **************************************************************************************************/
 
 // miaAudioReader feeds rendered PCM to an oto player. Read runs on oto's
-// callback goroutine and takes a.mu.
+// callback goroutine and takes c.mu before a.mu to share live MIA RAM safely.
 //
 // capToWallClock is set only on the reader wired to the real oto player: it
 // makes Read refuse to render further ahead than wall-clock (plus a small lead),
@@ -793,8 +794,8 @@ type miaAudioReader struct {
 
 // Read renders PCM on demand, always continuous (no gaps, no repeats), applying
 // each queued register write at its due sample as the render advances past it.
-// Rendering is a handful of adds per voice per sample, so holding a.mu for the
-// buffer costs the CPU-Tick goroutine only microseconds.
+// The reader takes c.mu before a.mu for the buffer, serializing sequencer
+// decoding with CPU writes in the same lock order as other MIA operations.
 //
 // The debug/test reader renders exactly len(buf)/4 frames. The oto-driven reader
 // (capToWallClock) renders at most up to wall-clock + a small lead, returning a
@@ -809,6 +810,8 @@ func (r *miaAudioReader) Read(buf []byte) (int, error) {
 		return 0, nil
 	}
 
+	r.chip.mu.Lock()
+	defer r.chip.mu.Unlock()
 	a.mu.Lock()
 
 	if r.capToWallClock {
