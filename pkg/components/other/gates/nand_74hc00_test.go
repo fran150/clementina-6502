@@ -28,6 +28,27 @@ func TestAllValuesFor74HC00(t *testing.T) {
 	}
 }
 
+func TestAllValuesFor74AC00(t *testing.T) {
+	var step common.StepContext
+
+	chip := NewNand74AC00()
+	circuit := newLogicGatesTestCircuit(4)
+	circuit.wire(chip)
+
+	tests := []logicGatesTestCase{
+		{false, false, true},
+		{true, false, true},
+		{false, true, true},
+		{true, true, false},
+	}
+
+	for i := range nand74HC00NumGates {
+		for _, test := range tests {
+			test.test(t, circuit, chip, i, &step)
+		}
+	}
+}
+
 func TestInvalidPinNumberReturnsNilOn74HC00(t *testing.T) {
 	chip := newNand74HC00()
 

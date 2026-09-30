@@ -29,6 +29,13 @@ func NewDecoder74HC138() components.Decoder74HC138 {
 	return newDecoder74HC138()
 }
 
+// NewDecoder74AC138 creates a new instance of the 74AC138 3-to-8 line decoder/demultiplexer.
+// The 74AC138 has the 74HC138's pinout and logic in the faster AC family. The
+// emulator doesn't model propagation delay, so both share one model.
+func NewDecoder74AC138() components.Decoder74HC138 {
+	return newDecoder74HC138()
+}
+
 // Creates a new 74HC138
 func newDecoder74HC138() *decoder74HC138 {
 	chip := decoder74HC138{}

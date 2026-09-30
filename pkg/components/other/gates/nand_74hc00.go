@@ -23,6 +23,13 @@ func NewNand74HC00() components.LogicGateArray {
 	return newNand74HC00()
 }
 
+// NewNand74AC00 creates a new 74AC00 quad 2-input NAND gate chip.
+// The 74AC00 has the 74HC00's pinout and logic in the faster AC family. The
+// emulator doesn't model propagation delay, so both share one model.
+func NewNand74AC00() components.LogicGateArray {
+	return newNand74HC00()
+}
+
 // Creates a new 74CH00
 func newNand74HC00() *nand74HC00 {
 	chip := nand74HC00{}

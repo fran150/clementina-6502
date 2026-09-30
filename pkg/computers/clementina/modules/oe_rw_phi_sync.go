@@ -3,52 +3,76 @@ package modules
 
 import (
 	"github.com/fran150/clementina-6502/pkg/common"
+	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
 )
 
-// ClementinaOERWPHISync emulates the synchronization logic for Output Enable (OE) and Read/Write (RW)
-// signals with the clock PHI line. The PHI clock line is not emulated.
+// ClementinaOERWPHISync emulates the "OE / RW / PHI2 Sync" sheet of the schematic: the memory
+// read and write strobes, made from gates A and B of U9, the 74AC00 shared with the CS logic sheet.
+//
+//   - U9A: ~OE = NAND(RWB, RWB), low while the CPU reads.
+//   - U9B: ~WE = NAND(PHI2, ~OE), low while the CPU writes and PHI2 is high. One gate after PHI2,
+//     so ~WE ends within the CPU's address and data hold time.
+//
+// The emulator runs each bus cycle as a whole and doesn't generate PHI2, so the computer ties the
+// PHI2 input high.
 type ClementinaOERWPHISync struct {
-	cpuRW buses.LineConnector
+	cpuRW buses.LineConnector // RWB, to both inputs of U9A
+	phi2  buses.LineConnector // PHI2, U9B pin 5
 
-	oe buses.Line
-	rw buses.Line
+	nand components.LogicGateArray // U9 (74AC00), gates A and B; shared with the CS logic sheet
+
+	oe buses.Line // ~OE: U9A output, also U9B pin 4
+	we buses.Line // ~WE: U9B output
 }
 
 // NewClementinaOERWPHISync creates a new instance of the ClementinaOERWPHISync module.
-func NewClementinaOERWPHISync() *ClementinaOERWPHISync {
-	return &ClementinaOERWPHISync{
-		cpuRW: buses.NewConnectorEnabledLow(),
-		oe:    buses.NewStandaloneLine(true),
-		rw:    buses.NewStandaloneLine(true),
+//
+// Parameters:
+//   - nand: U9, the 74AC00 whose gates A and B this sheet uses. Gates C and D belong to the
+//     CS logic sheet, which receives the same chip.
+func NewClementinaOERWPHISync(nand components.LogicGateArray) *ClementinaOERWPHISync {
+	sync := &ClementinaOERWPHISync{
+		nand: nand,
+		oe:   buses.NewStandaloneLine(true),
+		we:   buses.NewStandaloneLine(true),
 	}
+
+	sync.cpuRW = newNet(nand.APin(0), nand.BPin(0))
+	sync.phi2 = nand.BPin(1)
+
+	nand.YPin(0).Connect(sync.oe)
+	nand.APin(1).Connect(sync.oe)
+	nand.YPin(1).Connect(sync.we)
+
+	return sync
 }
 
-// CpuRW returns the LineConnector representing the CPU's RW line input to the sync module.
+// CpuRW returns the LineConnector for the CPU's RWB line input to the sync module.
 func (sync *ClementinaOERWPHISync) CpuRW() buses.LineConnector {
 	return sync.cpuRW
 }
 
-// OE returns the Output Enable (OE) line controlled by the sync module.
+// PHI2 returns the LineConnector for the PHI2 clock input that qualifies ~WE.
+func (sync *ClementinaOERWPHISync) PHI2() buses.LineConnector {
+	return sync.phi2
+}
+
+// OE returns the Output Enable (~OE) line controlled by the sync module.
 func (sync *ClementinaOERWPHISync) OE() buses.Line {
 	return sync.oe
 }
 
-// RW returns the Read/Write (RW) line controlled by the sync module.
-func (sync *ClementinaOERWPHISync) RW() buses.Line {
-	return sync.rw
+// WE returns the Write Enable (~WE) line controlled by the sync module.
+func (sync *ClementinaOERWPHISync) WE() buses.Line {
+	return sync.we
 }
 
-// Tick updates the OE and RW lines based on the current state of the CPU's RW line.
-// It should be called once per emulation step.
+// Tick updates ~OE and ~WE from RWB and PHI2. The chip evaluates its gates in order, so ~WE
+// sees this step's ~OE. It should be called once per emulation step.
 //
 // Parameters:
 //   - stepContext: The current step context for the emulation cycle
 func (sync *ClementinaOERWPHISync) Tick(stepContext *common.StepContext) {
-	cpuRWLow := sync.cpuRW.Enabled()
-
-	// Connector is enabled low, so if cpu RW line is enable then RW output should
-	// be low and OE should be high and vice versa
-	sync.rw.Set(!cpuRWLow)
-	sync.oe.Set(cpuRWLow)
+	sync.nand.Tick(stepContext)
 }

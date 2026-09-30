@@ -78,6 +78,23 @@ func TestDecoder74HC138_AllAddressCombinations(t *testing.T) {
 	}
 }
 
+func TestDecoder74AC138_AllAddressCombinations(t *testing.T) {
+	step := common.NewStepContext()
+	chip := NewDecoder74AC138().(*decoder74HC138)
+	circuit := newTestDecoderCircuit()
+	circuit.wire(chip)
+
+	for i := range uint8(8) {
+		tc := decoderTestCase{
+			aPinInput: i,
+			ePinState: [3]bool{false, false, true},
+			expectedY: 1<<i ^ 0xFF,
+		}
+
+		tc.test(t, circuit, chip, &step)
+	}
+}
+
 func TestDecoder74HC138_DisableReturnsAllPinsHigh(t *testing.T) {
 	step := common.NewStepContext()
 	chip, circuit := createChipAndCircuit()

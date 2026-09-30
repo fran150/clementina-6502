@@ -23,6 +23,13 @@ func NewAnd74HC08() components.LogicGateArray {
 	return newAnd74HC08()
 }
 
+// NewAnd74AC08 creates a new 74AC08 quad 2-input AND gate chip.
+// The 74AC08 has the 74HC08's pinout and logic in the faster AC family. The
+// emulator doesn't model propagation delay, so both share one model.
+func NewAnd74AC08() components.LogicGateArray {
+	return newAnd74HC08()
+}
+
 // Creates a new 74CH08
 func newAnd74HC08() *and74HC08 {
 	chip := and74HC08{}

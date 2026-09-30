@@ -6,6 +6,7 @@ import (
 	"github.com/fran150/clementina-6502/pkg/components/cpu"
 	"github.com/fran150/clementina-6502/pkg/components/memory"
 	"github.com/fran150/clementina-6502/pkg/components/mia"
+	"github.com/fran150/clementina-6502/pkg/components/other/gates"
 	"github.com/fran150/clementina-6502/pkg/components/via"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina/modules"
 )
@@ -49,14 +50,17 @@ func NewClementinaGPIOComputer(chipName string) (*ClementinaComputer, error) {
 }
 
 func newClementinaComputer(mia components.MiaChip) (*ClementinaComputer, error) {
+	// U9, the 74AC00: gates A and B make the read/write strobes, gates C and D serve the CS logic
+	u9 := gates.NewNand74AC00()
+
 	chips := &chips{
 		cpu:      cpu.NewCpu65C02S(),
 		baseram:  memory.NewRam(memory.RAM_SIZE_32K),
 		exram:    memory.NewRam(memory.RAM_SIZE_512K),
 		via:      via.NewVia65C22S(),
 		mia:      mia,
-		csLogic:  modules.NewClementinaCSLogic(),
-		oeRWSync: modules.NewClementinaOERWPHISync(),
+		csLogic:  modules.NewClementinaCSLogic(u9),
+		oeRWSync: modules.NewClementinaOERWPHISync(u9),
 	}
 
 	// Create the address bus and via's port A and B buses
@@ -201,13 +205,15 @@ func newClementinaComputer(mia components.MiaChip) (*ClementinaComputer, error) 
 	chips.csLogic.A1(4).Connect(addressBus14)
 	chips.csLogic.A1(5).Connect(addressBus15)
 
-	// Connect the CPU to the OE/RW sync module
+	// Connect the CPU to the OE/RW sync module. Each tick is a whole bus cycle and
+	// PHI2 isn't generated, so the strobes see it high.
 	chips.oeRWSync.CpuRW().Connect(circuit.cpuRW)
+	chips.oeRWSync.PHI2().Connect(circuit.vcc)
 
 	// Base RAM connections
 	chips.baseram.AddressBus().Connect(circuit.addressBus)
 	chips.baseram.DataBus().Connect(circuit.dataBus)
-	chips.baseram.WriteEnable().Connect(chips.oeRWSync.RW())
+	chips.baseram.WriteEnable().Connect(chips.oeRWSync.WE())
 	chips.baseram.OutputEnable().Connect(chips.oeRWSync.OE())
 	chips.baseram.ChipSelect().Connect(addressBus15)
 
@@ -217,7 +223,7 @@ func newClementinaComputer(mia components.MiaChip) (*ClementinaComputer, error) 
 	chips.mia.MiaCS().Connect(chips.csLogic.MiaCS())
 	chips.mia.Reset().Connect(circuit.cpuReset)
 	chips.mia.ResetRequest().Connect(circuit.miaResetRequest)
-	chips.mia.WriteEnable().Connect(chips.oeRWSync.RW())
+	chips.mia.WriteEnable().Connect(circuit.cpuRW) // GP7 reads RWB straight from the CPU
 	chips.mia.Irq().Connect(circuit.miaIRQ)
 
 	// VIA connections
@@ -238,7 +244,7 @@ func newClementinaComputer(mia components.MiaChip) (*ClementinaComputer, error) 
 	chips.exram.AddressBus().Connect(circuit.exramBus)
 	chips.exram.HiAddressBus().Connect(circuit.exramBusHigh)
 	chips.exram.DataBus().Connect(circuit.dataBus)
-	chips.exram.WriteEnable().Connect(chips.oeRWSync.RW())
+	chips.exram.WriteEnable().Connect(chips.oeRWSync.WE())
 	chips.exram.OutputEnable().Connect(chips.oeRWSync.OE())
 	chips.exram.ChipSelect().Connect(chips.csLogic.ExRAMCS())
 

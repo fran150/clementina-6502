@@ -5,6 +5,7 @@ import (
 
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components/buses"
+	"github.com/fran150/clementina-6502/pkg/components/other/gates"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,7 +19,7 @@ func newCSLogicTestCircuit() *csLogicTestCircuit {
 	// Creates the test circuit logic that contains a bus and the CS Logic circuit.
 	circuit := &csLogicTestCircuit{
 		addressBus: buses.New16BitStandaloneBus(),
-		csLogic:    NewClementinaCSLogic(),
+		csLogic:    NewClementinaCSLogic(gates.NewNand74AC00()),
 	}
 
 	// Connects all CS logic address line to individual lines on the bus.
