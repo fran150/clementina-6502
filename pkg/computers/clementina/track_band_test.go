@@ -59,16 +59,19 @@ func TestBasicTrackBandAdvancesLiveRegisters(t *testing.T) {
 	audio := computer.chips.mia.(audioAdvancer)
 	audio.DebugSetAudioActive(true)
 
-	// T60, eighth note (k=8: T>>1) = 30 ticks; 30*150 = 4500 samples, plus one
-	// trigger tick per event (see audio_sequencer.go's seqAdvance): each note
-	// spans 4501 rendered samples. 2000 lands well inside C5; the cumulative
-	// 8000 lands well inside D5 (started at 4501, ends at 9002).
-	audio.DebugAudioReadPCM(2000)
+	// T60, eighth note (k=8: T>>1) = 30 kernel ticks; 30*150 = 4500 sequencer
+	// ticks, plus one trigger tick per event (see audio_sequencer.go's
+	// seqAdvance): each note spans 4501 sequencer ticks. MIA renders 48 kHz
+	// frames on a 24 kHz sequencer tick, so a tick is two frames. 2000 ticks
+	// lands well inside C5; the cumulative 8000 lands well inside D5 (started
+	// at 4501, ends at 9002).
+	const framesPerTick = 2
+	audio.DebugAudioReadPCM(2000 * framesPerTick)
 	freq, control, _, _ := audio.DebugAudioVoiceState(0)
 	require_eq_u16(t, 0x20C0, freq, "C5 (note_freq(60) = 262<<5) mid-first-note")
 	require_eq(t, 0x03, control, "gate+reset-phase mid-first-note (fresh trigger)")
 
-	audio.DebugAudioReadPCM(6000) // cumulative 8000
+	audio.DebugAudioReadPCM(6000 * framesPerTick) // cumulative 8000 ticks
 	freq, control, _, _ = audio.DebugAudioVoiceState(0)
 	require_eq_u16(t, 0x24C0, freq, "D5 (note_freq(62) = 294<<5) mid-second-note")
 	require_eq(t, 0x03, control, "gate+reset-phase mid-second-note (fresh trigger)")
@@ -83,7 +86,7 @@ func require_eq_u16(t *testing.T, want uint16, got uint16, msg string) {
 
 // TestBasicTrackEncodesNote verifies TRACK's encoder against a hand-computed
 // expected byte sequence: T60 L8 O5 C is a single NOTE event (C5, an eighth
-// note at tempo 60 -> 30 kernel ticks -> 30*150 = 4500 audio samples) then
+// note at tempo 60 -> 30 kernel ticks -> 30*150 = 4500 sequencer ticks) then
 // END, with no loop. There is no header - the event stream starts at offset 0.
 func TestBasicTrackEncodesNote(t *testing.T) {
 	computer, step := bootClementinaToPrompt(t)

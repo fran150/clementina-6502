@@ -82,7 +82,7 @@ const (
 	miaCmdAudioSeqSetBase2 uint8 = 0x6A
 	miaCmdAudioSeqSetBase3 uint8 = 0x6B
 
-	// Max events silently skipped per rendered sample while reconciling a
+	// Max events silently skipped per tick while reconciling a
 	// VOICE_RELEASE, mirroring MIA_SEQ_CATCHUP_BUDGET.
 	miaSeqCatchupBudget = 8
 
@@ -140,9 +140,9 @@ type miaAudioSeqVoice struct {
 
 	trackBase     uint32 // this voice's track base, set by audioSeqSetBase
 	cursor        uint32 // offset within this voice's seqRAM buffer (snapshot-relative)
-	countdown     uint32 // samples remaining until the current event ends
+	countdown     uint32 // ticks remaining until the current event ends
 	eventDuration uint32 // full duration of the current event
-	catchupRemain uint32 // samples still to silently skip during catch-up
+	catchupRemain uint32 // ticks still to silently skip during catch-up
 	takenAt       uint32 // seqClock snapshot when VOICE_TAKE was issued
 	noteIndex     uint16 // 1-based index of the current note/rest; 0 = not started
 }
@@ -258,7 +258,7 @@ func (a *miaAudioState) seqAdvance(voice int) {
 }
 
 // seqCatchupStep silently walks forward through events entirely in the past,
-// bounded to miaSeqCatchupBudget per sample, then resumes live on the first
+// bounded to miaSeqCatchupBudget per tick, then resumes live on the first
 // event that isn't fully covered. Mirrors audio_seq_catchup_step; see
 // docs/audio-sequencer.md, "Catch-up (VOICE_RELEASE reconciliation)". This
 // same per-iteration budget also bounds a cyclical run of JUMPs/config ops,
@@ -324,9 +324,9 @@ func (a *miaAudioState) seqCatchupStep(voice int) {
 	}
 }
 
-// seqStep advances one voice's sequencer by one sample. Mirrors
-// audio_seq_step; called from renderSampleLocked, once per voice per sample,
-// before the oscillator/envelope pass - same placement as the firmware ISR.
+// seqStep advances one voice's sequencer by one tick. Mirrors
+// audio_seq_step; called from renderSampleLocked, once per voice per tick,
+// before the envelope and oscillator pass - same placement as the firmware ISR.
 func (a *miaAudioState) seqStep(voice int) {
 	seq := &a.seq[voice]
 
@@ -372,7 +372,7 @@ func (a *miaAudioState) seqReleaseOne(voice int) {
 		return
 	}
 
-	// This event is over: the next sample's catch-up step walks forward from
+	// This event is over: the next tick's catch-up step walks forward from
 	// here using the leftover budget.
 	seq.catchingUp = true
 	seq.catchupRemain = totalElapsed - seq.eventDuration
@@ -606,7 +606,7 @@ func (c *emulated_mia) audioSeqWriteTestTrack(voice int, base uint32) {
 		return
 	}
 
-	// attack=0/decay=3/sustain=F/release=5, then C4/E4/G4 (6000 samples/
+	// attack=0/decay=3/sustain=F/release=5, then C4/E4/G4 (6000 ticks/
 	// ~0.25s each), then JUMP -25 back to offset 0 (the SET_ADSR) to loop the
 	// whole body forever. -25 as a signed 24-bit little-endian offset is
 	// 0xFFFFE7 (0xE7, 0xFF, 0xFF).

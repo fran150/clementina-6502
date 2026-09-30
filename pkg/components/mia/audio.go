@@ -18,11 +18,18 @@ import (
 // MIA_STAT_AUDIO_ACTIVE status bit, the layout-2 register set, and the 4-voice
 // oscillator/ADSR/volume/pan/mix engine.
 //
+// Rates. The firmware's PWM IRQ mixes one output sample at miaAudioSampleRate
+// (48 kHz); every miaAudioSamplesPerTick-th sample is also a control tick at
+// miaAudioTickRate (24 kHz), where the write queue drains and the sequencer and
+// envelopes step. Sequencer durations, the header RATE field and seqClock count
+// ticks; the render cursor, write stamps and the host device count samples.
+//
 // Output stage - the one platform-specific divergence. On real hardware a
-// separate 24 kHz PWM IRQ (core 0) drains a small queue of register writes made
-// by the 6502 (core 1) and mixes one sample per tick; the cores and the audio
-// clock are independent silicon that never fall behind. The emulator's oto
-// callback is a goroutine that CAN be starved by the busy-spin timing loop.
+// separate 48 kHz PWM IRQ (core 0) drains a small queue of register writes made
+// by the 6502 (core 1) on each tick and mixes one sample per interrupt; the
+// cores and the audio clock are independent silicon that never fall behind. The
+// emulator's oto callback is a goroutine that CAN be starved by the busy-spin
+// timing loop.
 //
 // So each audio-block write is time-stamped with WALL-CLOCK time:
 // audioCore1OnWrite (CPU-Tick goroutine) stamps it with time.Since(audioEpoch)
@@ -39,9 +46,11 @@ import (
 // of this - the queue, the engine, and Read's render loop.
 
 const (
-	miaAudioSampleRate = 24000
-	miaAudioVoiceCount = 4
-	miaAudioVoiceSize  = 16
+	miaAudioSampleRate     = 48000
+	miaAudioTickRate       = 24000
+	miaAudioSamplesPerTick = miaAudioSampleRate / miaAudioTickRate
+	miaAudioVoiceCount     = 4
+	miaAudioVoiceSize      = 16
 
 	miaAudioStateOffset  = 0x12000
 	miaAudioStateSize    = 0x50
@@ -137,10 +146,10 @@ func miaAudioVoiceOffset(voice int) uint32 {
 	return uint32(miaAudioVoicesOffset + voice*miaAudioVoiceSize)
 }
 
-// miaAudioRate converts an envelope time in milliseconds into the per-sample
+// miaAudioRate converts an envelope time in milliseconds into the per-tick
 // fixed-point step used by the ADSR engine, mirroring the AUDIO_RATE macro.
 func miaAudioRate(ms uint32) uint32 {
-	return uint32((uint64(miaAudioEnvMax) * 1000) / (uint64(miaAudioSampleRate) * uint64(ms)))
+	return uint32((uint64(miaAudioEnvMax) * 1000) / (uint64(miaAudioTickRate) * uint64(ms)))
 }
 
 type miaAudioADSR uint8
@@ -199,14 +208,15 @@ type miaAudioState struct {
 	// running track are visible without racing the audio goroutine.
 	seq            [miaAudioVoiceCount]miaAudioSeqVoice
 	seqRAM         [miaAudioVoiceCount][]byte
-	seqClock       uint32 // free-running sample counter, internal only - never exposed to BASIC
+	seqClock       uint32 // free-running tick counter, internal only - never exposed to BASIC
 	seqDonePending bool   // a voice reached END with no loop; drained by audioSeqService
+	subSample      int    // output samples into the current tick; 0 = the tick's own sample
 
 	active       bool
 	masterVolume uint8
 
 	// Timestamped write queue. Each audio-block write the 6502 makes is stamped
-	// with the wall-clock audio-sample it is due (time since enable * 24 kHz) and
+	// with the wall-clock audio-sample it is due (time since enable * 48 kHz) and
 	// applied by Read when the render passes it - so a starved-then-catching-up
 	// oto callback spreads the backlog across the frames it renders instead of
 	// bursting (which lost short notes). Wall-clock, not CPU cycles: the oto
@@ -350,7 +360,7 @@ func (v *miaAudioVoice) nextSample() int8 {
 	}
 }
 
-// updateEnvelope advances the ADSR envelope one sample.
+// updateEnvelope advances the ADSR envelope one tick.
 func (v *miaAudioVoice) updateEnvelope() {
 	sustainTarget := miaAudioLevelTable[v.sustain]
 
@@ -479,14 +489,22 @@ func (a *miaAudioState) audioApplyDueLocked(upto uint64) {
 	}
 }
 
-// renderSampleLocked mixes one stereo sample. Caller holds a.mu. It mirrors the
-// per-sample body of audio_irq_handler, keeping the firmware's 10-bit clamp and
-// scaling the result up to the host's 16-bit range.
+// renderSampleLocked mixes one stereo sample. Caller holds a.mu. It mirrors
+// audio_irq_handler: the first sample of each tick first steps the sequencer
+// and the envelopes, then every sample runs the oscillators and the mix,
+// keeping the firmware's 10-bit clamp and scaling the result up to the host's
+// 16-bit range.
 func (a *miaAudioState) renderSampleLocked() (int16, int16) {
-	for v := 0; v < miaAudioVoiceCount; v++ {
-		a.seqStep(v)
+	if a.subSample == 0 {
+		for v := 0; v < miaAudioVoiceCount; v++ {
+			a.seqStep(v)
+		}
+		a.seqClock++
+		for v := 0; v < miaAudioVoiceCount; v++ {
+			a.voices[v].updateEnvelope()
+		}
 	}
-	a.seqClock++
+	a.subSample = (a.subSample + 1) % miaAudioSamplesPerTick
 
 	var sampleL, sampleR int32
 
@@ -494,7 +512,6 @@ func (a *miaAudioState) renderSampleLocked() (int16, int16) {
 		voice := &a.voices[i]
 
 		sample := int32(voice.nextSample())
-		voice.updateEnvelope()
 		sample = (sample * int32(voice.vol>>16)) >> 8
 		sample = (sample * int32(voice.volume)) >> 8
 
@@ -602,7 +619,7 @@ func (c *emulated_mia) audioResetRuntimeState() {
 	c.memory[miaAudioHeaderOffset+miaAudioHeaderVersion] = miaAudioVersion
 	c.memory[miaAudioHeaderOffset+miaAudioHeaderVolume] = miaAudioMasterVolumeDefault
 	c.memory[miaAudioHeaderOffset+miaAudioHeaderChannels] = miaAudioVoiceCount
-	c.audioWriteU16(miaAudioHeaderOffset+miaAudioHeaderRateL, miaAudioSampleRate)
+	c.audioWriteU16(miaAudioHeaderOffset+miaAudioHeaderRateL, miaAudioTickRate) // the unit of NOTE/REST durations
 	c.memory[miaAudioHeaderOffset+miaAudioHeaderFlags] = miaAudioFlagStereo
 	a.masterVolume = miaAudioMasterVolumeDefault
 
@@ -634,6 +651,7 @@ func (c *emulated_mia) audioEnable() {
 	a.qTail = 0
 	a.audioEpoch = time.Now()
 	a.renderedSamples = 0
+	a.subSample = 0
 	c.audioSyncFromMemory()
 	a.active = true
 	a.mu.Unlock()
@@ -670,7 +688,9 @@ func (c *emulated_mia) audioReset() {
 }
 
 // audioReclock mirrors mia_audio_reclock. On real hardware a PHI2 speed change
-// alters clk_sys, so the PWM sample-timer wrap is recomputed to hold 24 kHz. The
+// alters clk_sys, so the PWM sample-timer wrap is recomputed to hold 48 kHz
+// (and below ~72 Hz PHI2 the firmware pauses audio, which the emulator does not
+// model: its render clock is the host's, not clk_sys). The
 // emulator stamps writes with wall-clock time and renders at the real device
 // rate, so a PHI2 speed change needs no mapping fix-up here - just flush any
 // pending writes (whose spacing predates the speed change) and re-base the
@@ -1011,7 +1031,7 @@ func (c *emulated_mia) consoleAudioDetail() string {
 	var out strings.Builder
 	out.WriteString("Audio:\n")
 	fmt.Fprintf(&out, "  state:     %s\n", activeOrStopped(active))
-	fmt.Fprintf(&out, "  rate:      %d Hz\n", miaAudioSampleRate)
+	fmt.Fprintf(&out, "  rate:      %d Hz output, %d Hz sequencer/envelope tick\n", miaAudioSampleRate, miaAudioTickRate)
 	fmt.Fprintf(&out, "  voices:    %d\n", miaAudioVoiceCount)
 	fmt.Fprintf(&out, "  volume:    %d/15 (master)\n", masterVolume&miaAudioMasterVolumeMax)
 	fmt.Fprintf(&out, "  output:    %s\n", audioOutputState(hostDisabled, hasPlayer, outputErr))

@@ -25,6 +25,14 @@ func seqJumpEvent(offset int32) []byte {
 	return []byte{miaSeqOpJump, byte(offset), byte(offset >> 8), byte(offset >> 16)}
 }
 
+// renderTick renders one sequencer tick: miaAudioSamplesPerTick output
+// samples, the first of which steps the sequencer.
+func renderTick(a *miaAudioState) {
+	for i := 0; i < miaAudioSamplesPerTick; i++ {
+		a.renderSampleLocked()
+	}
+}
+
 // testSeqBase is where these tests put each voice's track. Any free MIA RAM
 // works: the sequencer has no default address of its own.
 func testSeqBase(voice int) uint32 {
@@ -46,7 +54,7 @@ func TestDebugAudioSnapshotIncludesLiveSequencerStatus(t *testing.T) {
 	chip.audioSeqLoadTrack(0)
 	chip.audioSeqStart(1)
 	chip.audioEnable()
-	chip.audio.renderSampleLocked()
+	renderTick(&chip.audio)
 
 	base := miaAudioHeaderSize
 	snapshot := chip.DebugAudioSnapshot()
@@ -109,7 +117,7 @@ func TestEmulatedMiaAudioSeqReadsCPUWritesAfterLoad(t *testing.T) {
 		circuit.write(miaRegIdxAPort, b)
 	}
 
-	for range 2 { // finish the first note, then decode the newly written note
+	for range 2 * miaAudioSamplesPerTick { // two ticks: finish the first note, then decode the newly written note
 		n, err = reader.Read(frame)
 		require.NoError(t, err)
 		require.Equal(t, 4, n)
@@ -155,7 +163,7 @@ func TestEmulatedMiaAudioSeqConcurrentRAMWrites(t *testing.T) {
 	}
 }
 
-// TestEmulatedMiaAudioSeqPlaysAndLoops steps the engine sample by sample and
+// TestEmulatedMiaAudioSeqPlaysAndLoops steps the engine tick by tick and
 // verifies notes trigger in order, the note index advances, and a trailing
 // JUMP loops the track back to the top - mirroring audio_seq_advance's JUMP
 // handling (there is no more header-based implicit loop).
@@ -175,22 +183,22 @@ func TestEmulatedMiaAudioSeqPlaysAndLoops(t *testing.T) {
 	chip.audioEnable()
 
 	// Note 1 triggers on the very first render (countdown starts at 0).
-	chip.audio.renderSampleLocked() // call 1: trigger note 1, countdown=2
+	renderTick(&chip.audio) // call 1: trigger note 1, countdown=2
 	assert.Equal(t, uint16(0x1111), chip.audio.voices[0].freqQ4)
 	assert.Equal(t, uint16(1), chip.audio.seq[0].noteIndex)
 
 	// countdown=2 holds note 1 for two more renders (calls 2,3: 2->1->0)
 	// before call 4 finds countdown==0 and advances to note 2.
-	chip.audio.renderSampleLocked() // call 2
-	chip.audio.renderSampleLocked() // call 3
-	chip.audio.renderSampleLocked() // call 4: advance -> trigger note 2, countdown=1
+	renderTick(&chip.audio) // call 2
+	renderTick(&chip.audio) // call 3
+	renderTick(&chip.audio) // call 4: advance -> trigger note 2, countdown=1
 	assert.Equal(t, uint16(0x2222), chip.audio.voices[0].freqQ4)
 	assert.Equal(t, uint16(2), chip.audio.seq[0].noteIndex)
 
 	// countdown=1 holds note 2 for one more render (call 5: 1->0), then call
 	// 6 finds countdown==0, decodes JUMP, and loops back to note 1.
-	chip.audio.renderSampleLocked() // call 5
-	chip.audio.renderSampleLocked() // call 6: advance -> JUMP -> trigger note 1 again
+	renderTick(&chip.audio) // call 5
+	renderTick(&chip.audio) // call 6: advance -> JUMP -> trigger note 1 again
 	assert.Equal(t, uint16(0x1111), chip.audio.voices[0].freqQ4)
 	assert.Equal(t, uint16(3), chip.audio.seq[0].noteIndex, "JUMP does not reset note index like the old header-based loop did - it just keeps counting")
 	assert.True(t, chip.audio.seq[0].running)
@@ -216,16 +224,16 @@ func TestEmulatedMiaAudioSeqJumpLoopsToArbitraryOffset(t *testing.T) {
 	chip.audioSeqStart(1 << 0)
 	chip.audioEnable()
 
-	chip.audio.renderSampleLocked() // call 1: trigger intro, countdown=1
+	renderTick(&chip.audio) // call 1: trigger intro, countdown=1
 	assert.Equal(t, uint16(0x1111), chip.audio.voices[0].freqQ4)
 
-	chip.audio.renderSampleLocked() // call 2: countdown 1->0
-	chip.audio.renderSampleLocked() // call 3: advance -> trigger body, countdown=1
+	renderTick(&chip.audio) // call 2: countdown 1->0
+	renderTick(&chip.audio) // call 3: advance -> trigger body, countdown=1
 	assert.Equal(t, uint16(0x2222), chip.audio.voices[0].freqQ4)
 	assert.Equal(t, uint16(2), chip.audio.seq[0].noteIndex)
 
-	chip.audio.renderSampleLocked() // call 4: countdown 1->0
-	chip.audio.renderSampleLocked() // call 5: advance -> JUMP -> re-trigger body, not intro
+	renderTick(&chip.audio) // call 4: countdown 1->0
+	renderTick(&chip.audio) // call 5: advance -> JUMP -> re-trigger body, not intro
 	assert.Equal(t, uint16(0x2222), chip.audio.voices[0].freqQ4, "loop must return to the body, not replay the intro")
 	assert.Equal(t, uint16(3), chip.audio.seq[0].noteIndex)
 }
@@ -250,7 +258,7 @@ func TestEmulatedMiaAudioSeqSetBaseRelocatesTrack(t *testing.T) {
 	chip.audio.mu.Unlock()
 	assert.Equal(t, base, trackBase)
 
-	chip.audio.renderSampleLocked()
+	renderTick(&chip.audio)
 	assert.Equal(t, uint16(0x4321), chip.audio.voices[0].freqQ4)
 }
 
@@ -272,14 +280,14 @@ func TestEmulatedMiaAudioSeqDecodeBudgetStopsRunawayJumpCycle(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		chip.audio.renderSampleLocked()
+		renderTick(&chip.audio)
 		close(done)
 	}()
 
 	select {
 	case <-done:
 	case <-time.After(time.Second):
-		t.Fatal("renderSampleLocked did not return - a JUMP cycle must be budget-limited, not infinite")
+		t.Fatal("renderTick did not return - a JUMP cycle must be budget-limited, not infinite")
 	}
 
 	chip.audio.mu.Lock()
@@ -305,8 +313,8 @@ func TestEmulatedMiaAudioSeqEndWithoutLoopStopsAndDefersIRQ(t *testing.T) {
 	chip.audioSeqStart(1 << 0)
 	chip.audioEnable()
 
-	chip.audio.renderSampleLocked() // triggers the note, countdown=0
-	chip.audio.renderSampleLocked() // countdown already 0: advances straight to END
+	renderTick(&chip.audio) // triggers the note, countdown=0
+	renderTick(&chip.audio) // countdown already 0: advances straight to END
 
 	chip.audio.mu.Lock()
 	running := chip.audio.seq[0].running
@@ -339,14 +347,14 @@ func TestEmulatedMiaAudioSeqTakeThenQuickGiveResumesSameEvent(t *testing.T) {
 	chip.audioSeqStart(1 << 0)
 	chip.audioEnable()
 
-	chip.audio.renderSampleLocked() // note triggers: countdown=100, eventDuration=100
-	chip.audio.renderSampleLocked() // countdown -> 99
-	chip.audio.renderSampleLocked() // countdown -> 98
+	renderTick(&chip.audio) // note triggers: countdown=100, eventDuration=100
+	renderTick(&chip.audio) // countdown -> 99
+	renderTick(&chip.audio) // countdown -> 98
 
 	chip.audioVoiceTake(1 << 0)
-	// Simulate an SFX lasting 10 samples while taken.
+	// Simulate an SFX lasting 10 ticks while taken.
 	for i := 0; i < 10; i++ {
-		chip.audio.renderSampleLocked()
+		renderTick(&chip.audio)
 	}
 	chip.audio.mu.Lock()
 	countdownWhileTaken := chip.audio.seq[0].countdown
@@ -359,7 +367,7 @@ func TestEmulatedMiaAudioSeqTakeThenQuickGiveResumesSameEvent(t *testing.T) {
 	seq := chip.audio.seq[0]
 	chip.audio.mu.Unlock()
 	assert.False(t, seq.taken)
-	assert.False(t, seq.catchingUp, "10 elapsed samples fit well within the note's remaining 98")
+	assert.False(t, seq.catchingUp, "10 elapsed ticks fit well within the note's remaining 98")
 	// already_spent (2) + elapsed (10) = 12 spent of 100 -> 88 remaining.
 	assert.Equal(t, uint32(88), seq.countdown)
 	assert.Equal(t, uint16(1), seq.noteIndex, "must not have retriggered/advanced to a new note")
@@ -372,7 +380,7 @@ func TestEmulatedMiaAudioSeqTakeThenQuickGiveResumesSameEvent(t *testing.T) {
 func TestEmulatedMiaAudioSeqTakeThenLongGiveCatchesUpPastEvents(t *testing.T) {
 	chip := silentAudioCircuit(t).chip
 
-	// Note A: 10 samples. Note B: 10 samples. Note C: 10 samples. Then END.
+	// Note A: 10 ticks. Note B: 10 ticks. Note C: 10 ticks. Then END.
 	track := append(append(append(
 		seqNoteEvent(0xA000, 10),
 		seqNoteEvent(0xB000, 10)...),
@@ -384,24 +392,24 @@ func TestEmulatedMiaAudioSeqTakeThenLongGiveCatchesUpPastEvents(t *testing.T) {
 	chip.audioSeqStart(1 << 0)
 	chip.audioEnable()
 
-	chip.audio.renderSampleLocked() // note A triggers: eventDuration=10, countdown=10
+	renderTick(&chip.audio) // note A triggers: eventDuration=10, countdown=10
 	for i := 0; i < 4; i++ {
-		chip.audio.renderSampleLocked() // 4 decrements: countdown 10 -> 6
+		renderTick(&chip.audio) // 4 decrements: countdown 10 -> 6
 	}
 	// already_spent = eventDuration - countdown = 10 - 6 = 4.
 
 	chip.audioVoiceTake(1 << 0)
-	// Elapse 22 samples while taken. total_elapsed = already_spent(4) + 22 = 26.
+	// Elapse 22 ticks while taken. total_elapsed = already_spent(4) + 22 = 26.
 	// A(10) is already behind the cursor; B(10) fits entirely within the
 	// remaining 26-10=16 budget (fully in the past); C(10) does not fit in
 	// what's left (16-10=6 < 10), so C is where playback should resume, live.
 	for i := 0; i < 22; i++ {
-		chip.audio.renderSampleLocked()
+		renderTick(&chip.audio)
 	}
 
 	chip.audioVoiceRelease(1 << 0)
-	// Catch-up resolves within the budget in a single subsequent sample.
-	chip.audio.renderSampleLocked()
+	// Catch-up resolves within the budget in a single subsequent tick.
+	renderTick(&chip.audio)
 
 	chip.audio.mu.Lock()
 	seq := chip.audio.seq[0]
@@ -424,7 +432,7 @@ func TestEmulatedMiaAudioSeqStatusIndexesReadLiveState(t *testing.T) {
 	chip.audioSeqLoadTrack(0)
 	chip.audioSeqStart(1 << 0)
 	chip.audioEnable()
-	chip.audio.renderSampleLocked()
+	renderTick(&chip.audio)
 
 	assert.Equal(t, uint8(1), chip.indexRead(miaAudioIndexSeqVoice0), "note index low byte")
 	assert.Equal(t, uint8(0), chip.indexStepAndRead(miaAudioIndexSeqVoice0, miaIndexWindowA), "note index high byte")
@@ -557,7 +565,7 @@ func TestEmulatedMiaAudioSeqStartWithoutTrackLeavesVoiceStopped(t *testing.T) {
 	chip.audioEnable()
 
 	for i := 0; i < 4; i++ {
-		chip.audio.renderSampleLocked()
+		renderTick(&chip.audio)
 	}
 
 	chip.audio.mu.Lock()

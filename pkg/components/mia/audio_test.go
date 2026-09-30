@@ -29,7 +29,7 @@ func TestEmulatedMiaAudioResetDefaults(t *testing.T) {
 
 	assert.Equal(t, uint8(miaAudioVersion), chip.memory[miaAudioHeaderOffset+miaAudioHeaderVersion])
 	assert.Equal(t, uint8(miaAudioVoiceCount), chip.memory[miaAudioHeaderOffset+miaAudioHeaderChannels])
-	assert.Equal(t, uint16(miaAudioSampleRate), chip.audioReadU16(miaAudioHeaderOffset+miaAudioHeaderRateL))
+	assert.Equal(t, uint16(miaAudioTickRate), chip.audioReadU16(miaAudioHeaderOffset+miaAudioHeaderRateL))
 	assert.Equal(t, miaAudioFlagStereo, chip.memory[miaAudioHeaderOffset+miaAudioHeaderFlags])
 
 	for v := 0; v < miaAudioVoiceCount; v++ {
@@ -160,7 +160,7 @@ func TestEmulatedMiaAudioReAttackOnGateReassert(t *testing.T) {
 }
 
 // TestEmulatedMiaAudioManyLiveWritesNoLoss verifies a long burst of live writes
-// all reach the engine. The firmware queues these for its 24 kHz IRQ and can
+// all reach the engine. The firmware queues these for its 24 kHz tick and can
 // overrun a 64-entry queue; the emulator applies them in lockstep with the CPU,
 // so there is no queue to overrun and nothing is lost or applied in a burst.
 func TestEmulatedMiaAudioManyLiveWritesNoLoss(t *testing.T) {
