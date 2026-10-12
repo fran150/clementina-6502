@@ -237,6 +237,24 @@ func TestVideoLoadFontFlatFullChrDump(t *testing.T) {
 		"bank 1 plane 0 must come from the full-bank offset")
 }
 
+// TestClasciiReverseBankIsExactReverse pins the charset rule the kernel relies
+// on for reverse text (ESC R / CHR_ALT): bank 1 plane 0 holds every bank 0
+// plane 0 glyph with ink and paper swapped, so every glyph reverses, blanks
+// included. The same image ships as MIA's charsets/clascii.bin and is drawn in
+// clementina-rom tools/clascii.mtb.
+func TestClasciiReverseBankIsExactReverse(t *testing.T) {
+	font, err := assets.MiaCharset("clascii")
+	require.NoError(t, err)
+
+	for glyph := 0; glyph < 256; glyph++ {
+		for row := 0; row < 8; row++ {
+			normal := font[glyph*8+row]
+			reversed := font[miaCHRBankSize+glyph*8+row]
+			require.Equalf(t, normal^0xFF, reversed, "glyph $%02X row %d", glyph, row)
+		}
+	}
+}
+
 // Video pre-configures $C0-$DF as the 32 direct OAM sprite indexes. Audio and
 // SD/FS configure their own fixed indexes afterwards, so any ID they share with
 // that range silently steals sprites from the 6502. Every subsystem's fixed
