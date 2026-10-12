@@ -102,11 +102,10 @@ BALL_BANK       = 2             ; CHR bank holding the ball tile
 MAX_X           = 311           ; 320 - 8 - 1
 MAX_Y           = 191           ; 200 - 8 - 1
 
-.segment "ZEROPAGE"
+.segment "ZEROPAGE"             ; $98-$DF, free for programs: BASIC never uses it
 ptr:            .res 2          ; source for copy and print
 
 .segment "BSS"
-saved_ptr:      .res 2          ; BASIC's own contents of ptr's bytes
 mia:            .res 3          ; MIA address for the next seek
 count:          .res 1
 mask:           .res 1
@@ -154,10 +153,6 @@ speed:          .res BALLS * 2  ; DX(0)-DX(4), then DY(0)-DY(4)
 .segment "CODE"
 start:                          ; BLOAD's run address
         cld
-        lda ptr                 ; borrow two zero-page bytes from BASIC
-        sta saved_ptr
-        lda ptr+1
-        sta saved_ptr+1
 
 ; 5 CLS
         lda #CHR_FF
@@ -291,11 +286,7 @@ frame:
 ; 390 PRINT "DEMO DONE"
         print done_text
 
-; Give BASIC its zero page back and return to READY.
-        lda saved_ptr
-        sta ptr
-        lda saved_ptr+1
-        sta ptr+1
+; Return to READY.
         jmp KERN_WARMSTART
 
 ; ---------------------------------------------------------------------------
