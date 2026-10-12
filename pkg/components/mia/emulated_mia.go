@@ -85,6 +85,7 @@ func NewEmulatedMia() components.MiaChip {
 	}
 
 	chip.init()
+	chip.wifiBoot()
 
 	return chip
 }
