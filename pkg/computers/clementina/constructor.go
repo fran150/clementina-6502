@@ -79,13 +79,14 @@ func newClementinaComputer(mia components.MiaChip) (*ClementinaComputer, error) 
 			},
 		},
 
-		// Bus for MIA uses only 5 pins from address bus
+		// MIA is wired to A0-A4 only, so its 32 registers repeat every
+		// 32 bytes across $E000-$FFFF
 		mia: mapperFunctions[uint8, uint16]{
 			MapToSource: func(value uint8, current []uint16) []uint16 {
 				return []uint16{uint16(value) & 0x1F}
 			},
 			MapFromSource: func(value []uint16) uint8 {
-				return uint8(value[0])
+				return uint8(value[0] & 0x1F)
 			},
 		},
 
@@ -123,7 +124,7 @@ func newClementinaComputer(mia components.MiaChip) (*ClementinaComputer, error) 
 	}
 
 	// Create the big port A bus which is a 16-bit bus mapped to port A
-	// This is only used to be able to interface with the HiRAM and ExRAM buses
+	// This is only used to be able to interface with the ExRAM buses
 	// As currently we can only connect buses with the same size
 	bigPortABus := buses.New16BitMappedBus(
 		[]buses.Bus[uint8]{portABus},
@@ -131,9 +132,9 @@ func newClementinaComputer(mia components.MiaChip) (*ClementinaComputer, error) 
 		mappers.portA.MapFromSource,
 	)
 
-	// Create the bus for the HiRAM
+	// Create the bus for MIA (A0-A4 of the address bus)
 	miaBus := buses.New8BitMappedBus(
-		[]buses.Bus[uint16]{addressBus, bigPortABus},
+		[]buses.Bus[uint16]{addressBus},
 		mappers.mia.MapToSource,
 		mappers.mia.MapFromSource,
 	)
