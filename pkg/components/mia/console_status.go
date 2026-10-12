@@ -518,6 +518,7 @@ func (c *emulated_mia) consoleWifiDetail() string {
 	var out strings.Builder
 	out.WriteString("Wi-Fi:\n")
 	fmt.Fprintf(&out, "  mode:       %s\n", modeName)
+	fmt.Fprintf(&out, "  config:     %s\n", c.console.wifiConfigSource)
 	if ssid == "" {
 		out.WriteString("  ssid:       (none)\n")
 	} else {

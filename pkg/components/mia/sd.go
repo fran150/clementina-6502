@@ -329,13 +329,18 @@ func (c *emulated_mia) sdRequireValidHandle() (uint8, bool) {
  **************************************************************************************************/
 
 // SetSDFolder attaches a host folder as the emulated SD card. An empty path
-// detaches the card. The folder is the FAT root; the 6502 must still issue
-// SD_INIT or FS_MOUNT before using it, exactly as with a real card.
+// detaches the card. The folder is the FAT root. It stands for the card being in
+// the slot at power-on, so it repeats MIA's boot: the firmware reads WIFI.CFG
+// before the 6502 starts, which initializes the card and leaves it unmounted.
+// The 6502 then sees MIA_STAT_SD_PRESENT and mounts with FS_MOUNT or any FS
+// command, exactly as with a real card.
 func (c *emulated_mia) SetSDFolder(folder string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.sd.rootDir = folder
+	c.sdCardInit()
+	c.wifiBoot()
 }
 
 // sdResetRuntimeState mirrors mia_sd_reset_runtime_state: it unmounts, closes any

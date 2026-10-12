@@ -50,6 +50,9 @@ type miaConsoleState struct {
 
 	wifiMode miaConsoleWifiMode
 	wifiSSID string
+	// wifiConfigSource and bootLog come from wifiBoot (see wifi_config.go).
+	wifiConfigSource string
+	bootLog          string
 
 	lastDumpAddr   uint32
 	lastDisasmAddr uint32
@@ -95,6 +98,7 @@ func (c *emulated_mia) consoleClose() {
 func (c *emulated_mia) consoleReadLoop() {
 	defer c.console.wg.Done()
 
+	c.consoleWriteString(c.console.bootLog)
 	c.consoleWriteString("MIA ready. Type 'help' for commands.\n")
 	c.consoleWritePrompt()
 
@@ -448,9 +452,7 @@ func (c *emulated_mia) consoleWifi(args string) string {
 	}
 
 	if args == "off" {
-		c.console.wifiMode = miaConsoleWifiOff
-		c.console.wifiSSID = ""
-		return "Wi-Fi: off\n"
+		return c.consoleWifiSetOff()
 	}
 
 	if strings.HasPrefix(args, "ap") && isCommandBoundary(args, 2) {
@@ -472,10 +474,7 @@ func (c *emulated_mia) consoleWifiConnect(args string) string {
 		return "Usage: wifi connect <ssid> [password]\n"
 	}
 
-	c.console.wifiMode = miaConsoleWifiSTA
-	c.console.wifiSSID = ssid
-
-	return fmt.Sprintf("Wi-Fi: connecting to '%s'...\nWi-Fi: connected\n", ssid)
+	return c.consoleWifiSetSTA(ssid)
 }
 
 func (c *emulated_mia) consoleWifiStartAP(args string) string {
@@ -484,6 +483,17 @@ func (c *emulated_mia) consoleWifiStartAP(args string) string {
 		return "Usage: wifi ap <ssid> [password]\n"
 	}
 
+	return c.consoleWifiSetAP(ssid)
+}
+
+func (c *emulated_mia) consoleWifiSetSTA(ssid string) string {
+	c.console.wifiMode = miaConsoleWifiSTA
+	c.console.wifiSSID = ssid
+
+	return fmt.Sprintf("Wi-Fi: connecting to '%s'...\nWi-Fi: connected\n", ssid)
+}
+
+func (c *emulated_mia) consoleWifiSetAP(ssid string) string {
 	c.console.wifiMode = miaConsoleWifiAP
 	c.console.wifiSSID = ssid
 
@@ -491,6 +501,13 @@ func (c *emulated_mia) consoleWifiStartAP(args string) string {
 		"Wi-Fi: AP '%s' active at 192.168.4.1\nWi-Fi: clients must use a static IP in 192.168.4.x/24\n",
 		ssid,
 	)
+}
+
+func (c *emulated_mia) consoleWifiSetOff() string {
+	c.console.wifiMode = miaConsoleWifiOff
+	c.console.wifiSSID = ""
+
+	return "Wi-Fi: off\n"
 }
 
 func (c *emulated_mia) consoleWifiStatus() string {
