@@ -3,8 +3,8 @@ package clementina
 import "testing"
 
 // KJIFFY ($00F7) is the kernel's free-running tick counter, driven by the VIA
-// Timer-1 IRQ. Split out of the old play_test.go (PLAY itself is retired -
-// see track_band_test.go) since this test is unrelated to PLAY.
+// Timer-1 IRQ once per 6250 PHI2 cycles. BASIC no longer uses it; it is
+// published in kernel.inc as a CPU-work counter for machine-code programs.
 
 const addrKJiffy = 0x00F7
 
