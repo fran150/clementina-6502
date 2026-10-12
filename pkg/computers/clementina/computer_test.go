@@ -204,6 +204,24 @@ func TestClementinaEmulatorSpeedUpdatesMiaPhi2(t *testing.T) {
 	assert.Equal(t, uint32(2_500_000), phi2Reader.AppliedPhi2Hz())
 }
 
+// TestClementinaMiaRegistersMirrorAcrossRegion verifies MIA decodes only A0-A4:
+// a write in any 32-byte block of $E000-$FFFF lands on the register at $FFE0-$FFFF.
+func TestClementinaMiaRegistersMirrorAcrossRegion(t *testing.T) {
+	computer, err := NewClementinaComputer()
+	require.NoError(t, err)
+
+	step := common.NewStepContext()
+
+	for base := uint32(0xE000); base < 0x10000; base += 0x20 {
+		value := uint8(base >> 5)
+		writeMiaByte(computer, &step, uint16(base+0x06), value)
+
+		register, ok := computer.peekMappedMemory(0xFFE6)
+		require.True(t, ok)
+		require.Equalf(t, value, register, "write at $%04X should reach CMD_PARAM1 ($FFE6)", base+0x06)
+	}
+}
+
 func tickComputer(computer *ClementinaComputer, step *common.StepContext) {
 	computer.Tick(step)
 	computer.PostTick(step)

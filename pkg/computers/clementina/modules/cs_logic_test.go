@@ -120,7 +120,7 @@ func TestClementinaCSLogicMemoryMapIOMem(t *testing.T) {
 	}
 }
 
-func TestClementinaCSLogicMemoryMapHiMem(t *testing.T) {
+func TestClementinaCSLogicMemoryMapMIA(t *testing.T) {
 	step := common.NewStepContext()
 	circuit := newCSLogicTestCircuit()
 

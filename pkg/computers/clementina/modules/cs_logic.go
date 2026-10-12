@@ -11,7 +11,7 @@ import (
 // This component from the Clementina 6502 computer implements the logic for the CS lines
 // It creates the following map:
 //
-// $E000 - $FFFF High RAM (32 KB banked in 8 KB windows if enabled by pico)
+// $E000 - $FFFF MIA (sees only A0-A4, so its 32 registers repeat every 32 bytes)
 // $C000 - $DFFF IO (8 slots of 1 KB each)
 // $8000 - $BFFF Extended RAM (512 KB banked in 16 KB windows)
 // $0000 - $7FFF Base RAM (32 KB)
@@ -31,7 +31,7 @@ type ClementinaCSLogic struct {
 	// Exposed lines
 	ioCS    buses.Bus[uint8] // I/O output enable
 	exRAMCS buses.Line       // External RAM enable (512 KB banked in 16 KB windows)
-	miaCS   buses.Line       // High RAM enable (32 KB banked in 8 KB windows)
+	miaCS   buses.Line       // MIA enable ($E000-$FFFF)
 
 	// Internal components
 	addressDecoder       components.Decoder74HC138 // U8: slices the upper 32 KB in 8 KB blocks
