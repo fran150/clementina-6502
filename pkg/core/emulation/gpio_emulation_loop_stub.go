@@ -23,14 +23,28 @@ func NewGPIOEmulationLoop(config GPIOEmulationLoopConfig) core.EmulationLoop {
 
 type stubGPIOLoop struct{}
 
+// SetPanicHandler does nothing; the stub never runs.
 func (s *stubGPIOLoop) SetPanicHandler(handler func(loopType string, panicData any) bool) {}
-func (s *stubGPIOLoop) IsRunning() bool                                                   { return false }
-func (s *stubGPIOLoop) IsPaused() bool                                                    { return false }
-func (s *stubGPIOLoop) IsStopping() bool                                                  { return false }
-func (s *stubGPIOLoop) Stop()                                                             {}
-func (s *stubGPIOLoop) Resume()                                                           {}
-func (s *stubGPIOLoop) Pause()                                                            {}
 
+// IsRunning always reports false.
+func (s *stubGPIOLoop) IsRunning() bool { return false }
+
+// IsPaused always reports false.
+func (s *stubGPIOLoop) IsPaused() bool { return false }
+
+// IsStopping always reports false.
+func (s *stubGPIOLoop) IsStopping() bool { return false }
+
+// Stop does nothing.
+func (s *stubGPIOLoop) Stop() {}
+
+// Resume does nothing.
+func (s *stubGPIOLoop) Resume() {}
+
+// Pause does nothing.
+func (s *stubGPIOLoop) Pause() {}
+
+// Start returns an error: GPIO emulation only builds for Linux on ARM.
 func (s *stubGPIOLoop) Start() (*common.StepContext, error) {
 	return nil, fmt.Errorf("GPIO emulation is only supported on Linux systems")
 }

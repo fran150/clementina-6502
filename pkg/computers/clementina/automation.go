@@ -29,6 +29,8 @@ type Automation struct {
 	done            chan struct{}
 }
 
+// AutomationRequest is one JSON request to the automation API. Method selects
+// the operation; the other fields are its arguments.
 type AutomationRequest struct {
 	Version   int    `json:"version"`
 	Method    string `json:"method"`
@@ -41,6 +43,8 @@ type AutomationRequest struct {
 	Down      *bool  `json:"down,omitempty"`
 	Player    *int   `json:"player,omitempty"`
 }
+
+// AutomationState is the CPU and run state returned by automation calls.
 type AutomationState struct {
 	Cycles              string `json:"cycles"`
 	PC                  uint16 `json:"pc"`
@@ -62,11 +66,17 @@ type AutomationBreakpoint struct {
 	Bank    uint8  `json:"bank"`
 }
 
+// AutomationCaller is one entry of a reconstructed call stack: the calling
+// instruction, its ExRAM bank and the kind of call.
 type AutomationCaller struct {
 	PC   uint16 `json:"pc"`
 	Bank uint8  `json:"bank"`
 	Kind string `json:"kind"`
 }
+
+// AutomationStack is the reconstructed call stack. Callers lists the calls the
+// trace can verify, innermost first; UnknownCaller says older callers may exist
+// beyond them.
 type AutomationStack struct {
 	Callers       []AutomationCaller `json:"callers"`
 	UnknownCaller bool               `json:"unknownCaller"`
@@ -84,6 +94,7 @@ type automationCall struct {
 	stackPC uint16
 }
 
+// NewAutomation creates an exclusively owned headless machine with no SD card.
 func NewAutomation() (*Automation, error) {
 	return NewAutomationWithSDFolder("")
 }
@@ -101,6 +112,8 @@ func NewAutomationWithSDFolder(folder string) (*Automation, error) {
 	go a.loop()
 	return a, nil
 }
+
+// Close stops the machine and waits for its run loop to exit.
 func (a *Automation) Close() {
 	a.mu.Lock()
 	if !a.closed {

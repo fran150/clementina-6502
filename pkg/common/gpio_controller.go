@@ -14,6 +14,8 @@ var weGPIO = 16
 var irqbGPIO = 12
 var phi2GPIO = 18
 
+// GPIOController owns the Raspberry Pi GPIO lines wired to the Clementina bus
+// and MIA.
 type GPIOController struct {
 	addressBus   *gpiocdev.Lines
 	dataBus      *gpiocdev.Lines
@@ -27,6 +29,8 @@ type GPIOController struct {
 
 var gpioInterfaceInstance *GPIOController
 
+// GetGPIOController requests the bus lines from the GPIO chip named chipName on
+// first use and returns the shared controller afterwards.
 func GetGPIOController(chipName string) (*GPIOController, error) {
 	if gpioInterfaceInstance == nil {
 		var chip *gpiocdev.Chip
@@ -92,38 +96,47 @@ func GetGPIOController(chipName string) (*GPIOController, error) {
 	return gpioInterfaceInstance, nil
 }
 
+// AddressBus returns the A0-A4 output lines.
 func (g *GPIOController) AddressBus() *gpiocdev.Lines {
 	return g.addressBus
 }
 
+// DataBus returns the D0-D7 lines.
 func (g *GPIOController) DataBus() *gpiocdev.Lines {
 	return g.dataBus
 }
 
+// MiaCS returns the MIA chip-select output line.
 func (g *GPIOController) MiaCS() *gpiocdev.Line {
 	return g.miaCS
 }
 
+// Reset returns the RESB input line.
 func (g *GPIOController) Reset() *gpiocdev.Line {
 	return g.reset
 }
 
+// ResetRequest returns the reset-request output line.
 func (g *GPIOController) ResetRequest() *gpiocdev.Line {
 	return g.resetRequest
 }
 
+// WriteEnable returns the write-enable output line.
 func (g *GPIOController) WriteEnable() *gpiocdev.Line {
 	return g.writeEnable
 }
 
+// Irq returns the IRQB input line.
 func (g *GPIOController) Irq() *gpiocdev.Line {
 	return g.irq
 }
 
+// Phi2 returns the PHI2 clock input line.
 func (g *GPIOController) Phi2() *gpiocdev.Line {
 	return g.phi2
 }
 
+// Close releases every GPIO line.
 func (g *GPIOController) Close() {
 	g.addressBus.Close()
 	g.dataBus.Close()
