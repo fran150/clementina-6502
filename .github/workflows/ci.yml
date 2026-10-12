@@ -25,7 +25,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev
 
       - name: Run tests with coverage
-        run: go test -coverprofile=coverage.txt -covermode=atomic ./...
+        # The clementina package boots the real ROM many times; with coverage it
+        # takes about 7 minutes locally, close to go test's 10-minute default.
+        run: go test -timeout 20m -coverprofile=coverage.txt -covermode=atomic ./...
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
