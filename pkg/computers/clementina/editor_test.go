@@ -212,7 +212,7 @@ func TestClementinaEditorWrapAfterScrollHarvestsWholeLine(t *testing.T) {
 	require.Equal(t, uint8(24), peek(computer, addrCursorY), "cursor should be pinned to the bottom row")
 	require.Equal(t, uint8(0), peek(computer, addrCursorX), "READY.'s own CR should have reset the column")
 
-	line := strings.Repeat("A", 45) // >40: wraps once, well under BASIC's 71-char input cap
+	line := strings.Repeat("A", 45) // >40: wraps once, well under BASIC's 80-char input cap
 	injectKeys(computer, []byte(line)...)
 	injectKeys(computer, keyCR)
 	editorTickN(computer, step, 1_000_000)
