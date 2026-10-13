@@ -92,16 +92,11 @@ func TestGuessingGameReturnsToReady(t *testing.T) {
 	}
 
 	// The CPU must be idle in valid code (editor input wait), never running away
-	// into I/O space ($C000+). Bottom-anchor rework: the loaded image is back
-	// to a fixed low start ($04B7, kernel then WozMon then BASIC growing
-	// upward), so a tighter bound tracking that exact start is possible again -
-	// but $0400 (the start of fixed working RAM/the BGP_* control block) is
-	// just as valid a low bound in practice, since $0400-$04B6 is legitimate
-	// working RAM either way. Kept generous ($0400-$BFFF, the whole non-I/O
-	// flat range) rather than re-tightened, since it still catches the failure
-	// modes that matter (PC in I/O/MIA space, or in the unused zero-page/
-	// stack/vector gaps below $0400) without needing to track the image's
-	// exact size build to build.
+	// into I/O space ($C000+). The loaded image starts at a fixed low address
+	// ($0400, kernel then WozMon then BASIC growing upward), so $0400-$BFFF
+	// covers the whole image and the heap. That catches the failure modes that
+	// matter (PC in I/O/MIA space, or in the zero-page/stack/buffer pages below
+	// $0400) without tracking the image's exact size build to build.
 	pc := computer.chips.cpu.(pcReader)
 	inValidCode := func(p uint16) bool {
 		return p <= 0x0005 || (p >= 0x00C2 && p <= 0x00DE) || (p >= 0x0400 && p <= 0xBFFF)

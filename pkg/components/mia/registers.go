@@ -12,18 +12,18 @@ const (
 
 	// Bottom-anchor rework (clementina-rom, reversing the 2026-09-13
 	// top-anchored/descending design): the loader writes ASCENDING from a
-	// fixed low address, so the image starts exactly at $04B7 (right after
+	// fixed low address, so the image starts exactly at $0400 (right after
 	// working RAM) regardless of how large it grows - kernel+WozMon first,
 	// then BASIC growing upward, reclaimable through $BFFF. One fixed
 	// constant now (both ends of the loader's write and the RESET/NMI/IRQ
 	// vector target coincide, since the jump table sits at the image's own
 	// fixed start), mirroring mia.c in clementina-mia:
-	//   - miaKernelLoadBottomAddress ($04B7): where the loader starts
+	//   - miaKernelLoadBottomAddress ($0400): where the loader starts
 	//     writing, and also the RESET/NMI/IRQ vector target (the start of
 	//     clementina-rom's kernel jump table, KERN_BASE). Never needs to
 	//     change as clementina-rom's image grows or shrinks.
-	miaKernelLoadBottomAddress = 0x04B7
-	miaKernelTargetAddress     = 0x04B7
+	miaKernelLoadBottomAddress = 0x0400
+	miaKernelTargetAddress     = 0x0400
 	miaCPUResetPulseCycles     = 4
 	miaDefaultPhi2Hz           = 1200000
 	miaMinPhi2Hz               = 1
@@ -113,6 +113,6 @@ const (
 )
 
 // MIA ROM bootstrap installed at the load base (miaKernelTargetAddress,
-// $04B7). Embedded at build time so it does not depend on the working
+// $0400). Embedded at build time so it does not depend on the working
 // directory or external files at runtime.
 var miaKernelData = assets.MiaKernel
