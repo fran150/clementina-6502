@@ -22,8 +22,8 @@
 ; Machine interface (clementina-sdk specs/)
 
 ; Kernel jump table (kernel-abi.json)
-KERN_WARMSTART  = $04BA         ; BASIC's READY prompt, bank 0 selected
-KERN_CHROUT     = $04BD         ; prints A; keeps A, X and Y
+KERN_WARMSTART  = $0403         ; BASIC's READY prompt, bank 0 selected
+KERN_CHROUT     = $0406         ; prints A; keeps A, X and Y
 
 CHR_FF          = $0C           ; clears the screen (what CLS prints)
 CHR_CR          = $0D           ; newline

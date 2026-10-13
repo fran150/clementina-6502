@@ -2,11 +2,11 @@ package clementina
 
 import "testing"
 
-// KERN_IRQ ($04E1) is the kernel jump table entry for its IRQ handler, so a
+// KERN_IRQ ($042A) is the kernel jump table entry for its IRQ handler, so a
 // program's own handler can chain to it (clementina-rom docs/memory-map.md §6).
 // KERN_WARMSTART puts the kernel's handler back in IRQ_VEC ($FFFE).
 
-const addrKernIRQ = 0x04E1
+const addrKernIRQ = 0x042A
 
 // TestKernelIRQChainsAndWarmStartRestoresVector checks that KERN_IRQ jumps to the
 // handler the kernel installs at reset, that IRQs routed through it keep KJIFFY
@@ -29,11 +29,11 @@ func TestKernelIRQChainsAndWarmStartRestoresVector(t *testing.T) {
 	// Route IRQs through KERN_IRQ. Timer 1's IRQ is off while the two vector
 	// bytes change ($40/$C0 to VIA_IER at $C00E clear/set it).
 	typeLine(computer, step, "POKE 49166,64")
-	typeLine(computer, step, "POKE 65534,225:POKE 65535,4")
+	typeLine(computer, step, "POKE 65534,42:POKE 65535,4")
 	typeLine(computer, step, "POKE 49166,192")
 	typeLine(computer, step, "A=PEEK(65534):B=PEEK(65535)")
 	typeLine(computer, step, "POKE 642,A:POKE 643,B")
-	require_eq(t, 0xE1, peek(computer, 642), "IRQ_VEC low byte points at KERN_IRQ")
+	require_eq(t, 0x2A, peek(computer, 642), "IRQ_VEC low byte points at KERN_IRQ")
 	require_eq(t, 0x04, peek(computer, 643), "IRQ_VEC high byte points at KERN_IRQ")
 
 	t0 := jiffies(computer)
@@ -42,8 +42,8 @@ func TestKernelIRQChainsAndWarmStartRestoresVector(t *testing.T) {
 		t.Fatalf("KJIFFY advanced by %d through KERN_IRQ, expected ~96", dt)
 	}
 
-	// SYS 1210 is KERN_WARMSTART ($04BA).
-	typeLine(computer, step, "SYS 1210")
+	// SYS 1027 is KERN_WARMSTART ($0403).
+	typeLine(computer, step, "SYS 1027")
 	typeLine(computer, step, "A=PEEK(65534):B=PEEK(65535)")
 	typeLine(computer, step, "POKE 644,A:POKE 645,B")
 	if got := int(peek(computer, 644)) | int(peek(computer, 645))<<8; got != handler {

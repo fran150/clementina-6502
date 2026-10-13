@@ -20,11 +20,11 @@ func TestClementinaPotentialOperatorsReadsMiaRange(t *testing.T) {
 
 	require.NotEmpty(t, assets.MiaKernel)
 	// Bottom-anchor rework: ascending loader - the first byte sent is the
-	// kernel image's *first* byte (meant for the lowest address, $04B7).
+	// kernel image's *first* byte (meant for the lowest address, $0400).
 	firstByte := assets.MiaKernel[0]
 	assert.Equal(t, [2]uint8{0xA9, firstByte}, computer.getPotentialOperators(0xFFE0))
 	assert.Equal(t, [2]uint8{firstByte, 0x8D}, computer.getPotentialOperators(0xFFE1))
-	assert.Equal(t, [2]uint8{0xB7, 0x04}, computer.getPotentialOperators(0xFFE3)) // STA $04B7 operand (load bottom, lo/hi)
+	assert.Equal(t, [2]uint8{0x00, 0x04}, computer.getPotentialOperators(0xFFE3)) // STA $0400 operand (load bottom, lo/hi)
 }
 
 // TestClementinaPotentialOperatorsReadsAcrossMappedRegions verifies per-byte memory mapping.
@@ -128,12 +128,12 @@ func TestClementinaKernelLoads(t *testing.T) {
 	}
 	computer.Reset(false)
 
-	// Bottom-anchor rework: the image starts at the fixed low address $04B7
+	// Bottom-anchor rework: the image starts at the fixed low address $0400
 	// regardless of its size (kernel, then WozMon, then BASIC growing
 	// upward). The loader writes ASCENDING - array index len-1 is written
 	// *last*, not index 0 - so the "ready" probe scans backward from the end
 	// for a non-zero byte, instead of forward from index 0.
-	kernelStart := uint32(0x04B7)
+	kernelStart := uint32(0x0400)
 	kernelReadyOffset := len(assets.MiaKernel) - 1
 	for kernelReadyOffset > 0 && assets.MiaKernel[kernelReadyOffset] == 0 {
 		kernelReadyOffset--
