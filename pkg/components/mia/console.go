@@ -172,9 +172,10 @@ func (c *emulated_mia) consoleHandleInputByte(value byte) {
 		return
 	}
 
-	if value == '\n' {
+	switch value {
+	case '\n':
 		value = '\r'
-	} else if value == 127 {
+	case 127:
 		value = '\b'
 	}
 

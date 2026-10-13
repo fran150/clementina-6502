@@ -4,10 +4,9 @@ import (
 	"testing"
 )
 
-// pcReader / spReader expose CPU state so the test can tell an idle READY wait
-// from a runaway.
+// pcReader exposes the CPU's program counter so the test can tell an idle READY
+// wait from a runaway.
 type pcReader interface{ GetProgramCounter() uint16 }
-type spReader interface{ GetStackPointer() uint8 }
 
 // screenContainsRow reports the first row that contains an ASCII substring
 // (uppercase/digits/punctuation are stored unchanged as overlay tile codes).

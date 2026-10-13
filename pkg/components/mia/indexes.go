@@ -36,13 +36,6 @@ func (c *emulated_mia) indexRead(indexID uint8) uint8 {
 	return c.memory[offset]
 }
 
-// indexWrite stores a byte at the address pointed to by the selected MIA memory index.
-func (c *emulated_mia) indexWrite(indexID uint8, value uint8) {
-	offset := c.memoryOffset(c.indexes[indexID].currentAddr)
-	c.memory[offset] = value
-	c.videoMarkDirty(uint32(offset))
-}
-
 // indexStepAndRead steps an index for a read access and returns the new pointed byte.
 // See indexRead for live sequencer status addresses.
 func (c *emulated_mia) indexStepAndRead(indexID uint8, window miaIndexWindow) uint8 {

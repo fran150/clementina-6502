@@ -551,7 +551,7 @@ func (c *emulated_mia) sdPublishState() {
  **************************************************************************************************/
 
 func (c *emulated_mia) sdService(command uint8) {
-	ok := true
+	var ok bool
 	var errorCode uint8
 	fr := frOK
 	var loaded uint32

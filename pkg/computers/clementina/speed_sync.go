@@ -27,23 +27,26 @@ func newMiaSyncedSpeedController(computer *ClementinaComputer, controller core.S
 	return synced
 }
 
+// SpeedUp raises the target speed and asks MIA for the matching PHI2.
 func (s *miaSyncedSpeedController) SpeedUp() {
 	s.SpeedController.SpeedUp()
 	s.syncMiaFromTarget()
 }
 
+// SpeedDown lowers the target speed and asks MIA for the matching PHI2.
 func (s *miaSyncedSpeedController) SpeedDown() {
 	s.SpeedController.SpeedDown()
 	s.syncMiaFromTarget()
 }
 
+// SetTargetSpeed sets the target speed in MHz and asks MIA for the matching PHI2.
 func (s *miaSyncedSpeedController) SetTargetSpeed(speedMhz float64) {
 	s.SpeedController.SetTargetSpeed(speedMhz)
 	s.syncMiaFromTarget()
 }
 
 func (s *miaSyncedSpeedController) syncMiaFromTarget() {
-	s.computer.RequestMiaPhi2Hz(mhzToHz(s.SpeedController.GetTargetSpeed()))
+	s.computer.RequestMiaPhi2Hz(mhzToHz(s.GetTargetSpeed()))
 }
 
 func mhzToHz(speedMhz float64) uint32 {

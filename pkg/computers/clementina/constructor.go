@@ -11,10 +11,14 @@ import (
 	"github.com/fran150/clementina-6502/pkg/computers/clementina/modules"
 )
 
+// NewClementinaComputer creates a Clementina computer with an emulated MIA and
+// no UDP services.
 func NewClementinaComputer() (*ClementinaComputer, error) {
 	return newClementinaComputer(mia.NewEmulatedMia())
 }
 
+// NewClementinaComputerWithVideoUDP creates a Clementina computer whose emulated
+// MIA serves UDP video on bindAddress.
 func NewClementinaComputerWithVideoUDP(bindAddress string) (*ClementinaComputer, error) {
 	chip, err := mia.NewEmulatedMiaWithVideoUDP(bindAddress)
 	if err != nil {
@@ -40,6 +44,8 @@ func NewClementinaComputerWithUDP(videoAddress, inputAddress string) (*Clementin
 	return newClementinaComputer(chip)
 }
 
+// NewClementinaGPIOComputer creates a Clementina computer that talks to a real
+// MIA through the Raspberry Pi GPIO chip named chipName.
 func NewClementinaGPIOComputer(chipName string) (*ClementinaComputer, error) {
 	chip, err := mia.NewPicoMia(chipName)
 	if err != nil {

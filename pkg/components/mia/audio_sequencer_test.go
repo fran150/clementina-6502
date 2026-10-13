@@ -15,10 +15,6 @@ func seqNoteEvent(freq uint16, dur uint32) []byte {
 	}
 }
 
-func seqRestEvent(dur uint32) []byte {
-	return []byte{miaSeqOpRest, byte(dur), byte(dur >> 8), byte(dur >> 16)}
-}
-
 // seqJumpEvent encodes a JUMP opcode with a signed 24-bit little-endian
 // offset, relative to the byte right after this 4-byte record.
 func seqJumpEvent(offset int32) []byte {
@@ -150,7 +146,10 @@ func TestEmulatedMiaAudioSeqConcurrentRAMWrites(t *testing.T) {
 		defer close(done)
 		frame := make([]byte, 4)
 		for range 1000 {
-			reader.Read(frame)
+			if _, err := reader.Read(frame); err != nil {
+				t.Error(err)
+				return
+			}
 		}
 	}()
 	for i := range 1000 {

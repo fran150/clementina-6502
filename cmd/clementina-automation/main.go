@@ -58,15 +58,23 @@ func main() {
 			result, err = machine.Execute(request)
 		}
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]any{"version": 1, "ok": false, "error": err.Error()})
+			writeJSON(w, map[string]any{"version": 1, "ok": false, "error": err.Error()})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]any{"version": 1, "ok": true, "result": result})
+		writeJSON(w, map[string]any{"version": 1, "ok": true, "result": result})
 	})
 	fmt.Printf("http://%s/v1\n", listener.Addr())
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second}
 	if err := server.Serve(listener); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
+	}
+}
+
+// writeJSON sends one response object. A failed write means the client has
+// gone away, so the error is only reported on stderr.
+func writeJSON(w io.Writer, value any) {
+	if err := json.NewEncoder(w).Encode(value); err != nil {
+		fmt.Fprintln(os.Stderr, "write response:", err)
 	}
 }

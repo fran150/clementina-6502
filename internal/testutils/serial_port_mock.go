@@ -77,6 +77,7 @@ func (port *SerialPortMock) checkError(calledFrom failInFunction) error {
 	}
 }
 
+// SetFailure makes the mock return an error from the given method.
 func (port *SerialPortMock) SetFailure(calledFrom failInFunction) {
 	port.makeCallsFailFrom.Store(int32(calledFrom))
 }
@@ -243,6 +244,7 @@ func (port *SerialPortMock) TerminalSend(values []byte) {
 	}
 }
 
+// SetCTS sets the Clear To Send status the mock reports.
 func (port *SerialPortMock) SetCTS(value bool) {
 	port.mu.Lock()
 	defer port.mu.Unlock()
@@ -250,6 +252,7 @@ func (port *SerialPortMock) SetCTS(value bool) {
 	port.Status.CTS = value
 }
 
+// SetDSR sets the Data Set Ready status the mock reports.
 func (port *SerialPortMock) SetDSR(value bool) {
 	port.mu.Lock()
 	defer port.mu.Unlock()
@@ -257,6 +260,7 @@ func (port *SerialPortMock) SetDSR(value bool) {
 	port.Status.DSR = value
 }
 
+// SetDCD sets the Data Carrier Detect status the mock reports.
 func (port *SerialPortMock) SetDCD(value bool) {
 	port.mu.Lock()
 	defer port.mu.Unlock()
@@ -264,6 +268,7 @@ func (port *SerialPortMock) SetDCD(value bool) {
 	port.Status.DCD = value
 }
 
+// GetDTR returns the Data Terminal Ready line as last set on the mock.
 func (port *SerialPortMock) GetDTR() bool {
 	port.mu.RLock()
 	defer port.mu.RUnlock()
@@ -271,6 +276,7 @@ func (port *SerialPortMock) GetDTR() bool {
 	return port.DTR
 }
 
+// GetRTS returns the Request To Send line as last set on the mock.
 func (port *SerialPortMock) GetRTS() bool {
 	port.mu.RLock()
 	defer port.mu.RUnlock()
@@ -278,6 +284,7 @@ func (port *SerialPortMock) GetRTS() bool {
 	return port.RTS
 }
 
+// GetMode returns a copy of the mode last set on the mock.
 func (port *SerialPortMock) GetMode() *serial.Mode {
 	port.mu.RLock()
 	defer port.mu.RUnlock()
