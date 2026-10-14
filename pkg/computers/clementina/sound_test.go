@@ -92,6 +92,39 @@ func TestBasicSoundClearResetsBlock(t *testing.T) {
 	require_eq(t, 0xFF, peekAudio(computer, voiceField(0, 8)), "VOLUME back to unity")
 }
 
+// TestBasicSoundNoteRestartsSoundingNote verifies NOTE over a note that is
+// still sounding starts a new one: MIA restarts the envelope only on the
+// gate's rising edge, so NOTE drops the gate before raising it. The engine is
+// forced active without a host device (see DebugSetAudioActive) so the
+// writes reach it.
+func TestBasicSoundNoteRestartsSoundingNote(t *testing.T) {
+	computer, step := bootClementinaToPrompt(t)
+	audio := computer.chips.mia.(interface {
+		audioAdvancer
+		DebugAudioFlush()
+	})
+	audio.DebugSetAudioActive(true)
+
+	typeLine(computer, step, "ADSR 0,12,0,15,0 : NOTE 0,48") // 1 s attack
+	audio.DebugAudioFlush()
+	audio.DebugAudioReadPCM(2400) // 50 ms into the attack
+	_, _, adsr, vol := audio.DebugAudioVoiceState(0)
+	require_eq(t, 1, adsr, "first note is in its attack")
+	if vol == 0 {
+		t.Fatal("first note's envelope never rose")
+	}
+
+	typeLine(computer, step, "NOTE 0,50")
+	audio.DebugAudioFlush()
+	freq, control, adsr, vol := audio.DebugAudioVoiceState(0)
+	require_eq_u16(t, 0x1260, freq, "D4 (note_freq(50) = 294<<4)")
+	require_eq(t, 0x03, control, "gate+reset-phase")
+	require_eq(t, 1, adsr, "second note restarts its attack")
+	if vol != 0 {
+		t.Fatalf("second note's envelope must restart from silence, got %d", vol)
+	}
+}
+
 func TestBasicSoundIllegalQuantityRecovers(t *testing.T) {
 	cases := []string{
 		"WAVE 0,9",        // waveform 9 > 4

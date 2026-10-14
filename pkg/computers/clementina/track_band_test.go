@@ -143,6 +143,33 @@ func TestBasicTrackWaveToken(t *testing.T) {
 	require_eq(t, 0x01, peekSeq(computer, 2, 2), "opcode NOTE follows immediately (zero duration)")
 }
 
+// TestBasicTrackTieToken verifies & compiles the next note to TIE ($09)
+// instead of NOTE, and does nothing when there is no sounding note for it to
+// continue: at the start, after a rest, or across the loop point (the JUMP
+// back to | may follow a rest, so the note there must start fresh).
+func TestBasicTrackTieToken(t *testing.T) {
+	computer, step := bootClementinaToPrompt(t)
+
+	typeLine(computer, step, `10 TRACK 0,"C&D E"`)
+	typeLine(computer, step, `20 TRACK 1,"&C R&D"`)
+	typeLine(computer, step, `30 TRACK 2,"C&|D"`)
+	typeLine(computer, step, "40 GOTO 40")
+	typeLine(computer, step, "RUN")
+	editorTickN(computer, step, 3_000_000)
+
+	require_eq(t, 0x01, peekSeq(computer, 0, 0), "C starts a note")
+	require_eq(t, 0x09, peekSeq(computer, 0, 6), "D after & is a TIE")
+	require_eq(t, 0x01, peekSeq(computer, 0, 12), "E without & starts a new note")
+	require_eq(t, 0x00, peekSeq(computer, 0, 18), "END")
+
+	require_eq(t, 0x01, peekSeq(computer, 1, 0), "a leading & has no note to tie to")
+	require_eq(t, 0x02, peekSeq(computer, 1, 6), "REST")
+	require_eq(t, 0x01, peekSeq(computer, 1, 10), "& after a rest has no note to tie to")
+
+	require_eq(t, 0x01, peekSeq(computer, 2, 0), "C starts a note")
+	require_eq(t, 0x01, peekSeq(computer, 2, 6), "the note at the loop point starts fresh")
+}
+
 // TestBasicTrackExplicitAddress verifies TRACK's optional third argument
 // relocates a voice's track to an arbitrary MIA RAM address instead of the
 // BASIC's own per-voice default, and that BAND/PLAYING still work from there -
@@ -246,4 +273,3 @@ func TestBasicCueBeforeStart(t *testing.T) {
 
 	require_eq(t, 0, peek(computer, addrScratch), "CUE(3) before BAND starts it")
 }
-

@@ -619,7 +619,7 @@ func (c *emulated_mia) audioResetRuntimeState() {
 	c.memory[miaAudioHeaderOffset+miaAudioHeaderVersion] = miaAudioVersion
 	c.memory[miaAudioHeaderOffset+miaAudioHeaderVolume] = miaAudioMasterVolumeDefault
 	c.memory[miaAudioHeaderOffset+miaAudioHeaderChannels] = miaAudioVoiceCount
-	c.audioWriteU16(miaAudioHeaderOffset+miaAudioHeaderRateL, miaAudioTickRate) // the unit of NOTE/REST durations
+	c.audioWriteU16(miaAudioHeaderOffset+miaAudioHeaderRateL, miaAudioTickRate) // the unit of NOTE/TIE/REST durations
 	c.memory[miaAudioHeaderOffset+miaAudioHeaderFlags] = miaAudioFlagStereo
 	a.masterVolume = miaAudioMasterVolumeDefault
 

@@ -39,7 +39,10 @@ const (
 	// stopped. Nothing in MIA RAM is reserved for tracks.
 	miaSeqNoBase uint32 = 0xFFFFFFFF
 
-	miaSeqOpEnd      uint8 = 0x00
+	miaSeqOpEnd uint8 = 0x00
+	// miaSeqOpNote: freq_l, freq_h, dur(3) - always starts a new note: the
+	// gate drops and rises again, so the envelope restarts from attack even
+	// if the previous event was a NOTE.
 	miaSeqOpNote     uint8 = 0x01
 	miaSeqOpRest     uint8 = 0x02
 	miaSeqOpSetWave  uint8 = 0x03
@@ -53,6 +56,13 @@ const (
 	// Zero-duration, does not advance noteIndex. "Loop the whole track" is
 	// just a JUMP back to the top - there is no separate loop opcode.
 	miaSeqOpJump uint8 = 0x08
+	// miaSeqOpTie: freq_l, freq_h, dur(3) - like NOTE but, while the gate is
+	// up, writes only the frequency: gate, phase and envelope carry on, so it
+	// continues the sounding note (a tie, a legato pitch change, or one step
+	// of a pitch slide). With the voice released (after a REST, or at the
+	// start) there is no note to continue, and TIE starts one exactly like
+	// NOTE.
+	miaSeqOpTie uint8 = 0x09
 
 	// Live sequencer status, read through any index pointing at these bytes.
 	miaAudioVoiceSeqNoteIndexL       = 0x09
@@ -89,7 +99,7 @@ const (
 	// Max zero-duration opcodes (SET_*/JUMP) decoded in a row within a
 	// single seqAdvance call before it gives up and stops the voice,
 	// mirroring MIA_SEQ_DECODE_BUDGET - without this, a track whose JUMPs
-	// cycle with no NOTE/REST/END in between would spin forever.
+	// cycle with no NOTE/TIE/REST/END in between would spin forever.
 	miaSeqDecodeBudget = 32
 )
 
@@ -97,7 +107,7 @@ const (
 // byte included, or 0 for END/unrecognized - mirroring audio_seq_record_size.
 func miaSeqRecordSize(op uint8) uint8 {
 	switch op {
-	case miaSeqOpNote:
+	case miaSeqOpNote, miaSeqOpTie:
 		return 6 // op + freq_l + freq_h + dur(3)
 	case miaSeqOpRest:
 		return 4 // op + dur(3)
@@ -116,14 +126,26 @@ func miaSeqReadDuration24(buf []byte, offset uint32) uint32 {
 	return uint32(buf[offset]) | uint32(buf[offset+1])<<8 | uint32(buf[offset+2])<<16
 }
 
-// miaSeqEventTicks mirrors audio_seq_event_ticks: a NOTE/REST lasts exactly
+// miaSeqIsTimed mirrors audio_seq_is_timed: NOTE, TIE and REST are the timed
+// events, which consume time and advance noteIndex. Everything else is
+// zero-duration.
+func miaSeqIsTimed(op uint8) bool {
+	return op == miaSeqOpNote || op == miaSeqOpTie || op == miaSeqOpRest
+}
+
+// miaSeqEventTicks mirrors audio_seq_event_ticks: a timed event lasts exactly
 // dur ticks, counting the tick that decodes it, so the next event decodes dur
-// ticks later. dur = 0 still takes that one tick.
-func miaSeqEventTicks(dur uint32) uint32 {
-	if dur == 0 {
-		return 1
+// ticks later. dur = 0 still takes that one tick. NOTE and TIE carry dur after
+// their two frequency bytes, REST right after the opcode.
+func miaSeqEventTicks(buf []byte, cursor uint32, op uint8) uint32 {
+	offset := cursor + 3
+	if op == miaSeqOpRest {
+		offset = cursor + 1
 	}
-	return dur
+	if dur := miaSeqReadDuration24(buf, offset); dur != 0 {
+		return dur
+	}
+	return 1
 }
 
 // miaSeqJumpTarget resolves a JUMP's 3-byte signed offset (stored at
@@ -154,7 +176,7 @@ type miaAudioSeqVoice struct {
 	eventDuration uint32 // full length of the current event in ticks (0 for none yet)
 	catchupRemain uint32 // ticks still to silently skip during catch-up
 	takenAt       uint32 // seqClock snapshot when VOICE_TAKE was issued
-	noteIndex     uint16 // 1-based index of the current note/rest; 0 = not started
+	noteIndex     uint16 // 1-based index of the current NOTE/TIE/REST; 0 = not started
 }
 
 /**************************************************************************************************
@@ -173,11 +195,39 @@ func (a *miaAudioState) seqGate(voice int, on bool) {
 	a.seqWriteReg(voice, miaAudioVoiceControl, control)
 }
 
-func (a *miaAudioState) seqApplyNote(voice int, cursor uint32) {
+func (a *miaAudioState) seqApplyFreq(voice int, cursor uint32) {
 	buf := a.seqRAM[voice][:]
 	a.seqWriteReg(voice, miaAudioVoiceFreqL, buf[cursor+1])
 	a.seqWriteReg(voice, miaAudioVoiceFreqH, buf[cursor+2])
+}
+
+// seqApplyNote starts a new note. The envelope only restarts on the gate's
+// rising edge, so the gate drops first: a NOTE straight after a NOTE still
+// gets its own attack. Continuing the sounding note is TIE's job. Mirrors
+// audio_seq_apply_note.
+func (a *miaAudioState) seqApplyNote(voice int, cursor uint32) {
+	a.seqApplyFreq(voice, cursor)
+	a.seqGate(voice, false)
 	a.seqGate(voice, true)
+}
+
+// seqApplyTimed applies the timed event (NOTE, TIE or REST) at cursor as the
+// current event. A TIE continues the sounding note only while the gate is up;
+// with the voice released there is nothing to continue, so it starts a new
+// note. Resuming from catch-up passes resume = true: the note a TIE continues
+// was skipped, so it starts a new note then too. Mirrors
+// audio_seq_apply_timed.
+func (a *miaAudioState) seqApplyTimed(voice int, cursor uint32, op uint8, resume bool) {
+	gated := a.voices[voice].control&miaAudioControlGate != 0
+
+	switch {
+	case op == miaSeqOpTie && gated && !resume:
+		a.seqApplyFreq(voice, cursor)
+	case op == miaSeqOpNote || op == miaSeqOpTie:
+		a.seqApplyNote(voice, cursor)
+	default:
+		a.seqGate(voice, false)
+	}
 }
 
 func (a *miaAudioState) seqApplyConfigOp(voice int, cursor uint32, op uint8) {
@@ -208,13 +258,14 @@ func (a *miaAudioState) seqFinishTrack(voice int) {
 }
 
 // seqAdvance decodes and applies config/JUMP opcodes at the current cursor,
-// live, until a NOTE/REST becomes the new current (audible) event, or
+// live, until a timed event (NOTE, TIE or REST) becomes the new current
+// (audible) event, or
 // END/an unrecognized byte/running off the snapshot stops the track. Mirrors
 // audio_seq_advance.
 //
 // Bounded by miaSeqDecodeBudget: JUMP and the SET_* opcodes are all
 // zero-duration and loop straight back to the top without returning, so a
-// track whose jumps cycle with no NOTE/REST/END in between would otherwise
+// track whose jumps cycle with no NOTE/TIE/REST/END in between would otherwise
 // spin this call forever - fail-safe, silent, exactly like an unrecognized
 // opcode byte.
 func (a *miaAudioState) seqAdvance(voice int) {
@@ -236,15 +287,9 @@ func (a *miaAudioState) seqAdvance(voice int) {
 			return
 		}
 
-		if op == miaSeqOpNote || op == miaSeqOpRest {
-			var ticks uint32
-			if op == miaSeqOpNote {
-				ticks = miaSeqEventTicks(miaSeqReadDuration24(buf, seq.cursor+3))
-				a.seqApplyNote(voice, seq.cursor)
-			} else {
-				ticks = miaSeqEventTicks(miaSeqReadDuration24(buf, seq.cursor+1))
-				a.seqGate(voice, false)
-			}
+		if miaSeqIsTimed(op) {
+			ticks := miaSeqEventTicks(buf, seq.cursor, op)
+			a.seqApplyTimed(voice, seq.cursor, op, false)
 			seq.noteIndex++
 			seq.eventDuration = ticks
 			seq.countdown = ticks - 1
@@ -299,13 +344,8 @@ func (a *miaAudioState) seqCatchupStep(voice int) {
 			continue
 		}
 
-		if op == miaSeqOpNote || op == miaSeqOpRest {
-			var ticks uint32
-			if op == miaSeqOpNote {
-				ticks = miaSeqEventTicks(miaSeqReadDuration24(buf, seq.cursor+3))
-			} else {
-				ticks = miaSeqEventTicks(miaSeqReadDuration24(buf, seq.cursor+1))
-			}
+		if miaSeqIsTimed(op) {
+			ticks := miaSeqEventTicks(buf, seq.cursor, op)
 
 			if ticks <= seq.catchupRemain {
 				// Fully in the past: skip it silently, no register writes.
@@ -317,11 +357,7 @@ func (a *miaAudioState) seqCatchupStep(voice int) {
 
 			// Not fully elapsed: this is the event to resume on, live, in full.
 			seq.catchingUp = false
-			if op == miaSeqOpNote {
-				a.seqApplyNote(voice, seq.cursor)
-			} else {
-				a.seqGate(voice, false)
-			}
+			a.seqApplyTimed(voice, seq.cursor, op, true)
 			seq.noteIndex++
 			seq.eventDuration = ticks
 			seq.countdown = ticks - 1
