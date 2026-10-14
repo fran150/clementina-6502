@@ -79,7 +79,12 @@ func (s *SpeedWindow) Draw(context *common.StepContext) {
 			cycles := context.Cycle - s.previousC
 			elapsedMicro := (float64(context.T) - float64(s.previousT)) / float64(time.Microsecond)
 
-			mhz := (float64(cycles) / elapsedMicro)
+			// The GPIO loop stops refreshing T while paused, so no time may have
+			// passed since the last frame; report 0 instead of dividing by zero.
+			mhz := 0.0
+			if elapsedMicro > 0 {
+				mhz = float64(cycles) / elapsedMicro
+			}
 
 			fmt.Fprintf(s.text, "[white]%0.8f Mhz", mhz)
 		}

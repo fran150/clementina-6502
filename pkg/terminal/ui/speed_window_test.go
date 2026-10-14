@@ -96,6 +96,23 @@ func TestSpeedWindow_Draw(t *testing.T) {
 	}
 }
 
+func TestSpeedWindow_DrawWithoutElapsedTime(t *testing.T) {
+	controller := controllers.NewSpeedController(1.0)
+	sw := NewSpeedWindow(controller)
+
+	// A paused GPIO loop moves neither the cycle count nor the time stamp.
+	context := &common.StepContext{
+		T:     1000000,
+		Cycle: 1000,
+	}
+
+	sw.Draw(context)
+	sw.Clear()
+	sw.Draw(context)
+
+	assert.Equal(t, "0.00000000 Mhz", sw.text.GetText(true))
+}
+
 func TestSpeedWindow_Clear(t *testing.T) {
 	targetSpeedMhz := 1.0
 
