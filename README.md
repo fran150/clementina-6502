@@ -217,7 +217,6 @@ go tool pprof -http :8080 clementina6502.prof
 
 ## Known Issues and Limitations
 
-1. Execution Speed Control: The initial implementation featured automatic execution speed control (configurable in MHz). However, due to timer resolution limitations in Windows, the system now uses cycle skipping instead. Performance improvements are planned for future releases.
 1. Modem Line Emulation: The modem line emulation features have not been tested.
 1. Serial port functionality has been tested using `socat` only, pending verification with a real port and terminal emulator.
 
