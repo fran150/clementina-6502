@@ -172,6 +172,8 @@ func (e *emulationLoop) Pause() {
 *************************************************************************************/
 
 // executeLoop runs the main emulation loop that processes CPU cycles.
+// A cyclePacer decides when each cycle is due. When none is due, or while paused, the
+// loop sleeps instead of spinning, waking in time for the next display refresh.
 //
 // Parameters:
 //   - context: The step context for emulation state
@@ -184,10 +186,14 @@ func (e *emulationLoop) executeLoop(context *common.StepContext) {
 		}
 	}()
 
-	var lastTPSExecuted, targetTPSNano int64
-	var lastSpeedCheck int64
 	drawInterval := time.Second / time.Duration(e.config.DisplayFPS)
 	nextDraw := time.Now().Add(drawInterval)
+
+	context.SkipCycle()
+	nanosPerCycle := e.config.SpeedController.GetNanosPerCycle()
+	lastSpeedCheck := context.T
+	pacer := cyclePacer{}
+	pacer.reset(context.T)
 
 	e.tickLoopRunning.Store(true)
 	e.drawLoopRunning.Store(true)
@@ -202,18 +208,34 @@ func (e *emulationLoop) executeLoop(context *common.StepContext) {
 		}
 
 		if (context.T - lastSpeedCheck) > e.config.RefreshNanos {
-			targetTPSNano = int64(e.config.SpeedController.GetNanosPerCycle())
+			nanosPerCycle = e.config.SpeedController.GetNanosPerCycle()
 			lastSpeedCheck = context.T
 		}
 
-		if (context.T-lastTPSExecuted) > targetTPSNano && !e.pause.Load() {
-			lastTPSExecuted = context.T
+		if e.pause.Load() {
+			pacer.reset(context.T)
+			sleepUntil(pacerSleepSlice, nextDraw)
+			context.SkipCycle()
+		} else if pacer.tick(context.T, nanosPerCycle) {
 			e.config.Emulator.Tick(context)
 			e.config.Emulator.PostTick(context)
 			context.NextCycle()
 		} else {
+			sleepUntil(pacer.wait(context.T), nextDraw)
 			context.SkipCycle()
 		}
+	}
+}
+
+// sleepUntil sleeps for the given duration, cut short so the loop wakes by the deadline.
+//
+// Parameters:
+//   - duration: How long to sleep
+//   - deadline: The latest time to wake up
+func sleepUntil(duration time.Duration, deadline time.Time) {
+	duration = min(duration, time.Until(deadline))
+	if duration > 0 {
+		time.Sleep(duration)
 	}
 }
 
