@@ -116,6 +116,16 @@ func miaSeqReadDuration24(buf []byte, offset uint32) uint32 {
 	return uint32(buf[offset]) | uint32(buf[offset+1])<<8 | uint32(buf[offset+2])<<16
 }
 
+// miaSeqEventTicks mirrors audio_seq_event_ticks: a NOTE/REST lasts exactly
+// dur ticks, counting the tick that decodes it, so the next event decodes dur
+// ticks later. dur = 0 still takes that one tick.
+func miaSeqEventTicks(dur uint32) uint32 {
+	if dur == 0 {
+		return 1
+	}
+	return dur
+}
+
 // miaSeqJumpTarget resolves a JUMP's 3-byte signed offset (stored at
 // cursor+1) into a new cursor, relative to the position right after this
 // 4-byte record. cursor here is the snapshot-relative offset seqAdvance
@@ -140,8 +150,8 @@ type miaAudioSeqVoice struct {
 
 	trackBase     uint32 // this voice's track base, set by audioSeqSetBase
 	cursor        uint32 // offset within this voice's seqRAM buffer (snapshot-relative)
-	countdown     uint32 // ticks remaining until the current event ends
-	eventDuration uint32 // full duration of the current event
+	countdown     uint32 // ticks the current event still holds after the one being played
+	eventDuration uint32 // full length of the current event in ticks (0 for none yet)
 	catchupRemain uint32 // ticks still to silently skip during catch-up
 	takenAt       uint32 // seqClock snapshot when VOICE_TAKE was issued
 	noteIndex     uint16 // 1-based index of the current note/rest; 0 = not started
@@ -227,17 +237,17 @@ func (a *miaAudioState) seqAdvance(voice int) {
 		}
 
 		if op == miaSeqOpNote || op == miaSeqOpRest {
-			var dur uint32
+			var ticks uint32
 			if op == miaSeqOpNote {
-				dur = miaSeqReadDuration24(buf, seq.cursor+3)
+				ticks = miaSeqEventTicks(miaSeqReadDuration24(buf, seq.cursor+3))
 				a.seqApplyNote(voice, seq.cursor)
 			} else {
-				dur = miaSeqReadDuration24(buf, seq.cursor+1)
+				ticks = miaSeqEventTicks(miaSeqReadDuration24(buf, seq.cursor+1))
 				a.seqGate(voice, false)
 			}
 			seq.noteIndex++
-			seq.eventDuration = dur
-			seq.countdown = dur
+			seq.eventDuration = ticks
+			seq.countdown = ticks - 1
 			seq.cursor += uint32(size)
 			return
 		}
@@ -290,16 +300,16 @@ func (a *miaAudioState) seqCatchupStep(voice int) {
 		}
 
 		if op == miaSeqOpNote || op == miaSeqOpRest {
-			var dur uint32
+			var ticks uint32
 			if op == miaSeqOpNote {
-				dur = miaSeqReadDuration24(buf, seq.cursor+3)
+				ticks = miaSeqEventTicks(miaSeqReadDuration24(buf, seq.cursor+3))
 			} else {
-				dur = miaSeqReadDuration24(buf, seq.cursor+1)
+				ticks = miaSeqEventTicks(miaSeqReadDuration24(buf, seq.cursor+1))
 			}
 
-			if dur <= seq.catchupRemain {
+			if ticks <= seq.catchupRemain {
 				// Fully in the past: skip it silently, no register writes.
-				seq.catchupRemain -= dur
+				seq.catchupRemain -= ticks
 				seq.noteIndex++
 				seq.cursor += uint32(size)
 				continue
@@ -313,8 +323,8 @@ func (a *miaAudioState) seqCatchupStep(voice int) {
 				a.seqGate(voice, false)
 			}
 			seq.noteIndex++
-			seq.eventDuration = dur
-			seq.countdown = dur
+			seq.eventDuration = ticks
+			seq.countdown = ticks - 1
 			seq.cursor += uint32(size)
 			return
 		}

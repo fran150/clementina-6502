@@ -113,7 +113,7 @@ func TestEmulatedMiaAudioSeqReadsCPUWritesAfterLoad(t *testing.T) {
 		circuit.write(miaRegIdxAPort, b)
 	}
 
-	for range 2 * miaAudioSamplesPerTick { // two ticks: finish the first note, then decode the newly written note
+	for range miaAudioSamplesPerTick { // finish the first note's single tick, then decode the newly written note
 		n, err = reader.Read(frame)
 		require.NoError(t, err)
 		require.Equal(t, 4, n)
@@ -182,22 +182,20 @@ func TestEmulatedMiaAudioSeqPlaysAndLoops(t *testing.T) {
 	chip.audioEnable()
 
 	// Note 1 triggers on the very first render (countdown starts at 0).
-	renderTick(&chip.audio) // call 1: trigger note 1, countdown=2
+	renderTick(&chip.audio) // call 1: trigger note 1, countdown=1
 	assert.Equal(t, uint16(0x1111), chip.audio.voices[0].freqQ4)
 	assert.Equal(t, uint16(1), chip.audio.seq[0].noteIndex)
 
-	// countdown=2 holds note 1 for two more renders (calls 2,3: 2->1->0)
-	// before call 4 finds countdown==0 and advances to note 2.
+	// Note 1 lasts exactly 2 ticks: call 2 counts 1->0, then call 3 finds
+	// countdown==0 and advances to note 2.
 	renderTick(&chip.audio) // call 2
-	renderTick(&chip.audio) // call 3
-	renderTick(&chip.audio) // call 4: advance -> trigger note 2, countdown=1
+	renderTick(&chip.audio) // call 3: advance -> trigger note 2, countdown=0
 	assert.Equal(t, uint16(0x2222), chip.audio.voices[0].freqQ4)
 	assert.Equal(t, uint16(2), chip.audio.seq[0].noteIndex)
 
-	// countdown=1 holds note 2 for one more render (call 5: 1->0), then call
-	// 6 finds countdown==0, decodes JUMP, and loops back to note 1.
-	renderTick(&chip.audio) // call 5
-	renderTick(&chip.audio) // call 6: advance -> JUMP -> trigger note 1 again
+	// Note 2 lasts exactly 1 tick, so call 4 decodes JUMP and loops back to
+	// note 1.
+	renderTick(&chip.audio) // call 4: advance -> JUMP -> trigger note 1 again
 	assert.Equal(t, uint16(0x1111), chip.audio.voices[0].freqQ4)
 	assert.Equal(t, uint16(3), chip.audio.seq[0].noteIndex, "JUMP does not reset note index like the old header-based loop did - it just keeps counting")
 	assert.True(t, chip.audio.seq[0].running)
@@ -223,16 +221,14 @@ func TestEmulatedMiaAudioSeqJumpLoopsToArbitraryOffset(t *testing.T) {
 	chip.audioSeqStart(1 << 0)
 	chip.audioEnable()
 
-	renderTick(&chip.audio) // call 1: trigger intro, countdown=1
+	renderTick(&chip.audio) // call 1: trigger intro, countdown=0
 	assert.Equal(t, uint16(0x1111), chip.audio.voices[0].freqQ4)
 
-	renderTick(&chip.audio) // call 2: countdown 1->0
-	renderTick(&chip.audio) // call 3: advance -> trigger body, countdown=1
+	renderTick(&chip.audio) // call 2: advance -> trigger body, countdown=0
 	assert.Equal(t, uint16(0x2222), chip.audio.voices[0].freqQ4)
 	assert.Equal(t, uint16(2), chip.audio.seq[0].noteIndex)
 
-	renderTick(&chip.audio) // call 4: countdown 1->0
-	renderTick(&chip.audio) // call 5: advance -> JUMP -> re-trigger body, not intro
+	renderTick(&chip.audio) // call 3: advance -> JUMP -> re-trigger body, not intro
 	assert.Equal(t, uint16(0x2222), chip.audio.voices[0].freqQ4, "loop must return to the body, not replay the intro")
 	assert.Equal(t, uint16(3), chip.audio.seq[0].noteIndex)
 }
@@ -346,9 +342,9 @@ func TestEmulatedMiaAudioSeqTakeThenQuickGiveResumesSameEvent(t *testing.T) {
 	chip.audioSeqStart(1 << 0)
 	chip.audioEnable()
 
-	renderTick(&chip.audio) // note triggers: countdown=100, eventDuration=100
-	renderTick(&chip.audio) // countdown -> 99
+	renderTick(&chip.audio) // note triggers: eventDuration=100, countdown=99
 	renderTick(&chip.audio) // countdown -> 98
+	renderTick(&chip.audio) // countdown -> 97
 
 	chip.audioVoiceTake(1 << 0)
 	// Simulate an SFX lasting 10 ticks while taken.
@@ -358,7 +354,7 @@ func TestEmulatedMiaAudioSeqTakeThenQuickGiveResumesSameEvent(t *testing.T) {
 	chip.audio.mu.Lock()
 	countdownWhileTaken := chip.audio.seq[0].countdown
 	chip.audio.mu.Unlock()
-	require.Equal(t, uint32(98), countdownWhileTaken, "sequencer must not advance while taken")
+	require.Equal(t, uint32(97), countdownWhileTaken, "sequencer must not advance while taken")
 
 	chip.audioVoiceRelease(1 << 0)
 
@@ -366,9 +362,9 @@ func TestEmulatedMiaAudioSeqTakeThenQuickGiveResumesSameEvent(t *testing.T) {
 	seq := chip.audio.seq[0]
 	chip.audio.mu.Unlock()
 	assert.False(t, seq.taken)
-	assert.False(t, seq.catchingUp, "10 elapsed ticks fit well within the note's remaining 98")
-	// already_spent (2) + elapsed (10) = 12 spent of 100 -> 88 remaining.
-	assert.Equal(t, uint32(88), seq.countdown)
+	assert.False(t, seq.catchingUp, "10 elapsed ticks fit well within the note's remaining 97")
+	// already_spent (3) + elapsed (10) = 13 spent of 100 -> 87 remaining.
+	assert.Equal(t, uint32(87), seq.countdown)
 	assert.Equal(t, uint16(1), seq.noteIndex, "must not have retriggered/advanced to a new note")
 }
 
@@ -391,17 +387,17 @@ func TestEmulatedMiaAudioSeqTakeThenLongGiveCatchesUpPastEvents(t *testing.T) {
 	chip.audioSeqStart(1 << 0)
 	chip.audioEnable()
 
-	renderTick(&chip.audio) // note A triggers: eventDuration=10, countdown=10
+	renderTick(&chip.audio) // note A triggers: eventDuration=10, countdown=9
 	for i := 0; i < 4; i++ {
-		renderTick(&chip.audio) // 4 decrements: countdown 10 -> 6
+		renderTick(&chip.audio) // 4 decrements: countdown 9 -> 5
 	}
-	// already_spent = eventDuration - countdown = 10 - 6 = 4.
+	// already_spent = eventDuration - countdown = 10 - 5 = 5 ticks played.
 
 	chip.audioVoiceTake(1 << 0)
-	// Elapse 22 ticks while taken. total_elapsed = already_spent(4) + 22 = 26.
+	// Elapse 22 ticks while taken. total_elapsed = already_spent(5) + 22 = 27.
 	// A(10) is already behind the cursor; B(10) fits entirely within the
-	// remaining 26-10=16 budget (fully in the past); C(10) does not fit in
-	// what's left (16-10=6 < 10), so C is where playback should resume, live.
+	// remaining 27-10=17 budget (fully in the past); C(10) does not fit in
+	// what's left (17-10=7 < 10), so C is where playback should resume, live.
 	for i := 0; i < 22; i++ {
 		renderTick(&chip.audio)
 	}
@@ -418,6 +414,73 @@ func TestEmulatedMiaAudioSeqTakeThenLongGiveCatchesUpPastEvents(t *testing.T) {
 	assert.False(t, seq.catchingUp)
 	assert.Equal(t, uint16(0xC000), freq, "must land on C, not resume A or stop at B")
 	assert.Equal(t, uint16(3), seq.noteIndex)
+}
+
+// TestEmulatedMiaAudioSeqEventLastsExactlyDurTicks pins the event length the
+// sequencer guide documents: a NOTE/REST lasts exactly dur ticks, counting
+// the tick that decodes it, and a dur of 0 still takes that one tick.
+func TestEmulatedMiaAudioSeqEventLastsExactlyDurTicks(t *testing.T) {
+	chip := silentAudioCircuit(t).chip
+
+	track := append(append(append(
+		seqNoteEvent(0xA000, 3),
+		miaSeqOpRest, 0, 0, 0),
+		seqNoteEvent(0xB000, 2)...),
+		miaSeqOpEnd)
+	writeSeqTrack(chip, 0, track)
+
+	chip.audioSeqLoadTrack(0)
+	chip.audioSeqStart(1 << 0)
+	chip.audioEnable()
+
+	// Note index after each tick: A holds ticks 1-3, the zero-length REST
+	// tick 4, B ticks 5-6, and tick 7 reaches END.
+	for tick, want := range []uint16{1, 1, 1, 2, 3, 3} {
+		renderTick(&chip.audio)
+		assert.Equal(t, want, chip.audio.seq[0].noteIndex, "tick %d", tick+1)
+	}
+	assert.True(t, chip.audio.seq[0].running)
+
+	renderTick(&chip.audio)
+	assert.False(t, chip.audio.seq[0].running, "END decodes on the tick after B's two ticks")
+}
+
+// TestEmulatedMiaAudioSeqCatchUpLandsWhereLivePlaybackIs verifies VGIVE's
+// catch-up counts events the same length live playback does: a voice taken
+// and released lands on the same event, with the same countdown, as an
+// identical voice that was never taken.
+func TestEmulatedMiaAudioSeqCatchUpLandsWhereLivePlaybackIs(t *testing.T) {
+	chip := silentAudioCircuit(t).chip
+
+	track := append(append(append(
+		seqNoteEvent(0xA000, 10),
+		seqNoteEvent(0xB000, 10)...),
+		seqNoteEvent(0xC000, 10)...),
+		miaSeqOpEnd)
+	writeSeqTrack(chip, 0, track)
+	writeSeqTrack(chip, 1, track)
+
+	chip.audioSeqLoadTrack(0)
+	chip.audioSeqLoadTrack(1)
+	chip.audioSeqStart(1<<0 | 1<<1)
+	chip.audioEnable()
+
+	renderTick(&chip.audio) // tick 1: both voices start A
+	chip.audioVoiceTake(1 << 0)
+	for i := 0; i < 19; i++ {
+		renderTick(&chip.audio) // ticks 2-20: A ends on tick 10, B on tick 20
+	}
+	chip.audioVoiceRelease(1 << 0)
+	renderTick(&chip.audio) // tick 21: the live voice starts C, the released one catches up to it
+
+	chip.audio.mu.Lock()
+	taken, live := chip.audio.seq[0], chip.audio.seq[1]
+	chip.audio.mu.Unlock()
+
+	assert.Equal(t, uint16(3), live.noteIndex, "live voice is on C")
+	assert.Equal(t, live.noteIndex, taken.noteIndex)
+	assert.Equal(t, live.countdown, taken.countdown)
+	assert.False(t, taken.catchingUp)
 }
 
 // TestEmulatedMiaAudioSeqStatusIndexesReadLiveState verifies PLAYING(v)/CUE(v)
