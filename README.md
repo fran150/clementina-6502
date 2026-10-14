@@ -3,8 +3,8 @@
 ![Clementina 6502 Logo](assets/images/computer.jpeg)
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/fran150/clementina-6502)](https://goreportcard.com/report/github.com/fran150/clementina-6502)
-[![Go Version](https://img.shields.io/badge/Go-1.18%2B-blue.svg)](https://golang.org/doc/devel/release.html)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/badge/Go-1.23%2B-blue.svg)](https://golang.org/doc/devel/release.html)
+[![License](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![codecov](https://codecov.io/gh/fran150/clementina-6502/branch/main/graph/badge.svg)](https://codecov.io/gh/fran150/clementina-6502)
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/fran150/clementina-6502)](https://pkg.go.dev/github.com/fran150/clementina-6502)
 
@@ -56,7 +56,7 @@ There are already some great implementations out there, like the [Java 6502 Emul
 
 ## System Requirements
 
-- **Go 1.18 or later**
+- **Go 1.23 or later**
 - **Terminal with ANSI color support**
 - **Minimum terminal size**: 80x24 characters
 - **For serial port functionality**:
@@ -228,7 +228,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+GPLv3. See [LICENSE](LICENSE).
 
 ## Acknowledgments
 
