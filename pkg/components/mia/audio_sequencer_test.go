@@ -15,6 +15,17 @@ func seqNoteEvent(freq uint16, dur uint32) []byte {
 	}
 }
 
+// seqTieEvent encodes a TIE: a NOTE that only changes the frequency.
+func seqTieEvent(freq uint16, dur uint32) []byte {
+	event := seqNoteEvent(freq, dur)
+	event[0] = miaSeqOpTie
+	return event
+}
+
+// seqSlowAttack is a SET_ADSR with a 100 ms attack, so a few ticks into a
+// note the envelope is still climbing and a restart is easy to see.
+var seqSlowAttack = []byte{miaSeqOpSetADSR, 0x80, 0xF0}
+
 // seqJumpEvent encodes a JUMP opcode with a signed 24-bit little-endian
 // offset, relative to the byte right after this 4-byte record.
 func seqJumpEvent(offset int32) []byte {
@@ -417,7 +428,7 @@ func TestEmulatedMiaAudioSeqTakeThenLongGiveCatchesUpPastEvents(t *testing.T) {
 }
 
 // TestEmulatedMiaAudioSeqEventLastsExactlyDurTicks pins the event length the
-// sequencer guide documents: a NOTE/REST lasts exactly dur ticks, counting
+// sequencer guide documents: a NOTE/TIE/REST lasts exactly dur ticks, counting
 // the tick that decodes it, and a dur of 0 still takes that one tick.
 func TestEmulatedMiaAudioSeqEventLastsExactlyDurTicks(t *testing.T) {
 	chip := silentAudioCircuit(t).chip
@@ -443,6 +454,137 @@ func TestEmulatedMiaAudioSeqEventLastsExactlyDurTicks(t *testing.T) {
 
 	renderTick(&chip.audio)
 	assert.False(t, chip.audio.seq[0].running, "END decodes on the tick after B's two ticks")
+}
+
+// TestEmulatedMiaAudioSeqNoteAfterNoteRestartsEnvelope verifies a NOTE
+// straight after a NOTE drops and raises the gate, so the second note gets
+// its own attack from silence instead of joining the first.
+func TestEmulatedMiaAudioSeqNoteAfterNoteRestartsEnvelope(t *testing.T) {
+	chip := silentAudioCircuit(t).chip
+
+	track := append(append(append(append([]byte{},
+		seqSlowAttack...),
+		seqNoteEvent(0xA000, 3)...),
+		seqNoteEvent(0xB000, 3)...),
+		miaSeqOpEnd)
+	writeSeqTrack(chip, 0, track)
+
+	chip.audioSeqLoadTrack(0)
+	chip.audioSeqStart(1 << 0)
+	chip.audioEnable()
+
+	renderTick(&chip.audio) // tick 1: A starts, one attack step
+	firstStep := chip.audio.voices[0].vol
+	renderTick(&chip.audio)
+	renderTick(&chip.audio) // ticks 2-3: A keeps climbing
+	require.Greater(t, chip.audio.voices[0].vol, firstStep)
+
+	renderTick(&chip.audio) // tick 4: B starts
+	voice := chip.audio.voices[0]
+	assert.Equal(t, uint16(0xB000), voice.freqQ4)
+	assert.Equal(t, miaADSRAttack, voice.adsr)
+	assert.Equal(t, firstStep, voice.vol, "B's envelope restarts from silence, like A's did")
+	assert.Equal(t, uint16(2), chip.audio.seq[0].noteIndex)
+}
+
+// TestEmulatedMiaAudioSeqTieContinuesSoundingNote verifies a TIE changes only
+// the frequency: the gate stays up and the envelope keeps going, and it still
+// counts as an event for CUE.
+func TestEmulatedMiaAudioSeqTieContinuesSoundingNote(t *testing.T) {
+	chip := silentAudioCircuit(t).chip
+
+	track := append(append(append(append([]byte{},
+		seqSlowAttack...),
+		seqNoteEvent(0xA000, 3)...),
+		seqTieEvent(0xB000, 3)...),
+		miaSeqOpEnd)
+	writeSeqTrack(chip, 0, track)
+
+	chip.audioSeqLoadTrack(0)
+	chip.audioSeqStart(1 << 0)
+	chip.audioEnable()
+
+	for i := 0; i < 3; i++ {
+		renderTick(&chip.audio) // ticks 1-3: A
+	}
+	before := chip.audio.voices[0].vol
+
+	renderTick(&chip.audio) // tick 4: the TIE moves to B
+	voice := chip.audio.voices[0]
+	assert.Equal(t, uint16(0xB000), voice.freqQ4)
+	assert.Equal(t, miaADSRAttack, voice.adsr)
+	assert.Greater(t, voice.vol, before, "the envelope carries on from where A left it")
+	assert.NotZero(t, voice.control&miaAudioControlGate)
+	assert.Equal(t, uint16(2), chip.audio.seq[0].noteIndex)
+}
+
+// TestEmulatedMiaAudioSeqTieAfterRestStartsNote verifies a TIE has nothing
+// to continue after a REST, so it starts a new note exactly like NOTE.
+func TestEmulatedMiaAudioSeqTieAfterRestStartsNote(t *testing.T) {
+	chip := silentAudioCircuit(t).chip
+
+	track := append(append(append(append([]byte{},
+		seqSlowAttack...),
+		seqNoteEvent(0xA000, 3)...),
+		miaSeqOpRest, 1, 0, 0),
+		seqTieEvent(0xB000, 3)...)
+	track = append(track, miaSeqOpEnd)
+	writeSeqTrack(chip, 0, track)
+
+	chip.audioSeqLoadTrack(0)
+	chip.audioSeqStart(1 << 0)
+	chip.audioEnable()
+
+	renderTick(&chip.audio) // tick 1: A starts
+	firstStep := chip.audio.voices[0].vol
+	renderTick(&chip.audio)
+	renderTick(&chip.audio) // ticks 2-3: A
+	renderTick(&chip.audio) // tick 4: REST releases the voice
+	renderTick(&chip.audio) // tick 5: TIE
+	voice := chip.audio.voices[0]
+	assert.Equal(t, uint16(0xB000), voice.freqQ4)
+	assert.NotZero(t, voice.control&miaAudioControlGate)
+	assert.Equal(t, miaADSRAttack, voice.adsr)
+	assert.Equal(t, firstStep, voice.vol, "the TIE starts its own attack from silence")
+	assert.Equal(t, uint16(3), chip.audio.seq[0].noteIndex)
+}
+
+// TestEmulatedMiaAudioSeqCatchUpLandingOnTieStartsNote verifies VGIVE
+// landing on a TIE starts a new note even though the gate is still up: the
+// note it continued was skipped, so the envelope restarts.
+func TestEmulatedMiaAudioSeqCatchUpLandingOnTieStartsNote(t *testing.T) {
+	chip := silentAudioCircuit(t).chip
+
+	track := append(append(append(append([]byte{},
+		seqSlowAttack...),
+		seqNoteEvent(0xA000, 10)...),
+		seqTieEvent(0xB000, 10)...),
+		miaSeqOpEnd)
+	writeSeqTrack(chip, 0, track)
+
+	chip.audioSeqLoadTrack(0)
+	chip.audioSeqStart(1 << 0)
+	chip.audioEnable()
+
+	renderTick(&chip.audio) // tick 1: A starts
+	firstStep := chip.audio.voices[0].vol
+	chip.audioVoiceTake(1 << 0)
+	for i := 0; i < 11; i++ {
+		renderTick(&chip.audio) // ticks 2-12: A keeps sounding; the TIE is 2 ticks in
+	}
+	chip.audioVoiceRelease(1 << 0)
+	renderTick(&chip.audio)
+
+	chip.audio.mu.Lock()
+	seq := chip.audio.seq[0]
+	voice := chip.audio.voices[0]
+	chip.audio.mu.Unlock()
+
+	assert.False(t, seq.catchingUp)
+	assert.Equal(t, uint16(2), seq.noteIndex)
+	assert.Equal(t, uint16(0xB000), voice.freqQ4)
+	assert.Equal(t, miaADSRAttack, voice.adsr)
+	assert.Equal(t, firstStep, voice.vol, "the TIE restarts the envelope instead of continuing A's")
 }
 
 // TestEmulatedMiaAudioSeqCatchUpLandsWhereLivePlaybackIs verifies VGIVE's
