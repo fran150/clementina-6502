@@ -25,10 +25,10 @@ type clementinaEmulator struct {
 // NewClemetinaEmulator creates a new instance of the Clementina 6502 emulator.
 // It initializes all necessary components including speed control, breakpoint management,
 // console interface, and emulation loop with the specified configuration.
-
+//
 // Parameters:
 //   - computer: The ClementinaComputer instance to emulate
-//   - speed: The emulation speed multiplier (1.0 = real hardware speed)
+//   - speed: The target CPU clock in MHz; MIA's PHI2 is set to match
 //   - displayFPS: The frames per second for display updates
 //
 // Returns:
