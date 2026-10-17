@@ -271,12 +271,12 @@ func (c *emulated_mia) consoleDispatch(line string) string {
 func (c *emulated_mia) consoleHelp() string {
 	var out strings.Builder
 	out.WriteString("Commands:\n")
-	out.WriteString("  status     status [video|input|audio|sd|wifi|irq|speed|exec|mem|index]\n")
+	out.WriteString("  status     status [video|input|audio|sd|wifi|irq|speed|exec|errors|mem|index]\n")
 	out.WriteString("  errors     errors [list|clear]\n")
 	out.WriteString("  speed      speed HZ  - set PHI2 clock frequency\n")
 	out.WriteString("  wifi       wifi [status|off|connect|ap]\n")
 	out.WriteString("  input      input [status|console|wifi]\n")
-	out.WriteString("  audio      audio [status|enable|stop|reset]\n")
+	out.WriteString("  audio      audio [status|enable|stop|reset|seq]\n")
 	out.WriteString("  sd         sd [status|init|mount]\n")
 	out.WriteString("  exec       exec [status|pause|resume]\n")
 	out.WriteString("  monitor    Enter 65C02 machine language monitor\n")
