@@ -27,7 +27,7 @@ type benEaterEmulator struct {
 //
 // Parameters:
 //   - computer: The BenEaterComputer instance to emulate
-//   - speed: The emulation speed multiplier (1.0 = real hardware speed)
+//   - speed: The target CPU clock in MHz
 //   - displayFPS: The frames per second for display updates
 //
 // Returns:
