@@ -64,7 +64,7 @@ func TestBasicChrloadFile(t *testing.T) {
 	computer, step := bootClementinaToPrompt(t)
 	computer.SetMiaSDFolder(dir)
 
-	typeLine(computer, step, `10 CHRLOAD 1,100,3,"FONT.BIN"`)
+	typeLine(computer, step, `10 CHRLOAD "FONT.BIN",1,100`)
 	typeLine(computer, step, "20 GOTO 20")
 	typeLine(computer, step, "RUN")
 	editorTickN(computer, step, 2_000_000)
@@ -85,7 +85,7 @@ func TestBasicChrsaveFile(t *testing.T) {
 
 	typeLine(computer, step, "10 DATA 44,55,66")
 	typeLine(computer, step, "20 CHRREAD 2,200,3")
-	typeLine(computer, step, `30 CHRSAVE 2,200,3,"DUMP.BIN"`)
+	typeLine(computer, step, `30 CHRSAVE "DUMP.BIN",2,200,3`)
 	typeLine(computer, step, "40 GOTO 40")
 	typeLine(computer, step, "RUN")
 	editorTickN(computer, step, 2_000_000)
@@ -106,12 +106,9 @@ func TestBasicChrsaveFile(t *testing.T) {
 	}
 }
 
-// TestBasicOamloadFile exercises OAMLOAD's file-sourced meaning. Its `count`
-// means sprites (5 bytes each, tile/xlo/ylo/attr/ext), matching OAMREAD's
-// units - not a raw byte length. Regression test for a 2026-09-16 fix: count
-// used to go straight into the byte-length register untouched, so
-// `OAMLOAD 0,2,"S.OAM"` loaded 2 bytes (spilling into just sprite 0's
-// tile/xlo) instead of 2 whole sprites (10 bytes).
+// TestBasicOamloadFile exercises OAMLOAD's file-sourced meaning: the whole
+// file lands in OAM as 5-byte sprite records (tile/xlo/ylo/attr/ext), from
+// sprite 0 when no index is given.
 func TestBasicOamloadFile(t *testing.T) {
 	dir := t.TempDir()
 	data := []byte{
@@ -125,7 +122,7 @@ func TestBasicOamloadFile(t *testing.T) {
 	computer, step := bootClementinaToPrompt(t)
 	computer.SetMiaSDFolder(dir)
 
-	typeLine(computer, step, `10 OAMLOAD 0,2,"S.OAM"`)
+	typeLine(computer, step, `10 OAMLOAD "S.OAM"`)
 	typeLine(computer, step, "20 GOTO 20")
 	typeLine(computer, step, "RUN")
 	editorTickN(computer, step, 2_000_000)
@@ -140,8 +137,8 @@ func TestBasicOamloadFile(t *testing.T) {
 
 // TestBasicOamsaveFile exercises OAMSAVE (OAM -> file), the reverse of
 // TestBasicOamloadFile, chained onto OAMREAD (DATA -> OAM) so the round trip
-// is covered without a separate seeding mechanism. Same count-unit fix as
-// TestBasicOamloadFile above.
+// is covered without a separate seeding mechanism. OAMSAVE's count is in
+// sprites (5 bytes each), matching OAMREAD's units, not a raw byte length.
 func TestBasicOamsaveFile(t *testing.T) {
 	dir := t.TempDir()
 	computer, step := bootClementinaToPrompt(t)
@@ -150,7 +147,7 @@ func TestBasicOamsaveFile(t *testing.T) {
 
 	typeLine(computer, step, "10 DATA 1,2,3,4,5,6,7,8,9,10")
 	typeLine(computer, step, "20 OAMREAD 0,2")
-	typeLine(computer, step, `30 OAMSAVE 0,2,"DUMP.OAM"`)
+	typeLine(computer, step, `30 OAMSAVE "DUMP.OAM",0,2`)
 	typeLine(computer, step, "40 GOTO 40")
 	typeLine(computer, step, "RUN")
 	editorTickN(computer, step, 2_000_000)

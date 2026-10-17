@@ -6,10 +6,11 @@
 ; (10 ms): without BASIC's own time per frame, 30 ms is slower than needed.
 ;
 ; The program lives in extended RAM bank 1 at $8000, so loading it leaves
-; BASIC untouched. demoprg.bas starts it with BLOAD "DEMO.PRG",32768, which
-; loads the file and jumps to $8000 with bank 1 still selected. At the end it
-; returns to BASIC's READY prompt through the kernel's warm start, which
-; selects bank 0 again; the loader program is still there to RUN again.
+; BASIC untouched. demoprg.bas starts it with BANK 1:BRUN "DEMO.PRG", which
+; loads the file into bank 1 and jumps to $8000 with bank 1 still selected.
+; At the end it returns to BASIC's READY prompt through the kernel's warm
+; start, which selects bank 0 again; the loader program is still there to
+; RUN again.
 ;
 ; Build with cc65:
 ;   ca65 demo.s
@@ -148,10 +149,9 @@ speed:          .res BALLS * 2  ; DX(0)-DX(4), then DY(0)-DY(4)
 
 .segment "HEADER"
         .addr start             ; PRG header: load address
-        .byte 1                 ; and extended RAM bank
 
 .segment "CODE"
-start:                          ; BLOAD's run address
+start:                          ; BRUN jumps here, the first byte
         cld
 
 ; 5 CLS
