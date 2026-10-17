@@ -421,6 +421,32 @@ func TestEmulatedMiaConsoleInputCaptureAndStatus(t *testing.T) {
 	waitForMiaConsoleOutput(t, mock, "Input: console")
 }
 
+func TestEmulatedMiaConsoleInputCursorKeys(t *testing.T) {
+	chip, mock := newMiaConsoleTest(t)
+
+	waitForMiaConsoleOutput(t, mock, "> ")
+	sendMiaConsoleInput(mock, "input console\n")
+	waitForMiaConsoleOutput(t, mock, "Console input active. Press Ctrl+Q to return to commands.\n")
+
+	// A terminal's Up, Delete and Ctrl+Right reach the FIFO as key codes.
+	sendMiaConsoleInput(mock, "\x1b[A\x1b[3~\x1b[1;5C")
+	require.Eventually(t, func() bool {
+		return len(miaQueuedText(chip)) == 3
+	}, time.Second, 10*time.Millisecond)
+	assert.Equal(t, []byte{0x91, 0x7F, 0x1D}, miaQueuedText(chip))
+
+	// A lone Esc goes out once nothing follows it.
+	sendMiaConsoleInput(mock, "\x1b")
+	require.Eventually(t, func() bool {
+		return len(miaQueuedText(chip)) == 4
+	}, time.Second, 10*time.Millisecond)
+	assert.Equal(t, byte(0x1B), miaQueuedText(chip)[3])
+
+	sendMiaConsoleInput(mock, string([]byte{miaConsoleCtrlQ}))
+	waitForMiaConsoleOutput(t, mock, "Console input ended.\n")
+	assert.Len(t, miaQueuedText(chip), 4)
+}
+
 // --- helpers ----------------------------------------------------------------
 
 type miaInputTestPacket struct {
@@ -505,4 +531,16 @@ func requireInputState(t *testing.T, chip *emulated_mia, condition func() bool) 
 		defer chip.mu.Unlock()
 		return condition()
 	}, time.Second, time.Millisecond)
+}
+
+// miaQueuedText returns the text FIFO's unread bytes.
+func miaQueuedText(chip *emulated_mia) []byte {
+	chip.mu.Lock()
+	defer chip.mu.Unlock()
+
+	var queued []byte
+	for i := chip.input.textTail; i != chip.input.textHead; i++ {
+		queued = append(queued, chip.input.textFifo[inputFifoIndex(i)])
+	}
+	return queued
 }
