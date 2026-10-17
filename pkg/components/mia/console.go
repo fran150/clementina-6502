@@ -45,6 +45,7 @@ type miaConsoleState struct {
 
 	mode miaConsoleMode
 	line []byte
+	keys miaConsoleKeys
 
 	lastCR bool
 
@@ -64,7 +65,8 @@ func (c *emulated_mia) ConnectToPort(port serial.Port) error {
 		return fmt.Errorf("MIA console serial port is nil")
 	}
 
-	if err := port.SetReadTimeout(100 * time.Millisecond); err != nil {
+	// Short reads let a lone Esc in console input go out on time.
+	if err := port.SetReadTimeout(miaConsoleEscTimeout); err != nil {
 		return err
 	}
 
@@ -117,6 +119,9 @@ func (c *emulated_mia) consoleReadLoop() {
 			n = len(buf)
 		}
 
+		if n == 0 && c.console.mode == miaConsoleModeInput {
+			c.consoleSendKeys(c.console.keys.expire(time.Now()))
+		}
 		for _, value := range buf[:n] {
 			c.consoleHandleByte(value)
 		}
@@ -157,10 +162,13 @@ func (c *emulated_mia) consoleHandleByte(value byte) {
 	}
 }
 
-// consoleHandleInputByte forwards a terminal byte to the input text FIFO while
-// console input capture is active. Ctrl+Q returns the terminal to command mode.
+// consoleHandleInputByte forwards a terminal byte to the input text FIFO
+// through the key decoder while console input capture is active, so the cursor,
+// Home, Insert and Delete keys arrive as Clementina key codes. Ctrl+Q returns
+// the terminal to command mode.
 func (c *emulated_mia) consoleHandleInputByte(value byte) {
 	if value == miaConsoleCtrlQ {
+		c.console.keys.reset()
 		c.mu.Lock()
 		c.inputConsoleEndCapture()
 		c.mu.Unlock()
@@ -172,15 +180,18 @@ func (c *emulated_mia) consoleHandleInputByte(value byte) {
 		return
 	}
 
-	switch value {
-	case '\n':
-		value = '\r'
-	case 127:
-		value = '\b'
+	c.consoleSendKeys(c.console.keys.feed(value, time.Now()))
+}
+
+func (c *emulated_mia) consoleSendKeys(keys []byte) {
+	if len(keys) == 0 {
+		return
 	}
 
 	c.mu.Lock()
-	c.inputConsoleByte(value)
+	for _, value := range keys {
+		c.inputConsoleByte(value)
+	}
 	c.mu.Unlock()
 }
 
@@ -537,6 +548,7 @@ func (c *emulated_mia) consoleInput(args string) string {
 			return "Input: console mode is not available.\n"
 		}
 		c.console.mode = miaConsoleModeInput
+		c.console.keys.reset()
 		return "Console input active. Press Ctrl+Q to return to commands.\n"
 	case "wifi":
 		c.mu.Lock()
