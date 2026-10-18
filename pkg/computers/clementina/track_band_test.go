@@ -5,7 +5,7 @@ import "testing"
 // TRACK/BAND/VTAKE/VGIVE/PLAYING/CUE (handlers in clementina-rom
 // src/basic/clementina_extra.s) are the background sequencer's BASIC
 // surface, replacing the retired PLAY. TRACK compiles a voice's MML string
-// straight into MIA's sequencer bytecode, by default at $13000+voice*$400
+// straight into MIA's sequencer bytecode, by default at $14000+voice*$1000
 // (a third, optional argument relocates it anywhere in MIA RAM - see
 // clementina-mia's docs/audio-sequencer.md); these tests boot the real ROM,
 // type a program, run it, and read the encoded bytes and command effects
@@ -50,7 +50,7 @@ type audioAdvancer interface {
 func TestBasicTrackBandAdvancesLiveRegisters(t *testing.T) {
 	computer, step := bootClementinaToPrompt(t)
 
-	typeLine(computer, step, `10 TRACK 0,"T60 L8 O5 C D"`)
+	typeLine(computer, step, `10 TRACK 0,"T160 L8 O5 C D"`)
 	typeLine(computer, step, "20 BAND 1")
 	typeLine(computer, step, "30 GOTO 30")
 	typeLine(computer, step, "RUN")
@@ -59,12 +59,10 @@ func TestBasicTrackBandAdvancesLiveRegisters(t *testing.T) {
 	audio := computer.chips.mia.(audioAdvancer)
 	audio.DebugSetAudioActive(true)
 
-	// T60, eighth note (k=8: T>>1) = 30 kernel ticks; 30*150 = 4500 sequencer
-	// ticks, plus one trigger tick per event (see audio_sequencer.go's
-	// seqAdvance): each note spans 4501 sequencer ticks. MIA renders 48 kHz
-	// frames on a 24 kHz sequencer tick, so a tick is two frames. 2000 ticks
-	// lands well inside C5; the cumulative 8000 lands well inside D5 (started
-	// at 4501, ends at 9002).
+	// An eighth note at T160 (160 quarter notes a minute) is
+	// 24000*60/160/2 = 4500 sequencer ticks. MIA renders 48 kHz frames on a
+	// 24 kHz sequencer tick, so a tick is two frames. 2000 ticks lands well
+	// inside C5; the cumulative 8000 lands well inside D5 (4500 to 9000).
 	const framesPerTick = 2
 	audio.DebugAudioReadPCM(2000 * framesPerTick)
 	freq, control, _, _ := audio.DebugAudioVoiceState(0)
@@ -85,13 +83,13 @@ func require_eq_u16(t *testing.T, want uint16, got uint16, msg string) {
 }
 
 // TestBasicTrackEncodesNote verifies TRACK's encoder against a hand-computed
-// expected byte sequence: T60 L8 O5 C is a single NOTE event (C5, an eighth
-// note at tempo 60 -> 30 kernel ticks -> 30*150 = 4500 sequencer ticks) then
-// END, with no loop. There is no header - the event stream starts at offset 0.
+// expected byte sequence: T160 L8 O5 C is a single NOTE event (C5, an eighth
+// note at 160 quarter notes a minute = 4500 sequencer ticks) then END, with
+// no loop. There is no header - the event stream starts at offset 0.
 func TestBasicTrackEncodesNote(t *testing.T) {
 	computer, step := bootClementinaToPrompt(t)
 
-	typeLine(computer, step, `10 TRACK 0,"T60 L8 O5 C"`)
+	typeLine(computer, step, `10 TRACK 0,"T160 L8 O5 C"`)
 	typeLine(computer, step, "20 GOTO 20")
 	typeLine(computer, step, "RUN")
 	editorTickN(computer, step, 2_000_000)
@@ -100,7 +98,7 @@ func TestBasicTrackEncodesNote(t *testing.T) {
 	// C5: note_freq(60) = octave-0 262 << 5 = 8384 = $20C0.
 	require_eq(t, 0xC0, peekSeq(computer, 0, 1), "freq_l")
 	require_eq(t, 0x20, peekSeq(computer, 0, 2), "freq_h")
-	// T60, eighth note (k=8: T>>1) = 30 ticks; 30*150 = 4500 = $001194.
+	// 24000*60/160/2 = 4500 = $001194.
 	require_eq(t, 0x94, peekSeq(computer, 0, 3), "dur_l")
 	require_eq(t, 0x11, peekSeq(computer, 0, 4), "dur_m")
 	require_eq(t, 0x00, peekSeq(computer, 0, 5), "dur_h")

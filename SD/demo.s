@@ -572,9 +572,10 @@ voice0: voice 1, 0, 8, 10, 6, -30       ; WAVE 0,1 : ADSR 0,0,8,10,6 : PAN 0,-30
 voice1: voice 2, 0, 6, 10, 6, 30        ; WAVE 1,2 : ADSR 1,0,6,10,6 : PAN 1,30
 
 ; 250-255: the two tracks, as the sequencer bytes TRACK compiles them to.
-; T90 is 90 ticks of 1/160 s a quarter note, 150 sequencer ticks (24 kHz)
-; each; pitches are Hz * 16, TRACK's octave-0 table shifted by the octave.
-QUARTER         = 90 * 150
+; T90 is 90 quarter notes a minute, so a quarter is 24000 * 60 / 90 sequencer
+; ticks (24 kHz); pitches are Hz * 16, TRACK's octave-0 table shifted by the
+; octave.
+QUARTER         = 24000 * 60 / 90
 EIGHTH          = QUARTER / 2
 DOTTED_HALF     = QUARTER * 3
 WHOLE           = QUARTER * 4
