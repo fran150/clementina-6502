@@ -49,7 +49,7 @@ func (c *emulated_mia) indexWriteAndStep(indexID uint8, value uint8, window miaI
 	entry := &c.indexes[indexID]
 	offset := c.memoryOffset(entry.currentAddr)
 	c.memory[offset] = value
-	c.videoMarkDirty(uint32(offset))
+	c.videoCore1MarkDirty(uint32(offset))
 	c.stepIndex(entry, miaIndexFlagWriteStep, window)
 
 	// Mirror the firmware act_loop: an indexed write into the audio block is

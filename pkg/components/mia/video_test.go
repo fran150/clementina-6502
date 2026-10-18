@@ -51,6 +51,25 @@ func TestEmulatedMiaVideoStartupConfiguresIndexesFontAndDirtyTracking(t *testing
 	assert.False(t, chip.videoPageDirty(chip.video.activeMap, 0))
 }
 
+func TestEmulatedMiaVideoCore0WritesUseTheirOwnDirtyMap(t *testing.T) {
+	chip := NewEmulatedMia().(*emulated_mia)
+	chip.videoClearDirtyMaps()
+
+	// The mode byte is written by a command, as on the firmware's core 0.
+	chip.videoSetMode(1)
+	page := uint16(miaVideoModeOffset >> miaVideoPageShift)
+	assert.True(t, chip.videoPageDirty(miaVideoCore0DirtyMap, page))
+	assert.False(t, chip.videoHasDirtyPages(chip.video.activeMap))
+
+	// A frame request sees core 0's map and merges it into the pending map.
+	chip.mu.Lock()
+	chip.videoHandleRequestFrameNoPending(1, 0, nil)
+	chip.mu.Unlock()
+	assert.True(t, chip.video.pendingValid)
+	assert.Equal(t, []uint16{page}, chip.video.pendingPages)
+	assert.False(t, chip.videoHasDirtyPages(miaVideoCore0DirtyMap))
+}
+
 func TestEmulatedMiaVideoUDPFullRefreshAckAndEmptyRequest(t *testing.T) {
 	chip := NewEmulatedMia().(*emulated_mia)
 	require.NoError(t, chip.StartVideoUDP("127.0.0.1:0"))
