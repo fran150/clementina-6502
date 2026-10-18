@@ -79,13 +79,35 @@ func TestBasicVideoChrModeAndPlane(t *testing.T) {
 	// Bank 0/1 already 1bpp from boot (video_init). Add bank 3, then clear bank 0.
 	typeLine(computer, step, "10 CHRMODE 3,1")
 	typeLine(computer, step, "20 CHRMODE 0,0")
-	typeLine(computer, step, "30 CHRPLANE 1,2,3")
+	typeLine(computer, step, "30 CHRPLANE 1,2,1")
 	typeLine(computer, step, "40 GOTO 40")
 	typeLine(computer, step, "RUN")
 	editorTickN(computer, step, 2_000_000)
 
 	require_eq(t, 0x0A, vr.DebugReadVideo(renderCtlBase+0x0D), "CHR_1BPP_MASK: bank1 already set, bank3 added, bank0 cleared -> %00001010")
-	require_eq(t, 0x39, vr.DebugReadVideo(renderCtlBase+0x0E), "CHR_1BPP_PLANES: bg=1 | spr=2<<2 | ovl=3<<4 = %00111001")
+	require_eq(t, 0x19, vr.DebugReadVideo(renderCtlBase+0x0E), "CHR_1BPP_PLANES: bg=1 | spr=2<<2 | ovl=1<<4 = %00011001")
+}
+
+// A 1bpp bank has planes 0-2 only, so CHRPLANE rejects 3 in any argument and
+// leaves CHR_1BPP_PLANES as it was, although its 2-bit fields could hold 3.
+func TestBasicVideoChrPlaneRejectsPlane3(t *testing.T) {
+	computer, step := bootClementinaToPrompt(t)
+	vr := computer.chips.mia.(videoReader)
+
+	typeLine(computer, step, "10 CHRPLANE 1,2,1")
+	typeLine(computer, step, "20 CHRPLANE 0,0,3")
+	typeLine(computer, step, "RUN")
+	editorTickN(computer, step, 2_000_000)
+
+	if _, ok := screenContainsRow(vr, "ILLEGAL QUANTITY"); !ok {
+		t.Fatalf("expected an ILLEGAL QUANTITY error for overlay plane 3, screen:\n%s", dumpScreenString(vr))
+	}
+	require_eq(t, 0x19, vr.DebugReadVideo(renderCtlBase+0x0E), "CHR_1BPP_PLANES kept after overlay plane 3")
+
+	typeLine(computer, step, "CHRPLANE 3,0,0")
+	typeLine(computer, step, "CHRPLANE 0,3,0")
+	editorTickN(computer, step, 1_000_000)
+	require_eq(t, 0x19, vr.DebugReadVideo(renderCtlBase+0x0E), "CHR_1BPP_PLANES kept after background and sprite plane 3")
 }
 
 func TestBasicVideoPalette(t *testing.T) {
