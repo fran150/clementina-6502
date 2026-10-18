@@ -61,13 +61,20 @@ const (
 
 	miaVideoStatusNoDirtyPages = 0
 	miaVideoStatusProtocolErr  = 1
+
+	// miaVideoCore0DirtyMap is the map for the writes the firmware's core 0
+	// makes itself (DMA copies, SD loads, monitor edits, the mode byte). Maps 0
+	// and 1 take turns as the active and pending map. The firmware keeps core
+	// 0's marks apart so the two cores never write one map byte; the emulator
+	// has no such race but keeps the same maps.
+	miaVideoCore0DirtyMap = 2
 )
 
 type miaVideoState struct {
 	conn        *net.UDPConn
 	bindAddress string
 
-	dirtyMaps [2][miaVideoDirtyMapSize]uint8
+	dirtyMaps [3][miaVideoDirtyMapSize]uint8
 	activeMap uint8
 
 	sessionActive bool
@@ -342,7 +349,7 @@ func (c *emulated_mia) videoHandleRequestFrame(header miaVideoHeader, payload []
 }
 
 func (c *emulated_mia) videoHandleRequestFrameNoPending(requestID uint16, lastComplete uint32, remote *net.UDPAddr) miaVideoDatagramPlan {
-	if !c.videoHasDirtyPages(c.video.activeMap) {
+	if !c.videoHasDirtyPages(c.video.activeMap) && !c.videoHasDirtyPages(miaVideoCore0DirtyMap) {
 		c.videoSetLastResponseDirtyPages(0)
 		return miaVideoDatagramPlan{
 			packets: []miaVideoOutgoing{{
@@ -355,6 +362,7 @@ func (c *emulated_mia) videoHandleRequestFrameNoPending(requestID uint16, lastCo
 	pendingMap := c.video.activeMap
 	c.video.activeMap ^= 1
 	c.video.pendingMap = pendingMap
+	c.videoMergeCore0DirtyMap(pendingMap)
 	c.video.pendingPages = c.videoScanDirtyPages(pendingMap)
 	c.video.pendingChunkCount = uint16((len(c.video.pendingPages) + miaVideoRecordsPerChunk - 1) / miaVideoRecordsPerChunk)
 	c.video.pendingFrameID = c.videoNextFrameID()
@@ -871,7 +879,9 @@ func (c *emulated_mia) videoConfigureIndex(indexID uint8, start uint32, length u
 	}
 }
 
-func (c *emulated_mia) videoMarkDirty(addr uint32) {
+// videoCore1MarkDirty marks a 6502 write through an index in the active map,
+// like the firmware's mia_video_core1_mark_dirty.
+func (c *emulated_mia) videoCore1MarkDirty(addr uint32) {
 	if addr < miaVideoPageSize || addr >= miaVideoStateSize {
 		return
 	}
@@ -880,6 +890,19 @@ func (c *emulated_mia) videoMarkDirty(addr uint32) {
 	c.video.dirtyMaps[c.video.activeMap][page>>3] |= uint8(1 << (page & 0x07))
 }
 
+// videoMarkDirty marks a byte the firmware's core 0 would write itself in core
+// 0's map, like the firmware's mia_video_mark_dirty.
+func (c *emulated_mia) videoMarkDirty(addr uint32) {
+	if addr < miaVideoPageSize || addr >= miaVideoStateSize {
+		return
+	}
+
+	page := addr >> miaVideoPageShift
+	c.video.dirtyMaps[miaVideoCore0DirtyMap][page>>3] |= uint8(1 << (page & 0x07))
+}
+
+// videoMarkDirtyRange marks a range the firmware's core 0 would write itself in
+// core 0's map, like the firmware's mia_video_mark_dirty_range.
 func (c *emulated_mia) videoMarkDirtyRange(start uint32, length uint32) {
 	if length == 0 || start >= miaVideoStateSize {
 		return
@@ -902,8 +925,17 @@ func (c *emulated_mia) videoMarkDirtyRange(start uint32, length uint32) {
 	}
 
 	for page := start >> miaVideoPageShift; page <= (end-1)>>miaVideoPageShift; page++ {
-		c.video.dirtyMaps[c.video.activeMap][page>>3] |= uint8(1 << (page & 0x07))
+		c.video.dirtyMaps[miaVideoCore0DirtyMap][page>>3] |= uint8(1 << (page & 0x07))
 	}
+}
+
+// videoMergeCore0DirtyMap moves core 0's marks into the pending map before it
+// is scanned, like the firmware's video_merge_core0_dirty_map.
+func (c *emulated_mia) videoMergeCore0DirtyMap(mapIndex uint8) {
+	for i, bits := range c.video.dirtyMaps[miaVideoCore0DirtyMap] {
+		c.video.dirtyMaps[mapIndex][i] |= bits
+	}
+	c.videoClearDirtyMap(miaVideoCore0DirtyMap)
 }
 
 func (c *emulated_mia) videoMarkAllSyncPagesDirty() {
@@ -953,6 +985,7 @@ func (c *emulated_mia) videoPageDirty(mapIndex uint8, page uint16) bool {
 func (c *emulated_mia) videoClearDirtyMaps() {
 	c.videoClearDirtyMap(0)
 	c.videoClearDirtyMap(1)
+	c.videoClearDirtyMap(miaVideoCore0DirtyMap)
 }
 
 func (c *emulated_mia) videoClearDirtyMap(mapIndex uint8) {

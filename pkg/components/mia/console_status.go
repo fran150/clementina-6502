@@ -147,7 +147,7 @@ func (c *emulated_mia) consoleVideoSummary() string {
 	udpReady := c.video.conn != nil
 	clientActive := c.video.sessionActive
 	frame := c.video.frameID
-	dirty := c.videoCountDirtyPages(c.video.activeMap)
+	dirty := c.videoCountDirtyPages(c.video.activeMap) + c.videoCountDirtyPages(miaVideoCore0DirtyMap)
 	pipeline := "idle"
 	if c.video.pendingValid {
 		if c.video.pendingInitialSent {
@@ -155,7 +155,7 @@ func (c *emulated_mia) consoleVideoSummary() string {
 		} else {
 			pipeline = "sending"
 		}
-	} else if c.videoHasDirtyPages(c.video.activeMap) {
+	} else if c.videoHasDirtyPages(c.video.activeMap) || c.videoHasDirtyPages(miaVideoCore0DirtyMap) {
 		pipeline = "dirty"
 	}
 	c.mu.Unlock()
@@ -339,6 +339,7 @@ func (c *emulated_mia) consoleVideoDetail() string {
 	activeMap := c.video.activeMap
 	dirty0 := c.videoCountDirtyPages(0)
 	dirty1 := c.videoCountDirtyPages(1)
+	dirtyCore0 := c.videoCountDirtyPages(miaVideoCore0DirtyMap)
 	pendingValid := c.video.pendingValid
 	pendingRequestID := c.video.pendingRequestID
 	pendingFrameID := c.video.pendingFrameID
@@ -366,7 +367,7 @@ func (c *emulated_mia) consoleVideoDetail() string {
 
 	fmt.Fprintf(&out, "  frames:  local:%d  client:%d  last-peer-seq:%d  next-seq:%d\n",
 		frameID, clientFrameID, lastPeerSeq, nextSeq)
-	fmt.Fprintf(&out, "  dirty:   active-map:%d  map0:%d  map1:%d\n", activeMap, dirty0, dirty1)
+	fmt.Fprintf(&out, "  dirty:   active-map:%d  map0:%d  map1:%d  core0:%d\n", activeMap, dirty0, dirty1, dirtyCore0)
 
 	if pendingValid {
 		fmt.Fprintf(&out, "  response: valid  request:%d  frame:%d  last-complete:%d\n",
