@@ -6,8 +6,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/ebitengine/oto/v3"
 )
 
 // This file ports the Pico MIA PWM PSG audio subsystem (firmware
@@ -132,13 +130,6 @@ const (
 	// (capToWallClock false) still renders exactly what it is asked.
 	miaAudioLeadSamples   = miaAudioSampleRate * 40 / 1000  // 40 ms rendered ahead of wall-clock
 	miaAudioMaxLagSamples = miaAudioSampleRate * 333 / 1000 // >~300 ms behind wall-clock: snap the cursor forward
-
-	// Player source-buffer size in bytes (4 bytes/frame). Matched to the lead so
-	// oto's mux goroutine fills it and then blocks on its condition variable
-	// (rather than spinning on a reader that hands out only lead-sized chunks),
-	// and so the player's initial fill completes in one Read. oto's own device
-	// buffer (NewContextOptions.BufferSize) is the real underrun cushion.
-	miaAudioPlayerBufBytes = miaAudioLeadSamples * 4
 )
 
 // miaAudioVoiceOffset returns the RAM offset of a voice's 8-byte register record.
@@ -231,9 +222,18 @@ type miaAudioState struct {
 	// is created lazily and shared; each chip owns one player. hostDisabled
 	// suppresses host output entirely (used by tests so they never open a real
 	// audio device); outputErr records a failed device open for diagnostics.
-	player       *oto.Player
+	player       miaAudioPlayer
 	hostDisabled bool
 	outputErr    error
+}
+
+// miaAudioPlayer is the host audio output: an oto player where host audio is
+// available (audio_host.go), none in a Linux build without cgo
+// (audio_host_nocgo.go).
+type miaAudioPlayer interface {
+	Play()
+	Pause()
+	Close() error
 }
 
 // The sine table and envelope-rate tables are deterministic and shared by all
@@ -267,32 +267,6 @@ func init() {
 	for i := 0; i < 256; i++ {
 		miaAudioSineTable[i] = int8(math.Round(math.Sin((math.Pi*2.0/256.0)*float64(i)) * 127.0))
 	}
-}
-
-// The oto context is process-wide; oto refuses to create more than one.
-var (
-	miaAudioCtxOnce sync.Once
-	miaAudioCtx     *oto.Context
-	miaAudioCtxErr  error
-)
-
-func miaAudioContext() (*oto.Context, error) {
-	miaAudioCtxOnce.Do(func() {
-		ctx, ready, err := oto.NewContext(&oto.NewContextOptions{
-			SampleRate:   miaAudioSampleRate,
-			ChannelCount: 2,
-			Format:       oto.FormatSignedInt16LE,
-			BufferSize:   50 * time.Millisecond,
-		})
-		if err != nil {
-			miaAudioCtxErr = err
-			return
-		}
-		<-ready
-		miaAudioCtx = ctx
-	})
-
-	return miaAudioCtx, miaAudioCtxErr
 }
 
 /**************************************************************************************************
@@ -892,19 +866,13 @@ func (c *emulated_mia) audioStartOutput() {
 	a.mu.Unlock()
 
 	if player == nil {
-		ctx, err := miaAudioContext()
+		newPlayer, err := miaAudioNewPlayer(&miaAudioReader{chip: c, capToWallClock: true})
 		if err != nil {
 			a.mu.Lock()
 			a.outputErr = err
 			a.mu.Unlock()
 			return
 		}
-
-		newPlayer := ctx.NewPlayer(&miaAudioReader{chip: c, capToWallClock: true})
-		// Shrink the player's source buffer from oto's 500 ms default: the reader
-		// paces itself to wall-clock, so a big buffer just makes the mux goroutine
-		// spin asking for frames the reader will not hand out yet.
-		newPlayer.SetBufferSize(miaAudioPlayerBufBytes)
 
 		a.mu.Lock()
 		if a.player == nil {

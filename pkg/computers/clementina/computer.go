@@ -142,31 +142,33 @@ func (c *ClementinaComputer) SetMiaSDFolder(folder string) {
 }
 
 // SetMiaCharset selects the character set the emulated MIA loads into CHR bank 0
-// (one of the names under assets/computer/mia/charsets). It is a no-op on MIA
-// implementations that do not support a selectable charset.
-func (c *ClementinaComputer) SetMiaCharset(name string) {
+// (one of the names under assets/computer/mia/charsets) and returns an error for
+// an unknown name. It is a no-op on MIA implementations that do not support a
+// selectable charset.
+func (c *ClementinaComputer) SetMiaCharset(name string) error {
 	configurable, ok := c.chips.mia.(interface {
-		SetCharset(string)
+		SetCharset(string) error
 	})
 	if !ok {
-		return
+		return nil
 	}
 
-	configurable.SetCharset(name)
+	return configurable.SetCharset(name)
 }
 
 // SetMiaPalette selects the default palette the emulated MIA loads into palette
-// RAM (one of the names under assets/computer/mia/palettes). It is a no-op on
-// MIA implementations that do not support a selectable palette.
-func (c *ClementinaComputer) SetMiaPalette(name string) {
+// RAM (one of the names under assets/computer/mia/palettes) and returns an error
+// for an unknown name. It is a no-op on MIA implementations that do not support
+// a selectable palette.
+func (c *ClementinaComputer) SetMiaPalette(name string) error {
 	configurable, ok := c.chips.mia.(interface {
-		SetPalette(string)
+		SetPalette(string) error
 	})
 	if !ok {
-		return
+		return nil
 	}
 
-	configurable.SetPalette(name)
+	return configurable.SetPalette(name)
 }
 
 // ConnectMiaConsole connects a host serial port to the emulated MIA console.

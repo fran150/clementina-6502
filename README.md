@@ -235,8 +235,8 @@ If you are testing the emulator with your own image, it includes some debugging 
 | `--sd` | clementina | none | Existing host folder mounted as the SD card. Without it the slot is empty. |
 | `--video-udp` | clementina | `127.0.0.1:6502` | Address the MIA video service listens on. Empty turns it off. |
 | `--input-udp` | clementina | `127.0.0.1:6503` | Address the MIA input service listens on. Empty turns it off. |
-| `--charset` | clementina | `clascii` | Character set MIA loads at boot: `clascii` (the MIA firmware's) or `openroms`. |
-| `--palette` | clementina | `clementina-text` | Palette MIA loads at boot. `clementina-text` is the only one. |
+| `--charset` | clementina | `clascii` | Character set MIA loads at boot: `clascii` (the MIA firmware's) or `openroms`. Another name stops the emulator with an error. `clementina-automation` always loads `clascii`. |
+| `--palette` | clementina | `clementina-text` | Palette MIA loads at boot. `clementina-text` is the only one; another name stops the emulator with an error. |
 | `--gpio-chip` | clementina-gpio | `gpiochip4` | GPIO chip with the Pi header lines. |
 | `-r`, `--rom` | beneater | `./assets/computer/beneater/eater.bin` | ROM image to load. |
 | `-e`, `--emulate-modem` | beneater | `false` | Emulate the serial port's modem lines (untested). |
@@ -254,6 +254,9 @@ Up/Down, and `G` goes to an address.
 - **Go 1.23 or later**
 - **Linux:** a C compiler and the ALSA headers (`libasound2-dev` on Debian,
   Ubuntu and Raspberry Pi OS), because the audio library uses cgo there.
+  Without them (`CGO_ENABLED=0`, or a cross build) the emulator still builds
+  and runs, but plays no sound; the MIA console's audio status says why.
+  `clementina-gpio` doesn't need them: its sound comes from the real MIA.
   macOS and Windows need nothing extra.
 - **A terminal with ANSI color**, at least 80x24 characters
 - **For serial ports on Linux**, permission to open them (see
@@ -284,7 +287,8 @@ only Ben Eater's computer, and their `-s` is an older "skip cycles" option.
 Build from source to run Clementina.
 
 `make release VERSION=x.y.z` builds zip packages for Linux, macOS and Windows
-in `build/bin`, but it stops at the Linux cross builds (see
+in `build/bin`. The Linux packages for another architecture than the build
+machine's are cross builds, so they play no sound (see
 [Known issues](#known-issues-and-limitations)). The macOS package includes
 `setup-macos.sh`, which removes the download quarantine flag.
 
@@ -333,7 +337,7 @@ go tool pprof -http :8080 clementina6502.prof
 
 1. Serial ports, the MIA console and the Ben Eater ACIA alike, have been tested with `socat` only, not yet with a real port and terminal.
 1. The Ben Eater modem line emulation has not been tested.
-1. `make build-all` and `make release` stop at the Linux arm64 and 386 targets: the audio library needs cgo on Linux, and a cross build has no C toolchain. Build Linux binaries on the machine that runs them.
+1. Linux binaries built without cgo have no sound: the audio library needs cgo on Linux, and a cross build (`make build-all` and `make release` for Linux arm64 and 386 on an amd64 machine) has it off. For sound with the `clementina` model, build on the machine that runs it.
 
 ## Contributing
 

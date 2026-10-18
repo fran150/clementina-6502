@@ -126,8 +126,14 @@ func runEmulator(cmd *cobra.Command, args []string) {
 		}
 		defer clementinaComputer.Close()
 
-		clementinaComputer.SetMiaCharset(charset)
-		clementinaComputer.SetMiaPalette(palette)
+		if err := clementinaComputer.SetMiaCharset(charset); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: --charset: %v\n", err)
+			os.Exit(1)
+		}
+		if err := clementinaComputer.SetMiaPalette(palette); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: --palette: %v\n", err)
+			os.Exit(1)
+		}
 
 		if sdFolder != "" {
 			info, err := os.Stat(sdFolder)
