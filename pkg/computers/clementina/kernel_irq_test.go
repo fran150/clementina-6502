@@ -50,3 +50,37 @@ func TestKernelIRQChainsAndWarmStartRestoresVector(t *testing.T) {
 		t.Fatalf("after KERN_WARMSTART IRQ_VEC holds $%04X, want $%04X", got, handler)
 	}
 }
+
+// TestWarmStartResetsTheVIA checks that KERN_WARMSTART sets the VIA up as reset
+// does: a program's Timer 2 interrupt is turned off before it can fire with no
+// handler to clear it, and a stopped, retimed Timer 1 runs again at 6250.
+func TestWarmStartResetsTheVIA(t *testing.T) {
+	computer, step := bootClementinaToPrompt(t)
+
+	// Retime Timer 1 (latch 12,500) and stop its IRQ ($40 to VIA_IER).
+	typeLine(computer, step, "POKE 49158,212:POKE 49159,48")
+	typeLine(computer, step, "POKE 49166,64")
+	t0 := jiffies(computer)
+	editorTickN(computer, step, 100_000)
+	if dt := jiffies(computer) - t0; dt != 0 {
+		t.Fatalf("KJIFFY advanced by %d with Timer 1's IRQ off", dt)
+	}
+
+	// Start Timer 2 (about 65,000 cycles, one-shot) with its IRQ on ($A0),
+	// then warm start before it times out. The kernel's handler doesn't clear
+	// Timer 2, so if warm start left it on BASIC would hang when it fires.
+	typeLine(computer, step, "POKE 49161,255:POKE 49166,160:SYS 1027")
+	editorTickN(computer, step, 200_000)
+	typeLine(computer, step, "POKE 640,PEEK(49166) AND 127")
+	typeLine(computer, step, "POKE 641,PEEK(49158)")
+	typeLine(computer, step, "POKE 642,PEEK(49159)")
+	require_eq(t, 0x40, peek(computer, 640), "only Timer 1's IRQ is on after warm start")
+	require_eq(t, 0x6A, peek(computer, 641), "Timer 1 latch low is 6250's after warm start")
+	require_eq(t, 0x18, peek(computer, 642), "Timer 1 latch high is 6250's after warm start")
+
+	t0 = jiffies(computer)
+	editorTickN(computer, step, 600_000) // ~96 ticks at 6250 cycles/tick
+	if dt := jiffies(computer) - t0; dt < 80 || dt > 112 {
+		t.Fatalf("KJIFFY advanced by %d after warm start, expected ~96", dt)
+	}
+}
