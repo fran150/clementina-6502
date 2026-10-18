@@ -17,14 +17,12 @@ func TestEmulatedMiaVideoStartupConfiguresIndexesFontAndDirtyTracking(t *testing
 	chip.state = miaStateNormal
 
 	assert.Equal(t, uint8(miaVideoLayoutVersion), chip.memory[miaVideoLocalVersionOffset])
-	// The default charset is split-loaded: block 0 into plane 0 of CHR bank 0,
-	// block 1 into plane 0 of CHR bank 1, already in MIA pixel order (no per-byte
-	// reversal).
+	// The default charset is clascii, as on the MIA firmware: a full CHR dump,
+	// already in MIA pixel order (no per-byte reversal), loaded flat.
+	require.Equal(t, "clascii", miaDefaultCharset)
 	charset, err := assets.MiaCharset(miaDefaultCharset)
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(charset), 2*miaCharsetPlaneSize)
-	assert.Equal(t, charset[0], chip.memory[miaVideoCHROffset])
-	assert.Equal(t, charset[miaCharsetPlaneSize], chip.memory[miaVideoCHROffset+miaCHRBankSize])
+	assert.Equal(t, charset, chip.memory[miaVideoCHROffset:miaVideoCHROffset+len(charset)])
 	palette, err := assets.MiaPalette(miaDefaultPalette)
 	require.NoError(t, err)
 	require.Equal(t, miaPaletteSize, len(palette))
@@ -254,6 +252,42 @@ func TestVideoLoadFontFlatFullChrDump(t *testing.T) {
 		font[miaCHRBankSize],
 		chip.memory[miaVideoCHROffset+miaCHRBankSize],
 		"bank 1 plane 0 must come from the full-bank offset")
+}
+
+// TestVideoLoadFontPlaneZeroBlocks verifies the openroms format: 2048-byte
+// blocks, block i into plane 0 of CHR bank i.
+func TestVideoLoadFontPlaneZeroBlocks(t *testing.T) {
+	chip := newEmulatedMiaTestCircuit().chip
+
+	font, err := assets.MiaCharset("openroms")
+	require.NoError(t, err)
+	require.Equal(t, 2*miaCharsetPlaneSize, len(font), "openroms must be two plane-0 blocks")
+
+	require.NoError(t, chip.SetCharset("openroms"))
+	clear(chip.memory[miaVideoCHROffset : miaVideoCHROffset+8*miaCHRBankSize])
+	chip.videoLoadDefaultFont()
+
+	assert.Equal(t, font[:miaCharsetPlaneSize],
+		chip.memory[miaVideoCHROffset:miaVideoCHROffset+miaCharsetPlaneSize], "block 0 into bank 0 plane 0")
+	assert.Equal(t, font[miaCharsetPlaneSize:],
+		chip.memory[miaVideoCHROffset+miaCHRBankSize:miaVideoCHROffset+miaCHRBankSize+miaCharsetPlaneSize], "block 1 into bank 1 plane 0")
+}
+
+// An unknown charset or palette name is an error, not a silent fallback, and
+// keeps the selection as it was; an empty name selects the default.
+func TestVideoSetCharsetAndPaletteRejectUnknownNames(t *testing.T) {
+	chip := newEmulatedMiaTestCircuit().chip
+
+	require.NoError(t, chip.SetCharset("openroms"))
+	assert.Error(t, chip.SetCharset("nosuchfont"))
+	assert.Equal(t, "openroms", chip.charsetName)
+	require.NoError(t, chip.SetCharset(""))
+	assert.Equal(t, miaDefaultCharset, chip.charsetName)
+
+	assert.Error(t, chip.SetPalette("nosuchpalette"))
+	assert.Equal(t, miaDefaultPalette, chip.paletteName)
+	require.NoError(t, chip.SetPalette(""))
+	assert.Equal(t, miaDefaultPalette, chip.paletteName)
 }
 
 // TestClasciiReverseBankIsExactReverse pins the charset rule the kernel relies

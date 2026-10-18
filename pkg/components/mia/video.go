@@ -32,7 +32,7 @@ const (
 	miaCharsetPlaneSize = 2048
 	miaCHRBankSize      = 3 * miaCharsetPlaneSize // 6144
 	miaPaletteSize      = 16 * 8 * 2
-	miaDefaultCharset   = "openroms"
+	miaDefaultCharset   = "clascii"
 	miaDefaultPalette   = "clementina-text"
 
 	miaVideoLocalVersionOffset    = 0x00000
@@ -741,27 +741,27 @@ func (c *emulated_mia) videoEnable() {
 
 // SetPalette selects the palette MIA loads into palette RAM when video is
 // enabled (one of assets/computer/mia/palettes/<name>.palette.bin). Set it
-// before the program enables video; an empty or unknown name falls back to the
-// default.
-func (c *emulated_mia) SetPalette(name string) {
+// before the program enables video; an empty name selects the default. An
+// unknown name returns an error and leaves the selection as it was.
+func (c *emulated_mia) SetPalette(name string) error {
+	if name == "" {
+		name = miaDefaultPalette
+	}
+	if _, err := assets.MiaPalette(name); err != nil {
+		return err
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.paletteName = name
+	return nil
 }
 
 func (c *emulated_mia) videoLoadDefaultPalette() {
-	name := c.paletteName
-	if name == "" {
-		name = miaDefaultPalette
-	}
-	data, err := assets.MiaPalette(name)
+	data, err := assets.MiaPalette(c.paletteName)
 	if err != nil {
-		// Unknown palette: fall back to the default so video still works.
-		data, err = assets.MiaPalette(miaDefaultPalette)
-		if err != nil {
-			return
-		}
+		return
 	}
 	if len(data) > miaPaletteSize {
 		data = data[:miaPaletteSize]
@@ -771,26 +771,28 @@ func (c *emulated_mia) videoLoadDefaultPalette() {
 
 // SetCharset selects the character set MIA loads into CHR bank 0 when video is
 // enabled (one of assets/computer/mia/charsets/<name>.bin). Set it before the
-// program enables video; an empty or unknown name falls back to the default.
-func (c *emulated_mia) SetCharset(name string) {
+// program enables video; an empty name selects the default, clascii, as the MIA
+// firmware's MIA_CHARSET does. An unknown name returns an error and leaves the
+// selection as it was.
+func (c *emulated_mia) SetCharset(name string) error {
+	if name == "" {
+		name = miaDefaultCharset
+	}
+	if _, err := assets.MiaCharset(name); err != nil {
+		return err
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.charsetName = name
+	return nil
 }
 
 func (c *emulated_mia) videoLoadDefaultFont() {
-	name := c.charsetName
-	if name == "" {
-		name = miaDefaultCharset
-	}
-	data, err := assets.MiaCharset(name)
+	data, err := assets.MiaCharset(c.charsetName)
 	if err != nil {
-		// Unknown charset: fall back to the default so video still works.
-		data, err = assets.MiaCharset(miaDefaultCharset)
-		if err != nil {
-			return
-		}
+		return
 	}
 	// Two image formats are supported, distinguished by size:
 	//
