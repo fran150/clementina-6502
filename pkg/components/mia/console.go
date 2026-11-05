@@ -321,7 +321,7 @@ func (c *emulated_mia) consoleErrorsList() string {
 	first := c.errors.first
 	last := c.errors.last
 	buf := c.errors.buf
-	current := c.readRegister(miaRegErrorLSB)
+	current := uint8(c.currentError())
 	c.mu.Unlock()
 
 	count := (last - first) & 0x0F

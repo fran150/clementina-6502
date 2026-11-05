@@ -576,3 +576,37 @@ func TestEmulatedMiaSpeedRequestIsClampedWhenApplied(t *testing.T) {
 	circuit.idle(1)
 	assert.Equal(t, uint32(miaMaxPhi2Hz), chip.appliedPhi2Hz)
 }
+
+// TestEmulatedMiaBootErrorsKeepLoaderIntact verifies that an error queued in
+// loader mode leaves the loader's parking loop at $FFEA-$FFEC untouched, and
+// that MIA hands the error to the 6502 when it enters normal mode.
+func TestEmulatedMiaBootErrorsKeepLoaderIntact(t *testing.T) {
+	circuit := newEmulatedMiaTestCircuit()
+	chip := circuit.chip
+	assert.Equal(t, miaStateLoader, chip.state)
+
+	chip.errors.Push(chip, miaErrorSDInitFailed)
+
+	assert.Equal(t, uint8(0x4C), chip.readRegister(miaRegStatusLSB))
+	assert.Equal(t, uint8(0xEA), chip.readRegister(miaRegStatusMSB))
+	assert.Equal(t, uint8(0xFF), chip.readRegister(miaRegErrorLSB))
+	assert.Equal(t, miaStatusErrors, chip.status()&miaStatusErrors)
+	assert.Equal(t, uint16(miaErrorSDInitFailed), chip.currentError())
+
+	chip.kernelIndex = uint32(len(miaKernelData))
+	chip.canUpdateKernelPointer = true
+	chip.advanceKernelLoader()
+
+	assert.Equal(t, miaStateNormal, chip.state)
+	status := chip.readRegisterWord(miaRegStatusLSB)
+	assert.Equal(t, miaStatusMasterMode|miaStatusErrors, status&(miaStatusMasterMode|miaStatusErrors))
+	assert.Equal(t, status, chip.status())
+	assert.Equal(t, miaErrorSDInitFailed, chip.readRegister(miaRegErrorLSB))
+	assert.NotZero(t, chip.irqStatus()&miaIRQError)
+
+	// Once the CPU leaves reset, reading $FFEC consumes the boot error.
+	circuit.idle(miaCPUResetPulseCycles + 1)
+	assert.Equal(t, miaErrorSDInitFailed, circuit.read(miaRegErrorLSB))
+	assert.Zero(t, chip.readRegister(miaRegErrorLSB))
+	assert.Zero(t, chip.readRegisterWord(miaRegStatusLSB)&miaStatusErrors)
+}
