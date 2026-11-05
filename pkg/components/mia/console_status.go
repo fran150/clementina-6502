@@ -94,7 +94,7 @@ func (c *emulated_mia) consoleStatusSummary() string {
 	irqStatus := c.irqStatus()
 	irqMask := c.irqMask()
 	errCount := (c.errors.last - c.errors.first) & 0x0F
-	currentErr := c.readRegister(miaRegErrorLSB)
+	currentErr := uint8(c.currentError())
 	idxa := c.readRegister(miaRegIdxASelector)
 	idxb := c.readRegister(miaRegIdxBSelector)
 	mode := "Bootloader"

@@ -1,13 +1,37 @@
 package mia
 
-// status returns the 16-bit MIA status register value.
+// status returns the 16-bit MIA status word. Like the firmware, the word lives
+// outside the register window: MIA_STATUS ($FFEA-$FFEB) is only a copy, written
+// in normal mode, because in loader mode those bytes hold the loader's parking
+// loop. Console output reads the word, never the register.
 func (c *emulated_mia) status() uint16 {
-	return c.readRegisterWord(miaRegStatusLSB)
+	return c.statusWord
 }
 
-// setStatus updates the 16-bit MIA status register value.
+// setStatus stores the status word and copies it into MIA_STATUS when MIA is in
+// normal mode (mirrors mia_status_store, which tests the MASTER_MODE bit that
+// is set together with the normal state).
 func (c *emulated_mia) setStatus(value uint16) {
-	c.writeRegisterWord(miaRegStatusLSB, value)
+	c.statusWord = value
+	if c.state == miaStateNormal {
+		c.writeRegisterWord(miaRegStatusLSB, value)
+	}
+}
+
+// currentError returns the error value the 6502 reads at MIA_ERROR: the queue
+// head, or zero (mirrors error_current).
+func (c *emulated_mia) currentError() uint16 {
+	return c.errorWord
+}
+
+// setCurrentError stores the error value and copies it into MIA_ERROR when MIA
+// is in normal mode; in loader mode $FFEC belongs to the loader program
+// (mirrors error_set_current).
+func (c *emulated_mia) setCurrentError(value uint16) {
+	c.errorWord = value
+	if c.state == miaStateNormal {
+		c.writeRegisterWord(miaRegErrorLSB, value)
+	}
 }
 
 // statusSet sets one or more bits in the MIA status register.
@@ -102,9 +126,9 @@ func (q *miaErrorQueue) Push(chip *emulated_mia, value uint8) {
 	chip.irqSetFlag(miaIRQError)
 
 	if wasEmpty {
-		chip.writeRegisterWord(miaRegErrorLSB, uint16(value))
+		chip.setCurrentError(uint16(value))
 	} else if overwroteHead {
-		chip.writeRegisterWord(miaRegErrorLSB, uint16(q.buf[q.first]))
+		chip.setCurrentError(uint16(q.buf[q.first]))
 	}
 }
 
@@ -112,7 +136,7 @@ func (q *miaErrorQueue) Push(chip *emulated_mia, value uint8) {
 // status bit. It mirrors the firmware error_reset and backs 'errors clear'.
 func (q *miaErrorQueue) reset(chip *emulated_mia) {
 	*q = miaErrorQueue{}
-	chip.writeRegisterWord(miaRegErrorLSB, 0)
+	chip.setCurrentError(0)
 	chip.statusClear(miaStatusErrors)
 }
 
@@ -125,12 +149,12 @@ func (q *miaErrorQueue) Consume(chip *emulated_mia) uint8 {
 
 	if q.first == q.last {
 		chip.statusClear(miaStatusErrors)
-		chip.writeRegisterWord(miaRegErrorLSB, 0)
+		chip.setCurrentError(0)
 		return 0
 	}
 
 	next := q.buf[q.first]
-	chip.writeRegisterWord(miaRegErrorLSB, uint16(next))
+	chip.setCurrentError(uint16(next))
 
 	return next
 }

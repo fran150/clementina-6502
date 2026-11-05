@@ -21,11 +21,15 @@ type emulated_mia struct {
 	irq          buses.LineConnector
 
 	registers [miaRegisterCount]uint8
-	memory    []uint8
-	indexes   [miaIndexCount]miaIndex
-	errors    miaErrorQueue
-	ctxStack  [miaCtxDepth]miaContext
-	ctxDepth  int
+	// statusWord and errorWord hold MIA_STATUS and MIA_ERROR. They are copied
+	// into registers only in normal mode (see setStatus and setCurrentError).
+	statusWord uint16
+	errorWord  uint16
+	memory     []uint8
+	indexes    [miaIndexCount]miaIndex
+	errors     miaErrorQueue
+	ctxStack   [miaCtxDepth]miaContext
+	ctxDepth   int
 
 	state                   miaState
 	kernelIndex             uint32
@@ -277,6 +281,8 @@ func (c *emulated_mia) driveResetLine(asserted bool) {
 func (c *emulated_mia) init() {
 	c.registers = [miaRegisterCount]uint8{}
 	c.indexes = [miaIndexCount]miaIndex{}
+	c.statusWord = 0
+	c.errorWord = 0
 	c.errors = miaErrorQueue{}
 	c.ctxStack = [miaCtxDepth]miaContext{}
 	c.ctxDepth = 0
@@ -446,8 +452,9 @@ func (c *emulated_mia) advanceKernelLoader() {
 func (c *emulated_mia) enterNormalMode() {
 	c.driveResetLine(true)
 
+	// The status word and the error queue live outside the register window,
+	// so they keep what happened during boot; they are copied in below.
 	c.registers = [miaRegisterCount]uint8{}
-	c.errors = miaErrorQueue{}
 
 	c.irqInit()
 	c.speedResetRuntimeState()
@@ -459,7 +466,14 @@ func (c *emulated_mia) enterNormalMode() {
 	c.resetSubsystems()
 
 	c.state = miaStateNormal
-	c.statusSet(miaStatusMasterMode)
+	c.statusSet(miaStatusMasterMode) // also copies the status word to $FFEA
+
+	// Hand the errors queued during boot to the 6502: load the head error into
+	// $FFEC and raise IRQ_ERROR again, since irqInit cleared it.
+	c.setCurrentError(c.currentError())
+	if c.status()&miaStatusErrors != 0 {
+		c.irqSetFlag(miaIRQError)
+	}
 	c.scheduleCPUResetRelease()
 }
 
@@ -488,6 +502,8 @@ func (c *emulated_mia) fastLoaderInit() {
 	c.writeRegister(miaRegCmdParam3, 0x80)
 	c.writeRegister(miaRegCmdTrigger, 0xF6)
 
+	// $FFEA-$FFEC overlap MIA_STATUS and MIA_ERROR, which is why those two
+	// words are only copied into the register window in normal mode.
 	c.writeRegister(miaRegStatusLSB, 0x4C)
 	c.writeRegister(miaRegStatusMSB, 0xEA)
 	c.writeRegister(miaRegErrorLSB, 0xFF)

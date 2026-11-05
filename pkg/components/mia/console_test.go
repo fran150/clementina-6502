@@ -64,7 +64,7 @@ func TestEmulatedMiaConsoleErrorsListAndClear(t *testing.T) {
 
 	chip.mu.Lock()
 	assert.Zero(t, chip.status()&miaStatusErrors)
-	assert.Zero(t, chip.readRegister(miaRegErrorLSB))
+	assert.Zero(t, chip.currentError())
 	chip.mu.Unlock()
 
 	sendMiaConsoleInput(mock, "errors\n")
