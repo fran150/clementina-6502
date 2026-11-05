@@ -54,6 +54,10 @@ type miaConsoleState struct {
 	// wifiConfigSource and bootLog come from wifiBoot (see wifi_config.go).
 	wifiConfigSource string
 	bootLog          string
+	// wifiSaved holds the settings read at boot, reused by a bare
+	// 'wifi connect' or 'wifi ap' without reading the card again.
+	wifiSaved      miaWifiConfig
+	wifiSavedValid bool
 
 	lastDumpAddr   uint32
 	lastDisasmAddr uint32
@@ -475,15 +479,17 @@ func (c *emulated_mia) consoleWifi(args string) string {
 		return c.consoleWifiConnect(strings.TrimLeft(args[7:], " \t"))
 	}
 
-	return "Usage: wifi [status|off|connect <ssid> [password]|ap <ssid> [password]]\n" +
-		"  Notes: SSID and password may not contain spaces.\n" +
+	return "Usage: wifi [status|off|connect [<ssid> [password]]|ap [<ssid> [password]]]\n" +
+		"  Notes: with no SSID, connect and ap use the settings read at power-up\n" +
+		"         (WIFI.CFG, else the build).\n" +
+		"         SSID and password may not contain spaces.\n" +
 		"         AP clients must use a static IP; no DHCP is provided.\n"
 }
 
 func (c *emulated_mia) consoleWifiConnect(args string) string {
 	ssid, _ := splitConsoleCommand(args)
 	if ssid == "" {
-		return "Usage: wifi connect <ssid> [password]\n"
+		return c.consoleWifiConnectSaved()
 	}
 
 	return c.consoleWifiSetSTA(ssid)
@@ -492,10 +498,39 @@ func (c *emulated_mia) consoleWifiConnect(args string) string {
 func (c *emulated_mia) consoleWifiStartAP(args string) string {
 	ssid, _ := splitConsoleCommand(args)
 	if ssid == "" {
-		return "Usage: wifi ap <ssid> [password]\n"
+		return c.consoleWifiStartAPSaved()
 	}
 
 	return c.consoleWifiSetAP(ssid)
+}
+
+// consoleWifiConnectSaved joins the network saved at boot: station settings,
+// or mode = off with an SSID. AP settings are for 'wifi ap'.
+func (c *emulated_mia) consoleWifiConnectSaved() string {
+	saved := c.console.wifiSaved
+	if !c.console.wifiSavedValid || saved.ssid == "" {
+		return "Wi-Fi: no saved network (none in WIFI.CFG at power-up or in the build).\n" +
+			"Usage: wifi connect <ssid> [password]\n"
+	}
+	if saved.mode == miaConsoleWifiAP {
+		return fmt.Sprintf("Wi-Fi: the saved settings (%s) are for AP mode; use 'wifi ap'.\n",
+			c.console.wifiConfigSource)
+	}
+
+	return fmt.Sprintf("Wi-Fi: using the saved settings (%s).\n", c.console.wifiConfigSource) +
+		c.consoleWifiSetSTA(saved.ssid)
+}
+
+// consoleWifiStartAPSaved starts the access point saved at boot.
+func (c *emulated_mia) consoleWifiStartAPSaved() string {
+	saved := c.console.wifiSaved
+	if !c.console.wifiSavedValid || saved.mode != miaConsoleWifiAP {
+		return "Wi-Fi: no saved AP settings (WIFI.CFG or the build must use mode = ap).\n" +
+			"Usage: wifi ap <ssid> [password]\n"
+	}
+
+	return fmt.Sprintf("Wi-Fi: using the saved settings (%s).\n", c.console.wifiConfigSource) +
+		c.consoleWifiSetAP(saved.ssid)
 }
 
 func (c *emulated_mia) consoleWifiSetSTA(ssid string) string {
