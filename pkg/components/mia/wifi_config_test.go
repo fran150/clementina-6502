@@ -175,3 +175,28 @@ func TestEmulatedMiaConsoleShowsWifiBootLog(t *testing.T) {
 	sendMiaConsoleInput(mock, "status wifi\n")
 	waitForMiaConsoleOutput(t, mock, "  config:     WIFI.CFG\n")
 }
+
+// TestEmulatedMiaConsoleWifiBareCommandsUseBootSettings verifies a bare
+// 'wifi connect' or 'wifi ap' reuses the settings read at boot, as the
+// firmware does, and says why when there are none for that mode.
+func TestEmulatedMiaConsoleWifiBareCommandsUseBootSettings(t *testing.T) {
+	chip := newSDTestCircuit(t, writeWifiConfig(t, "WIFI.CFG", "mode=off\nssid=Home\npassword=secret123\n")).chip
+	assert.Equal(t, miaConsoleWifiOff, chip.console.wifiMode)
+
+	out := chip.consoleWifi("connect")
+	assert.Equal(t, "Wi-Fi: using the saved settings (WIFI.CFG).\nWi-Fi: connecting to 'Home'...\nWi-Fi: connected\n", out)
+	assert.Equal(t, miaConsoleWifiSTA, chip.console.wifiMode)
+	assert.Equal(t, "Home", chip.console.wifiSSID)
+	assert.NotContains(t, out, "secret123")
+
+	assert.Contains(t, chip.consoleWifi("ap"), "Wi-Fi: no saved AP settings")
+
+	chip = newSDTestCircuit(t, writeWifiConfig(t, "WIFI.CFG", "mode=ap\nssid=Clementina\n")).chip
+	chip.consoleWifi("off")
+	assert.Equal(t, "Wi-Fi: the saved settings (WIFI.CFG) are for AP mode; use 'wifi ap'.\n", chip.consoleWifi("connect"))
+	assert.Contains(t, chip.consoleWifi("ap"), "Wi-Fi: AP 'Clementina' active at 192.168.4.1\n")
+	assert.Equal(t, miaConsoleWifiAP, chip.console.wifiMode)
+
+	chip = newSDTestCircuit(t, t.TempDir()).chip
+	assert.Equal(t, "Wi-Fi: no saved network (none in WIFI.CFG at power-up or in the build).\nUsage: wifi connect <ssid> [password]\n", chip.consoleWifi("connect"))
+}
