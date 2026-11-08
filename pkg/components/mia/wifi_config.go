@@ -179,9 +179,13 @@ func (c *emulated_mia) wifiBoot() {
 	c.console.wifiMode = miaConsoleWifiOff
 	c.console.wifiSSID = ""
 	c.console.wifiConfigSource = miaWifiConfigSourceBuild
+	c.console.wifiSaved = miaWifiConfig{}
+	c.console.wifiSavedValid = false
 
 	if config, ok := c.wifiLoadSDConfig(&log); ok {
 		c.console.wifiConfigSource = miaWifiConfigSourceFile
+		c.console.wifiSaved = config
+		c.console.wifiSavedValid = true
 		log.WriteString("Wi-Fi: using WIFI.CFG from the SD card.\n")
 		switch config.mode {
 		case miaConsoleWifiSTA:
