@@ -171,6 +171,37 @@ func (c *emulated_mia) consoleStatusPIO(args string) string {
 }
 
 /**************************************************************************************************
+ * status sys
+ **************************************************************************************************/
+
+// consoleStatusSys mirrors the firmware's `status sys` (sysmon.c). The
+// emulator has no RP2350 flash, SRAM, stacks, cores or sensors, so it keeps the
+// layout and prints the uptime (emulated time since power-up) and "not
+// emulated" for the hardware lines.
+func (c *emulated_mia) consoleStatusSys(args string) string {
+	switch strings.TrimSpace(args) {
+	case "":
+	case "clear":
+		return "System: peaks cleared\n"
+	default:
+		return "Usage: status sys [clear]\n"
+	}
+
+	c.mu.Lock()
+	ms := c.nowNs / 1_000_000
+	c.mu.Unlock()
+	s := ms / 1000
+
+	var out strings.Builder
+	out.WriteString("System:\n")
+	fmt.Fprintf(&out, "  uptime:   %dd %02d:%02d:%02d\n", s/86400, s/3600%24, s/60%60, s%60)
+	out.WriteString("  RP2350 clock, temperature, flash, RAM, heap and stacks: not emulated.\n")
+	out.WriteString("Core 0 main loop: not emulated.\n")
+	out.WriteString("Core 1 bus loop: not emulated (the emulator has no cores or PIOs).\n")
+	return out.String()
+}
+
+/**************************************************************************************************
  * trace
  **************************************************************************************************/
 

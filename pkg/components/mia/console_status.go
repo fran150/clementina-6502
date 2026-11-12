@@ -82,11 +82,15 @@ func (c *emulated_mia) consoleStatus(args string) string {
 		return c.consoleStatusPIO(args[3:])
 	}
 
+	if strings.HasPrefix(args, "sys") && isCommandBoundary(args, 3) {
+		return c.consoleStatusSys(args[3:])
+	}
+
 	if strings.HasPrefix(args, "index") && isCommandBoundary(args, 5) {
 		return c.consoleStatusIndex(strings.TrimLeft(args[5:], " \t"))
 	}
 
-	return "Usage: status [video|input|audio|sd|wifi|irq|speed|exec|errors|mem|index [id]|ctx|pio [clear]]\n"
+	return "Usage: status [video|input|audio|sd|wifi|irq|speed|exec|errors|mem|index [id]|ctx|pio [clear]|sys [clear]]\n"
 }
 
 // consoleStatusSummary renders the compact dashboard, mirroring cmd_status_summary.

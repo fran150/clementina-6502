@@ -64,6 +64,18 @@ func TestEmulatedMiaConsoleStatusCtxAndPIO(t *testing.T) {
 	assert.Equal(t, "PIO: fdebug flags cleared\n", chip.consoleStatus("pio clear"))
 }
 
+func TestEmulatedMiaConsoleStatusSys(t *testing.T) {
+	circuit := contextTestCircuit(t)
+	chip := circuit.chip
+
+	out := chip.consoleStatus("sys")
+	assert.Contains(t, out, "System:\n")
+	assert.Contains(t, out, "  uptime:   0d 00:00:")
+	assert.Contains(t, out, "Core 1 bus loop: not emulated")
+	assert.Equal(t, "System: peaks cleared\n", chip.consoleStatus("sys clear"))
+	assert.Equal(t, "Usage: status sys [clear]\n", chip.consoleStatus("sys bogus"))
+}
+
 func TestEmulatedMiaConsoleDumpToConsole(t *testing.T) {
 	circuit := contextTestCircuit(t)
 	chip := circuit.chip

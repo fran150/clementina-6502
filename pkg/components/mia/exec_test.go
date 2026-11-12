@@ -132,5 +132,5 @@ func TestEmulatedMiaConsoleStatusSubcommands(t *testing.T) {
 	waitForMiaConsoleOutput(t, mock, "  index 0: current:$000000")
 
 	sendMiaConsoleInput(mock, "status bogus\n")
-	waitForMiaConsoleOutput(t, mock, "Usage: status [video|input|audio|sd|wifi|irq|speed|exec|errors|mem|index [id]|ctx|pio [clear]]\n")
+	waitForMiaConsoleOutput(t, mock, "Usage: status [video|input|audio|sd|wifi|irq|speed|exec|errors|mem|index [id]|ctx|pio [clear]|sys [clear]]\n")
 }
