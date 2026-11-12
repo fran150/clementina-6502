@@ -165,7 +165,7 @@ page and
 `-m clementina-gpio` runs the 65C02, RAM and VIA on a Raspberry Pi 5 and
 connects them through the GPIO header to a Pico running
 [clementina-mia](https://github.com/fran150/clementina-mia), so the MIA
-firmware can be tested against a 6502 before the board exists. It only runs on
+firmware can be tested against a 6502 without the board. It only runs on
 Linux on ARM (other builds print an error), and it uses only two flags:
 `--gpio-chip` (default `gpiochip4`, the Pi 5 header; some kernels name it
 `gpiochip0`) and `-f`. Everything else
