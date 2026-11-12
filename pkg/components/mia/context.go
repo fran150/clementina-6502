@@ -34,7 +34,9 @@ func (c *emulated_mia) contextWrite(value uint8) {
 // contextPush mirrors mia_core1_ctx_push. The firmware defers the overflow
 // error to core 0; the emulator queues it at once.
 func (c *emulated_mia) contextPush() {
+	c.traceCtxPush()
 	if c.ctxDepth == miaCtxDepth {
+		c.traceOverflow()
 		c.errors.Push(c, miaErrorCtxOverflow)
 		return
 	}
@@ -55,7 +57,9 @@ func (c *emulated_mia) contextPush() {
 
 // contextPop mirrors mia_core1_ctx_pop.
 func (c *emulated_mia) contextPop() {
+	c.traceCtxPop()
 	if c.ctxDepth == 0 {
+		c.traceUnderflow()
 		c.errors.Push(c, miaErrorCtxUnderflow)
 		return
 	}
