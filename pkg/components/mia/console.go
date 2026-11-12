@@ -262,6 +262,10 @@ func (c *emulated_mia) consoleDispatch(line string) string {
 		return c.consoleSD(args)
 	case "exec":
 		return c.consoleExec(args)
+	case "dump":
+		return c.consoleDump(args)
+	case "trace":
+		return c.consoleTrace(args)
 	case "monitor":
 		c.console.mode = miaConsoleModeMonitor
 		return c.consoleMonitorBanner()
@@ -275,7 +279,7 @@ func (c *emulated_mia) consoleDispatch(line string) string {
 func (c *emulated_mia) consoleHelp() string {
 	var out strings.Builder
 	out.WriteString("Commands:\n")
-	out.WriteString("  status     status [video|input|audio|sd|wifi|irq|speed|exec|errors|mem|index]\n")
+	out.WriteString("  status     status [video|input|audio|sd|wifi|irq|speed|exec|errors|mem|index|ctx|pio]\n")
 	out.WriteString("  errors     errors [list|clear]\n")
 	out.WriteString("  speed      speed HZ  - set PHI2 clock frequency\n")
 	out.WriteString("  wifi       wifi [status|off|connect|ap]\n")
@@ -283,6 +287,8 @@ func (c *emulated_mia) consoleHelp() string {
 	out.WriteString("  audio      audio [status|enable|stop|reset|seq]\n")
 	out.WriteString("  sd         sd [status|init|mount]\n")
 	out.WriteString("  exec       exec [status|pause|resume]\n")
+	out.WriteString("  dump       dump regs|idx [id]|ram ADDR LEN [FILE]|all [FILE]\n")
+	out.WriteString("  trace      trace [clear]  - bus event trace (always on in the emulator)\n")
 	out.WriteString("  monitor    Enter 65C02 machine language monitor\n")
 	out.WriteString("  quit       Reboot to BOOTSEL\n")
 	out.WriteString("  help       Show this help\n")

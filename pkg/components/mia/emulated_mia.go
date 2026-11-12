@@ -30,6 +30,8 @@ type emulated_mia struct {
 	errors     miaErrorQueue
 	ctxStack   [miaCtxDepth]miaContext
 	ctxDepth   int
+	// trace is the bus event trace (console 'trace'); see console_diag.go.
+	trace miaTraceState
 
 	state                   miaState
 	kernelIndex             uint32
@@ -200,6 +202,7 @@ func (c *emulated_mia) Tick(context *common.StepContext) {
 
 	if c.writeEnable.Enabled() {
 		data := c.dataBus.Read()
+		c.traceBusEvent(address, data, true)
 		if !c.normalReadOnlyWriteIgnored(address) {
 			c.writeRegister(address, data)
 		}
@@ -207,6 +210,7 @@ func (c *emulated_mia) Tick(context *common.StepContext) {
 	} else {
 		data := c.readRegister(address)
 		c.dataBus.Write(data)
+		c.traceBusEvent(address, data, false)
 		c.afterRead(address)
 	}
 
