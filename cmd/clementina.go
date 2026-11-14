@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/fran150/clementina-6502/internal/buildinfo"
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components/mia"
 	"github.com/fran150/clementina-6502/pkg/computers/beneater"
@@ -42,6 +43,8 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
+	rootCmd.Version = buildinfo.String("clementina-emulator")
+	rootCmd.SetVersionTemplate("{{.Version}}\n")
 	rootCmd.Flags().StringVarP(&model, "model", "m", "clementina", "Computer model to emulate (clementina / beneater / clementina-gpio)")
 	rootCmd.Flags().StringVarP(&serialPort, "port", "p", "", "Serial port to connect to (e.g., /dev/ttys004)")
 	rootCmd.Flags().StringVar(&gpioChipName, "gpio-chip", "gpiochip4", "GPIO chip to use for clementina-gpio")

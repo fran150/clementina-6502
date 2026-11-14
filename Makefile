@@ -3,7 +3,7 @@ BINARY_NAME=clementina
 MAIN_PACKAGE=./cmd/clementina.go
 GO=go
 
-.PHONY: all build build-all release clean test coverage lint vet fmt bench profile check-docs godoc-serve
+.PHONY: all build build-all release clean test coverage lint vet fmt bench profile check-docs godoc-serve dev-install
 
 # Build variables
 BUILD_DIR=build/bin
@@ -29,6 +29,17 @@ build: ## Build the binary for current platform
 	@echo "Building ${BINARY_NAME}..."
 	@mkdir -p ${BUILD_DIR}
 	${GO} build ${LDFLAGS} -o ${BUILD_DIR}/${BINARY_NAME} ${MAIN_PACKAGE}
+
+# Dev builds go into the folder the Clementina SDK's `clementina-dev on` puts
+# first on PATH; see docs/dev-install.md in clementina-sdk.
+DEV_BIN ?= $(if $(CLEMENTINA_DEV_BIN),$(CLEMENTINA_DEV_BIN),$(HOME)/.clementina/dev/bin)
+
+dev-install: ## Build clementina-emulator and clementina-automation into the dev folder
+	@mkdir -p "$(DEV_BIN)"
+	$(GO) build -o "$(DEV_BIN)/clementina-emulator" ./cmd
+	$(GO) build -o "$(DEV_BIN)/clementina-automation" ./cmd/clementina-automation
+	@"$(DEV_BIN)/clementina-emulator" --version
+	@"$(DEV_BIN)/clementina-automation" --version
 
 build-all: clean ## Build for all platforms (Linux, macOS, Windows)
 	@echo "Building for all platforms..."

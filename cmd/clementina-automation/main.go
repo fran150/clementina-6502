@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/fran150/clementina-6502/internal/buildinfo"
 	"github.com/fran150/clementina-6502/pkg/computers/clementina"
 	"io"
 	"net"
@@ -16,7 +17,12 @@ import (
 func main() {
 	port := flag.Uint("port", 0, "loopback TCP port; zero chooses an available port")
 	sdFolder := flag.String("sd", "", "host folder mounted as the emulated MIA SD card")
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println(buildinfo.String("clementina-automation"))
+		return
+	}
 	if *port > 65535 {
 		fmt.Fprintln(os.Stderr, "invalid port")
 		os.Exit(1)
