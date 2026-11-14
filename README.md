@@ -279,16 +279,35 @@ Before a pull request, run `make test`, `make lint` (needs `golangci-lint`)
 and `make check-docs`, which match the CI checks; see
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
+### Dev install
+
+`make dev-install` builds `clementina-emulator` and `clementina-automation`
+into `~/.clementina/dev/bin` (or `$CLEMENTINA_DEV_BIN`), the folder the
+Clementina SDK's `clementina-dev on` puts ahead of the installed tools on
+`PATH`; see the SDK's
+[dev installs](https://github.com/fran150/clementina-sdk/blob/main/docs/dev-install.md).
+`--version` on either executable prints `dev` and the commit for such a build,
+and the release tag for a downloaded one.
+
 ### Pre-built binaries
 
-The [published releases](https://github.com/fran150/clementina-6502/releases)
-(the latest is v0.3.0, May 2025) predate the Clementina model: they emulate
-only Ben Eater's computer, and their `-s` is an older "skip cycles" option.
-Build from source to run Clementina.
+The [releases](https://github.com/fran150/clementina-6502/releases) attach
+one archive per platform (`linux-amd64`, `linux-arm64`, `darwin-arm64`,
+`darwin-amd64`, `windows-amd64`) and a `SHA256SUMS` file. Each archive holds
+`clementina-emulator`, the interactive emulator, and `clementina-automation`,
+the headless one the Clementina SDK starts, plus Ben Eater's ROMs for the
+`beneater` model and the sample `SD` card folder (`./clementina-emulator --sd SD`). The Clementina model needs no other files. Every package is
+built on its own platform, so the Linux ones play sound; they need ALSA's
+runtime library (`libasound2`), which desktop distributions already have.
+macOS may quarantine a downloaded executable; `xattr -d com.apple.quarantine`
+clears that.
 
-`make release VERSION=x.y.z` builds zip packages for Linux, macOS and Windows
-in `build/bin`. The Linux packages for another architecture than the build
-machine's are cross builds, so they play no sound (see
+Releases v0.3.0 and older predate the Clementina model: they emulate only Ben
+Eater's computer, and their `-s` is an older "skip cycles" option.
+
+`make release VERSION=x.y.z` still builds zip packages locally in `build/bin`.
+The Linux packages for another architecture than the build machine's are cross
+builds, so they play no sound (see
 [Known issues](#known-issues-and-limitations)). The macOS package includes
 `setup-macos.sh`, which removes the download quarantine flag.
 
