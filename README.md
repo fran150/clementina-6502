@@ -282,9 +282,8 @@ and `make check-docs`, which match the CI checks; see
 ### Dev install
 
 `make dev-install` builds `clementina-emulator` and `clementina-automation`
-into `~/.clementina/dev/bin` (or `$CLEMENTINA_DEV_BIN`), the folder the
-Clementina SDK's `clementina-dev on` puts ahead of the installed tools on
-`PATH`; see the SDK's
+into `~/.clementina/dev/bin` (or `$CLEMENTINA_DEV_BIN`), the folder that the
+Clementina SDK's `clementina dev on` switches every terminal to; see the SDK's
 [dev installs](https://github.com/fran150/clementina-sdk/blob/main/docs/dev-install.md).
 `--version` on either executable prints `dev` and the commit for such a build,
 and the release tag for a downloaded one.
