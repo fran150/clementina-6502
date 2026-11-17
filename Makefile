@@ -30,8 +30,8 @@ build: ## Build the binary for current platform
 	@mkdir -p ${BUILD_DIR}
 	${GO} build ${LDFLAGS} -o ${BUILD_DIR}/${BINARY_NAME} ${MAIN_PACKAGE}
 
-# Dev builds go into the folder the Clementina SDK's `clementina-dev on` puts
-# first on PATH; see docs/dev-install.md in clementina-sdk.
+# Dev builds go into the folder that the Clementina SDK's `clementina dev on`
+# switches every terminal to; see docs/dev-install.md in clementina-sdk.
 DEV_BIN ?= $(if $(CLEMENTINA_DEV_BIN),$(CLEMENTINA_DEV_BIN),$(HOME)/.clementina/dev/bin)
 
 dev-install: ## Build clementina-emulator and clementina-automation into the dev folder

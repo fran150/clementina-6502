@@ -26,3 +26,7 @@ go.work.sum
 /build/bin
 /tests/coverage
 /tests/profiles
+
+# Release packages built by .github/workflows/release.yml. Ignored so the
+# builds there do not count as local changes in --version.
+/dist/
