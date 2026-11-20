@@ -1,6 +1,6 @@
 # Project variables
 BINARY_NAME=clementina
-MAIN_PACKAGE=./cmd/clementina.go
+MAIN_PACKAGE=./cmd
 GO=go
 
 .PHONY: all build build-all release clean test coverage lint vet fmt bench profile check-docs godoc-serve dev-install

@@ -33,6 +33,10 @@ var (
 	targetMhz         float64
 	targetFps         int
 	emulateModemLines bool
+	headless          bool
+	control           bool
+	controlPort       uint
+	startPaused       bool
 )
 
 var rootCmd = &cobra.Command{
@@ -54,9 +58,13 @@ func init() {
 	rootCmd.Flags().StringVar(&charset, "charset", "clascii", "Character set MIA loads into CHR bank 0 (name under assets/computer/mia/charsets)")
 	rootCmd.Flags().StringVar(&palette, "palette", "clementina-text", "Palette MIA loads into video palette RAM (name under assets/computer/mia/palettes)")
 	rootCmd.Flags().StringVarP(&romFile, "rom", "r", "./assets/computer/beneater/eater.bin", "ROM file to load")
-	rootCmd.Flags().Float64VarP(&targetMhz, "speed", "s", 1.2, "Target emulation speed in MHz")
+	rootCmd.Flags().Float64VarP(&targetMhz, "speed", "s", 1.2, "Target emulation speed in MHz; with --headless, 0 runs it unthrottled")
 	rootCmd.Flags().IntVarP(&targetFps, "fps", "f", 15, "Target display refresh rate")
 	rootCmd.Flags().BoolVarP(&emulateModemLines, "emulate-modem", "e", false, "Enable modem lines emulation for serial port (RTS, CTS, DTR, DSR)")
+	rootCmd.Flags().BoolVar(&headless, "headless", false, "Run the Clementina model without the terminal UI; video and input stay on UDP")
+	rootCmd.Flags().BoolVar(&control, "control", false, "With --headless, serve the automation API on loopback and print its URL")
+	rootCmd.Flags().UintVar(&controlPort, "control-port", 0, "Loopback TCP port for --control; zero chooses an available port")
+	rootCmd.Flags().BoolVar(&startPaused, "paused", false, "With --headless, reset the machine but wait for a 'run' request before running")
 }
 
 // ComputerRunner defines the interface for running computers in the CLI
@@ -67,6 +75,15 @@ type ComputerRunner interface {
 
 func runEmulator(cmd *cobra.Command, args []string) {
 	var emulator core.BaseEmulator
+
+	if headless && model != "clementina" {
+		fmt.Fprintln(os.Stderr, "Error: --headless needs the clementina model")
+		os.Exit(1)
+	}
+	if !headless && (control || startPaused || cmd.Flags().Changed("control-port")) {
+		fmt.Fprintln(os.Stderr, "Error: --control, --control-port and --paused need --headless")
+		os.Exit(1)
+	}
 
 	switch model {
 	case beneaterModel:
@@ -127,7 +144,9 @@ func runEmulator(cmd *cobra.Command, args []string) {
 			fmt.Fprintf(os.Stderr, "Error creating computer: %v\n", err)
 			os.Exit(1)
 		}
-		defer clementinaComputer.Close()
+		if !headless {
+			defer clementinaComputer.Close()
+		}
 
 		if err := clementinaComputer.SetMiaCharset(charset); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: --charset: %v\n", err)
@@ -164,6 +183,11 @@ func runEmulator(cmd *cobra.Command, args []string) {
 				fmt.Fprintf(os.Stderr, "Error connecting MIA console port: %v\n", err)
 				os.Exit(1)
 			}
+		}
+
+		if headless {
+			runHeadless(clementinaComputer)
+			return
 		}
 
 		emulator, err = clementina.NewClemetinaEmulator(clementinaComputer, targetMhz, targetFps)

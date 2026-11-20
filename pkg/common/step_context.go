@@ -68,6 +68,21 @@ func (context *StepContext) NextCycle() {
 	context.CycleT = context.T
 }
 
+// coarseClockCycles is how many cycles NextCycleCoarse lets pass between
+// clock reads. At 4 MHz that keeps T within 16 µs of the wall clock.
+const coarseClockCycles = 64
+
+// NextCycleCoarse advances one cycle like NextCycle but reads the wall clock
+// only every coarseClockCycles cycles. Reading the clock is a measurable part of
+// each cycle; components only use T for millisecond timing.
+func (context *StepContext) NextCycleCoarse() {
+	context.Cycle++
+	if context.Cycle%coarseClockCycles == 0 || context.T == 0 {
+		context.T = now()
+	}
+	context.CycleT = context.T
+}
+
 // now returns the number of nanoseconds that have elapsed since the emulation started.
 // It is used internally to maintain accurate timing information.
 func now() int64 {

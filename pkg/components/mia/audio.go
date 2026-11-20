@@ -5,6 +5,7 @@ import (
 	"math"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -190,6 +191,11 @@ type miaAudioQueueEntry struct {
 // and the oto callback goroutine (miaAudioReader.Read).
 type miaAudioState struct {
 	mu sync.Mutex
+
+	// seqActive is true while any sequencer voice runs or a sequence-done IRQ
+	// is pending. It is written with mu held and lets the per-cycle service
+	// skip taking mu when the sequencer is idle.
+	seqActive atomic.Bool
 
 	voices [miaAudioVoiceCount]miaAudioVoice
 

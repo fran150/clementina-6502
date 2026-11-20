@@ -28,6 +28,38 @@ Raspberry Pi 5 wired to a real MIA.
 Every model has the same terminal debugger: CPU state, the code around the
 program counter, memory, the VIA, the buses, breakpoints and single-stepping.
 
+## Installing
+
+The emulator is part of the Clementina toolchain, and the Clementina SDK
+installs it with everything else. On macOS and Linux:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/fran150/clementina-sdk/main/install.sh | sh
+```
+
+On Windows, in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/fran150/clementina-sdk/main/install.ps1 | iex
+```
+
+The script installs the `clementina` command, which then runs
+`clementina install`. That puts cc65, this emulator, the
+[video client](https://github.com/fran150/clementina-video-client) and
+Clementina Studio in `~/.clementina` and adds `~/.clementina/bin` to `PATH`.
+From this repository you get two commands:
+
+| Command | What it is |
+| --- | --- |
+| `clementina-emulator` | The emulator. With no flags it opens the terminal debugger; `--headless` runs it with no output, which is how the VS Code extension starts it. |
+| `clementina-automation` | The same machine with a JSON control API and no clock pacing, for scripts and tests. |
+
+`clementina update` moves every tool to its newest release, and
+`clementina install emulator` (or `emulator@<version>`) installs only this
+one. See the SDK's
+[install guide](https://github.com/fran150/clementina-sdk/blob/main/docs/install.md).
+To run your own build instead of the release, see [Dev install](#dev-install).
+
 ## Why?
 
 My journey with computers began in the 1980s when my dad brought home a Commodore 64. Those first BASIC programs I wrote sparked a passion for programming that's stuck with me ever since. I've always wanted to build my own computer from scratch, but my electronics skills weren't quite up to the task (I also wanted to create an OS, a programming language, a game...¯\_(ツ)_/¯).
@@ -66,19 +98,21 @@ and the MIA registers are in the
 
 ### Quick start
 
-Run the emulator from this repository, with the sample SD card in `SD/`:
+With the tools [installed](#installing), start the emulator on a folder that
+acts as the SD card (here the sample `SD/` folder from this repository), and
+the video client in a second terminal:
 
-```bash
-go run ./cmd --sd SD
+```sh
+clementina-emulator --sd SD
 ```
 
-Then start the video client from the
-[clementina-video-client](https://github.com/fran150/clementina-video-client)
-repository:
-
-```bash
-go run ./cmd/clementina-video-client
+```sh
+clementina-video-client
 ```
+
+From a clone of this repository and of
+[clementina-video-client](https://github.com/fran150/clementina-video-client),
+`go run ./cmd --sd SD` and `go run ./cmd/clementina-video-client` do the same.
 
 The video client window shows the Clementina screen and sends the keyboard,
 mouse and gamepads; the emulator's terminal shows the debugger. Both default
@@ -122,6 +156,10 @@ target in steps of 0.1 MHz (smaller steps below 1 MHz). The host may not keep
 up with a high target; on exit the emulator prints the cycles it ran and the
 speed it reached.
 
+The terminal debugger's per-cycle windows cost a lot of speed: on an Apple
+silicon Mac the emulator reaches about 2.7 MHz with them and about 4.2 MHz with
+`--headless` (see [Headless real-time mode](#headless-real-time-mode)).
+
 ### MIA console
 
 On Clementina, `-p` (`--port`) connects a serial port to the emulated MIA's
@@ -142,11 +180,38 @@ go run ./cmd --sd SD -p /tmp/ttyComputer
 Then open `/tmp/ttyTerminal` with any terminal program. The console has been
 tested with `socat` only, not yet with a real serial port.
 
+### Headless real-time mode
+
+`--headless` runs the Clementina model in real time with no terminal UI and no
+console output. Video and input stay on UDP, so the
+[video client](https://github.com/fran150/clementina-video-client) shows the
+game and sends it the keyboard and gamepads, as it does with the terminal
+debugger. `--speed` works as above, and `--speed 0` runs as fast as the
+host allows. It runs until `Ctrl+C` (or `SIGTERM`).
+
+```bash
+./clementina-emulator --headless --sd build/sd
+```
+
+`--control` also serves the [automation protocol](#headless-automation) on a
+loopback port and prints its URL as the only line of output: breakpoints,
+stepping, memory reads, reset, plus `speed` and `setSpeed` to change the
+speed while it runs. `--control-port` fixes the port, and `--paused` resets
+the machine but waits for a `run` request. This is what the Clementina VS Code
+extension starts when you debug a project, so you play the game in the video
+client and stop it in the editor.
+
+```bash
+./clementina-emulator --headless --control --paused --sd build/sd
+```
+
 ### Headless automation
 
 `cmd/clementina-automation` runs one Clementina with no terminal, no UDP
 services and no serial port, controlled through a JSON request endpoint on a
-loopback TCP port. The SDK's `clementina run` and its emulator client use it.
+loopback TCP port. It runs as fast as the host allows, not in real time, for
+tests and checks: the SDK's `clementina run`, `clementina check` and its
+emulator client use it.
 
 ```bash
 go build -o clementina-automation ./cmd/clementina-automation
@@ -229,7 +294,7 @@ If you are testing the emulator with your own image, it includes some debugging 
 | Flag | Models | Default | Meaning |
 | --- | --- | --- | --- |
 | `-m`, `--model` | all | `clementina` | `clementina`, `clementina-gpio` or `beneater`. |
-| `-s`, `--speed` | clementina, beneater | `1.2` | Target CPU clock in MHz. On Clementina, MIA's `PHI2` follows it, between 1 Hz and 8 MHz. |
+| `-s`, `--speed` | clementina, beneater | `1.2` | Target CPU clock in MHz. On Clementina, MIA's `PHI2` follows it, between 1 Hz and 8 MHz. With `--headless`, `0` runs unthrottled. |
 | `-f`, `--fps` | all | `15` | Terminal debugger refresh rate. |
 | `-p`, `--port` | clementina, beneater | none | Serial port. Clementina: the MIA console at 115200 baud. Ben Eater: the ACIA. |
 | `--sd` | clementina | none | Existing host folder mounted as the SD card. Without it the slot is empty. |
@@ -237,6 +302,10 @@ If you are testing the emulator with your own image, it includes some debugging 
 | `--input-udp` | clementina | `127.0.0.1:6503` | Address the MIA input service listens on. Empty turns it off. |
 | `--charset` | clementina | `clascii` | Character set MIA loads at boot: `clascii` (the MIA firmware's) or `openroms`. Another name stops the emulator with an error. `clementina-automation` always loads `clascii`. |
 | `--palette` | clementina | `clementina-text` | Palette MIA loads at boot. `clementina-text` is the only one; another name stops the emulator with an error. |
+| `--headless` | clementina | `false` | Run in real time without the terminal UI or console output. |
+| `--control` | clementina | `false` | With `--headless`, serve the automation protocol on loopback and print its URL. |
+| `--control-port` | clementina | `0` | Port for `--control`; `0` picks a free one. |
+| `--paused` | clementina | `false` | With `--headless`, wait for a `run` request after reset. |
 | `--gpio-chip` | clementina-gpio | `gpiochip4` | GPIO chip with the Pi header lines. |
 | `-r`, `--rom` | beneater | `./assets/computer/beneater/eater.bin` | ROM image to load. |
 | `-e`, `--emulate-modem` | beneater | `false` | Emulate the serial port's modem lines (untested). |
@@ -268,7 +337,7 @@ Up/Down, and `G` goes to an address.
 git clone https://github.com/fran150/clementina-6502.git
 cd clementina-6502
 
-# Build build/bin/clementina for this machine
+# Build build/bin/clementina (the emulator, from ./cmd) for this machine
 make build
 
 # Or run without building
@@ -281,12 +350,56 @@ and `make check-docs`, which match the CI checks; see
 
 ### Dev install
 
-`make dev-install` builds `clementina-emulator` and `clementina-automation`
-into `~/.clementina/dev/bin` (or `$CLEMENTINA_DEV_BIN`), the folder that the
-Clementina SDK's `clementina dev on` switches every terminal to; see the SDK's
-[dev installs](https://github.com/fran150/clementina-sdk/blob/main/docs/dev-install.md).
-`--version` on either executable prints `dev` and the commit for such a build,
-and the release tag for a downloaded one.
+A dev install lets the `clementina` toolchain, the VS Code extension and
+Studio use your own build of the emulator instead of the released one,
+without touching the release in `~/.clementina/bin`. It needs the Clementina
+tools [installed](#installing) and a clone of this repository.
+
+1. Build both executables into the dev folder, `~/.clementina/dev/bin` (or
+   `$CLEMENTINA_DEV_BIN`):
+
+   ```sh
+   make dev-install
+   ```
+
+   It prints the `--version` of each one, which shows `dev` and the commit.
+
+2. Switch to the dev builds:
+
+   ```sh
+   clementina dev on
+   ```
+
+   On macOS and Linux this points the links in `~/.clementina/bin` at the dev
+   folder, so every terminal, and the VS Code extension, runs your build.
+   On Windows, `clementina` commands use the dev folder, but other programs
+   need its path typed by hand.
+
+3. Check what will run:
+
+   ```sh
+   clementina dev status
+   clementina-emulator --version
+   ```
+
+   `clementina doctor` also says which emulator it found.
+
+To try a new change, run `make dev-install` again. It replaces the dev
+builds, and dev mode stays on, so the next `clementina-emulator` or the next
+debugging session in VS Code uses it. Stop any emulator that is still running
+first. `make build` is only for a quick local binary in `build/bin`; it does
+not change what the toolchain runs.
+
+To go back to the released emulator:
+
+```sh
+clementina dev off
+```
+
+Dev mode covers every Clementina tool with a dev build, not only this one;
+the SDK's
+[dev installs](https://github.com/fran150/clementina-sdk/blob/main/docs/dev-install.md)
+page has the full picture, including the SDK's own `npm run dev:install`.
 
 ### Pre-built binaries
 

@@ -255,6 +255,7 @@ func (a *miaAudioState) seqFinishTrack(voice int) {
 	seq.catchingUp = false
 	a.seqGate(voice, false)
 	a.seqDonePending = true
+	a.seqActive.Store(true)
 }
 
 // seqAdvance decodes and applies config/JUMP opcodes at the current cursor,
@@ -484,6 +485,7 @@ func (c *emulated_mia) audioSeqStart(mask uint8) {
 		a.seq[v].running = true
 		a.seq[v].taken = false
 		a.seq[v].catchingUp = false
+		a.seqActive.Store(true)
 	}
 }
 
@@ -564,15 +566,23 @@ func (c *emulated_mia) audioSeqResetRuntimeState() {
 // happen on the render goroutine itself.
 func (c *emulated_mia) audioSeqService() {
 	a := &c.audio
+	if !a.seqActive.Load() {
+		return
+	}
 	a.mu.Lock()
 	pending := a.seqDonePending
 	a.seqDonePending = false
 
+	running := false
 	for v := 0; v < miaAudioVoiceCount; v++ {
-		if a.seq[v].running && !a.seq[v].taken {
-			c.audioSeqMirrorVoiceLocked(v)
+		if a.seq[v].running {
+			running = true
+			if !a.seq[v].taken {
+				c.audioSeqMirrorVoiceLocked(v)
+			}
 		}
 	}
+	a.seqActive.Store(running)
 	a.mu.Unlock()
 
 	if pending {

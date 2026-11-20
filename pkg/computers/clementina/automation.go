@@ -5,13 +5,19 @@ import (
 	"github.com/fran150/clementina-6502/pkg/common"
 	"github.com/fran150/clementina-6502/pkg/components"
 	"github.com/fran150/clementina-6502/pkg/core"
+	"github.com/fran150/clementina-6502/pkg/core/controllers"
 	"github.com/fran150/clementina-6502/pkg/core/managers"
 	"runtime"
 	"sync"
+	"time"
 )
 
-// Automation exclusively owns a headless computer. No UI or UDP loops share it.
+// Automation exclusively owns a headless computer. No UI loop shares it.
 // All operations, including Close, are serialized at complete cycle boundaries.
+//
+// By default it runs unthrottled, for tests and checks. A real-time machine
+// (NewRealtimeAutomation) paces its run loop to the PHI2 target speed instead,
+// so a person can play the game while a debugger controls it.
 type Automation struct {
 	mu              sync.Mutex
 	computer        *ClementinaComputer
@@ -27,6 +33,29 @@ type Automation struct {
 	skipBreakpoint  bool
 	wake            chan struct{}
 	done            chan struct{}
+	// Real-time pacing. speed is nil for an unthrottled machine.
+	speed       core.SpeedController
+	unthrottled bool
+	measured    float64
+	// autoResume restarts a run that MIA paused once MIA resumes execution.
+	autoResume bool
+	// filters narrow a breakpoint to stops where a little-endian word in
+	// memory has one of a set of values, such as the ROM statement hook
+	// filtered by BASIC's current line number. A real-time game keeps running
+	// at full speed between the lines a person asked to stop on.
+	filters map[uint16]automationFilter
+	// cpuDebug is the CPU's debug view, looked up once instead of every cycle.
+	cpuDebug automationCPU
+}
+
+type automationFilter struct {
+	watch  uint16
+	values map[uint16]struct{}
+}
+
+type automationCPU interface {
+	DebugInstructionBoundary() bool
+	DebugStopped() bool
 }
 
 // AutomationRequest is one JSON request to the automation API. Method selects
@@ -42,6 +71,21 @@ type AutomationRequest struct {
 	UsageID   *int   `json:"usageId,omitempty"`
 	Down      *bool  `json:"down,omitempty"`
 	Player    *int   `json:"player,omitempty"`
+	// Watch and Values are the setBreakpointFilter word address and the
+	// values of that word that make the breakpoint at Address stop.
+	Watch  *int  `json:"watch,omitempty"`
+	Values []int `json:"values,omitempty"`
+	// MHz is the setSpeed target; zero runs as fast as the host allows.
+	MHz *float64 `json:"mhz,omitempty"`
+}
+
+// AutomationSpeed is the pacing reported by the speed and setSpeed methods.
+// A machine without real-time pacing always reports Unthrottled.
+type AutomationSpeed struct {
+	Realtime    bool    `json:"realtime"`
+	TargetMHz   float64 `json:"targetMHz"`
+	Unthrottled bool    `json:"unthrottled"`
+	MeasuredMHz float64 `json:"measuredMHz"`
 }
 
 // AutomationState is the CPU and run state returned by automation calls.
@@ -107,10 +151,33 @@ func NewAutomationWithSDFolder(folder string) (*Automation, error) {
 		return nil, err
 	}
 	c.SetMiaSDFolder(folder)
-	a := &Automation{computer: c, step: common.NewStepContext(), reason: "initial", breakpoints: managers.NewBreakpointManager(), wake: make(chan struct{}, 1), done: make(chan struct{})}
-	c.SetMiaExecPausedHandler(func(paused bool) { a.paused = paused })
+	return newAutomation(c, nil), nil
+}
+
+// NewRealtimeAutomation takes ownership of computer and runs it at speedMhz,
+// following PHI2 speed changes MIA requests. Zero or less runs unthrottled.
+// The computer may serve UDP video and input; nothing else may tick it.
+func NewRealtimeAutomation(computer *ClementinaComputer, speedMhz float64) *Automation {
+	speed := newMiaSyncedSpeedController(computer, controllers.NewSpeedController(max(speedMhz, 0.001)))
+	a := newAutomation(computer, speed)
+	a.unthrottled = speedMhz <= 0
+	a.autoResume = true
+	return a
+}
+
+func newAutomation(c *ClementinaComputer, speed core.SpeedController) *Automation {
+	a := &Automation{computer: c, step: common.NewStepContext(), reason: "initial", breakpoints: managers.NewBreakpointManager(), wake: make(chan struct{}, 1), done: make(chan struct{}), speed: speed, cpuDebug: c.chips.cpu.(automationCPU)}
+	c.SetMiaExecPausedHandler(func(paused bool) {
+		a.paused = paused
+		if !paused && a.autoResume {
+			select {
+			case a.wake <- struct{}{}:
+			default:
+			}
+		}
+	})
 	go a.loop()
-	return a, nil
+	return a
 }
 
 // Close stops the machine and waits for its run loop to exit.
@@ -127,17 +194,38 @@ func (a *Automation) Close() {
 }
 
 // The runner releases ownership every 256 cycles, allowing inspection and pause.
-// This is an unthrottled debugger runner, not a PHI2 frequency scheduler.
+// Unthrottled, it is a debugger runner, not a PHI2 frequency scheduler. A
+// real-time machine sleeps between batches so the batches keep PHI2 time.
 func (a *Automation) loop() {
 	defer close(a.done)
+	const batch = 256
+	const maxLag = 20 * time.Millisecond
 	for range a.wake {
+		a.mu.Lock()
+		if !a.running && !a.closed && a.autoResume && a.reason == "mia-paused" && !a.paused {
+			a.running, a.reason = true, "running"
+		}
+		throttle := a.speed != nil && !a.unthrottled
+		a.mu.Unlock()
+		due := time.Now()
+		var measureStart time.Time
+		var measureCycles uint64
 		for {
+			if throttle {
+				now := time.Now()
+				if wait := due.Sub(now); wait > 0 {
+					time.Sleep(wait)
+				} else if -wait > maxLag {
+					due = now
+				}
+			}
 			a.mu.Lock()
 			if !a.running || a.closed {
 				a.mu.Unlock()
 				break
 			}
-			for i := 0; i < 256; i++ {
+			before := a.step.Cycle
+			for i := 0; i < batch; i++ {
 				if a.stopCondition() {
 					break
 				}
@@ -151,19 +239,57 @@ func (a *Automation) loop() {
 					break
 				}
 			}
+			ran := a.step.Cycle - before
+			if a.speed != nil {
+				due = due.Add(time.Duration(float64(ran) * a.speed.GetNanosPerCycle()))
+				now := time.Now()
+				if measureStart.IsZero() {
+					measureStart = now
+				}
+				measureCycles += ran
+				if elapsed := now.Sub(measureStart); elapsed >= 250*time.Millisecond {
+					a.measured = float64(measureCycles) / elapsed.Seconds() / 1e6
+					measureStart, measureCycles = now, 0
+				}
+			}
+			// setSpeed may switch pacing on or off between batches.
+			wasThrottled := throttle
+			throttle = a.speed != nil && !a.unthrottled
+			if throttle && !wasThrottled {
+				due = time.Now()
+			}
 			a.mu.Unlock()
 			runtime.Gosched()
 		}
 	}
 }
+
+func (a *Automation) speedState() AutomationSpeed {
+	if a.speed == nil {
+		return AutomationSpeed{Unthrottled: true}
+	}
+	measured := a.measured
+	if !a.running {
+		measured = 0
+	}
+	return AutomationSpeed{Realtime: true, TargetMHz: a.speed.GetTargetSpeed(), Unthrottled: a.unthrottled, MeasuredMHz: measured}
+}
+
 func (a *Automation) boundary() bool {
-	return a.computer.chips.cpu.(interface{ DebugInstructionBoundary() bool }).DebugInstructionBoundary()
+	return a.cpuDebug.DebugInstructionBoundary()
 }
 func (a *Automation) bank() uint8 { return a.computer.circuit.portABus.Read() & 0x1f }
 func (a *Automation) hasBreakpoint() bool {
 	pc := a.computer.GetProgramCounter()
 	if a.breakpoints.HasBreakpoint(pc) {
-		return true
+		filter, ok := a.filters[pc]
+		if !ok {
+			return true
+		}
+		low, lowOK := a.computer.peekMappedMemory(filter.watch)
+		high, highOK := a.computer.peekMappedMemory(filter.watch + 1)
+		_, match := filter.values[uint16(low)|uint16(high)<<8]
+		return lowOK && highOK && match
 	}
 	if pc < 0x8000 || pc >= 0xc000 {
 		return false
@@ -181,7 +307,7 @@ func (a *Automation) stopCondition() bool {
 		a.stop("mia-paused")
 		return true
 	}
-	if a.computer.chips.cpu.(interface{ DebugStopped() bool }).DebugStopped() {
+	if a.cpuDebug.DebugStopped() {
 		a.stop("cpu-stopped")
 		return true
 	}
@@ -197,7 +323,7 @@ func (a *Automation) tick() {
 	}
 	a.computer.Tick(&a.step)
 	a.computer.PostTick(&a.step)
-	a.step.NextCycle()
+	a.step.NextCycleCoarse()
 	if a.pending != nil && a.boundary() {
 		a.traceInstruction(*a.pending)
 		a.pending = nil
@@ -284,9 +410,23 @@ func (a *Automation) Execute(r AutomationRequest) (any, error) {
 	}
 	switch r.Method {
 	case "capabilities":
-		return map[string]any{"version": 1, "methods": []string{"capabilities", "state", "reset", "step", "readMemory", "input", "setHidUsage", "setHidBitmap", "setGamepadState", "clearGamepad", "video", "audio", "run", "pause", "resume", "stepInstruction", "addBreakpoint", "removeBreakpoint", "breakpoints", "clearBreakpoints", "addBankBreakpoint", "removeBankBreakpoint", "bankBreakpoints", "clearBankBreakpoints", "stackTrace"}, "maxCycles": 10000000, "maxRead": 65536}, nil
+		return map[string]any{"version": 1, "methods": []string{"capabilities", "state", "reset", "step", "readMemory", "input", "setHidUsage", "setHidBitmap", "setGamepadState", "clearGamepad", "video", "audio", "run", "pause", "resume", "stepInstruction", "addBreakpoint", "removeBreakpoint", "breakpoints", "clearBreakpoints", "addBankBreakpoint", "removeBankBreakpoint", "bankBreakpoints", "clearBankBreakpoints", "stackTrace", "speed", "setSpeed", "setBreakpointFilter", "clearBreakpointFilter"}, "maxCycles": 10000000, "maxRead": 65536}, nil
 	case "state":
 		return a.state(), nil
+	case "speed":
+		return a.speedState(), nil
+	case "setSpeed":
+		if a.speed == nil {
+			return nil, fmt.Errorf("this machine has no real-time pacing")
+		}
+		if r.MHz == nil || *r.MHz < 0 || *r.MHz > 100 {
+			return nil, fmt.Errorf("mhz must be 0..100, where 0 means unthrottled")
+		}
+		a.unthrottled = *r.MHz == 0
+		if !a.unthrottled {
+			a.speed.SetTargetSpeed(*r.MHz)
+		}
+		return a.speedState(), nil
 	case "stackTrace":
 		if a.running {
 			return nil, fmt.Errorf("pause before stack inspection")
@@ -361,6 +501,31 @@ func (a *Automation) Execute(r AutomationRequest) (any, error) {
 			a.breakpoints.RemoveBreakpoint(uint16(r.Address))
 		}
 		return a.breakpoints.GetBreakpoints(), nil
+	case "setBreakpointFilter":
+		if r.Address < 0 || r.Address > 65535 || r.Watch == nil || *r.Watch < 0 || *r.Watch > 65534 {
+			return nil, fmt.Errorf("expected breakpoint address and watch address 0..65534")
+		}
+		if len(r.Values) < 1 || len(r.Values) > 1024 {
+			return nil, fmt.Errorf("values must contain 1..1024 words")
+		}
+		values := make(map[uint16]struct{}, len(r.Values))
+		for _, v := range r.Values {
+			if v < 0 || v > 65535 {
+				return nil, fmt.Errorf("invalid filter value")
+			}
+			values[uint16(v)] = struct{}{}
+		}
+		if a.filters == nil {
+			a.filters = map[uint16]automationFilter{}
+		}
+		a.filters[uint16(r.Address)] = automationFilter{uint16(*r.Watch), values}
+		return a.state(), nil
+	case "clearBreakpointFilter":
+		if r.Address < 0 || r.Address > 65535 {
+			return nil, fmt.Errorf("invalid breakpoint address")
+		}
+		delete(a.filters, uint16(r.Address))
+		return a.state(), nil
 	case "clearBreakpoints":
 		a.breakpoints.ClearAllBreakpoints()
 		return a.breakpoints.GetBreakpoints(), nil
