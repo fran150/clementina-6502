@@ -887,11 +887,14 @@ func (c *emulated_mia) inputConsoleEndCapture() {
 }
 
 // DebugQueueInput injects one byte into the text input FIFO as if it had been
-// typed on the console (the default input source). It exists for headless tests
-// and tools that need to drive the 6502's input without a live input client.
+// typed. It exists for headless tests and tools that need to drive the 6502's
+// input without a live input client. Unlike console bytes it is queued whatever
+// source owns input: a debugger types the program's launch commands while the
+// video client's Wi-Fi input is selected.
 func (c *emulated_mia) DebugQueueInput(value uint8) {
 	c.mu.Lock()
-	c.inputConsoleByte(value)
+	c.inputEnqueueText(value)
+	c.inputRecomputeStatus()
 	c.mu.Unlock()
 }
 
